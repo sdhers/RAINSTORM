@@ -132,7 +132,7 @@ path = r'C:/Users/dhers/Desktop/Videos_NOR'
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'/2022-01_TORM_3h'
+experiment = r'/2022-03_TORM_24h'
 
 # Lets create the reference.csv file
 reference_path_TS = create_reference(path, experiment, "TS")
@@ -158,8 +158,14 @@ def rename_labels(reference_path, labels_folder):
     
     reference = pd.read_csv(reference_path)
 
-    # Create a subfolder named "Ready to seize" if it doesn't exist
+    # Create a subfolder named "final_labels"
     renamed_path = os.path.join(parent_dir, f'final_{labels_folder}')
+    
+    # Check if it exists
+    if os.path.exists(renamed_path):
+        print("Final folder already exists")
+        return renamed_path
+    
     os.makedirs(renamed_path, exist_ok = True)
 
     # Iterate through each row in the table
@@ -222,9 +228,6 @@ def calculate_cumulative_sums(df, fps = 25):
         (df[f"{second_column_name}_cumsum"] + df[f"{third_column_name}_cumsum"])
     ) * 100
 
-    # Calculate time in seconds
-    df['time_seconds'] = df['Frame'] / fps
-
     # Create a list of column names in the desired order
     desired_order = ["Frame", f"{second_column_name}_cumsum", f"{third_column_name}_cumsum", "Discrimination_Index"]
     desired_order = desired_order + [col for col in df.columns if col not in desired_order]
@@ -283,6 +286,8 @@ def plot_TS(path, name_start, fps = 25):
             axes[2].grid(True)
             
             plt.suptitle(f"Analysis of {filename}", y=0.98)
+            plt.tight_layout()
+            # plt.savefig(os.path.join(path, f"{filename}_plot.png"))
             plt.show()
 
 #%%
@@ -356,6 +361,7 @@ def plot_TRs(path, name_start, fps = 25):
             
             plt.suptitle(f"Analysis of {filename}", y=0.98)
             plt.tight_layout()
+            # plt.savefig(os.path.join(path, f"{filename}_plot.png"))
             plt.show()
 
 #%%
@@ -494,7 +500,7 @@ def plot_all(path, name_start, fps = 25):
             """
             
             # Plot the nose positions
-            axes[1, 2].plot(*nose.positions.T, ".", label = "All", color = "grey", alpha = 0.2)
+            axes[1, 2].plot(*nose.positions.T, ".", color = "grey", alpha = 0.2)
             
             # Plot the filtered points
             axes[1, 2].plot(*towards1.T, ".", label = "Oriented towards 1", color = "red", alpha = 0.3)
@@ -516,6 +522,7 @@ def plot_all(path, name_start, fps = 25):
 
             plt.suptitle(f"Analysis of {filename}", y=0.98)
             plt.tight_layout()
+            # plt.savefig(os.path.join(path, f"{filename}_plot.png"))
             plt.show()
 
 #%%
@@ -531,7 +538,7 @@ def plot_mean(path, name_start, fps=25):
     # Iterate through CSV files in the folder
     for filename in os.listdir(path):
         if filename.startswith(name_start):
-            
+        
             TS_file_path = os.path.join(path, filename)
             
             TR2_file_path = TS_file_path.replace("TS", "TR2")
@@ -540,7 +547,6 @@ def plot_mean(path, name_start, fps=25):
             
             TS = pd.read_csv(TS_file_path)
             TS = calculate_cumulative_sums(TS, fps)
-            # Append the DataFrame to the list
             TSs.append(TS)
             
             TR2 = pd.read_csv(TR2_file_path)
@@ -550,13 +556,9 @@ def plot_mean(path, name_start, fps=25):
             TR1 = pd.read_csv(TR1_file_path)
             TR1 = calculate_cumulative_sums(TR1, fps)
             TR1s.append(TR1)
-            
-            Hab = pd.read_csv(Hab_file_path)
-            Hab = calculate_cumulative_sums(Hab, fps)
-            Habs.append(Hab)
-
-    
+                
     n = len(TSs) # We find the number of mice to calculate the standard error as std/sqrt(n)
+    se = np.sqrt(n)
     
     # Concatenate the list of DataFrames into one DataFrame
     all_TS = pd.concat(TSs, ignore_index=True)
@@ -565,125 +567,84 @@ def plot_mean(path, name_start, fps=25):
     # Calculate the mean and standard deviation of cumulative sums for each frame
     TS = all_TS.groupby('Frame').agg(['mean', 'std']).reset_index()
     
-    
     all_TR2 = pd.concat(TR2s, ignore_index=True)
     A_TR2 = all_TR2.columns[1]
     B_TR2 = all_TR2.columns[2]
     # Calculate the mean and standard deviation of cumulative sums for each frame
     TR2 = all_TR2.groupby('Frame').agg(['mean', 'std']).reset_index()
     
-    
     all_TR1 = pd.concat(TR1s, ignore_index=True)
     A_TR1 = all_TR1.columns[1]
     B_TR1 = all_TR1.columns[2]
     # Calculate the mean and standard deviation of cumulative sums for each frame
     TR1 = all_TR1.groupby('Frame').agg(['mean', 'std']).reset_index()
-    
-    all_Hab = pd.concat(Habs, ignore_index=True)
-    # Calculate the mean and standard deviation of cumulative sums for each frame
-    Hab = all_Hab.groupby('Frame').agg(['mean', 'std']).reset_index()
-
+        
     # Create a single figure
-    fig, axes = plt.subplots(2, 3, figsize=(16, 8))
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
     
     TS['time_seconds'] = TS['Frame'] / fps
     TR2['time_seconds'] = TR2['Frame'] / fps
     TR1['time_seconds'] = TR1['Frame'] / fps
-    Hab['time_seconds'] = Hab['Frame'] / fps
-    
-    # Distance covered in Hab
-    axes[0, 0].plot(Hab['time_seconds'], Hab['nose_dist'].cumsum(), label='Cumulative Nose Distance')
-    axes[0, 0].plot(Hab['time_seconds'], Hab['body_dist'].cumsum(), label='Cumulative Body Distance')
+
+    # TR1
+    axes[0, 0].plot(TR1['time_seconds'], TR1[(f'{A_TR1}' ,'mean')], label = A_TR1, marker='_')
+    axes[0, 0].fill_between(TR1['time_seconds'], TR1[(f'{A_TR1}' ,'mean')] - TR1[(f'{A_TR1}', 'std')] /se, TR1[(f'{A_TR1}' ,'mean')] + TR1[(f'{A_TR1}' ,'std')] /se, alpha=0.2)
+    axes[0, 0].plot(TR1['time_seconds'], TR1[(f'{B_TR1}' ,'mean')], label = B_TR1, marker='_')
+    axes[0, 0].fill_between(TR1['time_seconds'], TR1[(f'{B_TR1}' ,'mean')] - TR1[(f'{B_TR1}', 'std')] /se, TR1[(f'{B_TR1}' ,'mean')] + TR1[(f'{B_TR1}' ,'std')] /se, alpha=0.2)
     axes[0, 0].set_xlabel('Time (s)')
     axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
-    axes[0, 0].set_ylabel('Distance Traveled (cm)')
-    axes[0, 0].set_ylim(0, 4000)
-    axes[0, 0].set_title('Hab')
+    axes[0, 0].set_ylabel('Exploration Time (s)')
+    axes[0, 0].set_ylim(0, 30)
+    axes[0, 0].set_title('TR1')
     axes[0, 0].legend(loc='upper left', fancybox=True, shadow=True)
     axes[0, 0].grid(True)
     
-    # TR1
-    axes[0, 1].plot(TR1['time_seconds'], TR1[f'{A_TR1}'], label = A_TR1, color='orange', marker='_')
-    axes[0, 1].plot(TR1['time_seconds'], TR1[f'{A_TR1}'], label = B_TR1, color='green', marker='_')
+    # TR2
+    axes[0, 1].plot(TR2['time_seconds'], TR2[(f'{A_TR2}' ,'mean')], label = A_TR2, marker='_')
+    axes[0, 1].fill_between(TR2['time_seconds'], TR2[(f'{A_TR2}' ,'mean')] - TR2[(f'{A_TR2}', 'std')] /se, TR2[(f'{A_TR2}' ,'mean')] + TR2[(f'{A_TR2}' ,'std')] /se, alpha=0.2)
+    axes[0, 1].plot(TR2['time_seconds'], TR2[(f'{B_TR2}' ,'mean')], label = B_TR2, marker='_')
+    axes[0, 1].fill_between(TR2['time_seconds'], TR2[(f'{B_TR2}' ,'mean')] - TR2[(f'{B_TR2}', 'std')] /se, TR2[(f'{B_TR2}' ,'mean')] + TR2[(f'{B_TR2}' ,'std')] /se, alpha=0.2)
     axes[0, 1].set_xlabel('Time (s)')
     axes[0, 1].set_xticks([0, 60, 120, 180, 240, 300])
     axes[0, 1].set_ylabel('Exploration Time (s)')
-    axes[0, 1].set_ylim(0, 35)
-    axes[0, 1].set_title('TR1')
+    axes[0, 1].set_ylim(0, 30)
+    axes[0, 1].set_title('TR2')
     axes[0, 1].legend(loc='upper left', fancybox=True, shadow=True)
     axes[0, 1].grid(True)
     
-    # TR2
-    axes[0, 2].plot(TR2['time_seconds'], TR2[f'{TR2.columns[1]}'], label=f'{TR2.columns[1]}', color='orange', marker='_')
-    axes[0, 2].plot(TR2['time_seconds'], TR2[f'{TR2.columns[2]}'], label=f'{TR2.columns[2]}', color='green', marker='_')
-    axes[0, 2].set_xlabel('Time (s)')
-    axes[0, 2].set_xticks([0, 60, 120, 180, 240, 300])
-    axes[0, 2].set_ylabel('Exploration Time (s)')
-    axes[0, 2].set_ylim(0, 35)
-    axes[0, 2].set_title('TR2')
-    axes[0, 2].legend(loc='upper left')
-    axes[0, 2].grid(True)
-    
     # TS
-    axes[1, 0].plot(TS['time_seconds'], TS[f'{TS.columns[1]}'], label=f'{TS.columns[1]}', color='red', marker='_')
-    axes[1, 0].plot(TS['time_seconds'], TS[f'{TS.columns[2]}'], label=f'{TS.columns[2]}', color='blue', marker='_')
+    axes[1, 0].plot(TS['time_seconds'], TS[(f'{A_TS}' ,'mean')], label = A_TS, color = 'red', marker='_')
+    axes[1, 0].fill_between(TS['time_seconds'], TS[(f'{A_TS}' ,'mean')] - TS[(f'{A_TS}', 'std')] /se, TS[(f'{A_TS}' ,'mean')] + TS[(f'{A_TS}' ,'std')] /se, color = 'red', alpha=0.2)
+    axes[1, 0].plot(TS['time_seconds'], TS[(f'{B_TS}' ,'mean')], label = B_TS, color = 'blue', marker='_')
+    axes[1, 0].fill_between(TS['time_seconds'], TS[(f'{B_TS}' ,'mean')] - TS[(f'{B_TS}', 'std')] /se, TS[(f'{B_TS}' ,'mean')] + TS[(f'{B_TS}' ,'std')] /se, color = 'blue', alpha=0.2)
     axes[1, 0].set_xlabel('Time (s)')
     axes[1, 0].set_xticks([0, 60, 120, 180, 240, 300])
     axes[1, 0].set_ylabel('Exploration Time (s)')
-    axes[1, 0].set_ylim(0, 35)
+    axes[1, 0].set_ylim(0, 30)
     axes[1, 0].set_title('TS')
     axes[1, 0].legend(loc='upper left', fancybox=True, shadow=True)
     axes[1, 0].grid(True)
-
+    
     # Discrimination Index
-    axes[1, 1].plot(TS['time_seconds'], TS['Discrimination_Index'], label='Discrimination Index', color='darkgreen', linestyle='--')
+    axes[1, 1].plot(TS['time_seconds'], TS[('Discrimination_Index', 'mean')], label='Discrimination Index', color='darkgreen', linestyle='--')
+    axes[1, 1].fill_between(TS['time_seconds'], TS[('Discrimination_Index', 'mean')] - TS[('Discrimination_Index', 'std')] /se, TS[('Discrimination_Index', 'mean')] + TS[('Discrimination_Index', 'std')] /se, color='green', alpha=0.2)
     axes[1, 1].set_xlabel('Time (s)')
     axes[1, 1].set_xticks([0, 60, 120, 180, 240, 300])
     axes[1, 1].set_ylabel('DI (%)')
     axes[1, 1].set_ylim(-50, 50)
+    axes[1, 1].axhline(y=0, color='black', linestyle='--', linewidth = 2)
     axes[1, 1].set_title('Discrimination Index')
     axes[1, 1].legend(loc='upper left', fancybox=True, shadow=True)
     axes[1, 1].grid(True)
-    axes[1, 1].axhline(y=0, color='black', linestyle='--', linewidth=1)
-    
-    # Plot Discrimination Index with standard deviation    
-    axes[1].plot(df['time_seconds', 'mean'], df[('Discrimination_Index', 'mean')], label = 'DI', color='darkgreen', linestyle='--')
-    axes[1].fill_between(df['time_seconds', 'mean'], df[('Discrimination_Index', 'mean')] - df[('Discrimination_Index', 'std')] / np.sqrt(n),
-                         df[('Discrimination_Index', 'mean')] + df[('Discrimination_Index', 'std')] / np.sqrt(n),
-                         color='green', alpha=0.2)
-
-    axes[1].set_xlabel('Time (s)')
-    # axes[1].set_xticks([0, 60, 120, 180, 240, 300])
-    axes[1].set_ylabel('DI (%)')
-    axes[1].set_ylim(-50, 50)
-    axes[1].set_title('Discrimination Index')
-    axes[1].legend(loc='upper left')
-    axes[1].grid(True)
-    axes[1].axhline(y=0, color='black', linestyle='--', linewidth=1)
-    
-    # Plot cumulative sums of distance traveled with standard deviation
-    axes[2].plot(df['time_seconds', 'mean'], df[('Cumulative_nose_dist', 'mean')], label = 'Nose', alpha=0.5)
-    axes[2].fill_between(df['time_seconds', 'mean'], df[('Cumulative_nose_dist', 'mean')] - df[('Cumulative_nose_dist', 'std')] / np.sqrt(n),
-                         df[('Cumulative_nose_dist', 'mean')] + df[('Cumulative_nose_dist', 'std')] / np.sqrt(n), alpha=0.2)
-
-    axes[2].plot(df['time_seconds', 'mean'], df[('Cumulative_body_dist', 'mean')], label = 'Body', alpha=0.5)
-    axes[2].fill_between(df['time_seconds', 'mean'], df[('Cumulative_body_dist', 'mean')] - df[('Cumulative_body_dist', 'std')] / np.sqrt(n),
-                         df[('Cumulative_body_dist', 'mean')] + df[('Cumulative_body_dist', 'std')] / np.sqrt(n), alpha=0.2)
-    
-    axes[2].set_xlabel('Time (s)')
-    # axes[2].set_xticks([0, 60, 120, 180, 240, 300])
-    axes[2].set_ylabel('Distance Traveled (cm)')
-    axes[2].set_title('Cumulative Distance Traveled')
-    axes[2].legend(loc='upper left')
-    axes[2].grid(True)
-    
     
     plt.suptitle(f"Analysis of: {name_start}", y=0.98)  # Add DataFrame name as the overall title
+    plt.tight_layout()
+    # plt.savefig(os.path.join(path, f"{filename}_plot.png"))
     plt.show()
 
 #%% State the names of the groups in the experiment
 
-Group_1 = "TORM 2m 3h"
+Group_1 = "TORM 3m 24h"
 
 #%%
 
@@ -695,6 +656,7 @@ plot_TRs(folder_path_TS, Group_1)
 
 #%%
 
+# WARNING: So far it only works with geolabels
 plot_all(folder_path_TS, Group_1)
 
 #%%

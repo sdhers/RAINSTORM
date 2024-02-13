@@ -91,7 +91,8 @@ path = r'C:/Users/dhers/Desktop/Videos_NOR'
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'/2022-01_TORM_3h'
+experiment = r'/2022-03_TORM_24h'
+
 
 Hab_position = find_files(path, experiment, "Hab", "position")
 TR1_position = find_files(path, experiment, "TR1", "position")
@@ -107,8 +108,7 @@ Lets see an example of the geometric algorithm
 
 video = random.randint(1, len(TS_position)) # Select the number of the video you want to use
 
-position_example = TS_position[video - 1]
-example = pd.read_csv(position_example)
+example = TS_position[video - 1]
 
 # %%
 
@@ -117,23 +117,21 @@ We extract the positions of both objects and all the bodyparts.
 """
 def plot_position(file, maxDistance = 2.5, maxAngle = 45):
     
+    # Read the .csv
+    df = pd.read_csv(file)
+    
+    # Extract the filename without extension
+    filename = os.path.splitext(os.path.basename(file))[0]
+    
     """
     Extract positions of both objects and bodyparts
     """
     
-    obj1 = Point(file, 'obj_1')
-    obj2 = Point(file, 'obj_2')
+    obj1 = Point(df, 'obj_1')
+    obj2 = Point(df, 'obj_2')
     
-    nose = Point(file, 'nose')
-    head = Point(file, 'head')
-    L_ear = Point(file, 'L_ear')
-    R_ear = Point(file, 'R_ear')
-    neck = Point(file, 'neck')
-    body = Point(file, 'body')
-    
-    tail_1 = Point(file, 'tail_1')
-    tail_2 = Point(file, 'tail_2')
-    tail_3 = Point(file, 'tail_3')
+    nose = Point(df, 'nose')
+    head = Point(df, 'head')
     
     """
     We now filter the frames where the mouse's nose is close to each object
@@ -158,8 +156,8 @@ def plot_position(file, maxDistance = 2.5, maxAngle = 45):
     
     # Find points where the mouse is looking at the objects
     # Im asking the nose be closer to the aimed object to filter distant sighting
-    towards1 = nose.positions[(angle1 < maxAngle) & (dist1 < 2.5 * maxDistance)]
-    towards2 = nose.positions[(angle2 < maxAngle) & (dist2 < 2.5 * maxDistance)]
+    towards1 = nose.positions[(angle1 < maxAngle) & (dist1 < 3 * maxDistance)]
+    towards2 = nose.positions[(angle2 < maxAngle) & (dist2 < 3 * maxDistance)]
 
     """
     Finally, we can plot the points that match both conditions
@@ -169,33 +167,33 @@ def plot_position(file, maxDistance = 2.5, maxAngle = 45):
     fig, ax = plt.subplots()
     
     # Plot the nose positions
-    ax.plot(*nose.positions.T, ".", label = "All positions", color = "grey", alpha = 0.2)
+    ax.plot(*nose.positions.T, ".", color = "grey", alpha = 0.2)
     
     # Plot the filtered points
-    ax.plot(*towards1.T, ".", label = "Oriented towards obj1", color = "red", alpha = 0.5)
-    ax.plot(*towards2.T, ".", label = "Oriented towards obj2", color = "orange", alpha = 0.5)
+    ax.plot(*towards1.T, ".", label = "Oriented towards 1", color = "blue", alpha = 0.5)
+    ax.plot(*towards2.T, ".", label = "Oriented towards 2", color = "darkgreen", alpha = 0.5)
     
     # Plot the objects
-    ax.plot(*obj1.positions[0], "o", lw = 20, label = "Object 1", color = "blue")
-    ax.plot(*obj2.positions[0], "o", lw = 20, label = "Object 2", color = "purple")
+    ax.plot(*obj1.positions[0], "o", lw = 20, label = "Object 1", color = "red")
+    ax.plot(*obj2.positions[0], "o", lw = 20, label = "Object 2", color = "darkorange")
     
     # Plot the circles of distance criteria
-    ax.add_artist(Circle(obj1.positions[0], maxDistance, color = "green", alpha = 0.3))
-    ax.add_artist(Circle(obj2.positions[0], maxDistance, color = "green", alpha = 0.3))
+    ax.add_artist(Circle(obj1.positions[0], maxDistance, color = "purple", alpha = 0.4))
+    ax.add_artist(Circle(obj2.positions[0], maxDistance, color = "purple", alpha = 0.4))
     
     ax.axis('equal')
     ax.set_xlabel("Horizontal position (cm)")
     ax.set_ylabel("Vertical position (cm)")
-    ax.legend(bbox_to_anchor = (0, 0, 1, 1), ncol=2, fancybox=True, shadow=True)
+    ax.legend(bbox_to_anchor = (0, 0, 1, 1), ncol=2, loc='upper left', fancybox=True, shadow=True)
     
+    plt.title(f"Analysis of {filename}")
     plt.tight_layout()
     plt.show()
-
 
 #%%
 
 plot_position(example, maxDistance = 2.5, maxAngle = 45)
-
+    
 #%%
 
 def calculate_distance(file, bodypart):
@@ -282,10 +280,8 @@ def create_geolabels(files, maxDistance = 2.5, maxAngle = 45):
         # Save the DataFrame to a CSV file
         output_path = os.path.join(output_folder, output_filename)
         geolabels.to_csv(output_path, index=False)
-        
-    
+            
         print(f"Processed {input_filename} and saved results to {output_filename}")
-
 
 #%%
 

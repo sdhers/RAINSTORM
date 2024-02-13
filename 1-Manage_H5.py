@@ -21,7 +21,8 @@ path = r'C:\Users\dhers\Desktop\Videos_NOR'
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR' 
 
-experiment = r'/2022-01_TORM_3h'
+# Replace with the name of the folder where your .H5 files are
+experiment = r'/2022-03_TORM_24h'
 
 folder = path + experiment
 
@@ -29,7 +30,6 @@ folder = path + experiment
 fps = 25
 
 # State the horizontal distance in cm between object 1 and object 2
-
 dist = 14 # (cm), we will use it to scale the video coordinates
 
 #%%
@@ -135,6 +135,10 @@ def process_hdf5_file(path_name, distance, fps):
 
 #%%
 
+"""
+Lets make the .csv files for our experiment folder
+"""
+
 process_hdf5_file(folder, dist, fps)
 
 #%%
@@ -167,7 +171,6 @@ def filter_and_move_files(input_folder, word, folder_name):
 
 """
 Finally we move all the files to their corresponding subfolder:
-    - h5 files go away (we dont need them anymore)
     - I have habituation, trainings and testing so I create a folder for each
 """
 

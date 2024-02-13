@@ -161,31 +161,34 @@ def plot_timeline(position, labels, geolabels, autolabels):
     plt.figure(figsize = (16, 6))
     
     # Plot distance and orientation to object 1
-    plt.plot(angle1[a:b]/6 + 6, color = "grey", label = "Orientation 1")
-    plt.plot(dist1[a:b] + 6, color = "black", label = "Distance 1" )
-    
-    # Plot distance and orientation to object 2
-    plt.plot(angle2[a:b]/6*(-1) - 6, color = "grey")
-    plt.plot(dist2[a:b]*(-1) - 6, color = "black")
+    plt.plot(angle1[a:b] + 6, color = "grey", label = "Orientation to 1 (deg)")
+    plt.plot(dist1[a:b] + 6, color = "black", label = "Distance to 1 (cm)" )
     
     # Exploration on the left object
-    plt.plot(labels["Left"][a:b] * 5, ".", color = "black", label = "Manual")
-    plt.plot(geolabels["Left"][a:b] * 4, ".", color = "g", label = "Geometric")
-    plt.plot(autolabels["Left"][a:b] * 3, ".", color = "r", label = "Automatic")    
+    plt.plot(labels["Left"][a:b] * 4, ".", color = "black", label = "Manual")
+    plt.plot(geolabels["Left"][a:b] * 3, ".", color = "blue", label = "Geometric")
+    plt.plot(autolabels["Left"][a:b] * 2, ".", color = "red", label = "Automatic")    
     
     # Exploration on the right object
-    plt.plot(labels["Right"][a:b] * -5, ".", color = "black")
-    plt.plot(geolabels["Right"][a:b] * -4, ".", color = "g")
-    plt.plot(autolabels["Right"][a:b] * -3, ".", color = "r")
+    plt.plot(labels["Right"][a:b] * -4, ".", color = "black")
+    plt.plot(geolabels["Right"][a:b] * -3, ".", color = "blue")
+    plt.plot(autolabels["Right"][a:b] * -2, ".", color = "red")
+    
+    # Plot distance and orientation to object 2
+    plt.plot(angle2[a:b]*(-1) - 6, color = "lightgreen", label = "Orientation to 2 (deg)")
+    plt.plot(dist2[a:b]*(-1) - 6, color = "darkgreen", label = "Distance to 2 (cm)")
     
     # Zoom in on some frames
     # plt.xlim((3400, 6700))
     
     # Zoom in on the labels and the minima of the distances and angles
-    plt.ylim((-40, 40))
+    plt.ylim((-30, 30))
+    
+    plt.xlabel("Frame number")
+    plt.legend(loc='upper left', fancybox=True, shadow=True)
     
     plt.suptitle(f"Analysis of {video_name}", y=0.98)
-    plt.legend()
+    plt.tight_layout()
     plt.show()
 
 #%%
@@ -407,9 +410,10 @@ It got 0.030641948827945457% of false negatives and 67.63444155048262% of false 
 
 
 In /2023-05_TORM_24h:
-Mice explored 6.851333333333333% of the time.
+Mice explored 6.85% of the time.
 The geometric method measured 6.32% of the time as exploration.
-It got 23.82018098666926% of false negatives and 16.064999513476696% of false positives.
-The automatic method measured 7.010666666666666% of the time as exploration.
-It got 1.1773863968084073% of false negatives and 3.5029677921572446% of false positives.
+It got 23.82% of false negatives and 16.06% of false positives.
+The automatic method measured 7.01% of the time as exploration.
+It got 1.17% of false negatives and 3.50% of false positives.
+
 """

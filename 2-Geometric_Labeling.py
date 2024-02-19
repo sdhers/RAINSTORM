@@ -86,13 +86,12 @@ def find_files(path_name, exp_name, group, folder):
 #%%
 
 # At home:
-path = r'C:/Users/dhers/Desktop/Videos_NOR'
+path = r'C:/Users/dhers/Desktop/Videos_NOR/'
 
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'/2022-03_TORM_24h'
-
+experiment = r'2024-02_Persistance'
 
 Hab_position = find_files(path, experiment, "Hab", "position")
 TR1_position = find_files(path, experiment, "TR1", "position")
@@ -100,6 +99,7 @@ TR2_position = find_files(path, experiment, "TR2", "position")
 TS_position = find_files(path, experiment, "TS", "position")
 
 all_position = Hab_position + TR1_position + TR2_position + TS_position
+
 #%%
 
 """
@@ -193,21 +193,6 @@ def plot_position(file, maxDistance = 2.5, maxAngle = 45):
 #%%
 
 plot_position(example, maxDistance = 2.5, maxAngle = 45)
-    
-#%%
-
-def calculate_distance(file, bodypart):
-    
-    # Calculate the Euclidean distance between consecutive positions for the specified body part
-    file[f'{bodypart}_distance'] = ((file[f'{bodypart}_x'].diff())**2 + (file[f'{bodypart}_y'].diff())**2)**0.5
-    
-    return file
-
-#%%
-
-example = calculate_distance(example, 'nose')
-
-example = calculate_distance(example, 'body')
 
 #%%
 
@@ -239,11 +224,15 @@ def create_geolabels(files, maxDistance = 2.5, maxAngle = 45):
         angle1 = Vector.angle(head_nose, head_obj1)
         angle2 = Vector.angle(head_nose, head_obj2)
     
-        geolabels = pd.DataFrame(np.zeros((len(dist1), 5)), columns=["Frame", "Left", "Right", "nose_dist", "body_dist"])
-    
+        geolabels = pd.DataFrame(np.zeros((len(dist1), 3)), columns=["Frame", "Left", "Right"]) 
+        
+        distances = pd.DataFrame(np.zeros((len(dist1), 3)), columns=["Frame", "nose_dist", "body_dist"])
+        
         for i in range(len(dist1)):
             
             geolabels["Frame"][i] = i+1
+            
+            distances["Frame"][i] = i+1
             
             # Check if mouse is exploring object 1
             if dist1[i] < maxDistance and angle1[i] < maxAngle:
@@ -252,36 +241,36 @@ def create_geolabels(files, maxDistance = 2.5, maxAngle = 45):
             # Check if mouse is exploring object 2
             elif dist2[i] < maxDistance and angle2[i] < maxAngle:
                 geolabels["Right"][i] = 1
-                
-        # Calculate the Euclidean distance between consecutive nose positions
-        geolabels['nose_dist'] = ((position['nose_x'].diff())**2 + (position['nose_y'].diff())**2)**0.5
-    
-        # Calculate the Euclidean distance between consecutive body positions
-        geolabels['body_dist'] = ((position['body_x'].diff())**2 + (position['body_y'].diff())**2)**0.5
     
         geolabels['Frame'] = geolabels['Frame'].astype(int)
         geolabels['Left'] = geolabels['Left'].astype(int)
         geolabels['Right'] = geolabels['Right'].astype(int)
         
+        # Calculate the Euclidean distance between consecutive nose positions
+        distances['nose_dist'] = ((position['nose_x'].diff())**2 + (position['nose_y'].diff())**2)**0.5
+        distances['body_dist'] = ((position['body_x'].diff())**2 + (position['body_y'].diff())**2)**0.5
+        
         # Replace NaN values with 0
-        geolabels = geolabels.fillna(0)
+        distances = distances.fillna(0)
     
         # Determine the output file path
         input_dir, input_filename = os.path.split(file)
         parent_dir = os.path.dirname(input_dir)
     
         # Create a filename for the output CSV file
-        output_filename = input_filename.replace('_position.csv', '_geolabels.csv')
-        output_folder = os.path.join(parent_dir + '/geolabels')
+        output_filename_geolabels = input_filename.replace('_position.csv', '_geolabels.csv')
+        output_folder_geolabels = os.path.join(parent_dir + '/geolabels')
+        os.makedirs(output_folder_geolabels, exist_ok = True)
+        output_path_geolabels = os.path.join(output_folder_geolabels, output_filename_geolabels)
+        geolabels.to_csv(output_path_geolabels, index=False)
         
-        # Make the output folder (if it does not exist)
-        os.makedirs(output_folder, exist_ok = True)
-        
-        # Save the DataFrame to a CSV file
-        output_path = os.path.join(output_folder, output_filename)
-        geolabels.to_csv(output_path, index=False)
+        output_filename_distances = input_filename.replace('_position.csv', '_distances.csv')
+        output_folder_distances = os.path.join(parent_dir + '/distances')
+        os.makedirs(output_folder_distances, exist_ok = True)
+        output_path_distances = os.path.join(output_folder_distances, output_filename_distances)
+        distances.to_csv(output_path_distances, index=False)        
             
-        print(f"Processed {input_filename} and saved results to {output_filename}")
+        print(f"Processed {input_filename} and saved results to {output_filename_geolabels}")
 
 #%%
 

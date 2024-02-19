@@ -16,14 +16,13 @@ import shutil
 #%%
 
 # At home:
-path = r'C:\Users\dhers\Desktop\Videos_NOR'
+path = r'C:/Users/dhers/Desktop/Videos_NOR/'
 
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR' 
 
 # Replace with the name of the folder where your .H5 files are
-experiment = r'/2022-03_TORM_24h'
-
+experiment = r'2024-02_Persistance'
 folder = path + experiment
 
 # State video fps
@@ -94,11 +93,10 @@ def process_hdf5_file(path_name, distance, fps):
             # Calculate the difference
             difference = obj_2_x - obj_1_x
             
-            scale = (distance / difference) 
+            scale = (distance / difference)
             
-            # Apply the transformation to current_data
             current_data = current_data * scale
-        
+            
         else: # We ned to modify the script when there is no objects on the arena
             
             # Calculate the max and min point the nose can reach
@@ -185,7 +183,7 @@ for group in groups:
 Lets also clean all other files in the folder into a subfolder
 """
 
-subfolder = os.path.join(folder, "extra")
+subfolder = os.path.join(folder, "h5 files & others")
 os.makedirs(subfolder, exist_ok=True)
     
 # Get a list of all files in the input folder

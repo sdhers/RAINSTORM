@@ -16,6 +16,7 @@ from sklearn.model_selection import train_test_split, cross_val_score, GridSearc
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.utils.class_weight import compute_class_weight
+import joblib
 
 import matplotlib.pyplot as plt
 
@@ -43,19 +44,19 @@ def find_files(path_name, exp_name, group, folder):
 #%%
 
 # At home:
-path = r'C:\Users\dhers\Desktop\Videos_NOR'
+path = r'C:/Users/dhers/Desktop/Videos_NOR/'
 
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR' 
 
-experiment = r'/2023-05_TORM_24h'
+experiment = r'2022-01_TORM_3h'
 
-Hab_position = find_files(path, experiment, "Hab", "position")
 TR1_position = find_files(path, experiment, "TR1", "position")
 TR2_position = find_files(path, experiment, "TR2", "position")
 TS_position = find_files(path, experiment, "TS", "position")
+# TR3_position = find_files(path, experiment, "TR3", "position")
 
-all_position = Hab_position + TR1_position + TR2_position + TS_position
+all_position = TR1_position + TR2_position + TS_position # + TR3_position
 
 TS_labels = find_files(path, experiment, "TS", "labels")
 
@@ -138,16 +139,26 @@ multi_output_RF_model = MultiOutputClassifier(RF_model)
 
 #%%
 
+"""
+STOP!
+We can choose to train the model with the labels from this experiment...
+Or if we want, we can load the model trained previously with a big sit of labels
+"""
+#%%
+"""
 # Train the MultiOutputClassifier with your data
 multi_output_RF_model.fit(model_x, model_y)
-
+"""
+#%%
+# Load the saved model from file
+loaded_model = joblib.load(r'C:\Users\dhers\Desktop\STORM\trained_model_203.pkl')
 #%%
 
 # Lets remove the frames where the mice is not in the video before analyzing it
 position_test.fillna(0, inplace=True)
 
 """ Predict the labels """
-autolabels = multi_output_RF_model.predict(position_test)
+autolabels = loaded_model.predict(position_test)
 
 # Set the predictions shape to two columns
 autolabels = pd.DataFrame(autolabels, columns=["Left", "Right"])
@@ -221,4 +232,4 @@ def create_autolabels(files, chosen_model):
 
 #%%
 
-create_autolabels(all_position, multi_output_RF_model) # Lets analyze!
+create_autolabels(all_position, loaded_model) # Lets analyze!

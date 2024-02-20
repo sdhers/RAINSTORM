@@ -25,17 +25,19 @@ path = r'C:/Users/dhers/Desktop/Videos_NOR/'
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'2023-05_TeNOR'
+experiment = r'2022-01_TORM_3h'
 
 # Complete with the different stages of the experiment
 stages = ["TR1", "TR2", "TS"] # Tip: Put TS last, so that rename_labels can return the path to it's folder
 
 # State which labels you want to use
-label_type = "autolabels"
+label_type = "geolabels"
 
 # State the groups in the experiment
 
-groups = ["Old_1h", "Recent_1h"]
+groups = ["Male", "Female"]
+
+#groups = ["Old_1h", "Recent_1h"]
 
 #groups = ["NR", "R_05", "R_30"]
 
@@ -156,16 +158,16 @@ def rename_labels(reference_path, stages, labels_folder):
     parent_dir = os.path.dirname(reference_path)
     reference = pd.read_csv(reference_path)
     
+    # Create a subfolder named "final_labels"
+    renamed_path = os.path.join(parent_dir, f'final_{labels_folder}')
+
+    # Check if it exists
+    if os.path.exists(renamed_path):
+        print(f'final_{labels_folder} already exists')
+    
+    os.makedirs(renamed_path, exist_ok = True)
+    
     for stage in stages:
-    
-        # Create a subfolder named "final_labels"
-        renamed_path = os.path.join(parent_dir, stage, f'final_{labels_folder}')
-    
-        # Check if it exists
-        if os.path.exists(renamed_path):
-            print(f'final_{labels_folder} for {stage} already exists')
-        
-        os.makedirs(renamed_path, exist_ok = True)
 
         # Iterate through each row in the table
         for index, row in reference.iterrows():
@@ -231,10 +233,7 @@ def calculate_cumulative_sums(df, fps = 25):
     ) * 100
     
     # Calculate Discrimination Index 2
-    df['Discrimination_Index_2'] = (
-        (df[f"{second_column_name}_cumsum"] - df[f"{third_column_name}_cumsum"]) /
-        (df[f"{second_column_name}_cumsum"] + df[f"{third_column_name}_cumsum"])
-    ) * (df[f"{second_column_name}_cumsum"] + df[f"{third_column_name}_cumsum"])
+    df['Discrimination_Index_2'] = ((df[f"{second_column_name}_cumsum"] - df[f"{third_column_name}_cumsum"]))
 
     # Create a list of column names in the desired order
     desired_order = ["Frame", f"{second_column_name}_cumsum", f"{third_column_name}_cumsum", "Discrimination_Index", "Discrimination_Index_2"]
@@ -289,7 +288,7 @@ def Extract_positions(position):
 
 #%%
 
-def plot_mean(path, name_start, labels_folder, fps=25):
+def plot_groups(path, name_start, experiment, labels_folder, fps=25):
     
     # Initialize an empty list to store DataFrames
     TSs = []
@@ -300,13 +299,13 @@ def plot_mean(path, name_start, labels_folder, fps=25):
     
     # Iterate through CSV files in the folder
     for filename in os.listdir(path):
-        if filename.startswith(name_start):
+        if filename.startswith(name_start) and "TS" in filename:
         
             TS_file_path = os.path.join(path, filename)
             
             TR2_file_path = TS_file_path.replace("TS", "TR2")
             TR1_file_path = TS_file_path.replace("TS", "TR1")
-            Hab_file_path = TS_file_path.replace("TS", "Hab").replace(f"final_{labels_folder}", "distances").replace(f"{name_start}_2","2").replace(f"_{labels_folder}","_distances")
+            Hab_file_path = TS_file_path.replace("TS", "Hab").replace(f"final_{labels_folder}", "Hab/distances").replace(f"{name_start}_2","2").replace(f"_{labels_folder}","_distances")
             
             TS = pd.read_csv(TS_file_path)
             TS = calculate_cumulative_sums(TS, fps)
@@ -456,27 +455,25 @@ def plot_mean(path, name_start, labels_folder, fps=25):
     axes[1, 2].set_ylabel('Exploration Time (s)')
     axes[1, 2].set_title('Exploration of objects at the end of TS')
 
-    plt.suptitle(f"Analysis of: {name_start}", y=0.98)  # Add DataFrame name as the overall title
+    plt.suptitle(f"Analysis of {experiment}: {name_start}", y=0.98)  # Add DataFrame name as the overall title
     plt.tight_layout()
-    plt.savefig(os.path.join(os.path.dirname(os.path.dirname(path)), f"{name_start}_({labels_folder})_plot.png"))
+    plt.savefig(os.path.join(os.path.dirname(path), f"{experiment}_{name_start}_({labels_folder}).png"))
     plt.show()
 
 #%%
-for group in groups:
-    plot_mean(TS_path, group, label_type)
 
-#%%
+def plot_all(path, name_start, experiment, labels_folder, fps = 25):
+    
+    os.makedirs(os.path.join(path, "final_plots"), exist_ok = True)
 
-def plot_all(path, name_start, labels_folder, fps = 25):
-
-    for file in os.listdir(path):
-        if file.startswith(name_start):
+    for filename in os.listdir(path):
+        if filename.startswith(name_start) and "TS" in filename:
             
-            TS_file_path = os.path.join(path, file)
+            TS_file_path = os.path.join(path, filename)
             TR2_file_path = TS_file_path.replace("TS", "TR2")
             TR1_file_path = TS_file_path.replace("TS", "TR1")
-            Hab_file_path = TS_file_path.replace("TS", "Hab").replace(f"final_{labels_folder}", "distances").replace(f"{name_start}_","").replace(f"_{labels_folder}","_distances")
-            position_file_path = TS_file_path.replace(f"final_{labels_folder}", "position").replace(f"{name_start}_","").replace(f"_{labels_folder}","_position")
+            Hab_file_path = TS_file_path.replace("TS", "Hab").replace(f"final_{labels_folder}", "Hab/distances").replace(f"{name_start}_","").replace(f"_{labels_folder}","_distances")
+            position_file_path = TS_file_path.replace(f"final_{labels_folder}", "TS/position").replace(f"{name_start}_","").replace(f"_{labels_folder}","_position")
             
             TS = pd.read_csv(TS_file_path)
             TS = calculate_cumulative_sums(TS, fps)
@@ -493,7 +490,7 @@ def plot_all(path, name_start, labels_folder, fps = 25):
             position = pd.read_csv(position_file_path)
             
             # Extract the filename without extension
-            filename = os.path.splitext(os.path.basename(file))[0]
+            file = os.path.splitext(os.path.basename(filename))[0]
             
             # Create a single figure
             fig, axes = plt.subplots(2, 3, figsize=(16, 8))
@@ -591,18 +588,14 @@ def plot_all(path, name_start, labels_folder, fps = 25):
             axes[1, 2].legend(loc='upper left', ncol=2, fancybox=True, shadow=True)
             axes[1, 2].grid(True)
 
-            plt.suptitle(f"Analysis of {filename}", y=0.98)
+            plt.suptitle(f"Analysis of {experiment}: {file}", y=0.98)
             plt.tight_layout()
-            # plt.savefig(os.path.join(path, "plots", f"{filename}_plot.png"))
-            plt.show()
-            
-#%%
-for group in groups:
-    plot_all(TS_path, group, label_type)
+            plt.savefig(os.path.join(path, "final_plots", f"{file}_plot.png"))
+            #plt.show()
 
 #%%
 
-def plot_groups(path, groups, experiment, labels_folder, fps=25):
+def plot_experiment(path, groups, experiment, labels_folder, fps=25):
     
     # Create a single figure
     fig, axes = plt.subplots(2, 3, figsize=(15, 10))
@@ -619,13 +612,13 @@ def plot_groups(path, groups, experiment, labels_folder, fps=25):
         
         # Iterate through CSV files in the folder
         for filename in os.listdir(path):
-            if filename.startswith(name_start):
+            if filename.startswith(name_start) and "TS" in filename:
             
                 TS_file_path = os.path.join(path, filename)
                 
                 TR2_file_path = TS_file_path.replace("TS", "TR2")
                 TR1_file_path = TS_file_path.replace("TS", "TR1")
-                Hab_file_path = TS_file_path.replace("TS", "Hab").replace(f"final_{labels_folder}", "distances").replace(f"{name_start}_2","2").replace(f"_{labels_folder}","_distances")
+                Hab_file_path = TS_file_path.replace("TS", "Hab").replace(f"final_{labels_folder}", "Hab/distances").replace(f"{name_start}_2","2").replace(f"_{labels_folder}","_distances")
                 
                 TS = pd.read_csv(TS_file_path)
                 TS = calculate_cumulative_sums(TS, fps)
@@ -762,178 +755,113 @@ def plot_groups(path, groups, experiment, labels_folder, fps=25):
     
     plt.suptitle(f"Analysis of: {experiment}", y=0.98)  # Add DataFrame name as the overall title
     plt.tight_layout()
-    plt.savefig(os.path.join(os.path.dirname(os.path.dirname(path)), f"Comparing_groups_({labels_folder})_plot.png"))
+    plt.savefig(os.path.join(os.path.dirname(path), f"{experiment}_({labels_folder}).png"))
     plt.show()
-
-#%%
-
-plot_groups(TS_path, groups, experiment, label_type)
 
 #%%
 
 def plot_both_IDs(path, groups, experiment, labels_folder, fps=25):
     
     # Create a single figure
-    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    fig, axes = plt.subplots(2, 2, figsize=(8, 8))
     
     bxplt_positions = list(range(1, len(groups) + 1))
     
     for i, name_start in enumerate(groups):
         # Initialize an empty list to store DataFrames
         TSs = []
-        TR2s = []
-        TR1s = []
-        Habs = []
+
         bxplt = []
         bxplt2 = []
         
         # Iterate through CSV files in the folder
         for filename in os.listdir(path):
-            if filename.startswith(name_start):
+            if filename.startswith(name_start) and "TS" in filename:
             
-                TS_file_path = os.path.join(path, filename)
-                
-                TR2_file_path = TS_file_path.replace("TS", "TR2")
-                TR1_file_path = TS_file_path.replace("TS", "TR1")
-                Hab_file_path = TS_file_path.replace("TS", "Hab").replace(f"final_{labels_folder}", "distances").replace(f"{name_start}_2","2").replace(f"_{labels_folder}","_distances")
-                
+                TS_file_path = os.path.join(path, filename)   
                 TS = pd.read_csv(TS_file_path)
                 TS = calculate_cumulative_sums(TS, fps)
                 TSs.append(TS)
                 
                 bxplt.append(TS.loc[TS.index[-1], "Discrimination_Index"])
                 bxplt2.append(TS.loc[TS.index[-1], "Discrimination_Index_2"])
-                
-                TR2 = pd.read_csv(TR2_file_path)
-                TR2 = calculate_cumulative_sums(TR2, fps)
-                TR2s.append(TR2)
-                
-                TR1 = pd.read_csv(TR1_file_path)
-                TR1 = calculate_cumulative_sums(TR1, fps)
-                TR1s.append(TR1)
-                
-                Hab = pd.read_csv(Hab_file_path)
-                Hab["nose_dist_cumsum"] = Hab["nose_dist"].cumsum()
-                Hab["body_dist_cumsum"] = Hab["body_dist"].cumsum()
-                Habs.append(Hab)
                     
         n = len(TSs) # We find the number of mice to calculate the standard error as std/sqrt(n)
         se = np.sqrt(n)
         
         # Concatenate the list of DataFrames into one DataFrame
         all_TS = pd.concat(TSs, ignore_index=True)
-        A_TS = all_TS.columns[1]
-        B_TS = all_TS.columns[2]
         # Calculate the mean and standard deviation of cumulative sums for each frame
         TS = all_TS.groupby('Frame').agg(['mean', 'std']).reset_index()
         
         bxplt = pd.DataFrame(bxplt)
         bxplt2 = pd.DataFrame(bxplt2)
         
-        all_TR2 = pd.concat(TR2s, ignore_index=True)
-        A_TR2 = all_TR2.columns[1]
-        B_TR2 = all_TR2.columns[2]
-        # Calculate the mean and standard deviation of cumulative sums for each frame
-        TR2 = all_TR2.groupby('Frame').agg(['mean', 'std']).reset_index()
-        
-        all_TR1 = pd.concat(TR1s, ignore_index=True)
-        A_TR1 = all_TR1.columns[1]
-        B_TR1 = all_TR1.columns[2]
-        # Calculate the mean and standard deviation of cumulative sums for each frame
-        TR1 = all_TR1.groupby('Frame').agg(['mean', 'std']).reset_index()
-        
-        all_Hab = pd.concat(Habs, ignore_index=True)
-        A_Hab = all_Hab.columns[1]
-        B_Hab = all_Hab.columns[2]
-        # Calculate the mean and standard deviation of cumulative sums for each frame
-        Hab = all_Hab.groupby('Frame').agg(['mean', 'std']).reset_index()
-        
         TS['time_seconds'] = TS['Frame'] / fps
-        TR2['time_seconds'] = TR2['Frame'] / fps
-        TR1['time_seconds'] = TR1['Frame'] / fps
-        Hab['time_seconds'] = Hab['Frame'] / fps
         
-        maxtime = max(TR1.loc[TR1.index[-1], (f'{A_TR1}' ,'mean')], TR1.loc[TR1.index[-1], (f'{B_TR1}' ,'mean')], 
-                      TR2.loc[TR2.index[-1], (f'{A_TR2}' ,'mean')], TR2.loc[TR2.index[-1], (f'{B_TR2}' ,'mean')], 
-                      TS.loc[TS.index[-1], (f'{A_TS}' ,'mean')], TS.loc[TS.index[-1], (f'{B_TS}' ,'mean')], 5) + 2
-        
-        # Hab
-        axes[0, 0].plot(Hab['time_seconds'], Hab[("nose_dist_cumsum" ,'mean')], label = f'{A_Hab} {name_start}')
-        axes[0, 0].fill_between(Hab['time_seconds'], Hab[("nose_dist_cumsum" ,'mean')] - Hab[("nose_dist_cumsum", 'std')], Hab[("nose_dist_cumsum" ,'mean')] + Hab[("nose_dist_cumsum" ,'std')], alpha=0.2)
-        axes[0, 0].plot(Hab['time_seconds'], Hab[("body_dist_cumsum" ,'mean')], label = f'{B_Hab} {name_start}')
-        axes[0, 0].fill_between(Hab['time_seconds'], Hab[("body_dist_cumsum" ,'mean')] - Hab[("body_dist_cumsum", 'std')], Hab[("body_dist_cumsum" ,'mean')] + Hab[("body_dist_cumsum" ,'std')], alpha=0.2)
+        # Discrimination Index
+        axes[0, 0].plot(TS['time_seconds'], TS[('Discrimination_Index', 'mean')], label=f'DI {name_start}', linestyle='--')
+        axes[0, 0].fill_between(TS['time_seconds'], TS[('Discrimination_Index', 'mean')] - TS[('Discrimination_Index', 'std')] /se, TS[('Discrimination_Index', 'mean')] + TS[('Discrimination_Index', 'std')] /se, alpha=0.2)
         axes[0, 0].set_xlabel('Time (s)')
         axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
-        axes[0, 0].set_ylabel('Distance (cm)')
-        # axes[0, 0].set_ylim(0, 4000)
-        axes[0, 0].set_title('Distance Traveled in Habituation')
+        axes[0, 0].set_ylabel('DI (%)')
+        axes[0, 0].set_ylim(-40, 60)
+        axes[0, 0].axhline(y=0, color='black', linestyle='--', linewidth = 2)
+        axes[0, 0].set_title('Discrimination Index')
         axes[0, 0].legend(loc='upper left', fancybox=True, shadow=True)
         axes[0, 0].grid(True)
-                
-        # TS
-        axes[1, 0].plot(TS['time_seconds'], TS[(f'{A_TS}' ,'mean')], label = f'{A_TS} {name_start}', marker='_')
-        axes[1, 0].fill_between(TS['time_seconds'], TS[(f'{A_TS}' ,'mean')] - TS[(f'{A_TS}', 'std')] /se, TS[(f'{A_TS}' ,'mean')] + TS[(f'{A_TS}' ,'std')] /se, alpha=0.2)
-        axes[1, 0].plot(TS['time_seconds'], TS[(f'{B_TS}' ,'mean')], label = f'{B_TS} {name_start}', marker='_')
-        axes[1, 0].fill_between(TS['time_seconds'], TS[(f'{B_TS}' ,'mean')] - TS[(f'{B_TS}', 'std')] /se, TS[(f'{B_TS}' ,'mean')] + TS[(f'{B_TS}' ,'std')] /se, alpha=0.2)
+        
+        # Boxplot
+        axes[0, 1].boxplot(bxplt[0], positions=[bxplt_positions[i]], labels=[f'{name_start}'])
+        
+        # Replace boxplots with scatter plots with jitter
+        jitter_amount = 0.05  # Adjust the jitter amount as needed
+        axes[0, 1].scatter([i + 1 + np.random.uniform(-jitter_amount, jitter_amount) for _ in range(len(bxplt[0]))], bxplt[0], alpha=0.7, label=f'{name_start}')
+        
+        axes[0, 1].axhline(y=0, color='black', linestyle='--', linewidth = 2)
+        axes[0, 1].set_ylabel('DI (%)')
+        axes[0, 1].set_title('Boxplot of DI for each group')
+        
+        # Discrimination Index 2
+        axes[1, 0].plot(TS['time_seconds'], TS[('Discrimination_Index_2', 'mean')], label=f'DI {name_start}', linestyle='--')
+        axes[1, 0].fill_between(TS['time_seconds'], TS[('Discrimination_Index_2', 'mean')] - TS[('Discrimination_Index_2', 'std')] /se, TS[('Discrimination_Index_2', 'mean')] + TS[('Discrimination_Index_2', 'std')] /se, alpha=0.2)
         axes[1, 0].set_xlabel('Time (s)')
         axes[1, 0].set_xticks([0, 60, 120, 180, 240, 300])
-        axes[1, 0].set_ylabel('Exploration Time (s)')
-        axes[1, 0].set_ylim(0, maxtime)
-        axes[1, 0].set_title('Exploration of objects during TS')
+        axes[1, 0].axhline(y=0, color='black', linestyle='--', linewidth = 2)
+        axes[1, 0].set_ylabel('DI (%)')
+        #axes[1, 0].set_ylim(-40, 60)
+        #axes[1, 0].axhline(y=0, color='black', linestyle='--', linewidth = 2)
+        axes[1, 0].set_title('Discrimination Index 2')
         axes[1, 0].legend(loc='upper left', fancybox=True, shadow=True)
         axes[1, 0].grid(True)
         
-        # Discrimination Index
-        axes[1, 1].plot(TS['time_seconds'], TS[('Discrimination_Index', 'mean')], label=f'DI {name_start}', linestyle='--')
-        axes[1, 1].fill_between(TS['time_seconds'], TS[('Discrimination_Index', 'mean')] - TS[('Discrimination_Index', 'std')] /se, TS[('Discrimination_Index', 'mean')] + TS[('Discrimination_Index', 'std')] /se, alpha=0.2)
-        axes[1, 1].set_xlabel('Time (s)')
-        axes[1, 1].set_xticks([0, 60, 120, 180, 240, 300])
-        axes[1, 1].set_ylabel('DI (%)')
-        axes[1, 1].set_ylim(-40, 60)
-        axes[1, 1].axhline(y=0, color='black', linestyle='--', linewidth = 2)
-        axes[1, 1].set_title('Discrimination Index')
-        axes[1, 1].legend(loc='upper left', fancybox=True, shadow=True)
-        axes[1, 1].grid(True)
-        
-        # Boxplot
-        axes[1, 2].boxplot(bxplt[0], positions=[bxplt_positions[i]], labels=[f'{name_start}'])
-        
-        # Replace boxplots with scatter plots with jitter
-        jitter_amount = 0.05  # Adjust the jitter amount as needed
-        axes[1, 2].scatter([i + 1 + np.random.uniform(-jitter_amount, jitter_amount) for _ in range(len(bxplt[0]))], bxplt[0], alpha=0.7, label=f'{name_start}')
-        
-        axes[1, 2].axhline(y=0, color='black', linestyle='--', linewidth = 2)
-        axes[1, 2].set_ylabel('DI (%)')
-        axes[1, 2].set_title('Boxplot of DI for each group')
-        
-        # Discrimination Index 2
-        axes[0, 1].plot(TS['time_seconds'], TS[('Discrimination_Index_2', 'mean')], label=f'DI {name_start}', linestyle='--')
-        axes[0, 1].fill_between(TS['time_seconds'], TS[('Discrimination_Index_2', 'mean')] - TS[('Discrimination_Index_2', 'std')] /se, TS[('Discrimination_Index_2', 'mean')] + TS[('Discrimination_Index_2', 'std')] /se, alpha=0.2)
-        axes[0, 1].set_xlabel('Time (s)')
-        axes[0, 1].set_xticks([0, 60, 120, 180, 240, 300])
-        axes[0, 1].set_ylabel('DI (%)')
-        #axes[0, 1].set_ylim(-40, 60)
-        #axes[0, 1].axhline(y=0, color='black', linestyle='--', linewidth = 2)
-        axes[0, 1].set_title('Discrimination Index 2')
-        axes[0, 1].legend(loc='upper left', fancybox=True, shadow=True)
-        axes[0, 1].grid(True)
-        
         # Boxplot 2
-        axes[0, 2].boxplot(bxplt2[0], positions=[bxplt_positions[i]], labels=[f'{name_start}'])
+        axes[1, 1].boxplot(bxplt2[0], positions=[bxplt_positions[i]], labels=[f'{name_start}'])
         
         # Replace boxplots with scatter plots with jitter
         jitter_amount = 0.05  # Adjust the jitter amount as needed
-        axes[0, 2].scatter([i + 1 + np.random.uniform(-jitter_amount, jitter_amount) for _ in range(len(bxplt2[0]))], bxplt2[0], alpha=0.7, label=f'{name_start}')
+        axes[1, 1].scatter([i + 1 + np.random.uniform(-jitter_amount, jitter_amount) for _ in range(len(bxplt2[0]))], bxplt2[0], alpha=0.7, label=f'{name_start}')
         
-        axes[0, 2].axhline(y=0, color='black', linestyle='--', linewidth = 2)
-        axes[0, 2].set_ylabel('DI (%)')
-        axes[0, 2].set_title('Boxplot of DI for each group')
+        axes[1, 1].axhline(y=0, color='black', linestyle='--', linewidth = 2)
+        axes[1, 1].set_ylabel('DI (%)')
+        axes[1, 1].set_title('Boxplot of DI for each group')
     
     plt.suptitle(f"Analysis of: {experiment}", y=0.98)  # Add DataFrame name as the overall title
     plt.tight_layout()
     # plt.savefig(os.path.join(os.path.dirname(os.path.dirname(path)), f"Comparing_groups_({labels_folder})_plot.png"))
     plt.show()
-    
+
+#%%
+
+for group in groups:
+    plot_groups(TS_path, group, experiment, label_type)
+#%%
+
+for group in groups:
+    plot_all(TS_path, group, experiment, label_type)
+#%%
+
+plot_experiment(TS_path, groups, experiment, label_type)
 #%%
 
 plot_both_IDs(TS_path, groups, experiment, label_type)

@@ -129,7 +129,7 @@ X_test_scaled = scaler.transform(X_test)
 model = tf.keras.Sequential([
     tf.keras.layers.Dense(64, activation='relu', input_shape=(X_train_scaled.shape[1],)),
     tf.keras.layers.Dense(32, activation='relu'),
-    tf.keras.layers.Dense(1, activation='softmax')  # Two output neurons (left and right), Use softmax activation for the output layer to get probabilities for each class.
+    tf.keras.layers.Dense(1, activation='sigmoid')  # Two output neurons (left and right), Use softmax activation for the output layer to get probabilities for each class.
 ])
 
 #%%

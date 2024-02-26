@@ -25,17 +25,17 @@ path = r'C:/Users/dhers/Desktop/Videos_NOR/'
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'2022-01_TORM_3h'
+experiment = r'2024-01_Extinction'
 
 # Complete with the different stages of the experiment
 stages = ["TR1", "TR2", "TS"] # Tip: Put TS last, so that rename_labels can return the path to it's folder
 
 # State which labels you want to use
-label_type = "geolabels"
+label_type = "autolabels"
 
 # State the groups in the experiment
 
-groups = ["Male", "Female"]
+#groups = ["Male", "Female"]
 
 #groups = ["Old_1h", "Recent_1h"]
 
@@ -357,7 +357,7 @@ def plot_groups(path, name_start, experiment, labels_folder, fps=25):
     Hab = all_Hab.groupby('Frame').agg(['mean', 'std']).reset_index()
         
     # Create a single figure
-    fig, axes = plt.subplots(2, 3, figsize=(12, 8))
+    fig, axes = plt.subplots(2, 3, figsize=(16, 8))
     
     TS['time_seconds'] = TS['Frame'] / fps
     TR2['time_seconds'] = TR2['Frame'] / fps
@@ -598,9 +598,11 @@ def plot_all(path, name_start, experiment, labels_folder, fps = 25):
 def plot_experiment(path, groups, experiment, labels_folder, fps=25):
     
     # Create a single figure
-    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    fig, axes = plt.subplots(2, 3, figsize=(16, 8))
     
     bxplt_positions = list(range(1, len(groups) + 1))
+    
+    maxtime = 5
     
     for i, name_start in enumerate(groups):
         # Initialize an empty list to store DataFrames
@@ -676,7 +678,7 @@ def plot_experiment(path, groups, experiment, labels_folder, fps=25):
         
         maxtime = max(TR1.loc[TR1.index[-1], (f'{A_TR1}' ,'mean')], TR1.loc[TR1.index[-1], (f'{B_TR1}' ,'mean')], 
                       TR2.loc[TR2.index[-1], (f'{A_TR2}' ,'mean')], TR2.loc[TR2.index[-1], (f'{B_TR2}' ,'mean')], 
-                      TS.loc[TS.index[-1], (f'{A_TS}' ,'mean')], TS.loc[TS.index[-1], (f'{B_TS}' ,'mean')], 5) + 2
+                      TS.loc[TS.index[-1], (f'{A_TS}' ,'mean')], TS.loc[TS.index[-1], (f'{B_TS}' ,'mean')], maxtime) + 2
         
         # Hab
         axes[0, 0].plot(Hab['time_seconds'], Hab[("nose_dist_cumsum" ,'mean')], label = f'{A_Hab} {name_start}')
@@ -763,7 +765,7 @@ def plot_experiment(path, groups, experiment, labels_folder, fps=25):
 def plot_both_IDs(path, groups, experiment, labels_folder, fps=25):
     
     # Create a single figure
-    fig, axes = plt.subplots(2, 2, figsize=(8, 8))
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
     
     bxplt_positions = list(range(1, len(groups) + 1))
     
@@ -828,7 +830,7 @@ def plot_both_IDs(path, groups, experiment, labels_folder, fps=25):
         axes[1, 0].set_xlabel('Time (s)')
         axes[1, 0].set_xticks([0, 60, 120, 180, 240, 300])
         axes[1, 0].axhline(y=0, color='black', linestyle='--', linewidth = 2)
-        axes[1, 0].set_ylabel('DI (%)')
+        axes[1, 0].set_ylabel('Time diffence between objects (s)')
         #axes[1, 0].set_ylim(-40, 60)
         #axes[1, 0].axhline(y=0, color='black', linestyle='--', linewidth = 2)
         axes[1, 0].set_title('Discrimination Index 2')
@@ -843,7 +845,7 @@ def plot_both_IDs(path, groups, experiment, labels_folder, fps=25):
         axes[1, 1].scatter([i + 1 + np.random.uniform(-jitter_amount, jitter_amount) for _ in range(len(bxplt2[0]))], bxplt2[0], alpha=0.7, label=f'{name_start}')
         
         axes[1, 1].axhline(y=0, color='black', linestyle='--', linewidth = 2)
-        axes[1, 1].set_ylabel('DI (%)')
+        axes[1, 1].set_ylabel('Time diffence between objects (s)')
         axes[1, 1].set_title('Boxplot of DI for each group')
     
     plt.suptitle(f"Analysis of: {experiment}", y=0.98)  # Add DataFrame name as the overall title

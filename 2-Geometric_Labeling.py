@@ -91,7 +91,7 @@ path = r'C:/Users/dhers/Desktop/Videos_NOR/'
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'2024-02_Persistance'
+experiment = r'2022-02_TORM_3h'
 
 Hab_position = find_files(path, experiment, "Hab", "position")
 TR1_position = find_files(path, experiment, "TR1", "position")
@@ -156,8 +156,8 @@ def plot_position(file, maxDistance = 2.5, maxAngle = 45):
     
     # Find points where the mouse is looking at the objects
     # Im asking the nose be closer to the aimed object to filter distant sighting
-    towards1 = nose.positions[(angle1 < maxAngle) & (dist1 < 3 * maxDistance)]
-    towards2 = nose.positions[(angle2 < maxAngle) & (dist2 < 3 * maxDistance)]
+    towards1 = nose.positions[(angle1 < maxAngle) & (dist1 < 2 * maxDistance)]
+    towards2 = nose.positions[(angle2 < maxAngle) & (dist2 < 2 * maxDistance)]
 
     """
     Finally, we can plot the points that match both conditions
@@ -170,16 +170,16 @@ def plot_position(file, maxDistance = 2.5, maxAngle = 45):
     ax.plot(*nose.positions.T, ".", color = "grey", alpha = 0.2)
     
     # Plot the filtered points
-    ax.plot(*towards1.T, ".", label = "Oriented towards 1", color = "blue", alpha = 0.5)
-    ax.plot(*towards2.T, ".", label = "Oriented towards 2", color = "darkgreen", alpha = 0.5)
+    ax.plot(*towards1.T, ".", label = "Oriented towards 1", color = "brown", alpha = 0.4)
+    ax.plot(*towards2.T, ".", label = "Oriented towards 2", color = "teal", alpha = 0.4)
     
     # Plot the objects
-    ax.plot(*obj1.positions[0], "o", lw = 20, label = "Object 1", color = "red")
-    ax.plot(*obj2.positions[0], "o", lw = 20, label = "Object 2", color = "darkorange")
+    ax.plot(*obj1.positions[0], "s", lw = 20, label = "Object 1", color = "blue", markersize = 9, markeredgecolor = "blue")
+    ax.plot(*obj2.positions[0], "o", lw = 20, label = "Object 2", color = "red", markersize = 10, markeredgecolor = "darkred")
     
-    # Plot the circles of distance criteria
-    ax.add_artist(Circle(obj1.positions[0], maxDistance, color = "purple", alpha = 0.4))
-    ax.add_artist(Circle(obj2.positions[0], maxDistance, color = "purple", alpha = 0.4))
+    # Plot circles around the objects
+    ax.add_artist(Circle(obj1.positions[0], 2.5, color = "orange", alpha = 0.3))
+    ax.add_artist(Circle(obj2.positions[0], 2.5, color = "orange", alpha = 0.3))
     
     ax.axis('equal')
     ax.set_xlabel("Horizontal position (cm)")

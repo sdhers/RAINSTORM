@@ -5,7 +5,11 @@ Created on Tue Nov  7 16:59:14 2023
 
 This code will train a model that classifies positions into exploration
 """
+param_1 = 16
+param_2 = 8
+param_3 = 4
 
+time_steps = 2
 #%% Import libraries
 
 import os
@@ -54,7 +58,7 @@ def find_files(path_name, exp_name, group, folder):
 # In the lab:
 path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'2023-11_Interferencia'
+experiment = r'2024-01_TeNOR-3xTR'
 
 TR1_position = find_files(path, experiment, "TR1", "position")
 TR2_position = find_files(path, experiment, "TR2", "position")
@@ -146,7 +150,7 @@ RF_model = RandomForestClassifier(n_estimators = 20, random_state = 42, max_dept
 #%%
 
 # Create the Random Forest model (and set the number of estimators (decision trees))
-RF_model = RandomForestClassifier(n_estimators = 20, random_state = 42, max_depth = 15)
+RF_model = RandomForestClassifier(n_estimators = 24, max_depth = 12)
 
 # Create a MultiOutputClassifier with the Random Forest as the base estimator
 multi_output_RF_model = MultiOutputClassifier(RF_model)
@@ -172,8 +176,9 @@ Implement a simple feedforward simple_model
 
 # Build a simple feedforward neural network
 simple_model = tf.keras.Sequential([
-    tf.keras.layers.Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
-    tf.keras.layers.Dense(32, activation='relu'),
+    tf.keras.layers.Dense(param_1, activation='relu', input_shape=(X_train.shape[1],)),
+    tf.keras.layers.Dense(param_2, activation='relu'),
+    tf.keras.layers.Dense(param_3, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -195,15 +200,15 @@ print(f"Accuracy on testing set: {accuracy_simple_model:.4f}")
 """
 Implement LSTM models that can take into account the frames previous to exploration
 """
-time_steps = 3
+time_steps = 2
 
-def reshape_set(data, labels, time_steps, phase = 0):
+def reshape_set(data, labels, time_steps):
     reshaped_data = []
     reshaped_labels = []
 
-    for i in range(len(data) - time_steps + 1):
+    for i in range(len(data) - time_steps):
         reshaped_data.append(data[i:i + time_steps])
-        reshaped_labels.append(labels[i + time_steps - 1 - phase])
+        reshaped_labels.append(labels[i + time_steps])
 
     reshaped_data = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
     reshaped_labels = tf.convert_to_tensor(reshaped_labels, dtype=tf.float64)
@@ -211,50 +216,51 @@ def reshape_set(data, labels, time_steps, phase = 0):
     return reshaped_data, reshaped_labels
 
 # Reshape the training set
-X_train_LSTM, y_train_LSTM = reshape_set(X_train, y_train, time_steps, phase = 0)
+X_train_back, y_train_back = reshape_set(X_train, y_train, time_steps)
 
 # Reshape the testing set
-X_test_LSTM, y_test_LSTM = reshape_set(X_test, y_test, time_steps, phase = 0)
+X_test_back, y_test_back = reshape_set(X_test, y_test, time_steps)
 
 # Reshape the validating set
-X_val_LSTM, y_val_LSTM = reshape_set(X_val, y_val, time_steps, phase = 0)
+X_val_back, y_val_back = reshape_set(X_val, y_val, time_steps)
 
 #%%
 
 # Build a simple LSTM-based neural network
-model_LSTM = tf.keras.Sequential([
-    tf.keras.layers.LSTM(64, activation='relu', input_shape=(time_steps, X_train_LSTM.shape[2])),
-    tf.keras.layers.Dense(32, activation='relu'),
+model_back = tf.keras.Sequential([
+    tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(time_steps, X_train_back.shape[2])),
+    tf.keras.layers.Dense(param_2, activation='relu'),
+    tf.keras.layers.Dense(param_3, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
 # Compile the model
-model_LSTM.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+model_back.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 # Train the model
-model_LSTM.fit(X_train_LSTM, y_train_LSTM, epochs=10, batch_size=32, validation_data=(X_val_LSTM, y_val_LSTM))
+model_back.fit(X_train_back, y_train_back, epochs=10, batch_size=32, validation_data=(X_val_back, y_val_back))
 
 # Evaluate the model on the testing set
-y_pred_LSTM = model_LSTM.predict(X_test_LSTM)
-y_pred_binary_LSTM = (y_pred_LSTM > 0.5).astype(int)  # Convert probabilities to binary predictions
+y_pred_back = model_back.predict(X_test_back)
+y_pred_binary_back = (y_pred_back > 0.5).astype(int)  # Convert probabilities to binary predictions
 
-accuracy_LSTM = accuracy_score(y_test_LSTM, y_pred_binary_LSTM)
-print(f"Accuracy on testing set: {accuracy_LSTM:.4f}")
+accuracy_back = accuracy_score(y_test_back, y_pred_binary_back)
+print(f"Accuracy on testing set: {accuracy_back:.4f}")
 
 #%%
 
 """
-Implement LSTM models that can take into account the frames previous to exploration
+Implement LSTM models that can take into account the frames after exploration
 """
-time_steps = 5
+time_steps = 2
 
-def reshape_set(data, labels, time_steps, phase = 0):
+def reshape_set(data, labels, time_steps):
     reshaped_data = []
     reshaped_labels = []
 
-    for i in range(len(data) - time_steps + 1):
+    for i in range(len(data) - time_steps):
         reshaped_data.append(data[i:i + time_steps])
-        reshaped_labels.append(labels[i + time_steps - 1 - phase])
+        reshaped_labels.append(labels[i])
 
     reshaped_data = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
     reshaped_labels = tf.convert_to_tensor(reshaped_labels, dtype=tf.float64)
@@ -262,35 +268,91 @@ def reshape_set(data, labels, time_steps, phase = 0):
     return reshaped_data, reshaped_labels
 
 # Reshape the training set
-X_train_LSTM, y_train_LSTM = reshape_set(X_train, y_train, time_steps, phase = 2)
+X_train_forward, y_train_forward = reshape_set(X_train, y_train, time_steps)
 
 # Reshape the testing set
-X_test_LSTM, y_test_LSTM = reshape_set(X_test, y_test, time_steps, phase = 2)
+X_test_forward, y_test_forward = reshape_set(X_test, y_test, time_steps)
 
 # Reshape the validating set
-X_val_LSTM, y_val_LSTM = reshape_set(X_val, y_val, time_steps, phase = 2)
+X_val_forward, y_val_forward = reshape_set(X_val, y_val, time_steps)
 
 #%%
 
 # Build a simple LSTM-based neural network
-model_LSTM_2 = tf.keras.Sequential([
-    tf.keras.layers.LSTM(64, activation='relu', input_shape=(time_steps, X_train_LSTM.shape[2])),
-    tf.keras.layers.Dense(32, activation='relu'),
+model_forward = tf.keras.Sequential([
+    tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(time_steps, X_train_forward.shape[2])),
+    tf.keras.layers.Dense(param_2, activation='relu'),
+    tf.keras.layers.Dense(param_3, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
 # Compile the model
-model_LSTM_2.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+model_forward.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 # Train the model
-model_LSTM_2.fit(X_train_LSTM, y_train_LSTM, epochs=10, batch_size=32, validation_data=(X_val_LSTM, y_val_LSTM))
+model_forward.fit(X_train_forward, y_train_forward, epochs=10, batch_size=32, validation_data=(X_val_forward, y_val_forward))
 
 # Evaluate the model on the testing set
-y_pred_LSTM_2 = model_LSTM_2.predict(X_test_LSTM)
-y_pred_binary_LSTM_2 = (y_pred_LSTM_2 > 0.5).astype(int)  # Convert probabilities to binary predictions
+y_pred_forward = model_forward.predict(X_test_forward)
+y_pred_binary_forward = (y_pred_forward > 0.5).astype(int)  # Convert probabilities to binary predictions
 
-accuracy_LSTM_2 = accuracy_score(y_test_LSTM, y_pred_binary_LSTM_2)
-print(f"Accuracy on testing set: {accuracy_LSTM_2:.4f}")
+accuracy_forward = accuracy_score(y_test_forward, y_pred_binary_forward)
+print(f"Accuracy on testing set: {accuracy_forward:.4f}")
+
+#%%
+
+"""
+Implement LSTM models that can take into account the frames previous and after exploration
+"""
+time_steps = 2 # It needs to be an even number
+
+def reshape_set(data, labels, time_steps):
+    
+    half_steps = time_steps//2
+    
+    reshaped_data = []
+    reshaped_labels = []
+
+    for i in range(half_steps, len(data) - half_steps):
+        reshaped_data.append(data[i-half_steps : i+half_steps])
+        reshaped_labels.append(labels[i])
+
+    reshaped_data = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
+    reshaped_labels = tf.convert_to_tensor(reshaped_labels, dtype=tf.float64)
+
+    return reshaped_data, reshaped_labels
+
+# Reshape the training set
+X_train_wide, y_train_wide = reshape_set(X_train, y_train, time_steps)
+
+# Reshape the testing set
+X_test_wide, y_test_wide = reshape_set(X_test, y_test, time_steps)
+
+# Reshape the validating set
+X_val_wide, y_val_wide = reshape_set(X_val, y_val, time_steps)
+
+#%%
+
+# Build a simple LSTM-based neural network
+model_wide = tf.keras.Sequential([
+    tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(time_steps, X_train_wide.shape[2])),
+    tf.keras.layers.Dense(param_2, activation='relu'),
+    tf.keras.layers.Dense(param_3, activation='relu'),
+    tf.keras.layers.Dense(2, activation='sigmoid')
+])
+
+# Compile the model
+model_wide.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+# Train the model
+model_wide.fit(X_train_wide, y_train_wide, epochs=10, batch_size=32, validation_data=(X_val_wide, y_val_wide))
+
+# Evaluate the model on the testing set
+y_pred_wide = model_wide.predict(X_test_wide)
+y_pred_binary_wide = (y_pred_wide > 0.5).astype(int)  # Convert probabilities to binary predictions
+
+accuracy_wide = accuracy_score(y_test_wide, y_pred_binary_wide)
+print(f"Accuracy on testing set: {accuracy_wide:.4f}")
 
 #%%
 
@@ -315,41 +377,54 @@ autolabels.insert(0, "Frame", autolabels.index + 1)
 autolabels_binary = (autolabels > 0.5).astype(int) 
 
 #%%
-""" Predict the LSTM labels """
-time_steps = 3
+""" Predict the back labels """
+time_steps = 2
 
-position_LSTM = position_test.to_numpy()
+position_back = position_test.to_numpy()
 position_test_reshaped = []
 
-for i in range(len(position_LSTM) - time_steps):
-    position_test_reshaped.append(position_LSTM[i:i + time_steps])
+for i in range(len(position_back) - time_steps):
+    position_test_reshaped.append(position_back[i:i + time_steps])
 
 position_test_LSTM = tf.convert_to_tensor(position_test_reshaped, dtype=tf.float64)
 
-autolabels_LSTM = model_LSTM.predict(position_test_LSTM)
-autolabels_LSTM = np.vstack((np.zeros((time_steps - 1, 2)), autolabels_LSTM))
-autolabels_LSTM = pd.DataFrame(autolabels_LSTM, columns=["Left", "Right"])
-autolabels_LSTM.insert(0, "Frame", autolabels_LSTM.index + 1)
-autolabels_LSTM_binary = (autolabels_LSTM > 0.5).astype(int) 
+autolabels_back = model_back.predict(position_test_LSTM)
+autolabels_back = np.vstack((np.zeros((time_steps, 2)), autolabels_back))
+autolabels_back = pd.DataFrame(autolabels_back, columns=["Left", "Right"])
+autolabels_back.insert(0, "Frame", autolabels_back.index + 1)
+autolabels_back_binary = (autolabels_back > 0.5).astype(int)
 
 #%%
-""" Predict the LSTM labels """
-time_steps = 5
+""" Predict the forward labels """
 
-position_LSTM = position_test.to_numpy()
+autolabels_forward = model_forward.predict(position_test_LSTM)
+autolabels_forward = pd.DataFrame(autolabels_forward, columns=["Left", "Right"])
+autolabels_forward.insert(0, "Frame", autolabels_forward.index + 1)
+autolabels_forward_binary = (autolabels_forward > 0.5).astype(int) 
+
+#%%
+""" Predict the wide labels """
+time_steps = 2
+half_steps = time_steps//2
+
+position_wide = position_test.to_numpy()
 position_test_reshaped = []
 
-for i in range(len(position_LSTM) - time_steps):
-    position_test_reshaped.append(position_LSTM[i:i + time_steps])
+for i in range(half_steps, len(position_wide) - half_steps):
+    position_test_reshaped.append(position_wide[i-half_steps : i+half_steps])
 
 position_test_LSTM = tf.convert_to_tensor(position_test_reshaped, dtype=tf.float64)
 
-autolabels_LSTM_2 = model_LSTM_2.predict(position_test_LSTM)
-autolabels_LSTM_2 = np.vstack((np.zeros((time_steps - 1, 2)), autolabels_LSTM_2))
-autolabels_LSTM_2 = pd.DataFrame(autolabels_LSTM_2, columns=["Left", "Right"])
-autolabels_LSTM_2.insert(0, "Frame", autolabels_LSTM_2.index + 1)
-autolabels_LSTM_2_binary = (autolabels_LSTM_2 > 0.5).astype(int) 
+autolabels_wide = model_wide.predict(position_test_LSTM)
+autolabels_wide = np.vstack((np.zeros((half_steps, 2)), autolabels_wide))
+autolabels_wide = pd.DataFrame(autolabels_wide, columns=["Left", "Right"])
+autolabels_wide.insert(0, "Frame", autolabels_wide.index + 1)
+autolabels_wide_binary = (autolabels_wide > 0.5).astype(int)
 
+#%%
+
+autolabels_mean = (autolabels + autolabels_back + autolabels_forward + autolabels_wide) / 4
+autolabels_mean_binary = (autolabels_mean > 0.5).astype(int)
 #%%
 
 """
@@ -364,15 +439,25 @@ plt.plot(autolabels["Right"] * -1, color = "r")
 plt.plot(autolabels_binary["Left"] * 1.2, ".", color = "r", label = "autolabels")
 plt.plot(autolabels_binary["Right"] * -1.2, ".", color = "r")
 
-plt.plot(autolabels_LSTM["Left"]+0.01, color = "g")
-plt.plot(autolabels_LSTM["Right"] * -1 - 0.01, color = "g")
-plt.plot(autolabels_LSTM_binary["Left"] * 1.3, ".", color = "g", label = "autolabels_LSTM")
-plt.plot(autolabels_LSTM_binary["Right"] * -1.3, ".", color = "g")
+plt.plot(autolabels_back["Left"]+0.01, color = "orange")
+plt.plot(autolabels_back["Right"] * -1 - 0.01, color = "orange")
+plt.plot(autolabels_back_binary["Left"] * 1.3, ".", color = "orange", label = "autolabels_back")
+plt.plot(autolabels_back_binary["Right"] * -1.3, ".", color = "orange")
 
-plt.plot(autolabels_LSTM_2["Left"]+0.02, color = "b")
-plt.plot(autolabels_LSTM_2["Right"] * -1 - 0.02, color = "b")
-plt.plot(autolabels_LSTM_2_binary["Left"] * 1.4, ".", color = "b", label = "autolabels_LSTM_2")
-plt.plot(autolabels_LSTM_2_binary["Right"] * -1.4, ".", color = "b")
+plt.plot(autolabels_forward["Left"]+0.02, color = "g")
+plt.plot(autolabels_forward["Right"] * -1 - 0.02, color = "g")
+plt.plot(autolabels_forward_binary["Left"] * 1.4, ".", color = "g", label = "autolabels_forward")
+plt.plot(autolabels_forward_binary["Right"] * -1.4, ".", color = "g")
+
+plt.plot(autolabels_wide["Left"]+0.03, color = "b")
+plt.plot(autolabels_wide["Right"] * -1 - 0.03, color = "b")
+plt.plot(autolabels_wide_binary["Left"] * 1.5, ".", color = "b", label = "autolabels_wide")
+plt.plot(autolabels_wide_binary["Right"] * -1.5, ".", color = "b")
+
+plt.plot(autolabels_mean["Left"]+0.04, color = "magenta")
+plt.plot(autolabels_mean["Right"] * -1 - 0.04, color = "magenta")
+plt.plot(autolabels_mean_binary["Left"] * 1.6, ".", color = "magenta", label = "autolabels_mean")
+plt.plot(autolabels_mean_binary["Right"] * -1.6, ".", color = "magenta")
 
 plt.plot(labels_test["Left"] * 1, ".", color = "black", label = "Manual")
 plt.plot(labels_test["Right"] * -1, ".", color = "black")
@@ -385,7 +470,6 @@ plt.ylim((-2, 2))
 
 plt.legend()
 plt.show()
-
 
 #%%
 

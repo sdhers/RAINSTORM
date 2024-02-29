@@ -5,11 +5,12 @@ Created on Tue Nov  7 16:59:14 2023
 
 This code will train a model that classifies positions into exploration
 """
-param_1 = 16
-param_2 = 8
-param_3 = 4
+param_1 = 32
+param_2 = 24
+param_3 = 16
 
 time_steps = 2
+half_steps = time_steps//2
 #%% Import libraries
 
 import os
@@ -29,7 +30,7 @@ import random
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, precision_score
 
 #%% This function finds the files that we want to use and lists their path
 
@@ -58,7 +59,7 @@ def find_files(path_name, exp_name, group, folder):
 # In the lab:
 path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'2024-01_TeNOR-3xTR'
+experiment = r'2023-05_TeNOR'
 
 TR1_position = find_files(path, experiment, "TR1", "position")
 TR2_position = find_files(path, experiment, "TR2", "position")
@@ -164,6 +165,9 @@ y_pred_RF_model = multi_output_RF_model.predict(X_test)
 accuracy_RF_model = accuracy_score(y_test, y_pred_RF_model)
 print(f"Accuracy on testing set: {accuracy_RF_model:.4f}")
 
+precision_RF_model = precision_score(y_test, y_pred_RF_model, average = 'weighted')
+print(f"Precision on testing set: {precision_RF_model:.4f}")
+
 #%%
 # Load the saved model from file
 # loaded_model = joblib.load(r'C:\Users\dhers\Desktop\STORM\trained_model_203.pkl')
@@ -179,6 +183,7 @@ simple_model = tf.keras.Sequential([
     tf.keras.layers.Dense(param_1, activation='relu', input_shape=(X_train.shape[1],)),
     tf.keras.layers.Dense(param_2, activation='relu'),
     tf.keras.layers.Dense(param_3, activation='relu'),
+    tf.keras.layers.Dense(8, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -195,12 +200,14 @@ y_pred_binary_simple_model = (y_pred_simple_model > 0.5).astype(int)  # Convert 
 accuracy_simple_model = accuracy_score(y_test, y_pred_binary_simple_model)
 print(f"Accuracy on testing set: {accuracy_simple_model:.4f}")
 
+precision_simple = precision_score(y_test, y_pred_binary_simple_model, average = 'weighted')
+print(f"Precision on testing set: {precision_simple:.4f}")
+
 #%%
 
 """
 Implement LSTM models that can take into account the frames previous to exploration
 """
-time_steps = 2
 
 def reshape_set(data, labels, time_steps):
     reshaped_data = []
@@ -228,9 +235,10 @@ X_val_back, y_val_back = reshape_set(X_val, y_val, time_steps)
 
 # Build a simple LSTM-based neural network
 model_back = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(time_steps, X_train_back.shape[2])),
-    tf.keras.layers.Dense(param_2, activation='relu'),
-    tf.keras.layers.Dense(param_3, activation='relu'),
+    tf.keras.layers.LSTM(param_1*time_steps, activation='relu', input_shape=(time_steps, X_train_back.shape[2])),
+    tf.keras.layers.Dense(param_2*time_steps, activation='relu'),
+    tf.keras.layers.Dense(param_3*time_steps, activation='relu'),
+    tf.keras.layers.Dense(8, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -247,12 +255,14 @@ y_pred_binary_back = (y_pred_back > 0.5).astype(int)  # Convert probabilities to
 accuracy_back = accuracy_score(y_test_back, y_pred_binary_back)
 print(f"Accuracy on testing set: {accuracy_back:.4f}")
 
+precision_back = precision_score(y_test_back, y_pred_binary_back, average = 'weighted')
+print(f"Precision on testing set: {precision_back:.4f}")
+
 #%%
 
 """
 Implement LSTM models that can take into account the frames after exploration
 """
-time_steps = 2
 
 def reshape_set(data, labels, time_steps):
     reshaped_data = []
@@ -280,9 +290,10 @@ X_val_forward, y_val_forward = reshape_set(X_val, y_val, time_steps)
 
 # Build a simple LSTM-based neural network
 model_forward = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(time_steps, X_train_forward.shape[2])),
-    tf.keras.layers.Dense(param_2, activation='relu'),
-    tf.keras.layers.Dense(param_3, activation='relu'),
+    tf.keras.layers.LSTM(param_1*time_steps, activation='relu', input_shape=(time_steps, X_train_forward.shape[2])),
+    tf.keras.layers.Dense(param_2*time_steps, activation='relu'),
+    tf.keras.layers.Dense(param_3*time_steps, activation='relu'),
+    tf.keras.layers.Dense(8, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -299,16 +310,16 @@ y_pred_binary_forward = (y_pred_forward > 0.5).astype(int)  # Convert probabilit
 accuracy_forward = accuracy_score(y_test_forward, y_pred_binary_forward)
 print(f"Accuracy on testing set: {accuracy_forward:.4f}")
 
+precision_forward = precision_score(y_test_forward, y_pred_binary_forward, average = 'weighted')
+print(f"Precision on testing set: {precision_forward:.4f}")
+
 #%%
 
 """
 Implement LSTM models that can take into account the frames previous and after exploration
 """
-time_steps = 2 # It needs to be an even number
 
 def reshape_set(data, labels, time_steps):
-    
-    half_steps = time_steps//2
     
     reshaped_data = []
     reshaped_labels = []
@@ -323,21 +334,22 @@ def reshape_set(data, labels, time_steps):
     return reshaped_data, reshaped_labels
 
 # Reshape the training set
-X_train_wide, y_train_wide = reshape_set(X_train, y_train, time_steps)
+X_train_wide, y_train_wide = reshape_set(X_train, y_train, half_steps)
 
 # Reshape the testing set
-X_test_wide, y_test_wide = reshape_set(X_test, y_test, time_steps)
+X_test_wide, y_test_wide = reshape_set(X_test, y_test, half_steps)
 
 # Reshape the validating set
-X_val_wide, y_val_wide = reshape_set(X_val, y_val, time_steps)
+X_val_wide, y_val_wide = reshape_set(X_val, y_val, half_steps)
 
 #%%
 
 # Build a simple LSTM-based neural network
 model_wide = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(time_steps, X_train_wide.shape[2])),
-    tf.keras.layers.Dense(param_2, activation='relu'),
-    tf.keras.layers.Dense(param_3, activation='relu'),
+    tf.keras.layers.LSTM(param_1*time_steps, activation='relu', input_shape=(time_steps, X_train_wide.shape[2])),
+    tf.keras.layers.Dense(param_2*time_steps, activation='relu'),
+    tf.keras.layers.Dense(param_3*time_steps, activation='relu'),
+    tf.keras.layers.Dense(8, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -353,6 +365,9 @@ y_pred_binary_wide = (y_pred_wide > 0.5).astype(int)  # Convert probabilities to
 
 accuracy_wide = accuracy_score(y_test_wide, y_pred_binary_wide)
 print(f"Accuracy on testing set: {accuracy_wide:.4f}")
+
+precision_wide = precision_score(y_test_wide, y_pred_binary_wide, average = 'weighted')
+print(f"Precision on testing set: {precision_wide:.4f}")
 
 #%%
 
@@ -378,7 +393,6 @@ autolabels_binary = (autolabels > 0.5).astype(int)
 
 #%%
 """ Predict the back labels """
-time_steps = 2
 
 position_back = position_test.to_numpy()
 position_test_reshaped = []
@@ -404,8 +418,6 @@ autolabels_forward_binary = (autolabels_forward > 0.5).astype(int)
 
 #%%
 """ Predict the wide labels """
-time_steps = 2
-half_steps = time_steps//2
 
 position_wide = position_test.to_numpy()
 position_test_reshaped = []

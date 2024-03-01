@@ -5,6 +5,8 @@ Created on Tue Nov  7 16:59:14 2023
 
 This code will train a model that classifies positions into exploration
 """
+
+#%%
 param_1 = 32
 param_2 = 24
 param_3 = 16
@@ -27,10 +29,13 @@ import matplotlib.pyplot as plt
 
 import random
 
-import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, precision_score
+
+import tensorflow as tf
+
+print(tf.config.list_physical_devices('GPU'))
 
 #%% This function finds the files that we want to use and lists their path
 
@@ -191,7 +196,7 @@ simple_model = tf.keras.Sequential([
 simple_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 # Train the simple_model
-simple_model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_val, y_val))
+simple_model.fit(X_train, y_train, epochs=10, batch_size=8, validation_data=(X_val, y_val))
 
 # Evaluate the simple_model on the testing set
 y_pred_simple_model = simple_model.predict(X_test)

@@ -6,13 +6,23 @@ Created on Tue Nov  7 16:59:14 2023
 This code will train a model that classifies positions into exploration
 """
 
+import time
+
+# Record the start time
+start_time = time.time()
+
 #%%
 param_1 = 32
 param_2 = 24
 param_3 = 16
 
+epochs = 10
+
+batch_size = 8
+
 time_steps = 2
 half_steps = time_steps//2
+
 #%% Import libraries
 
 import os
@@ -59,12 +69,12 @@ def find_files(path_name, exp_name, group, folder):
 #%%
 
 # At home:
-# path = r'C:/Users/dhers/Desktop/Videos_NOR/'
+path = r'C:/Users/dhers/Desktop/Videos_NOR/'
 
 # In the lab:
-path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'2023-05_TeNOR'
+experiment = r'2023-05_TORM_24h'
 
 TR1_position = find_files(path, experiment, "TR1", "position")
 TR2_position = find_files(path, experiment, "TR2", "position")
@@ -188,7 +198,6 @@ simple_model = tf.keras.Sequential([
     tf.keras.layers.Dense(param_1, activation='relu', input_shape=(X_train.shape[1],)),
     tf.keras.layers.Dense(param_2, activation='relu'),
     tf.keras.layers.Dense(param_3, activation='relu'),
-    tf.keras.layers.Dense(8, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -196,7 +205,7 @@ simple_model = tf.keras.Sequential([
 simple_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 # Train the simple_model
-simple_model.fit(X_train, y_train, epochs=10, batch_size=8, validation_data=(X_val, y_val))
+simple_model.fit(X_train, y_train, epochs = epochs, batch_size = batch_size, validation_data=(X_val, y_val))
 
 # Evaluate the simple_model on the testing set
 y_pred_simple_model = simple_model.predict(X_test)
@@ -243,7 +252,6 @@ model_back = tf.keras.Sequential([
     tf.keras.layers.LSTM(param_1*time_steps, activation='relu', input_shape=(time_steps, X_train_back.shape[2])),
     tf.keras.layers.Dense(param_2*time_steps, activation='relu'),
     tf.keras.layers.Dense(param_3*time_steps, activation='relu'),
-    tf.keras.layers.Dense(8, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -251,7 +259,7 @@ model_back = tf.keras.Sequential([
 model_back.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 # Train the model
-model_back.fit(X_train_back, y_train_back, epochs=10, batch_size=32, validation_data=(X_val_back, y_val_back))
+model_back.fit(X_train_back, y_train_back, epochs = epochs, batch_size = batch_size, validation_data=(X_val_back, y_val_back))
 
 # Evaluate the model on the testing set
 y_pred_back = model_back.predict(X_test_back)
@@ -298,7 +306,6 @@ model_forward = tf.keras.Sequential([
     tf.keras.layers.LSTM(param_1*time_steps, activation='relu', input_shape=(time_steps, X_train_forward.shape[2])),
     tf.keras.layers.Dense(param_2*time_steps, activation='relu'),
     tf.keras.layers.Dense(param_3*time_steps, activation='relu'),
-    tf.keras.layers.Dense(8, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -306,7 +313,7 @@ model_forward = tf.keras.Sequential([
 model_forward.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 # Train the model
-model_forward.fit(X_train_forward, y_train_forward, epochs=10, batch_size=32, validation_data=(X_val_forward, y_val_forward))
+model_forward.fit(X_train_forward, y_train_forward, epochs = epochs, batch_size = batch_size, validation_data=(X_val_forward, y_val_forward))
 
 # Evaluate the model on the testing set
 y_pred_forward = model_forward.predict(X_test_forward)
@@ -354,7 +361,6 @@ model_wide = tf.keras.Sequential([
     tf.keras.layers.LSTM(param_1*time_steps, activation='relu', input_shape=(time_steps, X_train_wide.shape[2])),
     tf.keras.layers.Dense(param_2*time_steps, activation='relu'),
     tf.keras.layers.Dense(param_3*time_steps, activation='relu'),
-    tf.keras.layers.Dense(8, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -362,7 +368,7 @@ model_wide = tf.keras.Sequential([
 model_wide.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 # Train the model
-model_wide.fit(X_train_wide, y_train_wide, epochs=10, batch_size=32, validation_data=(X_val_wide, y_val_wide))
+model_wide.fit(X_train_wide, y_train_wide, epochs = epochs, batch_size = batch_size, validation_data=(X_val_wide, y_val_wide))
 
 # Evaluate the model on the testing set
 y_pred_wide = model_wide.predict(X_test_wide)
@@ -532,3 +538,35 @@ def create_autolabels(files, chosen_model):
 #%%
 
 # create_autolabels(all_position, loaded_model) # Lets analyze!
+
+#%%
+
+# Record the end time
+end_time = time.time()
+
+# Calculate the elapsed time
+elapsed_time = end_time - start_time
+#%%
+
+print(f"Script execution time: {elapsed_time:.2f} seconds ({elapsed_time/60:.2f} minutes).")
+
+print(f"Accuracy = {accuracy_RF_model:.4f}, Precision = {precision_RF_model:.4f} -> RF_model")
+
+print(f"Accuracy = {accuracy_simple_model:.4f}, Precision = {precision_simple:.4f} -> simple_model")
+
+print(f"Accuracy = {accuracy_back:.4f}, Precision = {precision_back:.4f} -> Back")
+
+print(f"Accuracy = {accuracy_forward:.4f}, Precision = {precision_forward:.4f} -> Forward")
+
+print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f} -> Wide")
+
+#%%
+
+""" At home, using 2023-05_TORM_24h:
+Script execution time: 1605.94 seconds (26.77 minutes).
+Accuracy = 0.9564, Precision = 0.8102 -> RF_model
+Accuracy = 0.9625, Precision = 0.8313 -> simple_model
+Accuracy = 0.9501, Precision = 0.7195 -> Back
+Accuracy = 0.9314, Precision = 0.5944 -> Forward
+Accuracy = 0.9363, Precision = 0.7723 -> Wide
+"""

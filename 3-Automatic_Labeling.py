@@ -18,7 +18,7 @@ param_1 = 32
 param_2 = 24
 param_3 = 16
 
-epochs = 20 # Set the training epochs
+epochs = 1 # Set the training epochs
 
 batch_size = 64 # Set the batch size
 
@@ -33,7 +33,7 @@ after = 2 # Say how many frames into the future the models will see
 # In the lab:
 path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'2023-05_TORM_24h'
+experiment = r'2023-05_TeNOR'
 
 #%% Import libraries
 
@@ -91,9 +91,11 @@ Separate the files from one video to test the model
 video = random.randint(1, len(TS_position))
 
 # Select position and labels for testing
-position_test_file = TS_position.pop(video - 1)
+# position_test_file = TS_position.pop(video - 1)
+position_test_file = '/home/usuario/Desktop/Example/2023-05_TeNOR_TS_C3_B_R_position.csv'
 position_test = pd.read_csv(position_test_file)
-labels_test_file = TS_labels.pop(video - 1)
+# labels_test_file = TS_labels.pop(video - 1)
+labels_test_file = '/home/usuario/Desktop/Example/2023-05_TeNOR_TS_C3_B_R_santi_labels.csv'
 labels_test = pd.read_csv(labels_test_file)
 # It is important to use pop because we dont want to train the model with the testing video
 
@@ -442,6 +444,61 @@ plt.ylim((-2, 2))
 
 plt.legend()
 plt.show()
+
+#%%
+import cv2
+
+path = '/home/usuario/Desktop/Example/'
+
+video_path = path + '2023-05_TeNOR_24h_TS_C3_B_R.mp4'
+
+# Function to add labels to video frames from two CSV files with color-coded text in a subplot
+def add_labels_to_frames_with_subplot(video_path):
+    cap = cv2.VideoCapture(video_path)
+
+    # Get frame at position 2000
+    frame_number = 3000
+    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+    ret, frame = cap.read()
+    
+    # Create a 1x2 subplot grid
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+    
+    # Plot the first subplot (you can customize this subplot as needed)
+    axs[0].imshow(frame[...,::-1])
+    
+    axs[1].plot(labels_test["Left"] * 1, ".", color = "black", label = "Manual")
+    axs[1].plot(labels_test["Right"] * -1, ".", color = "black")
+    
+    axs[1].plot(autolabels_wide["Left"], color = "b")
+    axs[1].plot(autolabels_wide["Right"] * -1, color = "b")
+    
+    axs[1].plot(autolabels_forward["Left"], color = "g")
+    axs[1].plot(autolabels_forward["Right"] * -1, color = "g")
+    
+    axs[1].plot(autolabels_back["Left"], color = "orange")
+    axs[1].plot(autolabels_back["Right"] * -1, color = "orange")
+    
+    axs[1].plot(autolabels["Left"], color = "r")
+    axs[1].plot(autolabels["Right"] * -1, color = "r")
+    
+    axs[1].set_xlim(frame_number-5, frame_number+5)
+    axs[1].set_ylim(-1.5, 1.5)
+    axs[1].axvline(x=frame_number, color='black', linestyle='--')
+
+    plt.show()
+
+    # Release video capture object
+    cap.release()
+
+    # Destroy the window
+    cv2.destroyAllWindows()
+
+    print("Frames with color-coded labels from both CSV files displayed successfully!")
+
+
+# Example usage
+add_labels_to_frames_with_subplot(video_path)
 
 #%%
 

@@ -12,35 +12,41 @@ import time
 start_time = time.time()
 
 #%%
+
+# Set the number of neurons in each layer
 param_1 = 32
 param_2 = 24
 param_3 = 16
 
-epochs = 10
+epochs = 20 # Set the training epochs
 
-batch_size = 8
+batch_size = 64 # Set the batch size
 
-time_steps = 2
-half_steps = time_steps//2
+before = 2 # Say how many frames into the past the models will see
+after = 2 # Say how many frames into the future the models will see
+
+#%%
+
+# At home:
+# path = r'C:/Users/dhers/Desktop/Videos_NOR/'
+
+# In the lab:
+path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+
+experiment = r'2023-05_TORM_24h'
 
 #%% Import libraries
 
 import os
 import pandas as pd
 import numpy as np
-
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.multioutput import MultiOutputClassifier
-from sklearn.utils.class_weight import compute_class_weight
-import joblib
-
 import matplotlib.pyplot as plt
-
 import random
 
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import accuracy_score, precision_score
 
 import tensorflow as tf
@@ -68,20 +74,11 @@ def find_files(path_name, exp_name, group, folder):
 
 #%%
 
-# At home:
-path = r'C:/Users/dhers/Desktop/Videos_NOR/'
-
-# In the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
-
-experiment = r'2023-05_TORM_24h'
-
-TR1_position = find_files(path, experiment, "TR1", "position")
-TR2_position = find_files(path, experiment, "TR2", "position")
 TS_position = find_files(path, experiment, "TS", "position")
-# TR3_position = find_files(path, experiment, "TR3", "position")
+#TR2_position = find_files(path, experiment, "TR2", "position")
+#TR1_position = find_files(path, experiment, "TR1", "position")
 
-all_position = TR1_position + TR2_position + TS_position # + TR3_position
+all_position = TS_position # + TR2_position + TR1_position
 
 TS_labels = find_files(path, experiment, "TS", "labels")
 
@@ -102,6 +99,14 @@ labels_test = pd.read_csv(labels_test_file)
 
 # We dont want to use the points from the far tail to avoid overloading the model
 position_test = position_test.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+
+# Lets remove the frames where the mice is not in the video before analyzing it
+position_test.fillna(0, inplace=True)
+
+position_test = position_test[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
+                'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
+                'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
+                'neck_x', 'neck_y', 'body_x', 'body_y']].values
 
 #%%
 
@@ -151,18 +156,6 @@ split_index_val = int(len(X) * 0.2)  # Use 20% of the data for validating
 X_train, X_test, X_val = X[split_index_val:split_index_test], X[split_index_test:], X[:split_index_val]
 y_train, y_test, y_val = y[split_index_val:split_index_test], y[split_index_test:], y[:split_index_val]
 
-# %%
-"""
-# Calculate the class weights based on the class distribution
-class_weights = compute_class_weight('balanced', classes = np.unique(model_y), y = np.ravel(model_y))
-
-#%%
-
-# Create the Random Forest model (and set the number of estimators (decision trees))
-RF_model = RandomForestClassifier(n_estimators = 20, random_state = 42, max_depth = 15, class_weight = {0: class_weights[0], 1: class_weights[1]})
-
-#%%
-"""
 #%%
 
 # Create the Random Forest model (and set the number of estimators (decision trees))
@@ -177,20 +170,15 @@ multi_output_RF_model.fit(X_train, y_train)
 # Evaluate the RF model on the testing set
 y_pred_RF_model = multi_output_RF_model.predict(X_test)
 
+# Calculate accuracy and precision of the model
 accuracy_RF_model = accuracy_score(y_test, y_pred_RF_model)
-print(f"Accuracy on testing set: {accuracy_RF_model:.4f}")
-
 precision_RF_model = precision_score(y_test, y_pred_RF_model, average = 'weighted')
-print(f"Precision on testing set: {precision_RF_model:.4f}")
-
-#%%
-# Load the saved model from file
-# loaded_model = joblib.load(r'C:\Users\dhers\Desktop\STORM\trained_model_203.pkl')
 
 #%%
 
 """
-Implement a simple feedforward simple_model
+Implement a simple feedforward model
+    - It looks at one frame at a time
 """
 
 # Build a simple feedforward neural network
@@ -211,47 +199,65 @@ simple_model.fit(X_train, y_train, epochs = epochs, batch_size = batch_size, val
 y_pred_simple_model = simple_model.predict(X_test)
 y_pred_binary_simple_model = (y_pred_simple_model > 0.5).astype(int)  # Convert probabilities to binary predictions
 
+# Calculate accuracy and precision of the model
 accuracy_simple_model = accuracy_score(y_test, y_pred_binary_simple_model)
-print(f"Accuracy on testing set: {accuracy_simple_model:.4f}")
-
 precision_simple = precision_score(y_test, y_pred_binary_simple_model, average = 'weighted')
-print(f"Precision on testing set: {precision_simple:.4f}")
 
 #%%
 
 """
 Implement LSTM models that can take into account the frames previous to exploration
+    - First we need to reshape the dataset to look at more than one row for one output
 """
 
-def reshape_set(data, labels, time_steps):
-    reshaped_data = []
-    reshaped_labels = []
-
-    for i in range(len(data) - time_steps):
-        reshaped_data.append(data[i:i + time_steps])
-        reshaped_labels.append(labels[i + time_steps])
-
-    reshaped_data = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
-    reshaped_labels = tf.convert_to_tensor(reshaped_labels, dtype=tf.float64)
-
-    return reshaped_data, reshaped_labels
-
-# Reshape the training set
-X_train_back, y_train_back = reshape_set(X_train, y_train, time_steps)
-
-# Reshape the testing set
-X_test_back, y_test_back = reshape_set(X_test, y_test, time_steps)
-
-# Reshape the validating set
-X_val_back, y_val_back = reshape_set(X_val, y_val, time_steps)
+def reshape_set(data, labels, back, forward):
+    
+    if labels is False:
+        
+        reshaped_data = []
+    
+        for i in range(back, len(data) - forward):
+            reshaped_data.append(data[i-back : i+forward])
+    
+        reshaped_data = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
+    
+        return reshaped_data
+    
+    else:
+        
+        reshaped_data = []
+        reshaped_labels = []
+    
+        for i in range(back, len(data) - forward):
+            reshaped_data.append(data[i-back : i+forward])
+            reshaped_labels.append(labels[i])
+    
+        reshaped_data = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
+        reshaped_labels = tf.convert_to_tensor(reshaped_labels, dtype=tf.float64)
+    
+        return reshaped_data, reshaped_labels
 
 #%%
 
-# Build a simple LSTM-based neural network
+"""
+Implement a LSTM model that can take into account the frames BEFORE exploration
+"""
+
+# Reshape the training set
+X_train_back, y_train_back = reshape_set(X_train, y_train, before, 0)
+
+# Reshape the testing set
+X_test_back, y_test_back = reshape_set(X_test, y_test, before, 0)
+
+# Reshape the validating set
+X_val_back, y_val_back = reshape_set(X_val, y_val, before, 0)
+
+
+# Build a LSTM-based neural network that looks at PREVIOUS frames
 model_back = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1*time_steps, activation='relu', input_shape=(time_steps, X_train_back.shape[2])),
-    tf.keras.layers.Dense(param_2*time_steps, activation='relu'),
-    tf.keras.layers.Dense(param_3*time_steps, activation='relu'),
+    tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(before, X_train_back.shape[2])),
+    tf.keras.layers.Dense(param_2, activation='relu'),
+    tf.keras.layers.Dense(param_3, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -265,47 +271,31 @@ model_back.fit(X_train_back, y_train_back, epochs = epochs, batch_size = batch_s
 y_pred_back = model_back.predict(X_test_back)
 y_pred_binary_back = (y_pred_back > 0.5).astype(int)  # Convert probabilities to binary predictions
 
+# Calculate accuracy and precision of the model
 accuracy_back = accuracy_score(y_test_back, y_pred_binary_back)
-print(f"Accuracy on testing set: {accuracy_back:.4f}")
-
 precision_back = precision_score(y_test_back, y_pred_binary_back, average = 'weighted')
-print(f"Precision on testing set: {precision_back:.4f}")
 
 #%%
 
 """
-Implement LSTM models that can take into account the frames after exploration
+Implement LSTM models that can take into account the frames AFTER exploration
 """
-
-def reshape_set(data, labels, time_steps):
-    reshaped_data = []
-    reshaped_labels = []
-
-    for i in range(len(data) - time_steps):
-        reshaped_data.append(data[i:i + time_steps])
-        reshaped_labels.append(labels[i])
-
-    reshaped_data = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
-    reshaped_labels = tf.convert_to_tensor(reshaped_labels, dtype=tf.float64)
-
-    return reshaped_data, reshaped_labels
 
 # Reshape the training set
-X_train_forward, y_train_forward = reshape_set(X_train, y_train, time_steps)
+X_train_forward, y_train_forward = reshape_set(X_train, y_train, 0, after)
 
 # Reshape the testing set
-X_test_forward, y_test_forward = reshape_set(X_test, y_test, time_steps)
+X_test_forward, y_test_forward = reshape_set(X_test, y_test, 0, after)
 
 # Reshape the validating set
-X_val_forward, y_val_forward = reshape_set(X_val, y_val, time_steps)
+X_val_forward, y_val_forward = reshape_set(X_val, y_val, 0, after)
 
-#%%
 
 # Build a simple LSTM-based neural network
 model_forward = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1*time_steps, activation='relu', input_shape=(time_steps, X_train_forward.shape[2])),
-    tf.keras.layers.Dense(param_2*time_steps, activation='relu'),
-    tf.keras.layers.Dense(param_3*time_steps, activation='relu'),
+    tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(after, X_train_forward.shape[2])),
+    tf.keras.layers.Dense(param_2, activation='relu'),
+    tf.keras.layers.Dense(param_3, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -319,48 +309,31 @@ model_forward.fit(X_train_forward, y_train_forward, epochs = epochs, batch_size 
 y_pred_forward = model_forward.predict(X_test_forward)
 y_pred_binary_forward = (y_pred_forward > 0.5).astype(int)  # Convert probabilities to binary predictions
 
+# Calculate accuracy and precision of the model
 accuracy_forward = accuracy_score(y_test_forward, y_pred_binary_forward)
-print(f"Accuracy on testing set: {accuracy_forward:.4f}")
-
 precision_forward = precision_score(y_test_forward, y_pred_binary_forward, average = 'weighted')
-print(f"Precision on testing set: {precision_forward:.4f}")
 
 #%%
 
 """
-Implement LSTM models that can take into account the frames previous and after exploration
+Implement LSTM models that can take into account the frames BEFORE and AFTER exploration
 """
-
-def reshape_set(data, labels, time_steps):
-    
-    reshaped_data = []
-    reshaped_labels = []
-
-    for i in range(half_steps, len(data) - half_steps):
-        reshaped_data.append(data[i-half_steps : i+half_steps])
-        reshaped_labels.append(labels[i])
-
-    reshaped_data = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
-    reshaped_labels = tf.convert_to_tensor(reshaped_labels, dtype=tf.float64)
-
-    return reshaped_data, reshaped_labels
 
 # Reshape the training set
-X_train_wide, y_train_wide = reshape_set(X_train, y_train, half_steps)
+X_train_wide, y_train_wide = reshape_set(X_train, y_train, before, after)
 
 # Reshape the testing set
-X_test_wide, y_test_wide = reshape_set(X_test, y_test, half_steps)
+X_test_wide, y_test_wide = reshape_set(X_test, y_test, before, after)
 
 # Reshape the validating set
-X_val_wide, y_val_wide = reshape_set(X_val, y_val, half_steps)
+X_val_wide, y_val_wide = reshape_set(X_val, y_val, before, after)
 
-#%%
 
 # Build a simple LSTM-based neural network
 model_wide = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1*time_steps, activation='relu', input_shape=(time_steps, X_train_wide.shape[2])),
-    tf.keras.layers.Dense(param_2*time_steps, activation='relu'),
-    tf.keras.layers.Dense(param_3*time_steps, activation='relu'),
+    tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(before + after, X_train_wide.shape[2])),
+    tf.keras.layers.Dense(param_2, activation='relu'),
+    tf.keras.layers.Dense(param_3, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -374,30 +347,19 @@ model_wide.fit(X_train_wide, y_train_wide, epochs = epochs, batch_size = batch_s
 y_pred_wide = model_wide.predict(X_test_wide)
 y_pred_binary_wide = (y_pred_wide > 0.5).astype(int)  # Convert probabilities to binary predictions
 
+# Calculate accuracy and precision of the model
 accuracy_wide = accuracy_score(y_test_wide, y_pred_binary_wide)
-print(f"Accuracy on testing set: {accuracy_wide:.4f}")
-
 precision_wide = precision_score(y_test_wide, y_pred_binary_wide, average = 'weighted')
-print(f"Precision on testing set: {precision_wide:.4f}")
 
 #%%
 
-# Lets remove the frames where the mice is not in the video before analyzing it
-position_test.fillna(0, inplace=True)
-
 """ Predict the RF labels """
 autolabels_RF = multi_output_RF_model.predict(position_test)
-
-# Set the predictions shape to two columns
 autolabels_RF = pd.DataFrame(autolabels_RF, columns=["Left", "Right"])
-
-# Add a new column "Frame" with row numbers
 autolabels_RF.insert(0, "Frame", autolabels_RF.index + 1)
 
 """ Predict the simple labels """
 autolabels = simple_model.predict(position_test)
-
-# Set the predictions shape to two columns
 autolabels = pd.DataFrame(autolabels, columns=["Left", "Right"])
 autolabels.insert(0, "Frame", autolabels.index + 1)
 autolabels_binary = (autolabels > 0.5).astype(int) 
@@ -405,16 +367,9 @@ autolabels_binary = (autolabels > 0.5).astype(int)
 #%%
 """ Predict the back labels """
 
-position_back = position_test.to_numpy()
-position_test_reshaped = []
-
-for i in range(len(position_back) - time_steps):
-    position_test_reshaped.append(position_back[i:i + time_steps])
-
-position_test_LSTM = tf.convert_to_tensor(position_test_reshaped, dtype=tf.float64)
-
-autolabels_back = model_back.predict(position_test_LSTM)
-autolabels_back = np.vstack((np.zeros((time_steps, 2)), autolabels_back))
+position_back = reshape_set(position_test, False, before, 0)
+autolabels_back = model_back.predict(position_back)
+autolabels_back = np.vstack((np.zeros((before, 2)), autolabels_back))
 autolabels_back = pd.DataFrame(autolabels_back, columns=["Left", "Right"])
 autolabels_back.insert(0, "Frame", autolabels_back.index + 1)
 autolabels_back_binary = (autolabels_back > 0.5).astype(int)
@@ -422,7 +377,8 @@ autolabels_back_binary = (autolabels_back > 0.5).astype(int)
 #%%
 """ Predict the forward labels """
 
-autolabels_forward = model_forward.predict(position_test_LSTM)
+position_forward = reshape_set(position_test, False, 0, after)
+autolabels_forward = model_forward.predict(position_forward)
 autolabels_forward = pd.DataFrame(autolabels_forward, columns=["Left", "Right"])
 autolabels_forward.insert(0, "Frame", autolabels_forward.index + 1)
 autolabels_forward_binary = (autolabels_forward > 0.5).astype(int) 
@@ -430,16 +386,9 @@ autolabels_forward_binary = (autolabels_forward > 0.5).astype(int)
 #%%
 """ Predict the wide labels """
 
-position_wide = position_test.to_numpy()
-position_test_reshaped = []
-
-for i in range(half_steps, len(position_wide) - half_steps):
-    position_test_reshaped.append(position_wide[i-half_steps : i+half_steps])
-
-position_test_LSTM = tf.convert_to_tensor(position_test_reshaped, dtype=tf.float64)
-
-autolabels_wide = model_wide.predict(position_test_LSTM)
-autolabels_wide = np.vstack((np.zeros((half_steps, 2)), autolabels_wide))
+position_wide = reshape_set(position_test, False, before, after)
+autolabels_wide = model_wide.predict(position_wide)
+autolabels_wide = np.vstack((np.zeros((before, 2)), autolabels_wide))
 autolabels_wide = pd.DataFrame(autolabels_wide, columns=["Left", "Right"])
 autolabels_wide.insert(0, "Frame", autolabels_wide.index + 1)
 autolabels_wide_binary = (autolabels_wide > 0.5).astype(int)
@@ -546,6 +495,7 @@ end_time = time.time()
 
 # Calculate the elapsed time
 elapsed_time = end_time - start_time
+
 #%%
 
 print(f"Script execution time: {elapsed_time:.2f} seconds ({elapsed_time/60:.2f} minutes).")
@@ -570,3 +520,35 @@ Accuracy = 0.9501, Precision = 0.7195 -> Back
 Accuracy = 0.9314, Precision = 0.5944 -> Forward
 Accuracy = 0.9363, Precision = 0.7723 -> Wide
 """
+
+""" At home, using 2023-05_TORM_24h:
+Script execution time: 1163.35 seconds (19.39 minutes).
+Accuracy = 0.9593, Precision = 0.8335 -> RF_model
+Accuracy = 0.9340, Precision = 0.6580 -> simple_model
+Accuracy = 0.9575, Precision = 0.7682 -> Back
+Accuracy = 0.9397, Precision = 0.8943 -> Forward
+Accuracy = 0.9578, Precision = 0.7714 -> Wide
+"""
+
+""" With batch size 64:
+Script execution time: 169.98 seconds (2.83 minutes).
+Accuracy = 0.9643, Precision = 0.8147 -> RF_model
+Accuracy = 0.9535, Precision = 0.8530 -> simple_model
+Accuracy = 0.9618, Precision = 0.7977 -> Back
+Accuracy = 0.9603, Precision = 0.8357 -> Forward
+Accuracy = 0.9551, Precision = 0.7852 -> Wide
+"""
+
+""" With epochs 20:
+Script execution time: 334.33 seconds (5.57 minutes).
+Accuracy = 0.9506, Precision = 0.7962 -> RF_model
+Accuracy = 0.9643, Precision = 0.8757 -> simple_model
+Accuracy = 0.9598, Precision = 0.8108 -> Back
+Accuracy = 0.9642, Precision = 0.8648 -> Forward
+Accuracy = 0.9643, Precision = 0.8156 -> Wide
+"""
+
+#%%
+
+# Load the saved model from file
+# loaded_model = joblib.load(r'C:\Users\dhers\Desktop\STORM\trained_model_203.pkl')

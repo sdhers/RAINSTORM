@@ -18,7 +18,7 @@ param_1 = 32
 param_2 = 24
 param_3 = 16
 
-epochs = 1 # Set the training epochs
+epochs = 10 # Set the training epochs
 
 batch_size = 64 # Set the batch size
 
@@ -28,10 +28,10 @@ after = 2 # Say how many frames into the future the models will see
 #%%
 
 # At home:
-# path = r'C:/Users/dhers/Desktop/Videos_NOR/'
+path = 'C:/Users/dhers/Desktop/Videos_NOR/'
 
 # In the lab:
-path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
 experiment = r'2023-05_TeNOR'
 
@@ -52,6 +52,12 @@ from sklearn.metrics import accuracy_score, precision_score
 import tensorflow as tf
 
 print(tf.config.list_physical_devices('GPU'))
+
+import cv2
+import keyboard
+from moviepy.editor import VideoFileClip
+from tkinter import messagebox
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 #%% This function finds the files that we want to use and lists their path
 
@@ -92,10 +98,10 @@ video = random.randint(1, len(TS_position))
 
 # Select position and labels for testing
 # position_test_file = TS_position.pop(video - 1)
-position_test_file = '/home/usuario/Desktop/Example/2023-05_TeNOR_TS_C3_B_R_position.csv'
+position_test_file = path + 'Example/2023-05_TeNOR_TS_C3_B_R_position.csv'
 position_test = pd.read_csv(position_test_file)
 # labels_test_file = TS_labels.pop(video - 1)
-labels_test_file = '/home/usuario/Desktop/Example/2023-05_TeNOR_TS_C3_B_R_santi_labels.csv'
+labels_test_file = path + 'Example/2023-05_TeNOR_TS_C3_B_R_agus_labels.csv'
 labels_test = pd.read_csv(labels_test_file)
 # It is important to use pop because we dont want to train the model with the testing video
 
@@ -446,106 +452,6 @@ plt.legend()
 plt.show()
 
 #%%
-import cv2
-
-path = '/home/usuario/Desktop/Example/'
-
-video_path = path + '2023-05_TeNOR_24h_TS_C3_B_R.mp4'
-
-# Function to add labels to video frames from two CSV files with color-coded text in a subplot
-def add_labels_to_frames_with_subplot(video_path):
-    cap = cv2.VideoCapture(video_path)
-
-    # Get frame at position 2000
-    frame_number = 3000
-    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
-    ret, frame = cap.read()
-    
-    # Create a 1x2 subplot grid
-    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
-    
-    # Plot the first subplot (you can customize this subplot as needed)
-    axs[0].imshow(frame[...,::-1])
-    
-    axs[1].plot(labels_test["Left"] * 1, ".", color = "black", label = "Manual")
-    axs[1].plot(labels_test["Right"] * -1, ".", color = "black")
-    
-    axs[1].plot(autolabels_wide["Left"], color = "b")
-    axs[1].plot(autolabels_wide["Right"] * -1, color = "b")
-    
-    axs[1].plot(autolabels_forward["Left"], color = "g")
-    axs[1].plot(autolabels_forward["Right"] * -1, color = "g")
-    
-    axs[1].plot(autolabels_back["Left"], color = "orange")
-    axs[1].plot(autolabels_back["Right"] * -1, color = "orange")
-    
-    axs[1].plot(autolabels["Left"], color = "r")
-    axs[1].plot(autolabels["Right"] * -1, color = "r")
-    
-    axs[1].set_xlim(frame_number-5, frame_number+5)
-    axs[1].set_ylim(-1.5, 1.5)
-    axs[1].axvline(x=frame_number, color='black', linestyle='--')
-
-    plt.show()
-
-    # Release video capture object
-    cap.release()
-
-    # Destroy the window
-    cv2.destroyAllWindows()
-
-    print("Frames with color-coded labels from both CSV files displayed successfully!")
-
-
-# Example usage
-add_labels_to_frames_with_subplot(video_path)
-
-#%%
-
-"""
-Now we define the function that creates the automatic labels for all _position.csv files in a folder
-"""
-
-def create_autolabels(files, chosen_model):
-    
-    for file in files:
-
-        position = pd.read_csv(file)
-        
-        position = position.drop(['tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
-        
-        # Lets remove the frames where the mice is not in the video before analyzing it
-        position.fillna(0, inplace=True)
-    
-        # lets analyze it!
-        autolabels = chosen_model.predict(position)
-        
-        # Set column names and add a new column "Frame" with row numbers
-        autolabels = pd.DataFrame(autolabels, columns = ["Left", "Right"])
-        autolabels.insert(0, "Frame", autolabels.index + 1)
-        
-        # Determine the output file path
-        input_dir, input_filename = os.path.split(file)
-        parent_dir = os.path.dirname(input_dir)
-    
-        # Create a filename for the output CSV file
-        output_filename = input_filename.replace('_position.csv', '_autolabels.csv')
-        output_folder = os.path.join(parent_dir + '/autolabels')
-        
-        # Make the output folder (if it does not exist)
-        os.makedirs(output_folder, exist_ok = True)
-        
-        # Save the DataFrame to a CSV file
-        output_path = os.path.join(output_folder, output_filename)
-        autolabels.to_csv(output_path, index=False)
-    
-        print(f"Processed {input_filename} and saved results to {output_filename}")
-
-#%%
-
-# create_autolabels(all_position, loaded_model) # Lets analyze!
-
-#%%
 
 # Record the end time
 end_time = time.time()
@@ -605,6 +511,187 @@ Accuracy = 0.9642, Precision = 0.8648 -> Forward
 Accuracy = 0.9643, Precision = 0.8156 -> Wide
 """
 
+"""
+Script execution time: 296.81 seconds (4.95 minutes).
+Accuracy = 0.9607, Precision = 0.5287 -> RF_model
+Accuracy = 0.9570, Precision = 0.5131 -> simple_model
+Accuracy = 0.9448, Precision = 0.3006 -> Back
+Accuracy = 0.9604, Precision = 0.4590 -> Forward
+Accuracy = 0.9636, Precision = 0.5243 -> Wide
+"""
+
+#%%
+
+def process_frame(frame, frame_number):
+    back = False
+    forward = False
+
+    # Plot using Matplotlib with Agg backend
+    fig, ax = plt.subplots(figsize=(6, 4))
+    
+    ax.plot(labels_test["Left"] * 1, ".", color = "black", label = "Manual")
+    ax.plot(labels_test["Right"] * -1, ".", color = "black")
+    
+    ax.plot(autolabels_wide["Left"], color = "b")
+    ax.plot(autolabels_wide["Right"] * -1, color = "b")
+    
+    ax.plot(autolabels_forward["Left"], color = "g")
+    ax.plot(autolabels_forward["Right"] * -1, color = "g")
+    
+    ax.plot(autolabels_back["Left"], color = "orange")
+    ax.plot(autolabels_back["Right"] * -1, color = "orange")
+    
+    ax.plot(autolabels["Left"], color = "r")
+    ax.plot(autolabels["Right"] * -1, color = "r")
+    
+    ax.set_xlim(frame_number-5, frame_number+5)
+    ax.set_ylim(-1.5, 1.5)
+    ax.axvline(x=frame_number, color='black', linestyle='--')
+    
+    ax.set_title(f'Plot for Frame {frame_number}')
+    ax.set_xlabel('X-axis')
+    ax.set_ylabel('Y-axis')
+
+    # Save the plot as an image in memory
+    plot_img_path = 'plot_img.png'
+    canvas = FigureCanvas(fig)
+    canvas.print_png(plot_img_path)
+    
+    # Load the saved plot image
+    plot_img = cv2.imread(plot_img_path)
+    
+    # Resize the plot image to match the height of the frame
+    plot_img = cv2.resize(plot_img, (frame.shape[1], frame.shape[0]))
+    
+    # Combine the frame and plot images horizontally
+    combined_img = np.concatenate((frame, plot_img), axis=1)
+
+    # Display the combined image
+    cv2.imshow("Frame with Plot", combined_img)
+
+    # Wait for a keystroke
+    key = cv2.waitKey(0)
+    
+    if key == ord('2'):
+        pass
+    if key == ord('5'):
+        back = True
+    if key == ord('7'):
+        forward = 2
+    if key == ord('8'):
+        forward = 3
+    if key == ord('9'):
+        forward = 4
+    
+    return back, forward
+
+def visualize_video_frames(video_path):
+    
+    video = VideoFileClip(video_path)
+    
+    frame_generator = video.iter_frames()
+    frame_list = list(frame_generator) # This takes a while
+    
+    # Switch Matplotlib backend to Agg temporarily
+    original_backend = plt.get_backend()
+    plt.switch_backend('Agg')
+    
+    current_frame = 0 # Starting point of the video
+    
+    while current_frame < len(frame_list):
+              
+        frame = frame_list[current_frame] # The frame we are labeling
+        
+        # Process the current frames
+        back, forward = process_frame(frame, current_frame)
+        
+        if back:
+            # Go back one frame
+            current_frame = max(0, current_frame - 1)
+            continue
+        
+        if forward: # Go forward some frames
+            jump = forward
+            if current_frame < (len(frame_list) - jump):
+                current_frame += jump
+                continue   
+        
+        # Break the loop if the user presses 'q'
+        if keyboard.is_pressed('q'):
+            response = messagebox.askquestion("Exit", "Do you want to exit?")
+            if response == 'yes':
+                break
+            else:
+                continue
+            
+        # Continue to the next frame
+        current_frame += 1
+            
+        if current_frame == len(frame_list):
+            # Ask the user if they want to exit
+            response = messagebox.askquestion("Exit", "Do you want to exit?")
+            if response == 'yes':
+                break
+            else:
+                current_frame = len(frame_list) - 1
+                continue
+    
+    # Revert Matplotlib backend to the original backend
+    plt.switch_backend(original_backend)
+    
+    # Close the OpenCV windows
+    cv2.destroyAllWindows()
+
+video_path = path + 'Example/2023-05_TeNOR_24h_TS_C3_B_R.mp4'
+
+#%%
+
+visualize_video_frames(video_path)
+
+#%%
+
+"""
+Now we define the function that creates the automatic labels for all _position.csv files in a folder
+"""
+
+def create_autolabels(files, chosen_model):
+    
+    for file in files:
+
+        position = pd.read_csv(file)
+        
+        position = position.drop(['tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+        
+        # Lets remove the frames where the mice is not in the video before analyzing it
+        position.fillna(0, inplace=True)
+    
+        # lets analyze it!
+        autolabels = chosen_model.predict(position)
+        
+        # Set column names and add a new column "Frame" with row numbers
+        autolabels = pd.DataFrame(autolabels, columns = ["Left", "Right"])
+        autolabels.insert(0, "Frame", autolabels.index + 1)
+        
+        # Determine the output file path
+        input_dir, input_filename = os.path.split(file)
+        parent_dir = os.path.dirname(input_dir)
+    
+        # Create a filename for the output CSV file
+        output_filename = input_filename.replace('_position.csv', '_autolabels.csv')
+        output_folder = os.path.join(parent_dir + '/autolabels')
+        
+        # Make the output folder (if it does not exist)
+        os.makedirs(output_folder, exist_ok = True)
+        
+        # Save the DataFrame to a CSV file
+        output_path = os.path.join(output_folder, output_filename)
+        autolabels.to_csv(output_path, index=False)
+    
+        print(f"Processed {input_filename} and saved results to {output_filename}")
+
+#%%
+
+# create_autolabels(all_position, loaded_model) # Lets analyze!
 #%%
 
 # Load the saved model from file

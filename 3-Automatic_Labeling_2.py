@@ -18,9 +18,9 @@ param_1 = 64
 param_2 = 32
 param_3 = 16
 
-epochs = 20 # Set the training epochs
+epochs = 24 # Set the training epochs
 
-batch_size = 128 # Set the batch size
+batch_size = 1024 # Set the batch size
 
 before = 1 # Say how many frames into the past the models will see
 after = 1 # Say how many frames into the future the models will see
@@ -28,10 +28,10 @@ after = 1 # Say how many frames into the future the models will see
 #%%
 
 # At home:
-path = 'C:/Users/dhers/Desktop/Videos_NOR/'
+# path = 'C:/Users/dhers/Desktop/Videos_NOR/'
 
 # In the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
 experiment = r'2024-01_TeNOR-3xTR'
 
@@ -54,6 +54,10 @@ from tensorflow.keras.callbacks import EarlyStopping
 import tensorflow as tf
 
 print(tf.config.list_physical_devices('GPU'))
+
+# Set random seeds for reproducibility
+np.random.seed(42)
+tf.random.set_seed(42)
 
 import cv2
 import keyboard
@@ -187,14 +191,6 @@ X_test, y_test, X_val, y_val, X_train, y_train = extract_videos(TS_position, TS_
 # Define the EarlyStopping callback
 early_stopping = EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True)
 
-# Flatten the one-hot encoded array to get class labels
-y_test_labels = np.argmax(y_test, axis=1)
-
-# Calculate class weights based on the class distribution
-class_weights = compute_class_weight('balanced', classes=np.unique(y_test_labels), y=np.ravel(y_test_labels))
-
-class_weight_dict = {0: class_weights[0], 1: class_weights[1]}
-
 #%% Implement a simple feedforward model
 
 """
@@ -217,8 +213,7 @@ simple_model.fit(X_train, y_train,
                  epochs = epochs,
                  batch_size = batch_size, 
                  validation_data=(X_val, y_val),
-                 callbacks=[early_stopping],
-                 class_weight=class_weight_dict)
+                 callbacks=[early_stopping])
 
 # Evaluate the simple_model on the testing set
 y_pred_simple_model = simple_model.predict(X_test)
@@ -285,10 +280,10 @@ frames = before + after + 1
 
 # Build a simple LSTM-based neural network
 model_wide = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1 * frames, activation='relu', recurrent_dropout=0.2, input_shape=(frames, X_train_wide.shape[2])),
+    tf.keras.layers.LSTM(param_1 * frames, activation='relu', recurrent_dropout=0.2, return_sequences=True, input_shape=(frames, X_train_wide.shape[2])),
+    tf.keras.layers.LSTM(param_2 * frames, activation='relu'),
     tf.keras.layers.Dense(param_2 * frames, activation='relu'),
     tf.keras.layers.Dense(param_3 * frames, activation='relu'),
-    tf.keras.layers.Dense(16, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -300,8 +295,7 @@ model_wide.fit(X_train_wide, y_train_wide,
                epochs = epochs,
                batch_size = batch_size, 
                validation_data=(X_val_wide, y_val_wide),
-               callbacks=[early_stopping],
-               class_weight=class_weight_dict)
+               callbacks=[early_stopping])
 
 # Evaluate the model on the testing set
 y_pred_wide = model_wide.predict(X_test_wide)
@@ -337,6 +331,8 @@ autolabels_manual = pd.DataFrame(y_test, columns=["Left", "Right"])
 autolabels_manual.insert(0, "Frame", autolabels_manual.index + 1)
 
 #%% Lets plot the timeline to see the performance of the model
+
+plt.switch_backend('QtAgg')
 
 plt.figure(figsize = (16, 6))
 
@@ -380,18 +376,13 @@ print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f} -> Wide
 #%%
 
 """
-
-"""
-
-#%%
-
-"""
 Define a function that allows us to visualize the labels together with the video
 """
 
 def process_frame(frame, frame_number):
-    back = False
-    forward = False
+    
+    move = False
+    leave = False
 
     # Plot using Matplotlib with Agg backend
     fig, ax = plt.subplots(figsize=(6, 4))
@@ -414,6 +405,7 @@ def process_frame(frame, frame_number):
     ax.set_title(f'Plot for Frame {frame_number}')
     ax.set_xlabel('X-axis')
     ax.set_ylabel('Y-axis')
+    ax.grid=True
 
     # Save the plot as an image in memory
     plot_img_path = 'plot_img.png'
@@ -435,18 +427,22 @@ def process_frame(frame, frame_number):
     # Wait for a keystroke
     key = cv2.waitKey(0)
     
-    if key == ord('2'):
-        pass
-    if key == ord('5'):
-        back = True
-    if key == ord('7'):
-        forward = -15
-    if key == ord('8'):
-        forward = 3
+    if key == ord('6'):
+        move = 1
+    if key == ord('4'):
+        move = -1
     if key == ord('9'):
-        forward = 15
+        move = 5
+    if key == ord('7'):
+        move = -5
+    if key == ord('3'):
+        move = 50
+    if key == ord('1'):
+        move = -50
+    if key == ord('q'):
+        leave = True
     
-    return back, forward
+    return move, leave
 
 def visualize_video_frames(video_path):
     
@@ -460,44 +456,19 @@ def visualize_video_frames(video_path):
     plt.switch_backend('Agg')
     
     current_frame = 0 # Starting point of the video
+    leave = False
     
-    while current_frame < len(frame_list):
+    while current_frame < len(frame_list) and not leave:
               
         frame = frame_list[current_frame] # The frame we are labeling
         
         # Process the current frames
-        back, forward = process_frame(frame, current_frame)
+        move, leave = process_frame(frame, current_frame)
         
-        if back:
-            # Go back one frame
-            current_frame = max(0, current_frame - 1)
-            continue
-        
-        if forward: # Go forward some frames
-            jump = forward
-            if current_frame < (len(frame_list) - jump):
-                current_frame += jump
-                continue   
-        
-        # Break the loop if the user presses 'q'
-        if keyboard.is_pressed('q'):
-            response = messagebox.askquestion("Exit", "Do you want to exit?")
-            if response == 'yes':
-                break
-            else:
-                continue
-            
-        # Continue to the next frame
-        current_frame += 1
-            
-        if current_frame == len(frame_list):
-            # Ask the user if they want to exit
-            response = messagebox.askquestion("Exit", "Do you want to exit?")
-            if response == 'yes':
-                break
-            else:
-                current_frame = len(frame_list) - 1
-                continue
+        if move: # Move some frames
+            if 0 < (current_frame + move) < len(frame_list):
+                current_frame += move
+                
     
     # Revert Matplotlib backend to the original backend
     plt.switch_backend(original_backend)
@@ -509,54 +480,4 @@ video_path = path + 'Example/2024-01_TeNOR-3xTR_TS_C01_A_L.mp4'
 
 #%%
 
-# visualize_video_frames(video_path)
-
-#%%
-
-"""
-Now we define the function that creates the automatic labels for all _position.csv files in a folder
-"""
-
-def create_autolabels(files, chosen_model):
-    
-    for file in files:
-
-        position = pd.read_csv(file)
-        
-        position = position.drop(['tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
-        
-        # Lets remove the frames where the mice is not in the video before analyzing it
-        position.fillna(0, inplace=True)
-    
-        # lets analyze it!
-        autolabels = chosen_model.predict(position)
-        
-        # Set column names and add a new column "Frame" with row numbers
-        autolabels = pd.DataFrame(autolabels, columns = ["Left", "Right"])
-        autolabels.insert(0, "Frame", autolabels.index + 1)
-        
-        # Determine the output file path
-        input_dir, input_filename = os.path.split(file)
-        parent_dir = os.path.dirname(input_dir)
-    
-        # Create a filename for the output CSV file
-        output_filename = input_filename.replace('_position.csv', '_autolabels.csv')
-        output_folder = os.path.join(parent_dir + '/autolabels')
-        
-        # Make the output folder (if it does not exist)
-        os.makedirs(output_folder, exist_ok = True)
-        
-        # Save the DataFrame to a CSV file
-        output_path = os.path.join(output_folder, output_filename)
-        autolabels.to_csv(output_path, index=False)
-    
-        print(f"Processed {input_filename} and saved results to {output_filename}")
-
-#%%
-
-# create_autolabels(all_position, loaded_model) # Lets analyze!
-
-#%%
-
-# Load the saved model from file
-# loaded_model = joblib.load(r'C:\Users\dhers\Desktop\STORM\trained_model_203.pkl')
+visualize_video_frames(video_path)

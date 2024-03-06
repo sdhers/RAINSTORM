@@ -15,15 +15,15 @@ start_time = time.time()
 
 # Set the number of neurons in each layer
 param_1 = 32
-param_2 = 24
+param_2 = 64
 param_3 = 16
 
 epochs = 10 # Set the training epochs
 
-batch_size = 64 # Set the batch size
+batch_size = 512 # Set the batch size
 
-before = 2 # Say how many frames into the past the models will see
-after = 2 # Say how many frames into the future the models will see
+before = 1 # Say how many frames into the past the models will see
+after = 1 # Say how many frames into the future the models will see
 
 #%%
 
@@ -33,7 +33,7 @@ path = 'C:/Users/dhers/Desktop/Videos_NOR/'
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'2023-05_TeNOR'
+experiment = r'2024-01_TeNOR-3xTR'
 
 #%% Import libraries
 
@@ -90,79 +90,100 @@ TS_labels = find_files(path, experiment, "TS", "labels")
 
 #%%
 """
-Separate the files from one video to test the model
+Define a function that prepares data for training
 """
 
-# Select a random video you want to use to test the model
-video = random.randint(1, len(TS_position))
+def extract_videos(position_file, labels_file):
+    
+    """ Testing """
+    
+    # Select a random video you want to use to test the model
+    # video_test = random.randint(1, len(position_file))
+    video_test = 1
 
-# Select position and labels for testing
-# position_test_file = TS_position.pop(video - 1)
-position_test_file = path + 'Example/2023-05_TeNOR_TS_C3_B_R_position.csv'
-position_test = pd.read_csv(position_test_file)
-# labels_test_file = TS_labels.pop(video - 1)
-labels_test_file = path + 'Example/2023-05_TeNOR_TS_C3_B_R_agus_labels.csv'
-labels_test = pd.read_csv(labels_test_file)
-# It is important to use pop because we dont want to train the model with the testing video
+    # Select position and labels for testing
+    position_test = position_file.pop(video_test - 1)
+    labels_test = labels_file.pop(video_test - 1)
+    
+    position_df = pd.read_csv(position_test)
+    labels_df = pd.read_csv(labels_test)
+    
+    test_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+    
+    test_data['Left'] = labels_df['Left'] 
+    test_data['Right'] = labels_df['Right']
+    
+    # We remove the rows where the mice is not on the video
+    test_data = test_data.dropna(how='any')
+        
+    X_test = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 'neck_x', 'neck_y', 'body_x', 'body_y']].values
+    
+    # Extract labels (exploring or not)
+    y_test = test_data[['Left', 'Right']].values
+    
+    
+    """ Validation """
 
-# We dont want to use the points from the far tail to avoid overloading the model
-position_test = position_test.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
-
-# Lets remove the frames where the mice is not in the video before analyzing it
-position_test.fillna(0, inplace=True)
-
-position_test = position_test[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
-                'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
-                'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
-                'neck_x', 'neck_y', 'body_x', 'body_y']].values
+    # Select a random video you want to use to val the model
+    # video_val = random.randint(1, len(position_file))
+    video_val = 1
+    
+    # Select position and labels for valing
+    position_val = position_file.pop(video_val - 1)
+    labels_val = labels_file.pop(video_val - 1)
+    
+    position_df = pd.read_csv(position_val)
+    labels_df = pd.read_csv(labels_val)
+    
+    val_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+    
+    val_data['Left'] = labels_df['Left'] 
+    val_data['Right'] = labels_df['Right']
+    
+    # We remove the rows where the mice is not on the video
+    val_data = val_data.dropna(how='any')
+        
+    X_val = val_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 'neck_x', 'neck_y', 'body_x', 'body_y']].values
+    
+    # Extract labels (exploring or not)
+    y_val = val_data[['Left', 'Right']].values
+    
+    
+    """ Train """
+    
+    train_data = pd.DataFrame(columns = ['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 
+                                   'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 
+                                   'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 
+                                   'neck_x', 'neck_y', 'body_x', 'body_y'])
+    
+    for file in range(len(position_file)):
+    
+        position_df = pd.read_csv(position_file[file])
+        labels_df = pd.read_csv(labels_file[file])
+        
+        data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+        
+        data['Left'] = labels_df['Left'] 
+        data['Right'] = labels_df['Right']
+    
+        train_data = pd.concat([train_data, data], ignore_index = True)
+    
+    # We remove the rows where the mice is not on the video
+    train_data = train_data.dropna(how='any')
+        
+    X_train = train_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
+                    'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
+                    'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
+                    'neck_x', 'neck_y', 'body_x', 'body_y']].values
+    
+    # Extract labels (exploring or not)
+    y_train = train_data[['Left', 'Right']].values
+    
+    return X_test, y_test, X_val, y_val, X_train, y_train
 
 #%%
 
-"""
-Lets merge the dataframes to process them together
-"""
-
-# Loop over the tracked data and labels for each video
-
-model_data = pd.DataFrame(columns = ['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 
-                               'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 
-                               'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 
-                               'neck_x', 'neck_y', 'body_x', 'body_y'])
-
-for file in range(len(TS_position)):
-
-    position_df = pd.read_csv(TS_position[file])
-    labels_df = pd.read_csv(TS_labels[file])
-    
-    position_df = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
-    
-    position_df['Left'] = labels_df['Left'] 
-    position_df['Right'] = labels_df['Right']
-
-    model_data = pd.concat([model_data, position_df], ignore_index = True)
-
-model_data
-
-# We remove the rows where the mice is not on the video
-model_data = model_data.dropna(how='any')
-
-#%%
-
-# Extract features (body part positions)
-X = model_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
-                'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
-                'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
-                'neck_x', 'neck_y', 'body_x', 'body_y']].values
-
-# Extract labels (exploring or not)
-y = model_data[['Left', 'Right']].values
-
-# Assuming X and y are your time series data and labels
-split_index_test = int(len(X) * 0.9)  # Use 10% of the data for testing
-split_index_val = int(len(X) * 0.2)  # Use 20% of the data for validating
-
-X_train, X_test, X_val = X[split_index_val:split_index_test], X[split_index_test:], X[:split_index_val]
-y_train, y_test, y_val = y[split_index_val:split_index_test], y[split_index_test:], y[:split_index_val]
+X_test, y_test, X_val, y_val, X_train, y_train = extract_videos(TS_position, TS_labels)
 
 #%%
 
@@ -225,7 +246,7 @@ def reshape_set(data, labels, back, forward):
         reshaped_data = []
     
         for i in range(back, len(data) - forward):
-            reshaped_data.append(data[i-back : i+forward])
+            reshaped_data.append(data[i - back : i + forward + 1])
     
         reshaped_data = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
     
@@ -237,9 +258,9 @@ def reshape_set(data, labels, back, forward):
         reshaped_labels = []
     
         for i in range(back, len(data) - forward):
-            reshaped_data.append(data[i-back : i+forward])
+            reshaped_data.append(data[i - back : i + forward + 1])
             reshaped_labels.append(labels[i])
-    
+        
         reshaped_data = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
         reshaped_labels = tf.convert_to_tensor(reshaped_labels, dtype=tf.float64)
     
@@ -260,12 +281,14 @@ X_test_back, y_test_back = reshape_set(X_test, y_test, before, 0)
 # Reshape the validating set
 X_val_back, y_val_back = reshape_set(X_val, y_val, before, 0)
 
+frames = before + 1
 
 # Build a LSTM-based neural network that looks at PREVIOUS frames
 model_back = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(before, X_train_back.shape[2])),
-    tf.keras.layers.Dense(param_2, activation='relu'),
-    tf.keras.layers.Dense(param_3, activation='relu'),
+    tf.keras.layers.LSTM(param_1 * frames, activation='relu', input_shape=(frames, X_train_back.shape[2])),
+    tf.keras.layers.Dense(param_2 * frames, activation='relu'),
+    tf.keras.layers.Dense(param_3 * frames, activation='relu'),
+    tf.keras.layers.Dense(16, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -298,12 +321,14 @@ X_test_forward, y_test_forward = reshape_set(X_test, y_test, 0, after)
 # Reshape the validating set
 X_val_forward, y_val_forward = reshape_set(X_val, y_val, 0, after)
 
+frames = after + 1
 
 # Build a simple LSTM-based neural network
 model_forward = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(after, X_train_forward.shape[2])),
-    tf.keras.layers.Dense(param_2, activation='relu'),
-    tf.keras.layers.Dense(param_3, activation='relu'),
+    tf.keras.layers.LSTM(param_1 * frames, activation='relu', input_shape=(frames, X_train_forward.shape[2])),
+    tf.keras.layers.Dense(param_2 * frames, activation='relu'),
+    tf.keras.layers.Dense(param_3 * frames, activation='relu'),
+    tf.keras.layers.Dense(16, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -336,12 +361,14 @@ X_test_wide, y_test_wide = reshape_set(X_test, y_test, before, after)
 # Reshape the validating set
 X_val_wide, y_val_wide = reshape_set(X_val, y_val, before, after)
 
+frames = before + after + 1
 
 # Build a simple LSTM-based neural network
 model_wide = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(before + after, X_train_wide.shape[2])),
-    tf.keras.layers.Dense(param_2, activation='relu'),
-    tf.keras.layers.Dense(param_3, activation='relu'),
+    tf.keras.layers.LSTM(param_1 * frames, activation='relu', input_shape=(frames, X_train_wide.shape[2])),
+    tf.keras.layers.Dense(param_2 * frames, activation='relu'),
+    tf.keras.layers.Dense(param_3 * frames, activation='relu'),
+    tf.keras.layers.Dense(16, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -362,12 +389,12 @@ precision_wide = precision_score(y_test_wide, y_pred_binary_wide, average = 'wei
 #%%
 
 """ Predict the RF labels """
-autolabels_RF = multi_output_RF_model.predict(position_test)
+autolabels_RF = multi_output_RF_model.predict(X_test)
 autolabels_RF = pd.DataFrame(autolabels_RF, columns=["Left", "Right"])
 autolabels_RF.insert(0, "Frame", autolabels_RF.index + 1)
 
 """ Predict the simple labels """
-autolabels = simple_model.predict(position_test)
+autolabels = simple_model.predict(X_test)
 autolabels = pd.DataFrame(autolabels, columns=["Left", "Right"])
 autolabels.insert(0, "Frame", autolabels.index + 1)
 autolabels_binary = (autolabels > 0.5).astype(int) 
@@ -375,7 +402,7 @@ autolabels_binary = (autolabels > 0.5).astype(int)
 #%%
 """ Predict the back labels """
 
-position_back = reshape_set(position_test, False, before, 0)
+position_back = reshape_set(X_test, False, before, 0)
 autolabels_back = model_back.predict(position_back)
 autolabels_back = np.vstack((np.zeros((before, 2)), autolabels_back))
 autolabels_back = pd.DataFrame(autolabels_back, columns=["Left", "Right"])
@@ -385,7 +412,7 @@ autolabels_back_binary = (autolabels_back > 0.5).astype(int)
 #%%
 """ Predict the forward labels """
 
-position_forward = reshape_set(position_test, False, 0, after)
+position_forward = reshape_set(X_test, False, 0, after)
 autolabels_forward = model_forward.predict(position_forward)
 autolabels_forward = pd.DataFrame(autolabels_forward, columns=["Left", "Right"])
 autolabels_forward.insert(0, "Frame", autolabels_forward.index + 1)
@@ -394,7 +421,7 @@ autolabels_forward_binary = (autolabels_forward > 0.5).astype(int)
 #%%
 """ Predict the wide labels """
 
-position_wide = reshape_set(position_test, False, before, after)
+position_wide = reshape_set(X_test, False, before, after)
 autolabels_wide = model_wide.predict(position_wide)
 autolabels_wide = np.vstack((np.zeros((before, 2)), autolabels_wide))
 autolabels_wide = pd.DataFrame(autolabels_wide, columns=["Left", "Right"])
@@ -403,8 +430,13 @@ autolabels_wide_binary = (autolabels_wide > 0.5).astype(int)
 
 #%%
 
+y_test = pd.DataFrame(y_test, columns=["Left", "Right"])
+y_test.insert(0, "Frame", y_test.index + 1)
+
+"""
 autolabels_mean = (autolabels + autolabels_back + autolabels_forward + autolabels_wide) / 4
 autolabels_mean_binary = (autolabels_mean > 0.5).astype(int)
+"""
 #%%
 
 """
@@ -434,19 +466,23 @@ plt.plot(autolabels_wide["Right"] * -1 - 0.03, color = "b")
 plt.plot(autolabels_wide_binary["Left"] * 1.5, ".", color = "b", label = "autolabels_wide")
 plt.plot(autolabels_wide_binary["Right"] * -1.5, ".", color = "b")
 
+"""
 plt.plot(autolabels_mean["Left"]+0.04, color = "magenta")
 plt.plot(autolabels_mean["Right"] * -1 - 0.04, color = "magenta")
 plt.plot(autolabels_mean_binary["Left"] * 1.6, ".", color = "magenta", label = "autolabels_mean")
 plt.plot(autolabels_mean_binary["Right"] * -1.6, ".", color = "magenta")
-
-plt.plot(labels_test["Left"] * 1, ".", color = "black", label = "Manual")
-plt.plot(labels_test["Right"] * -1, ".", color = "black")
+"""
 
 plt.plot(autolabels_RF["Left"] * 1.1, ".", color = "grey", label = "autolabels_RF")
 plt.plot(autolabels_RF["Right"] * -1.1, ".", color = "grey")
 
+plt.plot(y_test["Left"] * 1, ".", color = "black", label = "Manual")
+plt.plot(y_test["Right"] * -1, ".", color = "black")
+
 # Zoom in on the labels and the minima of the distances and angles
 plt.ylim((-2, 2))
+plt.axhline(y=0.5, color='black', linestyle='--')
+plt.axhline(y=-0.5, color='black', linestyle='--')
 
 plt.legend()
 plt.show()
@@ -475,52 +511,54 @@ print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f} -> Wide
 
 #%%
 
-""" At home, using 2023-05_TORM_24h:
-Script execution time: 1605.94 seconds (26.77 minutes).
-Accuracy = 0.9564, Precision = 0.8102 -> RF_model
-Accuracy = 0.9625, Precision = 0.8313 -> simple_model
-Accuracy = 0.9501, Precision = 0.7195 -> Back
-Accuracy = 0.9314, Precision = 0.5944 -> Forward
-Accuracy = 0.9363, Precision = 0.7723 -> Wide
+"""
+# Set the number of neurons in each layer
+param_1 = 32
+param_2 = 16
+param_3 = 8
+
+epochs = 10 # Set the training epochs
+
+batch_size = 512 # Set the batch size
+
+before = 1 # Say how many frames into the past the models will see
+after = 1 # Say how many frames into the future the models will see
+
+Script execution time: 174.97 seconds (2.92 minutes).
+Accuracy = 0.9541, Precision = 0.8949 -> RF_model
+Accuracy = 0.9251, Precision = 0.8537 -> simple_model
+Accuracy = 0.9571, Precision = 0.9011 -> Back
+Accuracy = 0.9380, Precision = 0.8863 -> Forward
+Accuracy = 0.9619, Precision = 0.8910 -> Wide
 """
 
-""" At home, using 2023-05_TORM_24h:
-Script execution time: 1163.35 seconds (19.39 minutes).
-Accuracy = 0.9593, Precision = 0.8335 -> RF_model
-Accuracy = 0.9340, Precision = 0.6580 -> simple_model
-Accuracy = 0.9575, Precision = 0.7682 -> Back
-Accuracy = 0.9397, Precision = 0.8943 -> Forward
-Accuracy = 0.9578, Precision = 0.7714 -> Wide
-"""
-
-""" With batch size 64:
-Script execution time: 169.98 seconds (2.83 minutes).
-Accuracy = 0.9643, Precision = 0.8147 -> RF_model
-Accuracy = 0.9535, Precision = 0.8530 -> simple_model
-Accuracy = 0.9618, Precision = 0.7977 -> Back
-Accuracy = 0.9603, Precision = 0.8357 -> Forward
-Accuracy = 0.9551, Precision = 0.7852 -> Wide
-"""
-
-""" With epochs 20:
-Script execution time: 334.33 seconds (5.57 minutes).
-Accuracy = 0.9506, Precision = 0.7962 -> RF_model
-Accuracy = 0.9643, Precision = 0.8757 -> simple_model
-Accuracy = 0.9598, Precision = 0.8108 -> Back
-Accuracy = 0.9642, Precision = 0.8648 -> Forward
-Accuracy = 0.9643, Precision = 0.8156 -> Wide
-"""
 
 """
-Script execution time: 296.81 seconds (4.95 minutes).
-Accuracy = 0.9607, Precision = 0.5287 -> RF_model
-Accuracy = 0.9570, Precision = 0.5131 -> simple_model
-Accuracy = 0.9448, Precision = 0.3006 -> Back
-Accuracy = 0.9604, Precision = 0.4590 -> Forward
-Accuracy = 0.9636, Precision = 0.5243 -> Wide
+# Set the number of neurons in each layer
+param_1 = 32
+param_2 = 64
+param_3 = 16
+
+epochs = 10 # Set the training epochs
+
+batch_size = 512 # Set the batch size
+
+before = 1 # Say how many frames into the past the models will see
+after = 1 # Say how many frames into the future the models will see
+
+Script execution time: 148.99 seconds (2.48 minutes).
+Accuracy = 0.9577, Precision = 0.8907 -> RF_model
+Accuracy = 0.9029, Precision = 0.8923 -> simple_model
+Accuracy = 0.9697, Precision = 0.8809 -> Back
+Accuracy = 0.9571, Precision = 0.8976 -> Forward
+Accuracy = 0.9636, Precision = 0.9055 -> Wide
 """
 
 #%%
+
+"""
+Define a function that allows us to visualize the labels together with the video
+"""
 
 def process_frame(frame, frame_number):
     back = False
@@ -529,8 +567,8 @@ def process_frame(frame, frame_number):
     # Plot using Matplotlib with Agg backend
     fig, ax = plt.subplots(figsize=(6, 4))
     
-    ax.plot(labels_test["Left"] * 1, ".", color = "black", label = "Manual")
-    ax.plot(labels_test["Right"] * -1, ".", color = "black")
+    ax.plot(y_test["Left"] * 1, ".", color = "black", label = "Manual")
+    ax.plot(y_test["Right"] * -1, ".", color = "black")
     
     ax.plot(autolabels_wide["Left"], color = "b")
     ax.plot(autolabels_wide["Right"] * -1, color = "b")
@@ -547,6 +585,8 @@ def process_frame(frame, frame_number):
     ax.set_xlim(frame_number-5, frame_number+5)
     ax.set_ylim(-1.5, 1.5)
     ax.axvline(x=frame_number, color='black', linestyle='--')
+    ax.axhline(y=0.5, color='black', linestyle='--')
+    ax.axhline(y=-0.5, color='black', linestyle='--')
     
     ax.set_title(f'Plot for Frame {frame_number}')
     ax.set_xlabel('X-axis')
@@ -577,11 +617,11 @@ def process_frame(frame, frame_number):
     if key == ord('5'):
         back = True
     if key == ord('7'):
-        forward = 2
+        forward = -15
     if key == ord('8'):
         forward = 3
     if key == ord('9'):
-        forward = 4
+        forward = 15
     
     return back, forward
 
@@ -642,11 +682,11 @@ def visualize_video_frames(video_path):
     # Close the OpenCV windows
     cv2.destroyAllWindows()
 
-video_path = path + 'Example/2023-05_TeNOR_24h_TS_C3_B_R.mp4'
+video_path = path + 'Example/2024-01_TeNOR-3xTR_TS_C01_A_L.mp4'
 
 #%%
 
-visualize_video_frames(video_path)
+# visualize_video_frames(video_path)
 
 #%%
 
@@ -692,6 +732,7 @@ def create_autolabels(files, chosen_model):
 #%%
 
 # create_autolabels(all_position, loaded_model) # Lets analyze!
+
 #%%
 
 # Load the saved model from file

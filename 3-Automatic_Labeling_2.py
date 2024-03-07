@@ -26,32 +26,24 @@ before = 1 # Say how many frames into the past the models will see
 after = 1 # Say how many frames into the future the models will see
 
 """
-Script execution time: 145.68 seconds (2.43 minutes).
-Accuracy = 0.9683, Precision = 0.8824 -> simple_model
-Accuracy = 0.9467, Precision = 0.9283 -> Wide
-
-Script execution time: 332.36 seconds (5.54 minutes).
-Accuracy = 0.9667, Precision = 0.8680 -> simple_model
-Accuracy = 0.9748, Precision = 0.8878 -> Wide
-
-Script execution time: 620.85 seconds (10.35 minutes).
-Accuracy = 0.9682, Precision = 0.7634 -> simple_model
-Accuracy = 0.9686, Precision = 0.7990 -> Wide
+Script execution time: 109.87 seconds (1.83 minutes).
+Accuracy = 0.9832, Precision = 0.8318 -> simple_model
+Accuracy = 0.9818, Precision = 0.8677 -> Wide
 """
 
 #%%
 
 # At home:
-path = 'C:/Users/dhers/Desktop/Videos_NOR/'
+# path = 'C:/Users/dhers/Desktop/Videos_NOR/'
 
 # In the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment_1 = r'2024-01_TeNOR-3xTR'
-
-experiment_2 = r'2023-05_TeNOR'
-
-experiment_3 = r'2023-05_TORM_24h'
+experiments = ['2024-01_TeNOR-3xTR', 
+               '2023-05_TeNOR', 
+               '2023-05_TORM_24h', 
+               '2023-11_TORM-3xTg', 
+               '2023-11_Interferencia']
 
 #%% Import libraries
 
@@ -102,122 +94,187 @@ def find_files(path_name, exp_name, group, folder):
     
     return wanted_files
 
-#%% 
+#%%
 
-TS1_position = find_files(path, experiment_1, "TS", "position")
-TS2_position = find_files(path, experiment_2, "TS", "position")
-TS3_position = find_files(path, experiment_3, "TS", "position")
+# Function to smooth the columns (2 occurrences)
+def smooth_column(data_array):
+    smoothed_columns = []
+    for i in range(2):  # Loop through both columns
+        smoothed_column = data_array[:, i].copy()
+        changes = 0
+        for j in range(1, len(smoothed_column) - 1):
+            # Smooth occurrences with fewer than 3 consecutive 1s or 0s
+            if (smoothed_column[j - 1] == smoothed_column[j + 1] or 
+                (j > 1 and smoothed_column[j - 2] == smoothed_column[j + 1]) or
+                (j < len(smoothed_column) - 2 and smoothed_column[j - 1] == smoothed_column[j + 2])) and \
+                smoothed_column[j] != smoothed_column[j - 1]:
+                smoothed_column[j] = smoothed_column[j - 1]
+                changes += 1
+        
+        smoothed_columns.append(smoothed_column)
+        print(f"Number of changes in column {i}: {changes}")
+        
+    smoothed_array = np.column_stack(smoothed_columns)
+    return smoothed_array
 
-TS1_labels = find_files(path, experiment_1, "TS", "labels")
-TS2_labels = find_files(path, experiment_2, "TS", "labels")
-TS3_labels = find_files(path, experiment_3, "TS", "labels")
+# Function to apply more aggressive smoothing (3 occurrences)
+def more_aggressive_smooth_column(data_array):
+    smoothed_columns = []
+    for i in range(2):  # Loop through both columns
+        smoothed_column = data_array[:, i].copy()
+        changes = 0
+        for j in range(1, len(smoothed_column) - 1):
+            # Smooth occurrences with fewer than 4 consecutive 1s or 0s
+            if (smoothed_column[j - 1] == smoothed_column[j + 1] or 
+                (j > 1 and smoothed_column[j - 2] == smoothed_column[j + 1]) or
+                (j < len(smoothed_column) - 2 and smoothed_column[j - 1] == smoothed_column[j + 2]) or
+                (j > 2 and smoothed_column[j - 3] == smoothed_column[j + 1]) or
+                (j < len(smoothed_column) - 3 and smoothed_column[j - 1] == smoothed_column[j + 3])) and \
+                smoothed_column[j] != smoothed_column[j - 1]:
+                smoothed_column[j] = smoothed_column[j - 1]
+                changes += 1
+        
+        smoothed_columns.append(smoothed_column)
+        print(f"Number of changes in column {i}: {changes}")
+        
+    smoothed_array = np.column_stack(smoothed_columns)
+    return smoothed_array
 
 #%% This function prepares data for training, testing and validating
 
-def extract_videos(position_files, labels_files):
-    
-    """ Testing """
-    
-    # Select a random video you want to use to test the model
-    video_test = random.randint(1, len(position_files))
+"""
+You can have many experiments in your model, and this function will:
+    Randomly select one video of each experiment to test and validate.
+    Concatenate all datasets for the model to use.
+"""
 
-    # Select position and labels for testing
-    position_test = position_files.pop(video_test - 1)
-    labels_test = labels_files.pop(video_test - 1)
+def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
     
-    position_df = pd.read_csv(position_test)
-    labels_df = pd.read_csv(labels_test)
+    files_X_test = []
+    files_y_test = []
     
-    test_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+    files_X_val = []
+    files_y_val = []
     
-    test_data['Left'] = labels_df['Left'] 
-    test_data['Right'] = labels_df['Right']
+    files_X_train = []
+    files_y_train = []
     
-    # We remove the rows where the mice is not on the video
-    test_data = test_data.dropna(how='any')
+    for experiment in experiments:
+    
+        position_files = find_files(path, experiment, group, "position")
+        labels_files = find_files(path, experiment, group, label_folder)
+    
+        """ Testing """
         
-    X_test = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 'neck_x', 'neck_y', 'body_x', 'body_y']].values
+        # Select a random video you want to use to test the model
+        video_test = random.randint(1, len(position_files))
     
-    # Extract labels (exploring or not)
-    y_test = test_data[['Left', 'Right']].values
-    
-    
-    """ Validation """
-
-    # Select a random video you want to use to val the model
-    video_val = random.randint(1, len(position_files))
-    
-    # Select position and labels for valing
-    position_val = position_files.pop(video_val - 1)
-    labels_val = labels_files.pop(video_val - 1)
-    
-    position_df = pd.read_csv(position_val)
-    labels_df = pd.read_csv(labels_val)
-    
-    val_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
-    
-    val_data['Left'] = labels_df['Left'] 
-    val_data['Right'] = labels_df['Right']
-    
-    # We remove the rows where the mice is not on the video
-    val_data = val_data.dropna(how='any')
+        # Select position and labels for testing
+        position_test = position_files.pop(video_test - 1)
+        labels_test = labels_files.pop(video_test - 1)
         
-    X_val = val_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 'neck_x', 'neck_y', 'body_x', 'body_y']].values
-    
-    # Extract labels (exploring or not)
-    y_val = val_data[['Left', 'Right']].values
-    
-    
-    """ Train """
-    
-    train_data = pd.DataFrame(columns = ['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 
-                                   'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 
-                                   'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 
-                                   'neck_x', 'neck_y', 'body_x', 'body_y'])
-    
-    for file in range(len(position_files)):
-    
-        position_df = pd.read_csv(position_files[file])
-        labels_df = pd.read_csv(labels_files[file])
+        position_df = pd.read_csv(position_test)
+        labels_df = pd.read_csv(labels_test)
         
-        data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+        test_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
         
-        data['Left'] = labels_df['Left'] 
-        data['Right'] = labels_df['Right']
-    
-        train_data = pd.concat([train_data, data], ignore_index = True)
-    
-    # We remove the rows where the mice is not on the video
-    train_data = train_data.dropna(how='any')
+        test_data['Left'] = labels_df['Left'] 
+        test_data['Right'] = labels_df['Right']
         
-    X_train = train_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
-                    'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
-                    'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
-                    'neck_x', 'neck_y', 'body_x', 'body_y']].values
+        # We remove the rows where the mice is not on the video
+        test_data = test_data.dropna(how='any')
+            
+        X_test = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 'neck_x', 'neck_y', 'body_x', 'body_y']].values
+        
+        # Extract labels (exploring or not)
+        y_test = test_data[['Left', 'Right']].values
+        
+        
+        """ Validation """
     
-    # Extract labels (exploring or not)
-    y_train = train_data[['Left', 'Right']].values
+        # Select a random video you want to use to val the model
+        video_val = random.randint(1, len(position_files))
+        
+        # Select position and labels for valing
+        position_val = position_files.pop(video_val - 1)
+        labels_val = labels_files.pop(video_val - 1)
+        
+        position_df = pd.read_csv(position_val)
+        labels_df = pd.read_csv(labels_val)
+        
+        val_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+        
+        val_data['Left'] = labels_df['Left'] 
+        val_data['Right'] = labels_df['Right']
+        
+        # We remove the rows where the mice is not on the video
+        val_data = val_data.dropna(how='any')
+            
+        X_val = val_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 'neck_x', 'neck_y', 'body_x', 'body_y']].values
+        
+        # Extract labels (exploring or not)
+        y_val = val_data[['Left', 'Right']].values
+        
+        
+        """ Train """
+        
+        train_data = pd.DataFrame(columns = ['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 
+                                       'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 
+                                       'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 
+                                       'neck_x', 'neck_y', 'body_x', 'body_y'])
     
-    return X_test, y_test, X_val, y_val, X_train, y_train
+        for file in range(len(position_files)):
+        
+            position_df = pd.read_csv(position_files[file])
+            labels_df = pd.read_csv(labels_files[file])
+            
+            data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+            
+            data['Left'] = labels_df['Left'] 
+            data['Right'] = labels_df['Right']
+        
+            train_data = pd.concat([train_data, data], ignore_index = True)
+        
+        # We remove the rows where the mice is not on the video
+        train_data = train_data.dropna(how='any')
+            
+        X_train = train_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
+                        'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
+                        'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
+                        'neck_x', 'neck_y', 'body_x', 'body_y']].values
+        
+        # Extract labels (exploring or not)
+        y_train = train_data[['Left', 'Right']].values
+        
+        
+        # Append each dataset to be concatenated after
+        files_X_test.append(X_test)
+        files_y_test.append(y_test)
+        
+        files_X_val.append(X_val)
+        files_y_val.append(y_val)
+        
+        files_X_train.append(X_train)
+        files_y_train.append(y_train)
+        
+    # Concatenate the dataframes from different experiments        
+    all_X_test = np.concatenate(files_X_test, axis=0)
+    all_y_test = np.concatenate(files_y_test, axis=0)
+    all_y_test = smooth_column(all_y_test)
+    
+    all_X_val = np.concatenate(files_X_val, axis=0)
+    all_y_val = np.concatenate(files_y_val, axis=0)
+    all_y_val = smooth_column(all_y_val)
+    
+    all_X_train = np.concatenate(files_X_train, axis=0)
+    all_y_train = np.concatenate(files_y_train, axis=0)
+    all_y_train = smooth_column(all_y_train)
+    
+    return all_X_test, all_y_test, all_X_val, all_y_val, all_X_train, all_y_train
 
 #%%
 
-X1_test, y1_test, X1_val, y1_val, X1_train, y1_train = extract_videos(TS1_position, TS1_labels)
-
-X2_test, y2_test, X2_val, y2_val, X2_train, y2_train = extract_videos(TS2_position, TS2_labels)
-
-X3_test, y3_test, X3_val, y3_val, X3_train, y3_train = extract_videos(TS3_position, TS3_labels)
-
-# ... Here you can add more experiments if you'd like
-
-X_test = np.concatenate((X1_test, X2_test, X3_test))
-y_test = np.concatenate((y1_test, y2_test, y3_test))
-
-X_val = np.concatenate((X1_val, X2_val, X3_val))
-y_val = np.concatenate((y1_val, y2_val, y3_val))
-
-X_train = np.concatenate((X1_train, X2_train, X3_train))
-y_train = np.concatenate((y1_train, y2_train, y3_train))
+X_test, y_test, X_val, y_val, X_train, y_train = extract_videos(path, experiments)
 
 #%% Define the EarlyStopping callback
 
@@ -314,10 +371,10 @@ frames = before + after + 1
 
 # Build a simple LSTM-based neural network
 model_wide = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1 * frames, activation='relu', recurrent_dropout=0.2, input_shape=(frames, X_train_wide.shape[2])),
-    tf.keras.layers.Dense(param_1, activation='relu'),
-    tf.keras.layers.Dense(param_2 * frames, activation='relu'),
-    tf.keras.layers.Dense(param_3 * frames, activation='relu'),
+    tf.keras.layers.LSTM(param_1 * frames, activation='relu', return_sequences=True, input_shape=(frames, X_train_wide.shape[2])),
+    tf.keras.layers.LSTM(param_2 * frames, activation='relu', return_sequences=True),
+    tf.keras.layers.LSTM(param_3 * frames, activation='relu'),
+    tf.keras.layers.Dense(param_2, activation='relu'),
     tf.keras.layers.Dense(param_3, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
@@ -363,7 +420,7 @@ test_data = test_data.dropna(how='any')
 X_view = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 'neck_x', 'neck_y', 'body_x', 'body_y']].values
 
 # Extract labels (exploring or not)
-y_view = test_data[['Left', 'Right']].values
+y_view = smooth_column(test_data[['Left', 'Right']].values)
 
 #%%
 
@@ -534,4 +591,4 @@ def visualize_video_frames(video_path):
 
 #%%
 
-visualize_video_frames(video_path)
+# visualize_video_frames(video_path)

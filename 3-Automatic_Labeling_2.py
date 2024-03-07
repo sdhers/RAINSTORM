@@ -20,20 +20,38 @@ param_3 = 16
 
 epochs = 24 # Set the training epochs
 
-batch_size = 1024 # Set the batch size
+batch_size = 2048 # Set the batch size
 
 before = 1 # Say how many frames into the past the models will see
 after = 1 # Say how many frames into the future the models will see
 
+"""
+Script execution time: 145.68 seconds (2.43 minutes).
+Accuracy = 0.9683, Precision = 0.8824 -> simple_model
+Accuracy = 0.9467, Precision = 0.9283 -> Wide
+
+Script execution time: 332.36 seconds (5.54 minutes).
+Accuracy = 0.9667, Precision = 0.8680 -> simple_model
+Accuracy = 0.9748, Precision = 0.8878 -> Wide
+
+Script execution time: 620.85 seconds (10.35 minutes).
+Accuracy = 0.9682, Precision = 0.7634 -> simple_model
+Accuracy = 0.9686, Precision = 0.7990 -> Wide
+"""
+
 #%%
 
 # At home:
-# path = 'C:/Users/dhers/Desktop/Videos_NOR/'
+path = 'C:/Users/dhers/Desktop/Videos_NOR/'
 
 # In the lab:
-path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'2024-01_TeNOR-3xTR'
+experiment_1 = r'2024-01_TeNOR-3xTR'
+
+experiment_2 = r'2023-05_TeNOR'
+
+experiment_3 = r'2023-05_TORM_24h'
 
 #%% Import libraries
 
@@ -86,27 +104,26 @@ def find_files(path_name, exp_name, group, folder):
 
 #%% 
 
-TS_position = find_files(path, experiment, "TS", "position")
-#TR2_position = find_files(path, experiment, "TR2", "position")
-#TR1_position = find_files(path, experiment, "TR1", "position")
+TS1_position = find_files(path, experiment_1, "TS", "position")
+TS2_position = find_files(path, experiment_2, "TS", "position")
+TS3_position = find_files(path, experiment_3, "TS", "position")
 
-all_position = TS_position # + TR2_position + TR1_position
-
-TS_labels = find_files(path, experiment, "TS", "labels")
+TS1_labels = find_files(path, experiment_1, "TS", "labels")
+TS2_labels = find_files(path, experiment_2, "TS", "labels")
+TS3_labels = find_files(path, experiment_3, "TS", "labels")
 
 #%% This function prepares data for training, testing and validating
 
-def extract_videos(position_file, labels_file):
+def extract_videos(position_files, labels_files):
     
     """ Testing """
     
     # Select a random video you want to use to test the model
-    # video_test = random.randint(1, len(position_file))
-    video_test = 1
+    video_test = random.randint(1, len(position_files))
 
     # Select position and labels for testing
-    position_test = position_file.pop(video_test - 1)
-    labels_test = labels_file.pop(video_test - 1)
+    position_test = position_files.pop(video_test - 1)
+    labels_test = labels_files.pop(video_test - 1)
     
     position_df = pd.read_csv(position_test)
     labels_df = pd.read_csv(labels_test)
@@ -128,12 +145,11 @@ def extract_videos(position_file, labels_file):
     """ Validation """
 
     # Select a random video you want to use to val the model
-    # video_val = random.randint(1, len(position_file))
-    video_val = 1
+    video_val = random.randint(1, len(position_files))
     
     # Select position and labels for valing
-    position_val = position_file.pop(video_val - 1)
-    labels_val = labels_file.pop(video_val - 1)
+    position_val = position_files.pop(video_val - 1)
+    labels_val = labels_files.pop(video_val - 1)
     
     position_df = pd.read_csv(position_val)
     labels_df = pd.read_csv(labels_val)
@@ -159,10 +175,10 @@ def extract_videos(position_file, labels_file):
                                    'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 
                                    'neck_x', 'neck_y', 'body_x', 'body_y'])
     
-    for file in range(len(position_file)):
+    for file in range(len(position_files)):
     
-        position_df = pd.read_csv(position_file[file])
-        labels_df = pd.read_csv(labels_file[file])
+        position_df = pd.read_csv(position_files[file])
+        labels_df = pd.read_csv(labels_files[file])
         
         data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
         
@@ -186,10 +202,26 @@ def extract_videos(position_file, labels_file):
 
 #%%
 
-X_test, y_test, X_val, y_val, X_train, y_train = extract_videos(TS_position, TS_labels)
+X1_test, y1_test, X1_val, y1_val, X1_train, y1_train = extract_videos(TS1_position, TS1_labels)
 
-# Define the EarlyStopping callback
-early_stopping = EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True)
+X2_test, y2_test, X2_val, y2_val, X2_train, y2_train = extract_videos(TS2_position, TS2_labels)
+
+X3_test, y3_test, X3_val, y3_val, X3_train, y3_train = extract_videos(TS3_position, TS3_labels)
+
+# ... Here you can add more experiments if you'd like
+
+X_test = np.concatenate((X1_test, X2_test, X3_test))
+y_test = np.concatenate((y1_test, y2_test, y3_test))
+
+X_val = np.concatenate((X1_val, X2_val, X3_val))
+y_val = np.concatenate((y1_val, y2_val, y3_val))
+
+X_train = np.concatenate((X1_train, X2_train, X3_train))
+y_train = np.concatenate((y1_train, y2_train, y3_train))
+
+#%% Define the EarlyStopping callback
+
+early_stopping = EarlyStopping(monitor='val_loss', patience=6, restore_best_weights=True)
 
 #%% Implement a simple feedforward model
 
@@ -222,6 +254,8 @@ y_pred_binary_simple_model = (y_pred_simple_model > 0.5).astype(int)  # Convert 
 # Calculate accuracy and precision of the model
 accuracy_simple_model = accuracy_score(y_test, y_pred_binary_simple_model)
 precision_simple = precision_score(y_test, y_pred_binary_simple_model, average = 'weighted')
+
+print(f"Accuracy = {accuracy_simple_model:.4f}, Precision = {precision_simple:.4f} -> simple_model")
 
 print(classification_report(y_test, y_pred_binary_simple_model))
 
@@ -280,10 +314,11 @@ frames = before + after + 1
 
 # Build a simple LSTM-based neural network
 model_wide = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1 * frames, activation='relu', recurrent_dropout=0.2, return_sequences=True, input_shape=(frames, X_train_wide.shape[2])),
-    tf.keras.layers.LSTM(param_2 * frames, activation='relu'),
+    tf.keras.layers.LSTM(param_1 * frames, activation='relu', recurrent_dropout=0.2, input_shape=(frames, X_train_wide.shape[2])),
+    tf.keras.layers.Dense(param_1, activation='relu'),
     tf.keras.layers.Dense(param_2 * frames, activation='relu'),
     tf.keras.layers.Dense(param_3 * frames, activation='relu'),
+    tf.keras.layers.Dense(param_3, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -305,20 +340,41 @@ y_pred_binary_wide = (y_pred_wide > 0.5).astype(int)  # Convert probabilities to
 accuracy_wide = accuracy_score(y_test_wide, y_pred_binary_wide)
 precision_wide = precision_score(y_test_wide, y_pred_binary_wide, average = 'weighted')
 
+print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f} -> Wide")
+
 print(classification_report(y_test_wide, y_pred_binary_wide))
 
 model_wide.summary()
 
-#%% Predict the simple labels
+#%% Prepare the dataset of a video you want to analyze and see
 
-autolabels = simple_model.predict(X_test)
-autolabels = pd.DataFrame(autolabels, columns=["Left", "Right"])
-autolabels.insert(0, "Frame", autolabels.index + 1)
-autolabels_binary = (autolabels > 0.5).astype(int) 
+position_df = pd.read_csv(path + '2024-01_TeNOR-3xTR/TS/position/2024-01_TeNOR-3xTR_TS_C01_A_L_position.csv')
+labels_df = pd.read_csv(path + '2024-01_TeNOR-3xTR/TS/labels/2024-01_TeNOR-3xTR_TS_C01_A_L_labels.csv')
+video_path = path + 'Example/2024-01_TeNOR-3xTR_TS_C01_A_L.mp4'
+
+test_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+
+test_data['Left'] = labels_df['Left'] 
+test_data['Right'] = labels_df['Right']
+
+# We remove the rows where the mice is not on the video
+test_data = test_data.dropna(how='any')
+    
+X_view = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 'neck_x', 'neck_y', 'body_x', 'body_y']].values
+
+# Extract labels (exploring or not)
+y_view = test_data[['Left', 'Right']].values
+
+#%%
+
+autolabels_simple = simple_model.predict(X_view)
+autolabels_simple = pd.DataFrame(autolabels_simple, columns=["Left", "Right"])
+autolabels_simple.insert(0, "Frame", autolabels_simple.index + 1)
+autolabels_simple_binary = (autolabels_simple > 0.5).astype(int) 
 
 #%% Predict the wide labels
 
-position_wide = reshape_set(X_test, False, before, after)
+position_wide = reshape_set(X_view, False, before, after)
 autolabels_wide = model_wide.predict(position_wide)
 autolabels_wide = np.vstack((np.zeros((before, 2)), autolabels_wide))
 autolabels_wide = pd.DataFrame(autolabels_wide, columns=["Left", "Right"])
@@ -327,7 +383,7 @@ autolabels_wide_binary = (autolabels_wide > 0.5).astype(int)
 
 #%% Prepare the manual labels
 
-autolabels_manual = pd.DataFrame(y_test, columns=["Left", "Right"])
+autolabels_manual = pd.DataFrame(y_view, columns=["Left", "Right"])
 autolabels_manual.insert(0, "Frame", autolabels_manual.index + 1)
 
 #%% Lets plot the timeline to see the performance of the model
@@ -336,10 +392,10 @@ plt.switch_backend('QtAgg')
 
 plt.figure(figsize = (16, 6))
 
-plt.plot(autolabels["Left"], color = "r")
-plt.plot(autolabels["Right"] * -1, color = "r")
-plt.plot(autolabels_binary["Left"] * 1.2, ".", color = "r", label = "autolabels")
-plt.plot(autolabels_binary["Right"] * -1.2, ".", color = "r")
+plt.plot(autolabels_simple["Left"], color = "r")
+plt.plot(autolabels_simple["Right"] * -1, color = "r")
+plt.plot(autolabels_simple_binary["Left"] * 1.2, ".", color = "r", label = "autolabels")
+plt.plot(autolabels_simple_binary["Right"] * -1.2, ".", color = "r")
 
 plt.plot(autolabels_wide["Left"], color = "b")
 plt.plot(autolabels_wide["Right"] * -1, color = "b")
@@ -393,8 +449,8 @@ def process_frame(frame, frame_number):
     ax.plot(autolabels_wide["Left"], color = "b")
     ax.plot(autolabels_wide["Right"] * -1, color = "b")
     
-    ax.plot(autolabels["Left"], color = "r")
-    ax.plot(autolabels["Right"] * -1, color = "r")
+    ax.plot(autolabels_simple["Left"], color = "r")
+    ax.plot(autolabels_simple["Right"] * -1, color = "r")
     
     ax.set_xlim(frame_number-5, frame_number+5)
     ax.set_ylim(-1.5, 1.5)
@@ -475,8 +531,6 @@ def visualize_video_frames(video_path):
     
     # Close the OpenCV windows
     cv2.destroyAllWindows()
-
-video_path = path + 'Example/2024-01_TeNOR-3xTR_TS_C01_A_L.mp4'
 
 #%%
 

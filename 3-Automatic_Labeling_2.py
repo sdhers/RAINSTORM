@@ -26,18 +26,28 @@ before = 1 # Say how many frames into the past the models will see
 after = 1 # Say how many frames into the future the models will see
 
 """
+At the lab
 Script execution time: 109.87 seconds (1.83 minutes).
 Accuracy = 0.9832, Precision = 0.8318 -> simple_model
 Accuracy = 0.9818, Precision = 0.8677 -> Wide
+
+At home
+Script execution time: 643.93 seconds (10.73 minutes).
+Accuracy = 0.9677, Precision = 0.6097 -> simple_model
+Accuracy = 0.9705, Precision = 0.6292 -> Wide
+
+Smoothing
+Accuracy = 0.9681, Precision = 0.6136 -> simple_model
+Accuracy = 0.9705, Precision = 0.6292 -> Wide
 """
 
 #%%
 
 # At home:
-# path = 'C:/Users/dhers/Desktop/Videos_NOR/'
+path = 'C:/Users/dhers/Desktop/Videos_NOR/'
 
 # In the lab:
-path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
 experiments = ['2024-01_TeNOR-3xTR', 
                '2023-05_TeNOR', 
@@ -308,6 +318,9 @@ simple_model.fit(X_train, y_train,
 y_pred_simple_model = simple_model.predict(X_test)
 y_pred_binary_simple_model = (y_pred_simple_model > 0.5).astype(int)  # Convert probabilities to binary predictions
 
+#%%
+y_pred_binary_simple_model = smooth_column(y_pred_binary_simple_model)
+
 # Calculate accuracy and precision of the model
 accuracy_simple_model = accuracy_score(y_test, y_pred_binary_simple_model)
 precision_simple = precision_score(y_test, y_pred_binary_simple_model, average = 'weighted')
@@ -393,6 +406,9 @@ model_wide.fit(X_train_wide, y_train_wide,
 y_pred_wide = model_wide.predict(X_test_wide)
 y_pred_binary_wide = (y_pred_wide > 0.5).astype(int)  # Convert probabilities to binary predictions
 
+#%%
+y_pred_binary_simple_model = smooth_column(y_pred_binary_wide)
+
 # Calculate accuracy and precision of the model
 accuracy_wide = accuracy_score(y_test_wide, y_pred_binary_wide)
 precision_wide = precision_score(y_test_wide, y_pred_binary_wide, average = 'weighted')
@@ -425,18 +441,28 @@ y_view = smooth_column(test_data[['Left', 'Right']].values)
 #%%
 
 autolabels_simple = simple_model.predict(X_view)
+
+autolabels_simple_binary = (autolabels_simple > 0.5).astype(int) 
+autolabels_simple_binary = smooth_column(np.array(autolabels_simple_binary))
+autolabels_simple_binary = pd.DataFrame(autolabels_simple_binary, columns=["Left", "Right"])
+autolabels_simple_binary.insert(0, "Frame", autolabels_simple_binary.index + 1)
+
 autolabels_simple = pd.DataFrame(autolabels_simple, columns=["Left", "Right"])
 autolabels_simple.insert(0, "Frame", autolabels_simple.index + 1)
-autolabels_simple_binary = (autolabels_simple > 0.5).astype(int) 
 
 #%% Predict the wide labels
 
 position_wide = reshape_set(X_view, False, before, after)
 autolabels_wide = model_wide.predict(position_wide)
 autolabels_wide = np.vstack((np.zeros((before, 2)), autolabels_wide))
+
+autolabels_wide_binary = (autolabels_wide > 0.5).astype(int)
+autolabels_wide_binary = smooth_column(np.array(autolabels_wide_binary))
+autolabels_wide_binary = pd.DataFrame(autolabels_wide_binary, columns=["Left", "Right"])
+autolabels_wide_binary.insert(0, "Frame", autolabels_wide_binary.index + 1)
+
 autolabels_wide = pd.DataFrame(autolabels_wide, columns=["Left", "Right"])
 autolabels_wide.insert(0, "Frame", autolabels_wide.index + 1)
-autolabels_wide_binary = (autolabels_wide > 0.5).astype(int)
 
 #%% Prepare the manual labels
 

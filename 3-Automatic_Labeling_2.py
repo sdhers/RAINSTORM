@@ -22,38 +22,40 @@ epochs = 24 # Set the training epochs
 
 batch_size = 2048 # Set the batch size
 
-before = 1 # Say how many frames into the past the models will see
-after = 1 # Say how many frames into the future the models will see
+before = 2 # Say how many frames into the past the models will see
+after = 2 # Say how many frames into the future the models will see
 
 """
 At the lab
-Script execution time: 109.87 seconds (1.83 minutes).
-Accuracy = 0.9832, Precision = 0.8318 -> simple_model
-Accuracy = 0.9818, Precision = 0.8677 -> Wide
 
-At home
-Script execution time: 643.93 seconds (10.73 minutes).
-Accuracy = 0.9677, Precision = 0.6097 -> simple_model
-Accuracy = 0.9705, Precision = 0.6292 -> Wide
+frames = 3
+Script execution time: 120.72 seconds (2.01 minutes).
+Accuracy = 0.9739, Precision = 0.7848 -> simple_model
+Accuracy = 0.9723, Precision = 0.8473 -> Wide
 
-Smoothing
-Accuracy = 0.9681, Precision = 0.6136 -> simple_model
-Accuracy = 0.9705, Precision = 0.6292 -> Wide
+frames = 5
+Script execution time: 225.60 seconds (3.76 minutes).
+Accuracy = 0.9756, Precision = 0.7192 -> simple_model
+Accuracy = 0.9792, Precision = 0.7528 -> Wide
 """
 
 #%%
 
 # At home:
-path = 'C:/Users/dhers/Desktop/Videos_NOR/'
+# path = 'C:/Users/dhers/Desktop/Videos_NOR/'
 
 # In the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiments = ['2024-01_TeNOR-3xTR', 
+experiments = ['2023-05_NOL',
                '2023-05_TeNOR', 
-               '2023-05_TORM_24h', 
-               '2023-11_TORM-3xTg', 
-               '2023-11_Interferencia']
+               '2023-05_TORM_24h',
+               '2023-07_TORM-delay',
+               '2023-09_TeNOR', 
+               '2023-11_Interferencia',
+               '2023-11_NORm',
+               '2023-11_TORM-3xTg',
+               '2024-01_TeNOR-3xTR']
 
 #%% Import libraries
 
@@ -117,29 +119,6 @@ def smooth_column(data_array):
             if (smoothed_column[j - 1] == smoothed_column[j + 1] or 
                 (j > 1 and smoothed_column[j - 2] == smoothed_column[j + 1]) or
                 (j < len(smoothed_column) - 2 and smoothed_column[j - 1] == smoothed_column[j + 2])) and \
-                smoothed_column[j] != smoothed_column[j - 1]:
-                smoothed_column[j] = smoothed_column[j - 1]
-                changes += 1
-        
-        smoothed_columns.append(smoothed_column)
-        print(f"Number of changes in column {i}: {changes}")
-        
-    smoothed_array = np.column_stack(smoothed_columns)
-    return smoothed_array
-
-# Function to apply more aggressive smoothing (3 occurrences)
-def more_aggressive_smooth_column(data_array):
-    smoothed_columns = []
-    for i in range(2):  # Loop through both columns
-        smoothed_column = data_array[:, i].copy()
-        changes = 0
-        for j in range(1, len(smoothed_column) - 1):
-            # Smooth occurrences with fewer than 4 consecutive 1s or 0s
-            if (smoothed_column[j - 1] == smoothed_column[j + 1] or 
-                (j > 1 and smoothed_column[j - 2] == smoothed_column[j + 1]) or
-                (j < len(smoothed_column) - 2 and smoothed_column[j - 1] == smoothed_column[j + 2]) or
-                (j > 2 and smoothed_column[j - 3] == smoothed_column[j + 1]) or
-                (j < len(smoothed_column) - 3 and smoothed_column[j - 1] == smoothed_column[j + 3])) and \
                 smoothed_column[j] != smoothed_column[j - 1]:
                 smoothed_column[j] = smoothed_column[j - 1]
                 changes += 1
@@ -420,10 +399,15 @@ print(classification_report(y_test_wide, y_pred_binary_wide))
 model_wide.summary()
 
 #%% Prepare the dataset of a video you want to analyze and see
-
+"""
 position_df = pd.read_csv(path + '2024-01_TeNOR-3xTR/TS/position/2024-01_TeNOR-3xTR_TS_C01_A_L_position.csv')
 labels_df = pd.read_csv(path + '2024-01_TeNOR-3xTR/TS/labels/2024-01_TeNOR-3xTR_TS_C01_A_L_labels.csv')
 video_path = path + 'Example/2024-01_TeNOR-3xTR_TS_C01_A_L.mp4'
+"""
+
+position_df = pd.read_csv(path + '2023-05_TeNOR/TS/position/2023-05_TeNOR_TS_C3_B_R_position.csv')
+labels_df = pd.read_csv(path + '2023-05_TeNOR/TS/labels/2023-05_TeNOR_TS1_C3_B_R_labels.csv')
+video_path = path + 'Example/2023-05_TeNOR_24h_TS_C3_B_R.mp4'
 
 test_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
 
@@ -618,3 +602,36 @@ def visualize_video_frames(video_path):
 #%%
 
 # visualize_video_frames(video_path)
+
+#%%
+
+import tensorflow as tf
+from tensorflow.keras.layers import LSTM, Dense, Input, Attention, Concatenate
+
+# Define the input layer
+input_layer = Input(shape=(5, 16))
+
+# LSTM layers to capture sequential patterns
+lstm_layer1 = LSTM(128, activation='relu', return_sequences=True)(input_layer)
+lstm_layer2 = LSTM(64, activation='relu', return_sequences=True)(lstm_layer1)
+lstm_layer3 = LSTM(32, activation='relu')(lstm_layer2)
+
+# Attention mechanism
+attention = Attention()([lstm_layer3, lstm_layer2])
+
+# Concatenate the output of the LSTM and Attention layers
+combined = Concatenate(axis=-1)([lstm_layer3, attention])
+
+# Continue with the rest of your model architecture
+dense_layer1 = Dense(16, activation='relu')(combined)
+dense_layer2 = Dense(8, activation='relu')(dense_layer1)
+output_layer = Dense(2, activation='sigmoid')(dense_layer2)
+
+# Create the model
+model_wide_attention = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+
+# Compile the model
+model_wide_attention.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+# Print the model summary to check the architecture
+model_wide_attention.summary()

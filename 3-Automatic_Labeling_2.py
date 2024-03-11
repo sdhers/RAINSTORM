@@ -18,7 +18,7 @@ param_1 = 64
 param_2 = 32
 param_3 = 16
 
-epochs = 24 # Set the training epochs
+epochs = 48 # Set the training epochs
 
 batch_size = 2048 # Set the batch size
 
@@ -34,9 +34,21 @@ Accuracy = 0.9739, Precision = 0.7848 -> simple_model
 Accuracy = 0.9723, Precision = 0.8473 -> Wide
 
 frames = 5
-Script execution time: 225.60 seconds (3.76 minutes).
-Accuracy = 0.9756, Precision = 0.7192 -> simple_model
-Accuracy = 0.9792, Precision = 0.7528 -> Wide
+Script execution time: 329.26 seconds (5.49 minutes).
+Accuracy = 0.9770, Precision = 0.8409 -> simple_model
+Accuracy = 0.9821, Precision = 0.8942 -> Wide
+
+Script execution time: 562.61 seconds (9.38 minutes).
+Accuracy = 0.9871, Precision = 0.8884 -> simple_model
+Accuracy = 0.9868, Precision = 0.8919 -> Wide
+
+Script execution time: 709.28 seconds (11.82 minutes).
+Accuracy = 0.9695, Precision = 0.7986 -> simple_model
+Accuracy = 0.9843, Precision = 0.8731 -> Wide
+
+Script execution time: 659.49 seconds (10.99 minutes).
+Accuracy = 0.9861, Precision = 0.9034 -> simple_model
+Accuracy = 0.9864, Precision = 0.8819 -> Wide
 """
 
 #%%
@@ -76,10 +88,6 @@ from tensorflow.keras.callbacks import EarlyStopping
 import tensorflow as tf
 
 print(tf.config.list_physical_devices('GPU'))
-
-# Set random seeds for reproducibility
-np.random.seed(42)
-tf.random.set_seed(42)
 
 import cv2
 import keyboard
@@ -248,14 +256,17 @@ def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
         
     # Concatenate the dataframes from different experiments        
     all_X_test = np.concatenate(files_X_test, axis=0)
+    print(f"Testing with {len(all_X_test)} videos")
     all_y_test = np.concatenate(files_y_test, axis=0)
     all_y_test = smooth_column(all_y_test)
     
     all_X_val = np.concatenate(files_X_val, axis=0)
+    print(f"Validating with {len(all_X_val)} videos")
     all_y_val = np.concatenate(files_y_val, axis=0)
     all_y_val = smooth_column(all_y_val)
     
     all_X_train = np.concatenate(files_X_train, axis=0)
+    print(f"Training¨ with {len(all_X_train)} videos")
     all_y_train = np.concatenate(files_y_train, axis=0)
     all_y_train = smooth_column(all_y_train)
     
@@ -267,7 +278,7 @@ X_test, y_test, X_val, y_val, X_train, y_train = extract_videos(path, experiment
 
 #%% Define the EarlyStopping callback
 
-early_stopping = EarlyStopping(monitor='val_loss', patience=6, restore_best_weights=True)
+early_stopping = EarlyStopping(monitor='val_loss', patience=12, restore_best_weights=True)
 
 #%% Implement a simple feedforward model
 
@@ -285,6 +296,10 @@ simple_model = tf.keras.Sequential([
 
 # Compile the simple_model
 simple_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+simple_model.summary()
+
+#%%
 
 # Train the simple_model
 simple_model.fit(X_train, y_train, 
@@ -307,8 +322,6 @@ precision_simple = precision_score(y_test, y_pred_binary_simple_model, average =
 print(f"Accuracy = {accuracy_simple_model:.4f}, Precision = {precision_simple:.4f} -> simple_model")
 
 print(classification_report(y_test, y_pred_binary_simple_model))
-
-simple_model.summary()
 
 #%% This function reshapes data for LSTM models
 
@@ -363,16 +376,19 @@ frames = before + after + 1
 
 # Build a simple LSTM-based neural network
 model_wide = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1 * frames, activation='relu', return_sequences=True, input_shape=(frames, X_train_wide.shape[2])),
-    tf.keras.layers.LSTM(param_2 * frames, activation='relu', return_sequences=True),
-    tf.keras.layers.LSTM(param_3 * frames, activation='relu'),
-    tf.keras.layers.Dense(param_2, activation='relu'),
-    tf.keras.layers.Dense(param_3, activation='relu'),
+    tf.keras.layers.LSTM(param_1, activation='relu', return_sequences=True, input_shape=(frames, X_train_wide.shape[2])),
+    tf.keras.layers.LSTM(param_2, activation='relu', return_sequences=True),
+    tf.keras.layers.LSTM(param_3, activation='relu'),
+    tf.keras.layers.dense(param_3, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
 # Compile the model
 model_wide.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+model_wide.summary()
+
+#%%
 
 # Train the model
 model_wide.fit(X_train_wide, y_train_wide,
@@ -386,7 +402,7 @@ y_pred_wide = model_wide.predict(X_test_wide)
 y_pred_binary_wide = (y_pred_wide > 0.5).astype(int)  # Convert probabilities to binary predictions
 
 #%%
-y_pred_binary_simple_model = smooth_column(y_pred_binary_wide)
+y_pred_binary_wide = smooth_column(y_pred_binary_wide)
 
 # Calculate accuracy and precision of the model
 accuracy_wide = accuracy_score(y_test_wide, y_pred_binary_wide)
@@ -396,18 +412,17 @@ print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f} -> Wide
 
 print(classification_report(y_test_wide, y_pred_binary_wide))
 
-model_wide.summary()
-
 #%% Prepare the dataset of a video you want to analyze and see
-"""
+
 position_df = pd.read_csv(path + '2024-01_TeNOR-3xTR/TS/position/2024-01_TeNOR-3xTR_TS_C01_A_L_position.csv')
 labels_df = pd.read_csv(path + '2024-01_TeNOR-3xTR/TS/labels/2024-01_TeNOR-3xTR_TS_C01_A_L_labels.csv')
 video_path = path + 'Example/2024-01_TeNOR-3xTR_TS_C01_A_L.mp4'
-"""
 
+"""
 position_df = pd.read_csv(path + '2023-05_TeNOR/TS/position/2023-05_TeNOR_TS_C3_B_R_position.csv')
 labels_df = pd.read_csv(path + '2023-05_TeNOR/TS/labels/2023-05_TeNOR_TS1_C3_B_R_labels.csv')
 video_path = path + 'Example/2023-05_TeNOR_24h_TS_C3_B_R.mp4'
+"""
 
 test_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
 
@@ -604,7 +619,7 @@ def visualize_video_frames(video_path):
 # visualize_video_frames(video_path)
 
 #%%
-
+"""
 import tensorflow as tf
 from tensorflow.keras.layers import LSTM, Dense, Input, Attention, Concatenate
 
@@ -635,3 +650,4 @@ model_wide_attention.compile(optimizer='adam', loss='binary_crossentropy', metri
 
 # Print the model summary to check the architecture
 model_wide_attention.summary()
+"""

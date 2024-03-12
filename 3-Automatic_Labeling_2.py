@@ -14,56 +14,41 @@ start_time = time.time()
 #%%
 
 # Set the number of neurons in each layer
-param_1 = 32
+param_1 = 128
 param_2 = 64
-param_3 = 16
+param_3 = 32
+param_4 = 16
 
-epochs = 12 # Set the training epochs
+epochs = 48 # Set the training epochs
 
 batch_size = 2048 # Set the batch size
 
+initial_learning_rate = 0.001 # Set the initial lr
+
 patience = 6 # Set the wait for the early stopping mechanism
 
-before = 2 # Say how many frames into the past the models will see
-after = 2 # Say how many frames into the future the models will see
+before = 1 # Say how many frames into the past the models will see
+after = 1 # Say how many frames into the future the models will see
 
 """
-At the lab
+At the lab:
 
-frames = 3
-Script execution time: 120.72 seconds (2.01 minutes).
-Accuracy = 0.9739, Precision = 0.7848 -> simple_model
-Accuracy = 0.9723, Precision = 0.8473 -> Wide
-
-frames = 5
-Script execution time: 329.26 seconds (5.49 minutes).
-Accuracy = 0.9770, Precision = 0.8409 -> simple_model
-Accuracy = 0.9821, Precision = 0.8942 -> Wide
-
-Script execution time: 562.61 seconds (9.38 minutes).
-Accuracy = 0.9871, Precision = 0.8884 -> simple_model
-Accuracy = 0.9868, Precision = 0.8919 -> Wide
-
-Script execution time: 709.28 seconds (11.82 minutes).
-Accuracy = 0.9695, Precision = 0.7986 -> simple_model
-Accuracy = 0.9843, Precision = 0.8731 -> Wide
-
-Script execution time: 659.49 seconds (10.99 minutes).
-Accuracy = 0.9861, Precision = 0.9034 -> simple_model
-Accuracy = 0.9864, Precision = 0.8819 -> Wide
+Script execution time: 851.69 seconds (14.19 minutes).
+Accuracy = 0.9881, Precision = 0.8975 -> RF_model
+Accuracy = 0.9818, Precision = 0.8193 -> simple_model
+Accuracy = 0.9794, Precision = 0.8349 -> Wide
 """
 
 #%%
 
 # At home:
-path = 'C:/Users/dhers/Desktop/Videos_NOR/'
+# path = 'C:/Users/dhers/Desktop/Videos_NOR/'
 
 # In the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiments = ['2024-01_TeNOR-3xTR']
+experiments = ['2023-05_NOL', '2023-05_TeNOR', '2023-05_TORM_24h', '2023-07_TORM-delay', '2023-09_TeNOR', '2023-11_Interferencia', '2023-11_NORm', '2023-11_TORM-3xTg', '2024-01_TeNOR-3xTR']
 
-# '2023-05_NOL', '2023-05_TeNOR', '2023-05_TORM_24h', '2023-07_TORM-delay', '2023-09_TeNOR', '2023-11_Interferencia', '2023-11_NORm', '2023-11_TORM-3xTg',
 
 #%% Import libraries
 
@@ -73,23 +58,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.multioutput import MultiOutputClassifier
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import accuracy_score, precision_score
-from sklearn.metrics import classification_report, confusion_matrix
-from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.metrics import classification_report
+from tensorflow.keras.callbacks import EarlyStopping, LearningRateScheduler
 
 import tensorflow as tf
 
 print(tf.config.list_physical_devices('GPU'))
 
 import cv2
-import keyboard
 from moviepy.editor import VideoFileClip
-from tkinter import messagebox
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+import joblib
 
 #%% This function finds the files that we want to use and lists their path
 
@@ -159,51 +140,79 @@ def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
     
         """ Testing """
         
-        # Select a random video you want to use to test the model
-        video_test = random.randint(1, len(position_files))
-    
-        # Select position and labels for testing
-        position_test = position_files.pop(video_test - 1)
-        labels_test = labels_files.pop(video_test - 1)
+        test_data = pd.DataFrame()
         
-        position_df = pd.read_csv(position_test)
-        labels_df = pd.read_csv(labels_test)
+        videos_to_test = 3
         
-        test_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+        while videos_to_test > 0:
+            
+            # Select a random video you want to use to test the model
+            video_test = random.randint(1, len(position_files))
         
-        test_data['Left'] = labels_df['Left'] 
-        test_data['Right'] = labels_df['Right']
+            # Select position and labels for testing
+            position_test = position_files.pop(video_test - 1)
+            labels_test = labels_files.pop(video_test - 1)
+            
+            position_df = pd.read_csv(position_test)
+            labels_df = pd.read_csv(labels_test)
+            
+            data = position_df.drop(['tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+            
+            data['Left'] = labels_df['Left'] 
+            data['Right'] = labels_df['Right']
+            
+            test_data = pd.concat([test_data, data], ignore_index = True)
+            
+            videos_to_test -= 1
         
         # We remove the rows where the mice is not on the video
         test_data = test_data.dropna(how='any')
             
-        X_test = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 'neck_x', 'neck_y', 'body_x', 'body_y']].values
+        X_test = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
+                        'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
+                        'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
+                        'neck_x', 'neck_y', 'body_x', 'body_y', 
+                        'tail_1_x', 'tail_1_y']].values
         
         # Extract labels (exploring or not)
         y_test = test_data[['Left', 'Right']].values
         
         
         """ Validation """
-    
-        # Select a random video you want to use to val the model
-        video_val = random.randint(1, len(position_files))
         
-        # Select position and labels for valing
-        position_val = position_files.pop(video_val - 1)
-        labels_val = labels_files.pop(video_val - 1)
+        val_data = pd.DataFrame()
         
-        position_df = pd.read_csv(position_val)
-        labels_df = pd.read_csv(labels_val)
+        videos_to_val = 3
         
-        val_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+        while videos_to_val > 0:
+            
+            # Select a random video you want to use to val the model
+            video_val = random.randint(1, len(position_files))
         
-        val_data['Left'] = labels_df['Left'] 
-        val_data['Right'] = labels_df['Right']
+            # Select position and labels for valing
+            position_val = position_files.pop(video_val - 1)
+            labels_val = labels_files.pop(video_val - 1)
+            
+            position_df = pd.read_csv(position_val)
+            labels_df = pd.read_csv(labels_val)
+            
+            data = position_df.drop(['tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+            
+            data['Left'] = labels_df['Left'] 
+            data['Right'] = labels_df['Right']
+            
+            val_data = pd.concat([val_data, data], ignore_index = True)
+            
+            videos_to_val -= 1
         
         # We remove the rows where the mice is not on the video
         val_data = val_data.dropna(how='any')
             
-        X_val = val_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 'neck_x', 'neck_y', 'body_x', 'body_y']].values
+        X_val = val_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
+                        'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
+                        'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
+                        'neck_x', 'neck_y', 'body_x', 'body_y', 
+                        'tail_1_x', 'tail_1_y']].values
         
         # Extract labels (exploring or not)
         y_val = val_data[['Left', 'Right']].values
@@ -211,17 +220,14 @@ def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
         
         """ Train """
         
-        train_data = pd.DataFrame(columns = ['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 
-                                       'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 
-                                       'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 
-                                       'neck_x', 'neck_y', 'body_x', 'body_y'])
-    
+        train_data = pd.DataFrame()
+        
         for file in range(len(position_files)):
         
             position_df = pd.read_csv(position_files[file])
             labels_df = pd.read_csv(labels_files[file])
             
-            data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+            data = position_df.drop(['tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
             
             data['Left'] = labels_df['Left'] 
             data['Right'] = labels_df['Right']
@@ -234,7 +240,8 @@ def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
         X_train = train_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
                         'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
                         'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
-                        'neck_x', 'neck_y', 'body_x', 'body_y']].values
+                        'neck_x', 'neck_y', 'body_x', 'body_y', 
+                        'tail_1_x', 'tail_1_y']].values
         
         # Extract labels (exploring or not)
         y_train = train_data[['Left', 'Right']].values
@@ -273,7 +280,7 @@ def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
 X_test, y_test, X_val, y_val, X_train, y_train = extract_videos(path, experiments)
 
 #%%
-
+"""
 # Create the Random Forest model (and set the number of estimators (decision trees))
 RF_model = RandomForestClassifier(n_estimators = 24, max_depth = 12)
 
@@ -282,6 +289,15 @@ multi_output_RF_model = MultiOutputClassifier(RF_model)
 
 # Train the MultiOutputClassifier with your data
 multi_output_RF_model.fit(X_train, y_train)
+
+# Evaluate the RF model on the testing set
+y_pred_RF_model = multi_output_RF_model.predict(X_test)
+"""
+
+#%%
+
+# Load the saved model from file
+multi_output_RF_model = joblib.load(r'/home/usuario/Desktop/STORM/trained_model_203.pkl')
 
 # Evaluate the RF model on the testing set
 y_pred_RF_model = multi_output_RF_model.predict(X_test)
@@ -315,6 +331,22 @@ class_weight_dict = {
     1: av_freq
 }
 
+#%%
+
+# Define a learning rate schedule function
+def lr_schedule(epoch):
+    initial_lr = 0.001  # Initial learning rate
+    decay_factor = 0.9  # Learning rate decay factor
+    decay_epochs = 6     # Number of epochs after which to decay the learning rate
+
+    # Calculate the new learning rate
+    lr = initial_lr * (decay_factor ** (epoch // decay_epochs))
+
+    return lr
+
+# Define the LearningRateScheduler callback
+lr_scheduler = LearningRateScheduler(lr_schedule)
+
 #%% Implement a simple feedforward model
 
 """
@@ -326,23 +358,41 @@ simple_model = tf.keras.Sequential([
     tf.keras.layers.Dense(param_1, activation='relu', input_shape=(X_train.shape[1],)),
     tf.keras.layers.Dense(param_2, activation='relu'),
     tf.keras.layers.Dense(param_3, activation='relu'),
+    tf.keras.layers.Dense(param_4, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
-# Compile the simple_model
-simple_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+# Compile the simple_model with an initial learning rate
+simple_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=initial_learning_rate),
+                     loss='binary_crossentropy', metrics=['accuracy'])
 
 simple_model.summary()
 
 #%%
 
 # Train the simple_model
-simple_model.fit(X_train, y_train, 
+history_simple = simple_model.fit(X_train, y_train, 
                  epochs = epochs,
                  batch_size = batch_size, 
                  validation_data=(X_val, y_val),
                  class_weight=class_weight_dict,
-                 callbacks=[early_stopping])
+                 callbacks=[early_stopping, lr_scheduler])
+
+#%%
+
+# Plot the training and validation loss
+plt.figure(figsize=(10, 6))
+
+plt.plot(history_simple.history['accuracy'], label='Training')
+plt.plot(history_simple.history['val_accuracy'], label='Validation')
+plt.plot(history_simple.history['loss'], label='Training loss')
+plt.plot(history_simple.history['val_loss'], label='Validation loss')
+
+plt.title('history_simple')
+plt.xlabel('Epochs')
+plt.ylabel('%')
+plt.legend()
+plt.show()
 
 # Evaluate the simple_model on the testing set
 y_pred_simple_model = simple_model.predict(X_test)
@@ -415,23 +465,41 @@ model_wide = tf.keras.Sequential([
     tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(frames, X_train_wide.shape[2])),
     tf.keras.layers.Dense(param_2, activation='relu'),
     tf.keras.layers.Dense(param_3, activation='relu'),
+    tf.keras.layers.Dense(param_4, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
 # Compile the model
-model_wide.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+model_wide.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=initial_learning_rate),
+                     loss='binary_crossentropy', metrics=['accuracy'])
 
 model_wide.summary()
 
 #%%
 
 # Train the model
-model_wide.fit(X_train_wide, y_train_wide,
+history_wide = model_wide.fit(X_train_wide, y_train_wide,
                epochs = epochs,
                batch_size = batch_size, 
                validation_data=(X_val_wide, y_val_wide),
                class_weight=class_weight_dict,
-               callbacks=[early_stopping])
+               callbacks=[early_stopping, lr_scheduler])
+
+#%%
+
+# Plot the training and validation loss
+plt.figure(figsize=(10, 6))
+
+plt.plot(history_wide.history['accuracy'], label='Training')
+plt.plot(history_wide.history['val_accuracy'], label='Validation')
+plt.plot(history_wide.history['loss'], label='Training loss')
+plt.plot(history_wide.history['val_loss'], label='Validation loss')
+
+plt.title('history_wide')
+plt.xlabel('Epochs')
+plt.ylabel('%')
+plt.legend()
+plt.show()
 
 # Evaluate the model on the testing set
 y_pred_wide = model_wide.predict(X_test_wide)
@@ -460,7 +528,7 @@ labels_df = pd.read_csv(path + '2023-05_TeNOR/TS/labels/2023-05_TeNOR_TS1_C3_B_R
 video_path = path + 'Example/2023-05_TeNOR_24h_TS_C3_B_R.mp4'
 """
 
-test_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+test_data = position_df.drop(['tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
 
 test_data['Left'] = labels_df['Left'] 
 test_data['Right'] = labels_df['Right']
@@ -468,7 +536,11 @@ test_data['Right'] = labels_df['Right']
 # We remove the rows where the mice is not on the video
 test_data = test_data.dropna(how='any')
     
-X_view = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y', 'R_ear_x', 'R_ear_y', 'head_x', 'head_y', 'neck_x', 'neck_y', 'body_x', 'body_y']].values
+X_view = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
+                'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
+                'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
+                'neck_x', 'neck_y', 'body_x', 'body_y', 
+                'tail_1_x', 'tail_1_y']].values
 
 # Extract labels (exploring or not)
 y_view = smooth_column(test_data[['Left', 'Right']].values)
@@ -476,6 +548,7 @@ y_view = smooth_column(test_data[['Left', 'Right']].values)
 #%% Predict the RF labels
 
 autolabels_RF = multi_output_RF_model.predict(X_view)
+autolabels_RF = smooth_column(np.array(autolabels_RF))
 autolabels_RF = pd.DataFrame(autolabels_RF, columns=["Left", "Right"])
 autolabels_RF.insert(0, "Frame", autolabels_RF.index + 1)
 
@@ -526,8 +599,8 @@ plt.plot(autolabels_wide["Right"] * -1, color = "b")
 plt.plot(autolabels_wide_binary["Left"] * 1.1, ".", color = "b", label = "autolabels_wide")
 plt.plot(autolabels_wide_binary["Right"] * -1.1, ".", color = "b")
 
-plt.plot(autolabels_manual["Left"] * 1.05, ".", color = "gray", label = "Manual")
-plt.plot(autolabels_manual["Right"] * -1.05, ".", color = "gray")
+plt.plot(autolabels_RF["Left"] * 1.05, ".", color = "gray", label = "RF")
+plt.plot(autolabels_RF["Right"] * -1.05, ".", color = "gray")
 
 plt.plot(autolabels_manual["Left"] * 1, ".", color = "black", label = "Manual")
 plt.plot(autolabels_manual["Right"] * -1, ".", color = "black")

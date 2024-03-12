@@ -14,13 +14,15 @@ start_time = time.time()
 #%%
 
 # Set the number of neurons in each layer
-param_1 = 64
-param_2 = 32
+param_1 = 32
+param_2 = 64
 param_3 = 16
 
-epochs = 48 # Set the training epochs
+epochs = 12 # Set the training epochs
 
 batch_size = 2048 # Set the batch size
+
+patience = 6 # Set the wait for the early stopping mechanism
 
 before = 2 # Say how many frames into the past the models will see
 after = 2 # Say how many frames into the future the models will see
@@ -54,20 +56,14 @@ Accuracy = 0.9864, Precision = 0.8819 -> Wide
 #%%
 
 # At home:
-# path = 'C:/Users/dhers/Desktop/Videos_NOR/'
+path = 'C:/Users/dhers/Desktop/Videos_NOR/'
 
 # In the lab:
-path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiments = ['2023-05_NOL',
-               '2023-05_TeNOR', 
-               '2023-05_TORM_24h',
-               '2023-07_TORM-delay',
-               '2023-09_TeNOR', 
-               '2023-11_Interferencia',
-               '2023-11_NORm',
-               '2023-11_TORM-3xTg',
-               '2024-01_TeNOR-3xTR']
+experiments = ['2024-01_TeNOR-3xTR']
+
+# '2023-05_NOL', '2023-05_TeNOR', '2023-05_TORM_24h', '2023-07_TORM-delay', '2023-09_TeNOR', '2023-11_Interferencia', '2023-11_NORm', '2023-11_TORM-3xTg',
 
 #%% Import libraries
 
@@ -256,17 +252,17 @@ def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
         
     # Concatenate the dataframes from different experiments        
     all_X_test = np.concatenate(files_X_test, axis=0)
-    print(f"Testing with {len(all_X_test)} videos")
+    print(f"Testing with {len(all_X_test)} frames ({len(all_X_test)/7500:.0f} videos)")
     all_y_test = np.concatenate(files_y_test, axis=0)
     all_y_test = smooth_column(all_y_test)
     
     all_X_val = np.concatenate(files_X_val, axis=0)
-    print(f"Validating with {len(all_X_val)} videos")
+    print(f"Validating with {len(all_X_val)} frames ({len(all_X_val)/7500:.0f} videos)")
     all_y_val = np.concatenate(files_y_val, axis=0)
     all_y_val = smooth_column(all_y_val)
     
     all_X_train = np.concatenate(files_X_train, axis=0)
-    print(f"Training¨ with {len(all_X_train)} videos")
+    print(f"Training¨ with {len(all_X_train)} frames ({len(all_X_train)/7500:.0f} videos)")
     all_y_train = np.concatenate(files_y_train, axis=0)
     all_y_train = smooth_column(all_y_train)
     
@@ -276,9 +272,48 @@ def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
 
 X_test, y_test, X_val, y_val, X_train, y_train = extract_videos(path, experiments)
 
+#%%
+
+# Create the Random Forest model (and set the number of estimators (decision trees))
+RF_model = RandomForestClassifier(n_estimators = 24, max_depth = 12)
+
+# Create a MultiOutputClassifier with the Random Forest as the base estimator
+multi_output_RF_model = MultiOutputClassifier(RF_model)
+
+# Train the MultiOutputClassifier with your data
+multi_output_RF_model.fit(X_train, y_train)
+
+# Evaluate the RF model on the testing set
+y_pred_RF_model = multi_output_RF_model.predict(X_test)
+
+#%%
+y_pred_RF_model = smooth_column(y_pred_RF_model)
+
+# Calculate accuracy and precision of the model
+accuracy_RF = accuracy_score(y_test, y_pred_RF_model)
+precision_RF = precision_score(y_test, y_pred_RF_model, average = 'weighted')
+
+print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f} -> RF_model")
+
+print(classification_report(y_test, y_pred_RF_model))
+
 #%% Define the EarlyStopping callback
 
-early_stopping = EarlyStopping(monitor='val_loss', patience=12, restore_best_weights=True)
+early_stopping = EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True)
+
+#%% Compute class weights
+
+class_weights_left = compute_class_weight('balanced', classes=[0, 1], y=y_train[:, 0])
+class_weights_right = compute_class_weight('balanced', classes=[0, 1], y=y_train[:, 1])
+
+# Calculate the average frequency of exploration
+av_freq = (class_weights_left[0] + class_weights_right[0]) / 2 # Calculate the average frequency of exploration
+
+# Create dictionaries for class weights for each output column
+class_weight_dict = {
+    0: av_freq,
+    1: av_freq
+}
 
 #%% Implement a simple feedforward model
 
@@ -306,6 +341,7 @@ simple_model.fit(X_train, y_train,
                  epochs = epochs,
                  batch_size = batch_size, 
                  validation_data=(X_val, y_val),
+                 class_weight=class_weight_dict,
                  callbacks=[early_stopping])
 
 # Evaluate the simple_model on the testing set
@@ -316,10 +352,10 @@ y_pred_binary_simple_model = (y_pred_simple_model > 0.5).astype(int)  # Convert 
 y_pred_binary_simple_model = smooth_column(y_pred_binary_simple_model)
 
 # Calculate accuracy and precision of the model
-accuracy_simple_model = accuracy_score(y_test, y_pred_binary_simple_model)
+accuracy_simple = accuracy_score(y_test, y_pred_binary_simple_model)
 precision_simple = precision_score(y_test, y_pred_binary_simple_model, average = 'weighted')
 
-print(f"Accuracy = {accuracy_simple_model:.4f}, Precision = {precision_simple:.4f} -> simple_model")
+print(f"Accuracy = {accuracy_simple:.4f}, Precision = {precision_simple:.4f} -> simple_model")
 
 print(classification_report(y_test, y_pred_binary_simple_model))
 
@@ -376,10 +412,9 @@ frames = before + after + 1
 
 # Build a simple LSTM-based neural network
 model_wide = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1, activation='relu', return_sequences=True, input_shape=(frames, X_train_wide.shape[2])),
-    tf.keras.layers.LSTM(param_2, activation='relu', return_sequences=True),
-    tf.keras.layers.LSTM(param_3, activation='relu'),
-    tf.keras.layers.dense(param_3, activation='relu'),
+    tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(frames, X_train_wide.shape[2])),
+    tf.keras.layers.Dense(param_2, activation='relu'),
+    tf.keras.layers.Dense(param_3, activation='relu'),
     tf.keras.layers.Dense(2, activation='sigmoid')
 ])
 
@@ -395,6 +430,7 @@ model_wide.fit(X_train_wide, y_train_wide,
                epochs = epochs,
                batch_size = batch_size, 
                validation_data=(X_val_wide, y_val_wide),
+               class_weight=class_weight_dict,
                callbacks=[early_stopping])
 
 # Evaluate the model on the testing set
@@ -437,7 +473,13 @@ X_view = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y', 'nose_x', 'nose_
 # Extract labels (exploring or not)
 y_view = smooth_column(test_data[['Left', 'Right']].values)
 
-#%%
+#%% Predict the RF labels
+
+autolabels_RF = multi_output_RF_model.predict(X_view)
+autolabels_RF = pd.DataFrame(autolabels_RF, columns=["Left", "Right"])
+autolabels_RF.insert(0, "Frame", autolabels_RF.index + 1)
+
+#%% Predict the simple labels
 
 autolabels_simple = simple_model.predict(X_view)
 
@@ -476,13 +518,16 @@ plt.figure(figsize = (16, 6))
 
 plt.plot(autolabels_simple["Left"], color = "r")
 plt.plot(autolabels_simple["Right"] * -1, color = "r")
-plt.plot(autolabels_simple_binary["Left"] * 1.2, ".", color = "r", label = "autolabels")
-plt.plot(autolabels_simple_binary["Right"] * -1.2, ".", color = "r")
+plt.plot(autolabels_simple_binary["Left"] * 1.15, ".", color = "r", label = "autolabels")
+plt.plot(autolabels_simple_binary["Right"] * -1.15, ".", color = "r")
 
 plt.plot(autolabels_wide["Left"], color = "b")
 plt.plot(autolabels_wide["Right"] * -1, color = "b")
 plt.plot(autolabels_wide_binary["Left"] * 1.1, ".", color = "b", label = "autolabels_wide")
 plt.plot(autolabels_wide_binary["Right"] * -1.1, ".", color = "b")
+
+plt.plot(autolabels_manual["Left"] * 1.05, ".", color = "gray", label = "Manual")
+plt.plot(autolabels_manual["Right"] * -1.05, ".", color = "gray")
 
 plt.plot(autolabels_manual["Left"] * 1, ".", color = "black", label = "Manual")
 plt.plot(autolabels_manual["Right"] * -1, ".", color = "black")
@@ -507,7 +552,9 @@ elapsed_time = end_time - start_time
 
 print(f"Script execution time: {elapsed_time:.2f} seconds ({elapsed_time/60:.2f} minutes).")
 
-print(f"Accuracy = {accuracy_simple_model:.4f}, Precision = {precision_simple:.4f} -> simple_model")
+print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f} -> RF_model")
+
+print(f"Accuracy = {accuracy_simple:.4f}, Precision = {precision_simple:.4f} -> simple_model")
 
 print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f} -> Wide")
 

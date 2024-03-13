@@ -14,21 +14,22 @@ start_time = time.time()
 #%%
 
 # Set the number of neurons in each layer
-param_1 = 128
-param_2 = 64
-param_3 = 32
-param_4 = 16
+param_LSTM = 32
+param_Dense = 32
+param_H1 = 16
+param_H2 = 16
+param_H3 = 16
 
-epochs = 48 # Set the training epochs
+epochs = 12 # Set the training epochs
 
-batch_size = 2048 # Set the batch size
+batch_size = 32 # Set the batch size
 
-initial_learning_rate = 0.001 # Set the initial lr
+initial_lr = 0.001 # Set the initial lr
 
-patience = 6 # Set the wait for the early stopping mechanism
+patience = 4 # Set the wait for the early stopping mechanism
 
-before = 1 # Say how many frames into the past the models will see
-after = 1 # Say how many frames into the future the models will see
+before = 0 # Say how many frames into the past the models will see
+after = 0 # Say how many frames into the future the models will see
 
 """
 At the lab:
@@ -42,12 +43,12 @@ Accuracy = 0.9794, Precision = 0.8349 -> Wide
 #%%
 
 # At home:
-# path = 'C:/Users/dhers/Desktop/Videos_NOR/'
+path = 'C:/Users/dhers/Desktop/Videos_NOR/'
+experiments = ['2023-11_NORm']
 
 # In the lab:
-path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
-
-experiments = ['2023-05_NOL', '2023-05_TeNOR', '2023-05_TORM_24h', '2023-07_TORM-delay', '2023-09_TeNOR', '2023-11_Interferencia', '2023-11_NORm', '2023-11_TORM-3xTg', '2024-01_TeNOR-3xTR']
+# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+# experiments = ['2023-05_NOL', '2023-05_TeNOR', '2023-05_TORM_24h', '2023-07_TORM-delay', '2023-09_TeNOR', '2023-11_Interferencia', '2023-11_NORm', '2023-11_TORM-3xTg', '2024-01_TeNOR-3xTR']
 
 
 #%% Import libraries
@@ -61,9 +62,13 @@ import random
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import accuracy_score, precision_score
 from sklearn.metrics import classification_report
-from tensorflow.keras.callbacks import EarlyStopping, LearningRateScheduler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.multioutput import MultiOutputClassifier
 
 import tensorflow as tf
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.regularizers import l2
+from tensorflow.keras.callbacks import EarlyStopping, LearningRateScheduler
 
 print(tf.config.list_physical_devices('GPU'))
 
@@ -114,6 +119,23 @@ def smooth_column(data_array):
     smoothed_array = np.column_stack(smoothed_columns)
     return smoothed_array
 
+#%%
+
+def remove_sparse_rows(df):
+    # Initialize a list to store indices of rows to be removed
+    rows_to_remove = []
+
+    # Iterate through the dataframe
+    for i in range(len(df)):
+        # Check if the last two columns have a 1 in at least 10 rows prior and after the current row
+        if (df.iloc[max(0, i - 10):i, -2:] == 0).all().all() and (df.iloc[i + 1:i + 11, -2:] == 0).all().all():
+            rows_to_remove.append(i)
+
+    # Drop the rows from the dataframe
+    df_cleaned = df.drop(rows_to_remove)
+
+    return df_cleaned
+
 #%% This function prepares data for training, testing and validating
 
 """
@@ -156,7 +178,7 @@ def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
             position_df = pd.read_csv(position_test)
             labels_df = pd.read_csv(labels_test)
             
-            data = position_df.drop(['tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+            data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
             
             data['Left'] = labels_df['Left'] 
             data['Right'] = labels_df['Right']
@@ -171,8 +193,7 @@ def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
         X_test = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
                         'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
                         'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
-                        'neck_x', 'neck_y', 'body_x', 'body_y', 
-                        'tail_1_x', 'tail_1_y']].values
+                        'neck_x', 'neck_y', 'body_x', 'body_y']].values
         
         # Extract labels (exploring or not)
         y_test = test_data[['Left', 'Right']].values
@@ -196,7 +217,7 @@ def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
             position_df = pd.read_csv(position_val)
             labels_df = pd.read_csv(labels_val)
             
-            data = position_df.drop(['tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+            data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
             
             data['Left'] = labels_df['Left'] 
             data['Right'] = labels_df['Right']
@@ -211,8 +232,7 @@ def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
         X_val = val_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
                         'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
                         'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
-                        'neck_x', 'neck_y', 'body_x', 'body_y', 
-                        'tail_1_x', 'tail_1_y']].values
+                        'neck_x', 'neck_y', 'body_x', 'body_y']].values
         
         # Extract labels (exploring or not)
         y_val = val_data[['Left', 'Right']].values
@@ -227,12 +247,15 @@ def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
             position_df = pd.read_csv(position_files[file])
             labels_df = pd.read_csv(labels_files[file])
             
-            data = position_df.drop(['tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+            data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
             
             data['Left'] = labels_df['Left'] 
             data['Right'] = labels_df['Right']
         
             train_data = pd.concat([train_data, data], ignore_index = True)
+        
+        # We remove uninformative moments
+        train_data = remove_sparse_rows(train_data)
         
         # We remove the rows where the mice is not on the video
         train_data = train_data.dropna(how='any')
@@ -240,8 +263,7 @@ def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
         X_train = train_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
                         'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
                         'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
-                        'neck_x', 'neck_y', 'body_x', 'body_y', 
-                        'tail_1_x', 'tail_1_y']].values
+                        'neck_x', 'neck_y', 'body_x', 'body_y']].values
         
         # Extract labels (exploring or not)
         y_train = train_data[['Left', 'Right']].values
@@ -280,7 +302,7 @@ def extract_videos(path, experiments, group = "TS", label_folder = "labels"):
 X_test, y_test, X_val, y_val, X_train, y_train = extract_videos(path, experiments)
 
 #%%
-"""
+
 # Create the Random Forest model (and set the number of estimators (decision trees))
 RF_model = RandomForestClassifier(n_estimators = 24, max_depth = 12)
 
@@ -292,16 +314,17 @@ multi_output_RF_model.fit(X_train, y_train)
 
 # Evaluate the RF model on the testing set
 y_pred_RF_model = multi_output_RF_model.predict(X_test)
-"""
 
 #%%
-
+"""
 # Load the saved model from file
-multi_output_RF_model = joblib.load(r'/home/usuario/Desktop/STORM/trained_model_203.pkl')
+
+#multi_output_RF_model = joblib.load(r'/home/usuario/Desktop/STORM/trained_model_203.pkl')
+multi_output_RF_model = joblib.load(r'C:/Users/dhers/Desktop/STORM/trained_model_203.pkl')
 
 # Evaluate the RF model on the testing set
 y_pred_RF_model = multi_output_RF_model.predict(X_test)
-
+"""
 #%%
 y_pred_RF_model = smooth_column(y_pred_RF_model)
 
@@ -334,10 +357,10 @@ class_weight_dict = {
 #%%
 
 # Define a learning rate schedule function
-def lr_schedule(epoch):
-    initial_lr = 0.001  # Initial learning rate
+def lr_schedule(epoch, initial):
+    initial_lr = initial  # Initial learning rate
     decay_factor = 0.9  # Learning rate decay factor
-    decay_epochs = 6     # Number of epochs after which to decay the learning rate
+    decay_epochs = 4     # Number of epochs after which to decay the learning rate
 
     # Calculate the new learning rate
     lr = initial_lr * (decay_factor ** (epoch // decay_epochs))
@@ -355,16 +378,15 @@ It looks at one frame at a time
 
 # Build a simple feedforward neural network
 simple_model = tf.keras.Sequential([
-    tf.keras.layers.Dense(param_1, activation='relu', input_shape=(X_train.shape[1],)),
-    tf.keras.layers.Dense(param_2, activation='relu'),
-    tf.keras.layers.Dense(param_3, activation='relu'),
-    tf.keras.layers.Dense(param_4, activation='relu'),
-    tf.keras.layers.Dense(2, activation='sigmoid')
+    Dense(param_Dense, activation='relu', input_shape=(X_train.shape[1],)),
+    Dense(param_H1, activation='relu'),
+    Dense(param_H2, activation='relu'),
+    Dense(param_H3, activation='relu'),
+    Dense(2, activation='sigmoid')
 ])
 
 # Compile the simple_model with an initial learning rate
-simple_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=initial_learning_rate),
-                     loss='binary_crossentropy', metrics=['accuracy'])
+simple_model.compile(optimizer='Adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 simple_model.summary()
 
@@ -375,16 +397,13 @@ history_simple = simple_model.fit(X_train, y_train,
                  epochs = epochs,
                  batch_size = batch_size, 
                  validation_data=(X_val, y_val),
-                 class_weight=class_weight_dict,
-                 callbacks=[early_stopping, lr_scheduler])
+                 callbacks=[early_stopping])
 
 #%%
 
 # Plot the training and validation loss
 plt.figure(figsize=(10, 6))
 
-plt.plot(history_simple.history['accuracy'], label='Training')
-plt.plot(history_simple.history['val_accuracy'], label='Validation')
 plt.plot(history_simple.history['loss'], label='Training loss')
 plt.plot(history_simple.history['val_loss'], label='Validation loss')
 
@@ -446,7 +465,7 @@ def reshape_set(data, labels, back, forward):
 #%% Implement LSTM models that can take into account the frames BEFORE and AFTER exploration
 
 """
-It looks at 3 frames at a time (before + after + 1)
+Prepare the data to train LSTM networks
 """
 
 # Reshape the training set
@@ -460,38 +479,34 @@ X_val_wide, y_val_wide = reshape_set(X_val, y_val, before, after)
 
 frames = before + after + 1
 
+#%% Define a first LSTM model
+
 # Build a simple LSTM-based neural network
 model_wide = tf.keras.Sequential([
-    tf.keras.layers.LSTM(param_1, activation='relu', input_shape=(frames, X_train_wide.shape[2])),
-    tf.keras.layers.Dense(param_2, activation='relu'),
-    tf.keras.layers.Dense(param_3, activation='relu'),
-    tf.keras.layers.Dense(param_4, activation='relu'),
-    tf.keras.layers.Dense(2, activation='sigmoid')
+    LSTM(param_LSTM, activation='relu', input_shape=(frames, X_train_wide.shape[2])),
+    Dense(param_H1, activation='relu'),
+    Dense(param_H2, activation='relu'),
+    Dense(param_H3, activation='relu'),
+    Dense(2, activation='sigmoid')
 ])
 
 # Compile the model
-model_wide.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=initial_learning_rate),
-                     loss='binary_crossentropy', metrics=['accuracy'])
+model_wide.compile(optimizer='Adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 model_wide.summary()
 
-#%%
+#%% Train the model
 
-# Train the model
 history_wide = model_wide.fit(X_train_wide, y_train_wide,
-               epochs = epochs,
-               batch_size = batch_size, 
-               validation_data=(X_val_wide, y_val_wide),
-               class_weight=class_weight_dict,
-               callbacks=[early_stopping, lr_scheduler])
+                              epochs = epochs,
+                              batch_size = batch_size,
+                              validation_data=(X_val_wide, y_val_wide),
+                              callbacks=[early_stopping])
 
-#%%
+#%% Plot the training and validation loss
 
-# Plot the training and validation loss
 plt.figure(figsize=(10, 6))
 
-plt.plot(history_wide.history['accuracy'], label='Training')
-plt.plot(history_wide.history['val_accuracy'], label='Validation')
 plt.plot(history_wide.history['loss'], label='Training loss')
 plt.plot(history_wide.history['val_loss'], label='Validation loss')
 
@@ -505,16 +520,68 @@ plt.show()
 y_pred_wide = model_wide.predict(X_test_wide)
 y_pred_binary_wide = (y_pred_wide > 0.5).astype(int)  # Convert probabilities to binary predictions
 
-#%%
+#%% Calculate accuracy and precision of the model
+
 y_pred_binary_wide = smooth_column(y_pred_binary_wide)
 
-# Calculate accuracy and precision of the model
-accuracy_wide = accuracy_score(y_test_wide, y_pred_binary_wide)
-precision_wide = precision_score(y_test_wide, y_pred_binary_wide, average = 'weighted')
+accuracy_wide = accuracy_score(y_test, y_pred_binary_wide)
+precision_wide = precision_score(y_test, y_pred_binary_wide, average = 'weighted')
 
 print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f} -> Wide")
 
-print(classification_report(y_test_wide, y_pred_binary_wide))
+print(classification_report(y_test, y_pred_binary_wide))
+
+#%% Define a second LSTM model
+
+# Build a simple LSTM-based neural network
+model_wide_2 = tf.keras.Sequential([
+    LSTM(param_LSTM, activation='relu', input_shape=(frames, X_train_wide.shape[2])),
+    Dense(param_H1, activation='relu'),
+    Dense(param_H2, activation='relu'),
+    Dense(param_H3, activation='relu'),
+    Dense(2, activation='sigmoid')
+])
+
+# Compile the model
+model_wide_2.compile(optimizer='Adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+model_wide_2.summary()
+
+#%% Train the model
+
+history_wide_2 = model_wide_2.fit(X_train_wide, y_train_wide,
+                              epochs = epochs,
+                              batch_size = batch_size,
+                              validation_data=(X_val_wide, y_val_wide),
+                              callbacks=[early_stopping])
+
+#%% Plot the training and validation loss
+
+plt.figure(figsize=(10, 6))
+
+plt.plot(history_wide_2.history['loss'], label='Training loss')
+plt.plot(history_wide_2.history['val_loss'], label='Validation loss')
+
+plt.title('history_wide_2')
+plt.xlabel('Epochs')
+plt.ylabel('%')
+plt.legend()
+plt.show()
+
+# Evaluate the model on the testing set
+y_pred_wide_2 = model_wide_2.predict(X_test_wide)
+y_pred_binary_wide_2 = (y_pred_wide_2 > 0.5).astype(int)  # Convert probabilities to binary predictions
+
+#%% Calculate accuracy and precision of the model
+
+y_pred_binary_wide_2 = smooth_column(y_pred_binary_wide_2)
+
+accuracy_wide_2 = accuracy_score(y_test, y_pred_binary_wide_2)
+precision_wide_2 = precision_score(y_test, y_pred_binary_wide_2, average = 'weighted')
+
+print(f"Accuracy = {accuracy_wide_2:.4f}, Precision = {precision_wide_2:.4f} -> wide_2")
+
+print(classification_report(y_test, y_pred_binary_wide_2))
 
 #%% Prepare the dataset of a video you want to analyze and see
 
@@ -528,7 +595,7 @@ labels_df = pd.read_csv(path + '2023-05_TeNOR/TS/labels/2023-05_TeNOR_TS1_C3_B_R
 video_path = path + 'Example/2023-05_TeNOR_24h_TS_C3_B_R.mp4'
 """
 
-test_data = position_df.drop(['tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+test_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
 
 test_data['Left'] = labels_df['Left'] 
 test_data['Right'] = labels_df['Right']
@@ -539,8 +606,7 @@ test_data = test_data.dropna(how='any')
 X_view = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
                 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
                 'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
-                'neck_x', 'neck_y', 'body_x', 'body_y', 
-                'tail_1_x', 'tail_1_y']].values
+                'neck_x', 'neck_y', 'body_x', 'body_y']].values
 
 # Extract labels (exploring or not)
 y_view = smooth_column(test_data[['Left', 'Right']].values)
@@ -578,6 +644,20 @@ autolabels_wide_binary.insert(0, "Frame", autolabels_wide_binary.index + 1)
 autolabels_wide = pd.DataFrame(autolabels_wide, columns=["Left", "Right"])
 autolabels_wide.insert(0, "Frame", autolabels_wide.index + 1)
 
+#%% Predict the wide_2 labels
+
+position_wide_2 = reshape_set(X_view, False, before, after)
+autolabels_wide_2 = model_wide_2.predict(position_wide_2)
+autolabels_wide_2 = np.vstack((np.zeros((before, 2)), autolabels_wide_2))
+
+autolabels_wide_2_binary = (autolabels_wide_2 > 0.5).astype(int)
+autolabels_wide_2_binary = smooth_column(np.array(autolabels_wide_2_binary))
+autolabels_wide_2_binary = pd.DataFrame(autolabels_wide_2_binary, columns=["Left", "Right"])
+autolabels_wide_2_binary.insert(0, "Frame", autolabels_wide_2_binary.index + 1)
+
+autolabels_wide_2 = pd.DataFrame(autolabels_wide_2, columns=["Left", "Right"])
+autolabels_wide_2.insert(0, "Frame", autolabels_wide_2.index + 1)
+
 #%% Prepare the manual labels
 
 autolabels_manual = pd.DataFrame(y_view, columns=["Left", "Right"])
@@ -591,13 +671,18 @@ plt.figure(figsize = (16, 6))
 
 plt.plot(autolabels_simple["Left"], color = "r")
 plt.plot(autolabels_simple["Right"] * -1, color = "r")
-plt.plot(autolabels_simple_binary["Left"] * 1.15, ".", color = "r", label = "autolabels")
-plt.plot(autolabels_simple_binary["Right"] * -1.15, ".", color = "r")
+plt.plot(autolabels_simple_binary["Left"] * 1.2, ".", color = "r", label = "autolabels")
+plt.plot(autolabels_simple_binary["Right"] * -1.2, ".", color = "r")
 
 plt.plot(autolabels_wide["Left"], color = "b")
 plt.plot(autolabels_wide["Right"] * -1, color = "b")
 plt.plot(autolabels_wide_binary["Left"] * 1.1, ".", color = "b", label = "autolabels_wide")
 plt.plot(autolabels_wide_binary["Right"] * -1.1, ".", color = "b")
+
+plt.plot(autolabels_wide["Left"], color = "green")
+plt.plot(autolabels_wide["Right"] * -1, color = "green")
+plt.plot(autolabels_wide_binary["Left"] * 1.15, ".", color = "g", label = "autolabels_wide")
+plt.plot(autolabels_wide_binary["Right"] * -1.15, ".", color = "g")
 
 plt.plot(autolabels_RF["Left"] * 1.05, ".", color = "gray", label = "RF")
 plt.plot(autolabels_RF["Right"] * -1.05, ".", color = "gray")
@@ -630,6 +715,8 @@ print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f} -> RF_model
 print(f"Accuracy = {accuracy_simple:.4f}, Precision = {precision_simple:.4f} -> simple_model")
 
 print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f} -> Wide")
+
+print(f"Accuracy = {accuracy_wide_2:.4f}, Precision = {precision_wide_2:.4f} -> wide_2")
 
 #%%
 
@@ -737,37 +824,3 @@ def visualize_video_frames(video_path):
 #%%
 
 # visualize_video_frames(video_path)
-
-#%%
-"""
-import tensorflow as tf
-from tensorflow.keras.layers import LSTM, Dense, Input, Attention, Concatenate
-
-# Define the input layer
-input_layer = Input(shape=(5, 16))
-
-# LSTM layers to capture sequential patterns
-lstm_layer1 = LSTM(128, activation='relu', return_sequences=True)(input_layer)
-lstm_layer2 = LSTM(64, activation='relu', return_sequences=True)(lstm_layer1)
-lstm_layer3 = LSTM(32, activation='relu')(lstm_layer2)
-
-# Attention mechanism
-attention = Attention()([lstm_layer3, lstm_layer2])
-
-# Concatenate the output of the LSTM and Attention layers
-combined = Concatenate(axis=-1)([lstm_layer3, attention])
-
-# Continue with the rest of your model architecture
-dense_layer1 = Dense(16, activation='relu')(combined)
-dense_layer2 = Dense(8, activation='relu')(dense_layer1)
-output_layer = Dense(2, activation='sigmoid')(dense_layer2)
-
-# Create the model
-model_wide_attention = tf.keras.Model(inputs=input_layer, outputs=output_layer)
-
-# Compile the model
-model_wide_attention.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-
-# Print the model summary to check the architecture
-model_wide_attention.summary()
-"""

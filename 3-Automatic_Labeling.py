@@ -28,12 +28,12 @@ after = 1 # Say how many frames into the future the models will see
 #%%
 
 # At home:
-# path = 'C:/Users/dhers/Desktop/Videos_NOR/'
+path = 'C:/Users/dhers/Desktop/Videos_NOR/'
 
 # In the lab:
-path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'2023-05_NOL'
+experiment = r'2023-11_NORm'
 
 #%% Import libraries
 

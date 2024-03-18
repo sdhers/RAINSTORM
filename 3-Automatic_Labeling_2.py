@@ -53,7 +53,7 @@ param_H4 = 16
 batch_size = 2048 # Set the batch size
 epochs = 80 # Set the training epochs
 
-patience = 8 # Set the wait for the early stopping mechanism
+patience = 10 # Set the wait for the early stopping mechanism
 
 before = 1 # Say how many frames into the past the models will see
 after = 1 # Say how many frames into the future the models will see
@@ -61,8 +61,13 @@ after = 1 # Say how many frames into the future the models will see
 frames = before + after + 1
 
 use_saved_data = True # if True, we use the dataframe processed previously
-focus = False # if Ture, the data processing will remove unimportant moments
-save_data = False # if True, the data processed will be saved with today's date
+
+if use_saved_data:
+    saved_data = 'saved_training_data.h5'
+
+else:
+    focus = False # if True, the data processing will remove unimportant moments
+    save_data = False # if True, the data processed will be saved with today's date
 
 #%% Start time
 
@@ -73,13 +78,12 @@ start_time = datetime.datetime.now()
 
 """
 At home:
-    
-Script execution time: 0:03:36.847288).
-Accuracy = 0.8519, Precision = 0.8140, Recall = 0.8856, F1 Score = 0.8480 -> RF
+
+Accuracy = 0.8494, Precision = 0.8119, Recall = 0.8819, F1 Score = 0.8453 -> RF
 Accuracy = 0.8810, Precision = 0.9313, Recall = 0.8039, F1 Score = 0.8628 -> RF_2
-Accuracy = 0.8799, Precision = 0.8609, Recall = 0.8852, F1 Score = 0.8728 -> simple
-Accuracy = 0.8885, Precision = 0.8611, Recall = 0.9068, F1 Score = 0.8834 -> wide_1
-Accuracy = 0.8915, Precision = 0.8660, Recall = 0.9078, F1 Score = 0.8863 -> sides
+Accuracy = 0.8824, Precision = 0.8498, Recall = 0.9087, F1 Score = 0.8780 -> simple
+Accuracy = 0.8909, Precision = 0.8733, Recall = 0.8953, F1 Score = 0.8841 -> wide_1
+Accuracy = 0.8964, Precision = 0.8870, Recall = 0.8911, F1 Score = 0.8890 -> sides
 
 
 At the lab:
@@ -137,7 +141,7 @@ def remove_sparse_rows(df):
     # Iterate through the dataframe
     for i in range(len(df)):
         # Check if the last two columns have a 1 in at least 10 rows prior and after the current row
-        if (df.iloc[max(0, i - 15):i, -2:] == 0).all().all() and (df.iloc[i + 1:i + 16, -2:] == 0).all().all():
+        if (df.iloc[max(0, i - 10):i, -2:] == 0).all().all() and (df.iloc[i + 1:i + 11, -2:] == 0).all().all():
             rows_to_remove.append(i)
 
     # Drop the rows from the dataframe
@@ -154,7 +158,7 @@ You can have many experiments in your model, and this function will:
     Concatenate all datasets for the model to use.
 """
 
-def extract_videos(path, experiments, focus = False, group = "TS", label_folder = "labels"):
+def extract_videos(path, experiments, apply_focus = False, group = "TS", label_folder = "labels"):
     
     files_X_test = []
     files_y_test = []
@@ -244,8 +248,9 @@ def extract_videos(path, experiments, focus = False, group = "TS", label_folder 
             data['Left'] = labels_df['Left'] 
             data['Right'] = labels_df['Right']
             
-            # We remove uninformative moments
-            data = remove_sparse_rows(data)
+            if apply_focus:
+                # We remove uninformative moments
+                data = remove_sparse_rows(data)
             
             val_data = pd.concat([val_data, data], ignore_index = True)
             
@@ -279,8 +284,9 @@ def extract_videos(path, experiments, focus = False, group = "TS", label_folder 
             data['Left'] = labels_df['Left'] 
             data['Right'] = labels_df['Right']
             
-            # We remove uninformative moments
-            data = remove_sparse_rows(data)
+            if apply_focus:
+                # We remove uninformative moments
+                data = remove_sparse_rows(data)
         
             train_data = pd.concat([train_data, data], ignore_index = True)
         
@@ -328,7 +334,7 @@ def extract_videos(path, experiments, focus = False, group = "TS", label_folder 
 
 if use_saved_data:
     # Load arrays
-    with h5py.File('saved_training_data.h5', 'r') as hf:
+    with h5py.File(saved_data, 'r') as hf:
         X_test = hf['X_test'][:]
         y_test = hf['y_test'][:]
         X_val = hf['X_val'][:]
@@ -340,19 +346,19 @@ if use_saved_data:
 
 else:
     print("Data is NOT ready to train")
-    X_test, y_test, X_val, y_val, X_train, y_train = extract_videos(path, experiments, focus = focus)
+    X_test, y_test, X_val, y_val, X_train, y_train = extract_videos(path, experiments, apply_focus = focus)
     
     print("Data is now ready to train")
 
-if save_data:
-    # Save arrays
-    with h5py.File(f'saved_training_data_{start_time.date()}.h5', 'w') as hf:
-        hf.create_dataset('X_test', data=X_test)
-        hf.create_dataset('y_test', data=y_test)
-        hf.create_dataset('X_val', data=X_val)
-        hf.create_dataset('y_val', data=y_val)
-        hf.create_dataset('X_train', data=X_train)
-        hf.create_dataset('y_train', data=y_train)
+    if save_data:
+        # Save arrays
+        with h5py.File(f'saved_training_data_{start_time.date()}.h5', 'w') as hf:
+            hf.create_dataset('X_test', data=X_test)
+            hf.create_dataset('y_test', data=y_test)
+            hf.create_dataset('X_val', data=X_val)
+            hf.create_dataset('y_val', data=y_val)
+            hf.create_dataset('X_train', data=X_train)
+            hf.create_dataset('y_train', data=y_train)
 
 #%%
 
@@ -375,7 +381,7 @@ initial_lr = 0.001 # Set the initial lr
 def lr_schedule(epoch):
     initial_lr = 0.001  # Initial learning rate
     decay_factor = 0.9  # Learning rate decay factor
-    decay_epochs = patience    # Number of epochs after which to decay the learning rate
+    decay_epochs = 5    # Number of epochs after which to decay the learning rate
 
     # Calculate the new learning rate
     lr = initial_lr * (decay_factor ** (epoch // decay_epochs))
@@ -387,15 +393,15 @@ lr_scheduler = LearningRateScheduler(lr_schedule)
 
 #%% Compute class weights
 
-class_weight_left = compute_class_weight('balanced', classes=[0, 1], y = y_test[:, 0])
-class_weight_right = compute_class_weight('balanced', classes=[0, 1], y = y_test[:, 1])
+class_weight_left = compute_class_weight('balanced', classes=[0, 1], y = y_train[:, 0])
+class_weight_right = compute_class_weight('balanced', classes=[0, 1], y = y_train[:, 1])
 
 # Calculate the average frequency of exploration
 freq_exp = (class_weight_left[0] + class_weight_right[0]) / 2 # Calculate the average frequency of exploration
 freq_else = (class_weight_left[1] + class_weight_right[1]) / 2
 
 # Create dictionaries for class weights for each output column
-class_weight_dict = {0: freq_else, 1: freq_exp}
+class_weight_dict = {0: freq_exp, 1: freq_exp}
 
 #%%
 
@@ -427,7 +433,7 @@ history_simple = model_simple.fit(X_train, y_train,
                               epochs = epochs,
                               batch_size = batch_size,
                               validation_data=(X_val, y_val),
-                              class_weight=class_weight_dict,
+                              # class_weight=class_weight_dict,
                               callbacks=[early_stopping, lr_scheduler])
 
 #%% Plot the training and validation loss
@@ -532,7 +538,7 @@ history_wide_1 = model_wide_1.fit(X_train_wide, y_train_wide,
                               epochs = epochs,
                               batch_size = batch_size,
                               validation_data=(X_val_wide, y_val_wide),
-                              class_weight=class_weight_dict,
+                              # class_weight=class_weight_dict,
                               callbacks=[early_stopping, lr_scheduler])
 
 #%% Plot the training and validation loss
@@ -600,6 +606,8 @@ model_right = create_model()
 # Train left and right models
 history_left = train_model(model_left, X_train_wide, y_train_left, X_val_wide, y_val_left)
 history_right = train_model(model_right, X_train_wide, y_train_right, X_val_wide, y_val_right)
+
+#%%
 
 # Plot training and validation loss
 plt.figure(figsize=(10, 6))

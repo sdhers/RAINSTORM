@@ -3,7 +3,7 @@ Created on Tue Nov  7 16:59:14 2023
 
 @author: dhers
 
-This code will train a model that classifies positions into exploration
+This script will train a model that classifies positions into exploration
 """
 
 #%% Import libraries
@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 
-from sklearn.utils.class_weight import compute_class_weight
+# from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import accuracy_score, precision_score, classification_report, recall_score, f1_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.multioutput import MultiOutputClassifier
@@ -36,12 +36,20 @@ import datetime
 #%% Set the variables before starting
 
 # At home:
-path = 'C:/Users/dhers/Desktop/Videos_NOR/'
-experiments = ['2023-11_NORm']
+# path = 'C:/Users/dhers/Desktop/Videos_NOR/'
+# experiments = ['2023-11_NORm']
 
 # At the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
-# experiments = ['2023-05_NOL', '2023-05_TeNOR', '2023-05_TORM_24h', '2023-07_TORM-delay', '2023-09_TeNOR', '2023-11_Interferencia', '2023-11_NORm', '2023-11_TORM-3xTg', '2024-01_TeNOR-3xTR']
+path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+experiments = ['2023-05_NOL', 
+               '2023-05_TeNOR', 
+               '2023-05_TORM_24h', 
+               '2023-07_TORM-delay',
+               '2023-09_TeNOR',
+               '2023-11_Interferencia',
+               '2023-11_NORm', 
+               '2023-11_TORM-3xTg', 
+               '2024-01_TeNOR-3xTR']
 
 # Set the number of neurons in each layer
 param_0 = 48 # 3x las columnas de entrada (18)
@@ -51,19 +59,19 @@ param_H3 = 24
 param_H4 = 16
 
 batch_size = 2048 # Set the batch size
-epochs = 80 # Set the training epochs
+epochs = 100 # Set the training epochs
 
-patience = 10 # Set the wait for the early stopping mechanism
+patience = 20 # Set the wait for the early stopping mechanism
 
-before = 1 # Say how many frames into the past the models will see
-after = 1 # Say how many frames into the future the models will see
+before = 2 # Say how many frames into the past the models will see
+after = 2 # Say how many frames into the future the models will see
 
 frames = before + after + 1
 
 use_saved_data = True # if True, we use the dataframe processed previously
 
 if use_saved_data:
-    saved_data = 'saved_training_data.h5'
+    saved_data = 'saved_training_data_focus.h5'
 
 else:
     focus = False # if True, the data processing will remove unimportant moments
@@ -77,18 +85,26 @@ start_time = datetime.datetime.now()
 #%% Results
 
 """
-At home:
+Script execution time: 0:06:36.158694).
+Accuracy = 0.9737, Precision = 0.7830, Recall = 0.8016, F1 Score = 0.7917 -> RF
+Accuracy = 0.9819, Precision = 0.8833, Recall = 0.8170, F1 Score = 0.8486 -> RF_2
+Accuracy = 0.9825, Precision = 0.8376, Recall = 0.8930, F1 Score = 0.8643 -> simple
+Accuracy = 0.9829, Precision = 0.8860, Recall = 0.8344, F1 Score = 0.8583 -> wide_1
+Accuracy = 0.9824, Precision = 0.8703, Recall = 0.8442, F1 Score = 0.8571 -> sides
 
-Accuracy = 0.8494, Precision = 0.8119, Recall = 0.8819, F1 Score = 0.8453 -> RF
-Accuracy = 0.8810, Precision = 0.9313, Recall = 0.8039, F1 Score = 0.8628 -> RF_2
-Accuracy = 0.8824, Precision = 0.8498, Recall = 0.9087, F1 Score = 0.8780 -> simple
-Accuracy = 0.8909, Precision = 0.8733, Recall = 0.8953, F1 Score = 0.8841 -> wide_1
-Accuracy = 0.8964, Precision = 0.8870, Recall = 0.8911, F1 Score = 0.8890 -> sides
+Script execution time: 0:02:08.459518).
+Accuracy = 0.8561, Precision = 0.8031, Recall = 0.8828, F1 Score = 0.8407 -> RF
+Accuracy = 0.8840, Precision = 0.9269, Recall = 0.7919, F1 Score = 0.8541 -> RF_2
+Accuracy = 0.8810, Precision = 0.8390, Recall = 0.8933, F1 Score = 0.8648 -> simple
+Accuracy = 0.8922, Precision = 0.8619, Recall = 0.8924, F1 Score = 0.8768 -> wide_1
+Accuracy = 0.8982, Precision = 0.8852, Recall = 0.8765, F1 Score = 0.8806 -> sides
 
-
-At the lab:
-
-
+Script execution time: 0:07:11.393802).
+Accuracy = 0.8536, Precision = 0.7993, Recall = 0.8815, F1 Score = 0.8381 -> RF
+Accuracy = 0.8840, Precision = 0.9269, Recall = 0.7919, F1 Score = 0.8541 -> RF_2
+Accuracy = 0.8923, Precision = 0.8636, Recall = 0.8918, F1 Score = 0.8769 -> simple
+Accuracy = 0.9042, Precision = 0.8715, Recall = 0.9122, F1 Score = 0.8909 -> wide_1
+Accuracy = 0.9050, Precision = 0.8816, Recall = 0.8998, F1 Score = 0.8903 -> sides
 """
 
 #%% This function finds the files that we want to use and lists their path
@@ -178,11 +194,11 @@ def extract_videos(path, experiments, apply_focus = False, group = "TS", label_f
     
         """ Test """
         
-        print('Test')
-        
         test_data = pd.DataFrame()
         
         videos_to_test = len(position_files)//9
+        
+        print(f'Testing with {videos_to_test} videos')
         
         while videos_to_test > 0:
             
@@ -201,11 +217,10 @@ def extract_videos(path, experiments, apply_focus = False, group = "TS", label_f
             data['Left'] = labels_df['Left'] 
             data['Right'] = labels_df['Right']
             
-            # We remove uninformative moments
-            """
-            Lets not do it in the test data, since we want to know how the model predicts full videos
-            data = remove_sparse_rows(data) 
-            """
+            # We remove uninformative moments            
+            if apply_focus:
+                # We remove uninformative moments
+                data = remove_sparse_rows(data)
             
             test_data = pd.concat([test_data, data], ignore_index = True)
             
@@ -225,11 +240,11 @@ def extract_videos(path, experiments, apply_focus = False, group = "TS", label_f
         
         """ Validate """
         
-        print('Validate')
-        
         val_data = pd.DataFrame()
         
         videos_to_val = len(position_files)//8
+        
+        print(f'Validating with {videos_to_val} videos')
         
         while videos_to_val > 0:
             
@@ -270,7 +285,7 @@ def extract_videos(path, experiments, apply_focus = False, group = "TS", label_f
         
         """ Train """
         
-        print('Train')
+        print(f'Training with {len(position_files)} videos')
         
         train_data = pd.DataFrame()
         
@@ -359,6 +374,8 @@ else:
             hf.create_dataset('y_val', data=y_val)
             hf.create_dataset('X_train', data=X_train)
             hf.create_dataset('y_train', data=y_train)
+            
+            print(f'Saved data to saved_training_data_{start_time.date()}.h5')
 
 #%%
 
@@ -391,18 +408,6 @@ def lr_schedule(epoch):
 # Define the LearningRateScheduler callback
 lr_scheduler = LearningRateScheduler(lr_schedule)
 
-#%% Compute class weights
-
-class_weight_left = compute_class_weight('balanced', classes=[0, 1], y = y_train[:, 0])
-class_weight_right = compute_class_weight('balanced', classes=[0, 1], y = y_train[:, 1])
-
-# Calculate the average frequency of exploration
-freq_exp = (class_weight_left[0] + class_weight_right[0]) / 2 # Calculate the average frequency of exploration
-freq_else = (class_weight_left[1] + class_weight_right[1]) / 2
-
-# Create dictionaries for class weights for each output column
-class_weight_dict = {0: freq_exp, 1: freq_exp}
-
 #%%
 
 """
@@ -433,7 +438,6 @@ history_simple = model_simple.fit(X_train, y_train,
                               epochs = epochs,
                               batch_size = batch_size,
                               validation_data=(X_val, y_val),
-                              # class_weight=class_weight_dict,
                               callbacks=[early_stopping, lr_scheduler])
 
 #%% Plot the training and validation loss
@@ -520,10 +524,10 @@ X_val_wide, y_val_wide = reshape_set(X_val, y_val, before, after)
 # Build a LSTM-based neural network
 model_wide_1 = tf.keras.Sequential([
     LSTM(param_0, activation='relu', input_shape=(frames, X_train_wide.shape[2]), return_sequences = True),
-    LSTM(param_H1, activation='relu'),
-    Dense(param_H2, activation='relu'),
-    Dense(param_H3, activation='relu'),
-    Dense(param_H4, activation='relu'),
+    LSTM(param_H1, activation='relu', return_sequences = True),
+    LSTM(param_H2, activation='relu', return_sequences = True),
+    LSTM(param_H3, activation='relu', return_sequences = True),
+    LSTM(param_H4, activation='relu'),
     Dense(2, activation='sigmoid')
 ])
 
@@ -538,7 +542,6 @@ history_wide_1 = model_wide_1.fit(X_train_wide, y_train_wide,
                               epochs = epochs,
                               batch_size = batch_size,
                               validation_data=(X_val_wide, y_val_wide),
-                              # class_weight=class_weight_dict,
                               callbacks=[early_stopping, lr_scheduler])
 
 #%% Plot the training and validation loss
@@ -574,10 +577,10 @@ print(classification_report(y_test_wide, y_pred_binary_wide_1))
 def create_model():
     model = tf.keras.Sequential([
         LSTM(param_0, activation='relu', input_shape=(frames, X_train_wide.shape[2]), return_sequences = True),
-        LSTM(param_H1, activation='relu'),
-        Dense(param_H2, activation='relu'),
-        Dense(param_H3, activation='relu'),
-        Dense(param_H4, activation='relu'),
+        LSTM(param_H1, activation='relu', return_sequences = True),
+        LSTM(param_H2, activation='relu', return_sequences = True),
+        LSTM(param_H3, activation='relu', return_sequences = True),
+        LSTM(param_H4, activation='relu'),
         Dense(1, activation='sigmoid')
     ])
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=initial_lr),
@@ -586,8 +589,7 @@ def create_model():
 
 def train_model(model, X_train, y_train, X_val, y_val):
     history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,
-                        validation_data=(X_val, y_val), class_weight=class_weight_dict,
-                        callbacks=[early_stopping, lr_scheduler])
+                        validation_data=(X_val, y_val), callbacks=[early_stopping, lr_scheduler])
     return history
 
 #%%
@@ -835,7 +837,6 @@ plt.plot(autolabels_sides["Right"] * -1, color = "g")
 plt.plot(autolabels_sides_binary["Left"] * 1.2, ".", color = "g", label = "autolabels_sides")
 plt.plot(autolabels_sides_binary["Right"] * -1.2, ".", color = "g")
 
-
 # Zoom in on the labels and the minima of the distances and angles
 plt.ylim((-1.3, 1.3))
 plt.axhline(y=0.5, color='black', linestyle='--')
@@ -1003,4 +1004,16 @@ def lr_schedule(epoch):
 
 # Define the LearningRateScheduler callback
 lr_scheduler = LearningRateScheduler(lr_schedule)
+
+#%% Compute class weights
+
+class_weight_left = compute_class_weight('balanced', classes=[0, 1], y = y_train[:, 0])
+class_weight_right = compute_class_weight('balanced', classes=[0, 1], y = y_train[:, 1])
+
+# Calculate the average frequency of exploration
+freq_exp = (class_weight_left[0] + class_weight_right[0]) / 2 # Calculate the average frequency of exploration
+freq_else = (class_weight_left[1] + class_weight_right[1]) / 2
+
+# Create dictionaries for class weights for each output column
+class_weight_dict = {0: freq_exp, 1: freq_exp}
 """

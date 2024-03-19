@@ -51,27 +51,27 @@ experiments = ['2023-05_NOL',
                '2023-11_TORM-3xTg', 
                '2024-01_TeNOR-3xTR']
 
+before = 1 # Say how many frames into the past the models will see
+after = 1 # Say how many frames into the future the models will see
+
+frames = before + after + 1
+
 # Set the number of neurons in each layer
-param_0 = 48 # 3x las columnas de entrada (18)
+param_0 = 48 # 3x las columnas de entrada (16)
 param_H1 = 40
 param_H2 = 32
 param_H3 = 24
 param_H4 = 16
 
-batch_size = 2048 # Set the batch size
+batch_size = 512 # Set the batch size
 epochs = 100 # Set the training epochs
 
-patience = 20 # Set the wait for the early stopping mechanism
+patience = 10 # Set the wait for the early stopping mechanism
 
-before = 2 # Say how many frames into the past the models will see
-after = 2 # Say how many frames into the future the models will see
-
-frames = before + after + 1
-
-use_saved_data = True # if True, we use the dataframe processed previously
+use_saved_data = False # if True, we use the dataframe processed previously
 
 if use_saved_data:
-    saved_data = 'saved_training_data_focus.h5'
+    saved_data = 'saved_training_data.h5'
 
 else:
     focus = False # if True, the data processing will remove unimportant moments
@@ -83,29 +83,6 @@ else:
 start_time = datetime.datetime.now()
 
 #%% Results
-
-"""
-Script execution time: 0:06:36.158694).
-Accuracy = 0.9737, Precision = 0.7830, Recall = 0.8016, F1 Score = 0.7917 -> RF
-Accuracy = 0.9819, Precision = 0.8833, Recall = 0.8170, F1 Score = 0.8486 -> RF_2
-Accuracy = 0.9825, Precision = 0.8376, Recall = 0.8930, F1 Score = 0.8643 -> simple
-Accuracy = 0.9829, Precision = 0.8860, Recall = 0.8344, F1 Score = 0.8583 -> wide_1
-Accuracy = 0.9824, Precision = 0.8703, Recall = 0.8442, F1 Score = 0.8571 -> sides
-
-Script execution time: 0:02:08.459518).
-Accuracy = 0.8561, Precision = 0.8031, Recall = 0.8828, F1 Score = 0.8407 -> RF
-Accuracy = 0.8840, Precision = 0.9269, Recall = 0.7919, F1 Score = 0.8541 -> RF_2
-Accuracy = 0.8810, Precision = 0.8390, Recall = 0.8933, F1 Score = 0.8648 -> simple
-Accuracy = 0.8922, Precision = 0.8619, Recall = 0.8924, F1 Score = 0.8768 -> wide_1
-Accuracy = 0.8982, Precision = 0.8852, Recall = 0.8765, F1 Score = 0.8806 -> sides
-
-Script execution time: 0:07:11.393802).
-Accuracy = 0.8536, Precision = 0.7993, Recall = 0.8815, F1 Score = 0.8381 -> RF
-Accuracy = 0.8840, Precision = 0.9269, Recall = 0.7919, F1 Score = 0.8541 -> RF_2
-Accuracy = 0.8923, Precision = 0.8636, Recall = 0.8918, F1 Score = 0.8769 -> simple
-Accuracy = 0.9042, Precision = 0.8715, Recall = 0.9122, F1 Score = 0.8909 -> wide_1
-Accuracy = 0.9050, Precision = 0.8816, Recall = 0.8998, F1 Score = 0.8903 -> sides
-"""
 
 #%% This function finds the files that we want to use and lists their path
 
@@ -196,7 +173,7 @@ def extract_videos(path, experiments, apply_focus = False, group = "TS", label_f
         
         test_data = pd.DataFrame()
         
-        videos_to_test = len(position_files)//9
+        videos_to_test = len(position_files)//8
         
         print(f'Testing with {videos_to_test} videos')
         
@@ -242,7 +219,7 @@ def extract_videos(path, experiments, apply_focus = False, group = "TS", label_f
         
         val_data = pd.DataFrame()
         
-        videos_to_val = len(position_files)//8
+        videos_to_val = len(position_files)//7
         
         print(f'Validating with {videos_to_val} videos')
         
@@ -383,12 +360,17 @@ else:
 Lets get some tools ready for model training:
     early stopping
     scheduled learning rate
-    class weights
 """
 
 #%% Define the EarlyStopping callback
 
-early_stopping = EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True)
+early_stopping = EarlyStopping(
+    monitor='val_loss',
+    patience=patience,
+    restore_best_weights=True,
+    mode='min',
+    verbose=1,
+)
 
 #%% Define a learning rate schedule function
 
@@ -523,11 +505,11 @@ X_val_wide, y_val_wide = reshape_set(X_val, y_val, before, after)
 
 # Build a LSTM-based neural network
 model_wide_1 = tf.keras.Sequential([
-    LSTM(param_0, activation='relu', input_shape=(frames, X_train_wide.shape[2]), return_sequences = True),
-    LSTM(param_H1, activation='relu', return_sequences = True),
-    LSTM(param_H2, activation='relu', return_sequences = True),
-    LSTM(param_H3, activation='relu', return_sequences = True),
-    LSTM(param_H4, activation='relu'),
+    LSTM(param_0, input_shape=(frames, X_train_wide.shape[2]), return_sequences = True),
+    LSTM(param_H1, return_sequences = True),
+    LSTM(param_H2, return_sequences = True),
+    LSTM(param_H3, return_sequences = True),
+    LSTM(param_H4),
     Dense(2, activation='sigmoid')
 ])
 
@@ -576,11 +558,11 @@ print(classification_report(y_test_wide, y_pred_binary_wide_1))
 
 def create_model():
     model = tf.keras.Sequential([
-        LSTM(param_0, activation='relu', input_shape=(frames, X_train_wide.shape[2]), return_sequences = True),
-        LSTM(param_H1, activation='relu', return_sequences = True),
-        LSTM(param_H2, activation='relu', return_sequences = True),
-        LSTM(param_H3, activation='relu', return_sequences = True),
-        LSTM(param_H4, activation='relu'),
+        LSTM(param_0, input_shape=(frames, X_train_wide.shape[2]), return_sequences = True),
+        LSTM(param_H1, return_sequences = True),
+        LSTM(param_H2, return_sequences = True),
+        LSTM(param_H3, return_sequences = True),
+        LSTM(param_H4),
         Dense(1, activation='sigmoid')
     ])
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=initial_lr),
@@ -1017,3 +999,39 @@ freq_else = (class_weight_left[1] + class_weight_right[1]) / 2
 # Create dictionaries for class weights for each output column
 class_weight_dict = {0: freq_exp, 1: freq_exp}
 """
+#%%
+
+import torch
+import torch.nn as nn
+
+class WideLSTM(nn.Module):
+    def __init__(self):
+        super(WideLSTM, self).__init__()
+        self.lstm1 = nn.LSTM(input_size=16, hidden_size=48, batch_first=True)
+        self.lstm2 = nn.LSTM(input_size=48, hidden_size=40, batch_first=True)
+        self.lstm3 = nn.LSTM(input_size=40, hidden_size=32, batch_first=True)
+        self.lstm4 = nn.LSTM(input_size=32, hidden_size=24, batch_first=True)
+        self.lstm5 = nn.LSTM(input_size=24, hidden_size=16, batch_first=True)
+        self.fc = nn.Linear(16, 2)
+        self.activation = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        out, _ = self.lstm1(x)
+        out = self.activation(out)
+        out, _ = self.lstm2(out)
+        out = self.activation(out)
+        out, _ = self.lstm3(out)
+        out = self.activation(out)
+        out, _ = self.lstm4(out)
+        out = self.activation(out)
+        out, _ = self.lstm5(out)
+        out = torch.squeeze(out[:, -1, :], dim=1)  # Flatten the output of the last LSTM layer
+        out = self.fc(out)
+        out = self.sigmoid(out)
+        return out
+
+# Create an instance of the model
+model_wide_pytorch = WideLSTM()
+
+print(model_wide_pytorch)

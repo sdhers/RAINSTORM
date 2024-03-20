@@ -63,7 +63,7 @@ param_H2 = 32
 param_H3 = 24
 param_H4 = 16
 
-batch_size = 512 # Set the batch size
+batch_size = 2048 # Set the batch size
 epochs = 100 # Set the training epochs
 
 patience = 10 # Set the wait for the early stopping mechanism
@@ -83,6 +83,9 @@ else:
 start_time = datetime.datetime.now()
 
 #%% Results
+
+"""
+"""
 
 #%% This function finds the files that we want to use and lists their path
 
@@ -147,7 +150,7 @@ def remove_sparse_rows(df):
 
 """
 You can have many experiments in your model, and this function will:
-    Randomly select one video of each experiment to test and validate.
+    Randomly select videos of each experiment to test and validate.
     Concatenate all datasets for the model to use.
 """
 
@@ -392,6 +395,41 @@ lr_scheduler = LearningRateScheduler(lr_schedule)
 
 #%%
 
+def plot_history(model, model_name):
+    
+    plt.figure(figsize=(10, 6))
+    
+    plt.plot(model.history['loss'], label='Training loss')
+    plt.plot(model.history['val_loss'], label='Validation loss')
+    plt.plot(model.history['accuracy'], label='Training accuracy')
+    plt.plot(model.history['val_accuracy'], label='Validation accuracy')
+    
+    plt.title(model_name)
+    plt.xlabel('Epochs')
+    plt.ylabel('%')
+    plt.legend()
+    plt.show()
+    
+#%%
+
+def evaluate(X, y, model):
+    
+    # Evaluate the model on the testing set
+    y_pred = model.predict(X)
+    y_pred_binary = (y_pred > 0.5).astype(int)  # Convert probabilities to binary predictions
+    # y_pred_binary = smooth_column(y_pred_binary)
+
+    accuracy = accuracy_score(y, y_pred_binary)
+    precision = precision_score(y, y_pred_binary, average = 'weighted')
+    recall = recall_score(y, y_pred_binary, average = 'weighted')
+    f1 = f1_score(y, y_pred_binary, average = 'weighted')
+    
+    print(classification_report(y, y_pred_binary))
+    
+    return accuracy, precision, recall, f1
+
+#%%
+
 """
 Now we train the first model
 """
@@ -422,33 +460,10 @@ history_simple = model_simple.fit(X_train, y_train,
                               validation_data=(X_val, y_val),
                               callbacks=[early_stopping, lr_scheduler])
 
-#%% Plot the training and validation loss
-
-plt.figure(figsize=(10, 6))
-
-plt.plot(history_simple.history['loss'], label='Training loss')
-plt.plot(history_simple.history['val_loss'], label='Validation loss')
-
-plt.title('history_simple')
-plt.xlabel('Epochs')
-plt.ylabel('%')
-plt.legend()
-plt.show()
-
 #%% Calculate accuracy and precision of the model
 
-# Evaluate the model on the testing set
-y_pred_simple = model_simple.predict(X_test)
-y_pred_binary_simple = (y_pred_simple > 0.5).astype(int)  # Convert probabilities to binary predictions
-# y_pred_binary_simple = smooth_column(y_pred_binary_simple)
-
-accuracy_simple = accuracy_score(y_test, y_pred_binary_simple)
-precision_simple = precision_score(y_test, y_pred_binary_simple, average = 'weighted')
-recall_simple = recall_score(y_test, y_pred_binary_simple, average = 'weighted')
-f1_simple = f1_score(y_test, y_pred_binary_simple, average = 'weighted')
-
+accuracy_simple, precision_simple, recall_simple, f1_simple = evaluate(X_test, y_test, model_simple)
 print(f"Accuracy = {accuracy_simple:.4f}, Precision = {precision_simple:.4f}, Recall = {recall_simple:.4f}, F1 Score = {f1_simple:.4f} -> simple")
-print(classification_report(y_test, y_pred_binary_simple))
 
 #%%
 
@@ -493,19 +508,19 @@ def reshape_set(data, labels, back, forward):
 #%% Prepare the wide data
 
 # Reshape the training set
-X_train_wide, y_train_wide = reshape_set(X_train, y_train, before, after)
+X_train_seq, y_train_seq = reshape_set(X_train, y_train, before, after)
 
 # Reshape the testing set
-X_test_wide, y_test_wide = reshape_set(X_test, y_test, before, after)
+X_test_seq, y_test_seq = reshape_set(X_test, y_test, before, after)
 
 # Reshape the validating set
-X_val_wide, y_val_wide = reshape_set(X_val, y_val, before, after)
+X_val_seq, y_val_seq = reshape_set(X_val, y_val, before, after)
 
 #%% Define a first LSTM model
 
 # Build a LSTM-based neural network
 model_wide_1 = tf.keras.Sequential([
-    LSTM(param_0, input_shape=(frames, X_train_wide.shape[2]), return_sequences = True),
+    LSTM(param_0, input_shape=(frames, X_train_seq.shape[2]), return_sequences = True),
     LSTM(param_H1, return_sequences = True),
     LSTM(param_H2, return_sequences = True),
     LSTM(param_H3, return_sequences = True),
@@ -520,45 +535,22 @@ model_wide_1.summary()
 
 #%% Train the model
 
-history_wide_1 = model_wide_1.fit(X_train_wide, y_train_wide,
+history_wide_1 = model_wide_1.fit(X_train_seq, y_train_seq,
                               epochs = epochs,
                               batch_size = batch_size,
-                              validation_data=(X_val_wide, y_val_wide),
+                              validation_data=(X_val_seq, y_val_seq),
                               callbacks=[early_stopping, lr_scheduler])
 
-#%% Plot the training and validation loss
-
-plt.figure(figsize=(10, 6))
-
-plt.plot(history_wide_1.history['loss'], label='Training loss')
-plt.plot(history_wide_1.history['val_loss'], label='Validation loss')
-
-plt.title('history_wide_1')
-plt.xlabel('Epochs')
-plt.ylabel('%')
-plt.legend()
-plt.show()
-
 #%% Calculate accuracy and precision of the model
-
-# Evaluate the model on the testing set
-y_pred_wide_1 = model_wide_1.predict(X_test_wide)
-y_pred_binary_wide_1 = (y_pred_wide_1 > 0.5).astype(int)  # Convert probabilities to binary predictions
-# y_pred_binary_wide_1 = smooth_column(y_pred_binary_wide_1)
-
-accuracy_wide_1 = accuracy_score(y_test_wide, y_pred_binary_wide_1)
-precision_wide_1 = precision_score(y_test_wide, y_pred_binary_wide_1, average = 'weighted')
-recall_wide_1 = recall_score(y_test_wide, y_pred_binary_wide_1, average = 'weighted')
-f1_wide_1 = f1_score(y_test_wide, y_pred_binary_wide_1, average = 'weighted')
-
-print(f"Accuracy = {accuracy_wide_1:.4f}, Precision = {precision_wide_1:.4f}, Recall = {recall_wide_1:.4f}, F1 Score = {f1_wide_1:.4f} -> wide_1")
-print(classification_report(y_test_wide, y_pred_binary_wide_1))
+    
+accuracy_wide_1, precision_wide_1, recall_wide_1, f1_wide_1 = evaluate(X_test_seq, y_test_seq, model_wide_1)
+print(f"Accuracy = {accuracy_wide_1:.4f}, Precision = {precision_wide_1:.4f}, Recall = {recall_wide_1:.4f}, F1 Score = {f1_wide_1:.4f} -> simple")
 
 #%% Define a second LSTM model dividing Left and Right
 
 def create_model():
     model = tf.keras.Sequential([
-        LSTM(param_0, input_shape=(frames, X_train_wide.shape[2]), return_sequences = True),
+        LSTM(param_0, input_shape=(frames, X_train_seq.shape[2]), return_sequences = True),
         LSTM(param_H1, return_sequences = True),
         LSTM(param_H2, return_sequences = True),
         LSTM(param_H3, return_sequences = True),
@@ -577,52 +569,40 @@ def train_model(model, X_train, y_train, X_val, y_val):
 #%%
 
 #Prepare the data by side
-y_train_left = y_train[before:-after, 0]
-y_train_right = y_train[before:-after, 1]
+y_test_left = y_test[before:-after, 0]
+y_test_right = y_test[before:-after, 1]
 
 y_val_left = y_val[before:-after, 0]
 y_val_right = y_val[before:-after, 1]
+
+y_train_left = y_train[before:-after, 0]
+y_train_right = y_train[before:-after, 1]
 
 # Create left and right models
 model_left = create_model()
 model_right = create_model()
 
 # Train left and right models
-history_left = train_model(model_left, X_train_wide, y_train_left, X_val_wide, y_val_left)
-history_right = train_model(model_right, X_train_wide, y_train_right, X_val_wide, y_val_right)
-
-#%%
-
-# Plot training and validation loss
-plt.figure(figsize=(10, 6))
-plt.plot(history_left.history['loss'], label='Training loss left')
-plt.plot(history_left.history['val_loss'], label='Validation loss left')
-plt.plot(history_right.history['loss'], label='Training loss right')
-plt.plot(history_right.history['val_loss'], label='Validation loss right')
-plt.title('Training and Validation Loss')
-plt.xlabel('Epochs')
-plt.ylabel('%')
-plt.legend()
-plt.show()
+history_left = train_model(model_left, X_train_seq, y_train_left, X_val_seq, y_val_left)
+history_right = train_model(model_right, X_train_seq, y_train_right, X_val_seq, y_val_right)
 
 #%% Calculate accuracy and precision of the model
 
 # Evaluate the model on the testing set
-y_pred_left = model_left.predict(X_test_wide)
-y_pred_right = model_right.predict(X_test_wide)
+y_pred_left = model_left.predict(X_test_seq)
+y_pred_right = model_right.predict(X_test_seq)
 
 y_pred_sides = np.hstack((y_pred_left, y_pred_right))
-
 y_pred_binary_sides = (y_pred_sides > 0.5).astype(int)  # Convert probabilities to binary predictions
 # y_pred_binary_sides = smooth_column(y_pred_binary_sides)
 
-accuracy_sides = accuracy_score(y_test_wide, y_pred_binary_sides)
-precision_sides = precision_score(y_test_wide, y_pred_binary_sides, average = 'weighted')
-recall_sides = recall_score(y_test_wide, y_pred_binary_sides, average = 'weighted')
-f1_sides = f1_score(y_test_wide, y_pred_binary_sides, average = 'weighted')
+accuracy_sides = accuracy_score(y_test_seq, y_pred_binary_sides)
+precision_sides = precision_score(y_test_seq, y_pred_binary_sides, average = 'weighted')
+recall_sides = recall_score(y_test_seq, y_pred_binary_sides, average = 'weighted')
+f1_sides = f1_score(y_test_seq, y_pred_binary_sides, average = 'weighted')
 
 print(f"Accuracy = {accuracy_sides:.4f}, Precision = {precision_sides:.4f}, Recall = {recall_sides:.4f}, F1 Score = {f1_sides:.4f} -> sides")
-print(classification_report(y_test_wide, y_pred_binary_sides))
+print(classification_report(y_test_seq, y_pred_binary_sides))
 
 #%%
 
@@ -643,46 +623,21 @@ multi_output_RF_model.fit(X_train, y_train)
 
 #%% Calculate accuracy and precision of the model
 
-# Evaluate the RF model on the testing set
-y_pred_RF_model = multi_output_RF_model.predict(X_test)
-# y_pred_RF_model = smooth_column(y_pred_RF_model)
-
-# Calculate accuracy and precision of the model
-accuracy_RF = accuracy_score(y_test, y_pred_RF_model)
-precision_RF = precision_score(y_test, y_pred_RF_model, average = 'weighted')
-recall_RF = recall_score(y_test, y_pred_RF_model, average = 'weighted')
-f1_RF = f1_score(y_test, y_pred_RF_model, average = 'weighted')
-
-print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f}, Recall = {recall_RF:.4f}, F1 Score = {f1_RF:.4f} -> RF")
-print(classification_report(y_test, y_pred_RF_model))
-
+accuracy_RF, precision_RF, recall_RF, f1_RF = evaluate(X_test, y_test, multi_output_RF_model)
+print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_wide_1:.4f}, Recall = {recall_wide_1:.4f}, F1 Score = {f1_wide_1:.4f} -> simple")
 
 #%% Load a pretrained model
 
-#multi_output_RF_model = joblib.load(r'/home/usuario/Desktop/STORM/trained_model_203.pkl')
-multi_output_RF_model_2 = joblib.load('trained_model_203.pkl')
-
-df = pd.DataFrame(X_test)
-
-df[16] = df[14]
-df[17] = df[15]
-
+multi_output_old_model = joblib.load('trained_model_203.pkl')
+X_test_old = pd.DataFrame(X_test)
+X_test_old[16] = X_test_old[14]
+X_test_old[17] = X_test_old[15]
 # I had to add two columns to the data because the older model had tail points too
 
 #%% Calculate accuracy and precision of the model
 
-# Evaluate the RF model on the testing set
-y_pred_RF_model_2 = multi_output_RF_model_2.predict(df)
-# y_pred_RF_model_2 = smooth_column(y_pred_RF_model_2)
-
-# Calculate accuracy and precision of the model
-accuracy_RF_2 = accuracy_score(y_test, y_pred_RF_model_2)
-precision_RF_2 = precision_score(y_test, y_pred_RF_model_2, average = 'weighted')
-recall_RF_2 = recall_score(y_test, y_pred_RF_model_2, average = 'weighted')
-f1_RF_2 = f1_score(y_test, y_pred_RF_model_2, average = 'weighted')
-
-print(f"Accuracy = {accuracy_RF_2:.4f}, Precision = {precision_RF_2:.4f}, Recall = {recall_RF_2:.4f}, F1 Score = {f1_RF_2:.4f} -> RF_2")
-print(classification_report(y_test, y_pred_RF_model_2))
+accuracy_old, precision_old, recall_old, f1_old = evaluate(X_test_old, y_test, multi_output_old_model)
+print(f"Accuracy = {accuracy_old:.4f}, Precision = {precision_old:.4f}, Recall = {recall_old:.4f}, F1 Score = {f1_old:.4f} -> simple")
 
 #%%
 
@@ -732,8 +687,8 @@ autolabels_simple.insert(0, "Frame", autolabels_simple.index + 1)
 
 #%% Predict the wide_1 labels
 
-position_wide_1 = reshape_set(X_view, False, before, after)
-autolabels_wide_1 = model_wide_1.predict(position_wide_1)
+position_seq = reshape_set(X_view, False, before, after)
+autolabels_wide_1 = model_wide_1.predict(position_seq)
 autolabels_wide_1 = np.vstack((np.zeros((before, 2)), autolabels_wide_1))
 
 autolabels_wide_1_binary = (autolabels_wide_1 > 0.5).astype(int)
@@ -746,10 +701,8 @@ autolabels_wide_1.insert(0, "Frame", autolabels_wide_1.index + 1)
 
 #%% Predict the side labels
 
-position_sides = reshape_set(X_view, False, before, after)
-
-autolabels_left = model_left.predict(position_sides)
-autolabels_right = model_right.predict(position_sides)
+autolabels_left = model_left.predict(position_seq)
+autolabels_right = model_right.predict(position_seq)
 
 autolabels_sides = np.hstack((autolabels_left, autolabels_right))
 
@@ -773,10 +726,10 @@ autolabels_RF.insert(0, "Frame", autolabels_RF.index + 1)
 df = pd.DataFrame(X_view)
 df[16] = df[14]
 df[17] = df[15]
-autolabels_RF_2 = multi_output_RF_model_2.predict(df)
-# autolabels_RF_2 = smooth_column(np.array(autolabels_RF_2))
-autolabels_RF_2 = pd.DataFrame(autolabels_RF_2, columns=["Left", "Right"])
-autolabels_RF_2.insert(0, "Frame", autolabels_RF_2.index + 1)
+autolabels_old = multi_output_old_model.predict(df)
+# autolabels_old = smooth_column(np.array(autolabels_old))
+autolabels_old = pd.DataFrame(autolabels_old, columns=["Left", "Right"])
+autolabels_old.insert(0, "Frame", autolabels_old.index + 1)
 
 #%% Prepare the manual labels
 
@@ -798,15 +751,15 @@ plt.figure(figsize = (16, 6))
 plt.plot(autolabels_manual["Left"] * 1, ".", color = "black", label = "Manual")
 plt.plot(autolabels_manual["Right"] * -1, ".", color = "black")
 
-plt.plot(autolabels_RF["Left"] * 1.025, ".", color = "gray", label = "RF")
-plt.plot(autolabels_RF["Right"] * -1.025, ".", color = "gray")
+plt.plot(autolabels_old["Left"] * 1.025, ".", color = "y", label = "Old")
+plt.plot(autolabels_old["Right"] * -1.025, ".", color = "y")
 
-plt.plot(autolabels_RF_2["Left"] * 1.05, ".", color = "y", label = "RF_2")
-plt.plot(autolabels_RF_2["Right"] * -1.05, ".", color = "y")
+plt.plot(autolabels_RF["Left"] * 1.05, ".", color = "gray", label = "RF")
+plt.plot(autolabels_RF["Right"] * -1.05, ".", color = "gray")
 
 plt.plot(autolabels_simple["Left"], color = "r")
 plt.plot(autolabels_simple["Right"] * -1, color = "r")
-plt.plot(autolabels_simple_binary["Left"] * 1.1, ".", color = "r", label = "autolabels")
+plt.plot(autolabels_simple_binary["Left"] * 1.1, ".", color = "r", label = "autolabels_simple")
 plt.plot(autolabels_simple_binary["Right"] * -1.1, ".", color = "r")
 
 plt.plot(autolabels_wide_1["Left"], color = "b")
@@ -834,13 +787,20 @@ end_time = datetime.datetime.now()
 # Calculate elapsed time
 elapsed_time = end_time - start_time
 
+#%% Plot the training and validation loss
+    
+plot_history(history_simple, "Simple")
+plot_history(history_wide_1, "wide")
+plot_history(history_left, "Left")
+plot_history(history_right, "Right")
+
 #%% Print the model results
 
 print(f"Script execution time: {elapsed_time}).")
 
 print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f}, Recall = {recall_RF:.4f}, F1 Score = {f1_RF:.4f} -> RF")
 
-print(f"Accuracy = {accuracy_RF_2:.4f}, Precision = {precision_RF_2:.4f}, Recall = {recall_RF_2:.4f}, F1 Score = {f1_RF_2:.4f} -> RF_2")
+print(f"Accuracy = {accuracy_old:.4f}, Precision = {precision_old:.4f}, Recall = {recall_old:.4f}, F1 Score = {f1_old:.4f} -> old")
 
 print(f"Accuracy = {accuracy_simple:.4f}, Precision = {precision_simple:.4f}, Recall = {recall_simple:.4f}, F1 Score = {f1_simple:.4f} -> simple")
 
@@ -1001,6 +961,7 @@ class_weight_dict = {0: freq_exp, 1: freq_exp}
 """
 #%%
 
+"""
 import torch
 import torch.nn as nn
 
@@ -1035,3 +996,4 @@ class WideLSTM(nn.Module):
 model_wide_pytorch = WideLSTM()
 
 print(model_wide_pytorch)
+"""

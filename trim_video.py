@@ -85,3 +85,7 @@ def remove_sparse_rows(folder, wait = 25):
 folder_path = '/home/usuario/Desktop/selection'
 
 remove_sparse_rows(folder_path, wait = 25)
+
+"""
+hello chat, I have 3 types of files on a folder, those which end in labels.csv, others end in position.csv and then videos that end in video.mp4. I need a python script that reads the second and third column of the labels.csv file (called Left and Right) and starting on the row 3000, move forward until it identifies that one of the two columns changes values from 0 to 1. 
+"""

@@ -82,25 +82,21 @@ def process_frame(frame, frame_number, L, R, left_sum, right_sum):
     # Wait for a keystroke
     key = cv2.waitKey(0)
     
-    if key == ord('a'):
+    if key == ord('4'):
         left = 1
         right = 0
-    if key == ord('d'):
+    if key == ord('6'):
         left = 0
         right = 1
-    if key == ord('z'):
+    if key == ord('0'):
         left = 0
         right = 0
-    if key == ord('s'):
+    if key == ord('5'):
         pass
-    if key == ord('x'):
+    if key == ord('2'):
         move = -1
-    if key == ord('c'):
+    if key == ord('8'):
         move = 3
-    if key == ord('v'):
-        move = 5
-    if key == ord('b'):
-        move = 10
         
     return left, right, move
 

@@ -36,11 +36,15 @@ import datetime
 #%% Set the variables before starting
 
 # At home:
-# path = 'C:/Users/dhers/Desktop/Videos_NOR/'
+# desktop = 'C:/Users/dhers/Desktop/'
+# path = desktop + 'Videos_NOR/'
 # experiments = ['2023-11_NORm']
 
 # At the lab:
-path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+desktop = '/home/usuario/Desktop/'
+path = desktop + 'Santi D/Videos_NOR/'
+experiments = ['Merge']
+"""
 experiments = ['2023-05_NOL', 
                '2023-05_TeNOR', 
                '2023-05_TORM_24h', 
@@ -50,6 +54,7 @@ experiments = ['2023-05_NOL',
                '2023-11_NORm', 
                '2023-11_TORM-3xTg', 
                '2024-01_TeNOR-3xTR']
+"""
 
 before = 1 # Say how many frames into the past the models will see
 after = 1 # Say how many frames into the future the models will see
@@ -63,7 +68,7 @@ param_H2 = 32
 param_H3 = 24
 param_H4 = 16
 
-batch_size = 2048 # Set the batch size
+batch_size = 512 # Set the batch size
 epochs = 100 # Set the training epochs
 
 patience = 10 # Set the wait for the early stopping mechanism
@@ -75,7 +80,7 @@ if use_saved_data:
 
 else:
     focus = False # if True, the data processing will remove unimportant moments
-    save_data = False # if True, the data processed will be saved with today's date
+    save_data = True # if True, the data processed will be saved with today's date
 
 #%% Start time
 
@@ -183,7 +188,8 @@ def extract_videos(path, experiments, apply_focus = False, group = "TS", label_f
         while videos_to_test > 0:
             
             # Select a random video you want to use to test the model
-            video_test = random.randint(1, len(position_files))
+            # video_test = random.randint(1, len(position_files))
+            video_test = 12
         
             # Select position and labels for testing
             position_test = position_files.pop(video_test - 1)
@@ -485,20 +491,31 @@ def reshape_set(data, labels, back, forward):
         reshaped_data = []
     
         for i in range(back, len(data) - forward):
-            reshaped_data.append(data[i - back : i + forward + 1])
-    
+            reshaped_data.append(data[i - back : 1 + i + forward])
+        
+        # Calculate the number of removed rows
+        removed_rows = len(data) - len(reshaped_data)
+        
+        print(f"Reshaping removed {removed_rows} rows")
+        
         reshaped_data_tf = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
     
         return reshaped_data_tf
-    
+        
     else:
         
         reshaped_data = []
         reshaped_labels = []
     
         for i in range(back, len(data) - forward):
-            reshaped_data.append(data[i - back : i + forward + 1])
-            reshaped_labels.append(labels[i])
+            if data[i - back, 0] == data[i, 0] == data[i + forward, 0]:
+                reshaped_data.append(data[i - back : 1 + i + forward])
+                reshaped_labels.append(labels[i])
+        
+        # Calculate the number of removed rows
+        removed_rows = len(data) - len(reshaped_data)
+        
+        print(f"Reshaping removed {removed_rows} rows")
         
         reshaped_data_tf = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
         reshaped_labels_tf = tf.convert_to_tensor(reshaped_labels, dtype=tf.float64)
@@ -569,14 +586,14 @@ def train_model(model, X_train, y_train, X_val, y_val):
 #%%
 
 #Prepare the data by side
-y_test_left = y_test[before:-after, 0]
-y_test_right = y_test[before:-after, 1]
+y_test_left = y_test_seq[:, 0]
+y_test_right = y_test_seq[:, 1]
 
-y_val_left = y_val[before:-after, 0]
-y_val_right = y_val[before:-after, 1]
+y_val_left = y_val_seq[:, 0]
+y_val_right = y_val_seq[:, 1]
 
-y_train_left = y_train[before:-after, 0]
-y_train_right = y_train[before:-after, 1]
+y_train_left = y_train_seq[:, 0]
+y_train_right = y_train_seq[:, 1]
 
 # Create left and right models
 model_left = create_model()
@@ -628,7 +645,7 @@ print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_wide_1:.4f}, Recall
 
 #%% Load a pretrained model
 
-multi_output_old_model = joblib.load('trained_model_203.pkl')
+multi_output_old_model = joblib.load(desktop + 'STORM/trained_model_203.pkl')
 X_test_old = pd.DataFrame(X_test)
 X_test_old[16] = X_test_old[14]
 X_test_old[17] = X_test_old[15]
@@ -646,16 +663,19 @@ Now we can use the models in an example video
 """
 
 #%% Prepare the dataset of a video we want to analyze and see
-
+"""
 position_df = pd.read_csv(path + '2024-01_TeNOR-3xTR/TS/position/2024-01_TeNOR-3xTR_TS_C01_A_L_position.csv')
 labels_df = pd.read_csv(path + '2024-01_TeNOR-3xTR/TS/labels/2024-01_TeNOR-3xTR_TS_C01_A_L_labels.csv')
 video_path = path + 'Example/2024-01_TeNOR-3xTR_TS_C01_A_L.mp4'
 
-"""
 position_df = pd.read_csv(path + '2023-05_TeNOR/TS/position/2023-05_TeNOR_TS_C3_B_R_position.csv')
 labels_df = pd.read_csv(path + '2023-05_TeNOR/TS/labels/2023-05_TeNOR_TS1_C3_B_R_santi_labels.csv')
 video_path = path + 'Example/2023-05_TeNOR_24h_TS_C3_B_R.mp4'
 """
+
+position_df = pd.read_csv('/home/usuario/Desktop/Labeling Santi Dhers/L_merged_position.csv')
+labels_df = pd.read_csv('/home/usuario/Desktop/Labeling Santi Dhers/L_merged_labels.csv')
+video_path = '/home/usuario/Desktop/Labeling Santi Dhers/L_merged_video.mp4'
 
 test_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
 
@@ -688,6 +708,7 @@ autolabels_simple.insert(0, "Frame", autolabels_simple.index + 1)
 #%% Predict the wide_1 labels
 
 position_seq = reshape_set(X_view, False, before, after)
+
 autolabels_wide_1 = model_wide_1.predict(position_seq)
 autolabels_wide_1 = np.vstack((np.zeros((before, 2)), autolabels_wide_1))
 

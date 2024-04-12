@@ -36,25 +36,13 @@ import datetime
 #%% Set the variables before starting
 
 # At home:
-# desktop = 'C:/Users/dhers/Desktop/'
-# path = desktop + 'Videos_NOR/'
-# experiments = ['2023-11_NORm']
+desktop = 'C:/Users/dhers/Desktop'
 
 # At the lab:
-desktop = '/home/usuario/Desktop/'
-path = desktop + 'Santi D/Videos_NOR/'
-experiments = ['Merge']
-"""
-experiments = ['2023-05_NOL', 
-               '2023-05_TeNOR', 
-               '2023-05_TORM_24h', 
-               '2023-07_TORM-delay',
-               '2023-09_TeNOR',
-               '2023-11_Interferencia',
-               '2023-11_NORm', 
-               '2023-11_TORM-3xTg', 
-               '2024-01_TeNOR-3xTR']
-"""
+# desktop = '/home/usuario/Desktop'
+
+STORM_folder = os.path.join(desktop, 'STORM')
+colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
 
 before = 1 # Say how many frames into the past the models will see
 after = 1 # Say how many frames into the future the models will see
@@ -62,14 +50,14 @@ after = 1 # Say how many frames into the future the models will see
 frames = before + after + 1
 
 # Set the number of neurons in each layer
-param_0 = 48 # 3x las columnas de entrada (16)
-param_H1 = 40
-param_H2 = 32
-param_H3 = 24
-param_H4 = 16
+param_0 = 40 # 3x las columnas de entrada (16)
+param_H1 = 32
+param_H2 = 24
+param_H3 = 16
+param_H4 = 8
 
 batch_size = 512 # Set the batch size
-epochs = 100 # Set the training epochs
+epochs = 20 # Set the training epochs
 
 patience = 10 # Set the wait for the early stopping mechanism
 
@@ -80,7 +68,7 @@ if use_saved_data:
 
 else:
     focus = False # if True, the data processing will remove unimportant moments
-    save_data = True # if True, the data processed will be saved with today's date
+    save_data = False # if True, the data processed will be saved with today's date
 
 #%% Start time
 
@@ -91,25 +79,6 @@ start_time = datetime.datetime.now()
 
 """
 """
-
-#%% This function finds the files that we want to use and lists their path
-
-def find_files(path_name, exp_name, group, folder):
-    
-    group_name = f"/{group}"
-    
-    folder_name = f"/{folder}"
-    
-    wanted_files_path = os.listdir(path_name + exp_name + group_name + folder_name)
-    wanted_files = []
-    
-    for file in wanted_files_path:
-        if f"_{folder}.csv" in file:
-            wanted_files.append(path_name + exp_name + group_name + folder_name + "/" + file)
-            
-    wanted_files = sorted(wanted_files)
-    
-    return wanted_files
 
 #%% Function to smooth the columns (filter 2 or less individual occurrences)
 
@@ -153,183 +122,29 @@ def remove_sparse_rows(df):
 
 #%% This function prepares data for training, testing and validating
 
-"""
-You can have many experiments in your model, and this function will:
-    Randomly select videos of each experiment to test and validate.
-    Concatenate all datasets for the model to use.
-"""
+def divide_data(df):
 
-def extract_videos(path, experiments, apply_focus = False, group = "TS", label_folder = "labels"):
+    unique_values = df.iloc[:, 0].unique()
+    unique_values_list = unique_values.tolist()
+
+    # Calculate the number of elements to select (20% of the list)
+    percentage = int(len(unique_values_list) * 0.2)
     
-    files_X_test = []
-    files_y_test = []
+    # Randomly select 10% of the numbers
+    selection = random.sample(unique_values_list, percentage)
     
-    files_X_val = []
-    files_y_val = []
+    # Split the list into two halves
+    selection_test = selection[:len(selection) // 2]
+    selection_val = selection[len(selection) // 2:]
     
-    files_X_train = []
-    files_y_train = []
+    # Create a new dataframe 'test' with rows from 'df' that start with the selected numbers
+    test = df[df.iloc[:, 0].astype(str).str.startswith(tuple(map(str, selection_test)))]
+    val = df[df.iloc[:, 0].astype(str).str.startswith(tuple(map(str, selection_val)))]
     
-    for experiment in experiments:
-        
-        print(f'{experiment}')
+    # Remove the selected rows from the original dataframe 'df'
+    df = df[~df.iloc[:, 0].astype(str).str.startswith(tuple(map(str, selection)))]
     
-        position_files = find_files(path, experiment, group, "position")
-        labels_files = find_files(path, experiment, group, label_folder)
-    
-        """ Test """
-        
-        test_data = pd.DataFrame()
-        
-        videos_to_test = len(position_files)//8
-        
-        print(f'Testing with {videos_to_test} videos')
-        
-        while videos_to_test > 0:
-            
-            # Select a random video you want to use to test the model
-            # video_test = random.randint(1, len(position_files))
-            video_test = 12
-        
-            # Select position and labels for testing
-            position_test = position_files.pop(video_test - 1)
-            labels_test = labels_files.pop(video_test - 1)
-            
-            position_df = pd.read_csv(position_test)
-            labels_df = pd.read_csv(labels_test)
-            
-            data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
-            
-            data['Left'] = labels_df['Left'] 
-            data['Right'] = labels_df['Right']
-            
-            # We remove uninformative moments            
-            if apply_focus:
-                # We remove uninformative moments
-                data = remove_sparse_rows(data)
-            
-            test_data = pd.concat([test_data, data], ignore_index = True)
-            
-            videos_to_test -= 1
-        
-        # We remove the rows where the mice is not on the video
-        test_data = test_data.dropna(how='any')
-            
-        X_test = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
-                        'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
-                        'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
-                        'neck_x', 'neck_y', 'body_x', 'body_y']].values
-        
-        # Extract labels (exploring or not)
-        y_test = test_data[['Left', 'Right']].values
-        
-        
-        """ Validate """
-        
-        val_data = pd.DataFrame()
-        
-        videos_to_val = len(position_files)//7
-        
-        print(f'Validating with {videos_to_val} videos')
-        
-        while videos_to_val > 0:
-            
-            # Select a random video you want to use to val the model
-            video_val = random.randint(1, len(position_files))
-        
-            # Select position and labels for valing
-            position_val = position_files.pop(video_val - 1)
-            labels_val = labels_files.pop(video_val - 1)
-            
-            position_df = pd.read_csv(position_val)
-            labels_df = pd.read_csv(labels_val)
-            
-            data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
-            
-            data['Left'] = labels_df['Left'] 
-            data['Right'] = labels_df['Right']
-            
-            if apply_focus:
-                # We remove uninformative moments
-                data = remove_sparse_rows(data)
-            
-            val_data = pd.concat([val_data, data], ignore_index = True)
-            
-            videos_to_val -= 1
-        
-        # We remove the rows where the mice is not on the video
-        val_data = val_data.dropna(how='any')
-            
-        X_val = val_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
-                        'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
-                        'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
-                        'neck_x', 'neck_y', 'body_x', 'body_y']].values
-        
-        # Extract labels (exploring or not)
-        y_val = val_data[['Left', 'Right']].values
-        
-        
-        """ Train """
-        
-        print(f'Training with {len(position_files)} videos')
-        
-        train_data = pd.DataFrame()
-        
-        for file in range(len(position_files)):
-        
-            position_df = pd.read_csv(position_files[file])
-            labels_df = pd.read_csv(labels_files[file])
-            
-            data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
-            
-            data['Left'] = labels_df['Left'] 
-            data['Right'] = labels_df['Right']
-            
-            if apply_focus:
-                # We remove uninformative moments
-                data = remove_sparse_rows(data)
-        
-            train_data = pd.concat([train_data, data], ignore_index = True)
-        
-        # We remove the rows where the mice is not on the video
-        train_data = train_data.dropna(how='any')
-            
-        X_train = train_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
-                        'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
-                        'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
-                        'neck_x', 'neck_y', 'body_x', 'body_y']].values
-        
-        # Extract labels (exploring or not)
-        y_train = train_data[['Left', 'Right']].values
-        
-        
-        # Append each dataset to be concatenated after
-        files_X_test.append(X_test)
-        files_y_test.append(y_test)
-        
-        files_X_val.append(X_val)
-        files_y_val.append(y_val)
-        
-        files_X_train.append(X_train)
-        files_y_train.append(y_train)
-        
-    # Concatenate the dataframes from different experiments        
-    all_X_test = np.concatenate(files_X_test, axis=0)
-    print(f"Testing with {len(all_X_test)} frames")
-    all_y_test = np.concatenate(files_y_test, axis=0)
-    all_y_test = smooth_column(all_y_test)
-    
-    all_X_val = np.concatenate(files_X_val, axis=0)
-    print(f"Validating with {len(all_X_val)} frames")
-    all_y_val = np.concatenate(files_y_val, axis=0)
-    all_y_val = smooth_column(all_y_val)
-    
-    all_X_train = np.concatenate(files_X_train, axis=0)
-    print(f"Training with {len(all_X_train)} frames")
-    all_y_train = np.concatenate(files_y_train, axis=0)
-    all_y_train = smooth_column(all_y_train)
-    
-    return all_X_test, all_y_test, all_X_val, all_y_val, all_X_train, all_y_train
+    return df, test, val
 
 #%% Lets load the data
 
@@ -347,7 +162,28 @@ if use_saved_data:
 
 else:
     print("Data is NOT ready to train")
-    X_test, y_test, X_val, y_val, X_train, y_train = extract_videos(path, experiments, apply_focus = focus)
+    
+    colabels = pd.read_csv(colabels_file)
+    
+    train, test, val = divide_data(colabels)
+
+    # Define features (X) and target (y) columns
+    X_train = train.iloc[:, :18]  # Position
+    y_train_float = train.iloc[:, 22:24]  # Labels
+    y_train = (y_train_float > 0.5).astype(int)
+    
+    X_test = test.iloc[:, :18]
+    y_test_float = test.iloc[:, 22:24]
+    y_test = (y_test_float > 0.5).astype(int)
+
+    X_val = val.iloc[:, :18]
+    y_val_float = val.iloc[:, 22:24]
+    y_val = (y_val_float > 0.5).astype(int)
+
+    # Print the sizes of each set
+    print(f"Training set size: {len(X_train)} samples")
+    print(f"Validation set size: {len(X_val)} samples")
+    print(f"Testing set size: {len(X_test)} samples")
     
     print("Data is now ready to train")
 
@@ -488,6 +324,9 @@ def reshape_set(data, labels, back, forward):
     
     if labels is False:
         
+        if isinstance(data, pd.DataFrame):
+            data = data.to_numpy()
+        
         reshaped_data = []
     
         for i in range(back, len(data) - forward):
@@ -503,6 +342,11 @@ def reshape_set(data, labels, back, forward):
         return reshaped_data_tf
         
     else:
+        
+        if isinstance(data, pd.DataFrame):
+            data = data.to_numpy()
+        if isinstance(labels, pd.DataFrame):
+            labels = labels.to_numpy()
         
         reshaped_data = []
         reshaped_labels = []
@@ -561,7 +405,7 @@ history_wide_1 = model_wide_1.fit(X_train_seq, y_train_seq,
 #%% Calculate accuracy and precision of the model
     
 accuracy_wide_1, precision_wide_1, recall_wide_1, f1_wide_1 = evaluate(X_test_seq, y_test_seq, model_wide_1)
-print(f"Accuracy = {accuracy_wide_1:.4f}, Precision = {precision_wide_1:.4f}, Recall = {recall_wide_1:.4f}, F1 Score = {f1_wide_1:.4f} -> simple")
+print(f"Accuracy = {accuracy_wide_1:.4f}, Precision = {precision_wide_1:.4f}, Recall = {recall_wide_1:.4f}, F1 Score = {f1_wide_1:.4f} -> wide")
 
 #%% Define a second LSTM model dividing Left and Right
 
@@ -645,15 +489,11 @@ print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_wide_1:.4f}, Recall
 
 #%% Load a pretrained model
 
-multi_output_old_model = joblib.load(desktop + 'STORM/trained_model_203.pkl')
-X_test_old = pd.DataFrame(X_test)
-X_test_old[16] = X_test_old[14]
-X_test_old[17] = X_test_old[15]
-# I had to add two columns to the data because the older model had tail points too
+multi_output_old_model = joblib.load(os.path.join(STORM_folder, 'trained_model_203.pkl'))
 
 #%% Calculate accuracy and precision of the model
 
-accuracy_old, precision_old, recall_old, f1_old = evaluate(X_test_old, y_test, multi_output_old_model)
+accuracy_old, precision_old, recall_old, f1_old = evaluate(X_test, y_test, multi_output_old_model)
 print(f"Accuracy = {accuracy_old:.4f}, Precision = {precision_old:.4f}, Recall = {recall_old:.4f}, F1 Score = {f1_old:.4f} -> simple")
 
 #%%
@@ -671,13 +511,17 @@ video_path = path + 'Example/2024-01_TeNOR-3xTR_TS_C01_A_L.mp4'
 position_df = pd.read_csv(path + '2023-05_TeNOR/TS/position/2023-05_TeNOR_TS_C3_B_R_position.csv')
 labels_df = pd.read_csv(path + '2023-05_TeNOR/TS/labels/2023-05_TeNOR_TS1_C3_B_R_santi_labels.csv')
 video_path = path + 'Example/2023-05_TeNOR_24h_TS_C3_B_R.mp4'
-"""
 
 position_df = pd.read_csv('/home/usuario/Desktop/Labeling Santi Dhers/L_merged_position.csv')
 labels_df = pd.read_csv('/home/usuario/Desktop/Labeling Santi Dhers/L_merged_labels.csv')
 video_path = '/home/usuario/Desktop/Labeling Santi Dhers/L_merged_video.mp4'
+"""
 
-test_data = position_df.drop(['tail_1_x', 'tail_1_y', 'tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+position_df = pd.read_csv(os.path.join(desktop, 'Videos_NOR/2024-01_TeNOR-3xTR/TS/position/2024-01_TeNOR-3xTR_TS_C01_A_L_position.csv'))
+labels_df = pd.read_csv(os.path.join(desktop, 'Videos_NOR/2024-01_TeNOR-3xTR/TS/labels/2024-01_TeNOR-3xTR_TS_C01_A_L_labels.csv'))
+video_path = (os.path.join(desktop, 'Videos_NOR/Example/2024-01_TeNOR-3xTR_TS_C01_A_L.mp4'))
+
+test_data = position_df.drop(['tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
 
 test_data['Left'] = labels_df['Left'] 
 test_data['Right'] = labels_df['Right']
@@ -688,7 +532,7 @@ test_data = test_data.dropna(how='any')
 X_view = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
                 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
                 'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
-                'neck_x', 'neck_y', 'body_x', 'body_y']].values
+                'neck_x', 'neck_y', 'body_x', 'body_y', 'tail_1_x', 'tail_1_y']].values
 
 # Extract labels (exploring or not)
 y_view = smooth_column(test_data[['Left', 'Right']].values)
@@ -745,8 +589,7 @@ autolabels_RF = pd.DataFrame(autolabels_RF, columns=["Left", "Right"])
 autolabels_RF.insert(0, "Frame", autolabels_RF.index + 1)
 
 df = pd.DataFrame(X_view)
-df[16] = df[14]
-df[17] = df[15]
+
 autolabels_old = multi_output_old_model.predict(df)
 # autolabels_old = smooth_column(np.array(autolabels_old))
 autolabels_old = pd.DataFrame(autolabels_old, columns=["Left", "Right"])

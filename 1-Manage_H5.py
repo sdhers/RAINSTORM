@@ -25,12 +25,6 @@ path = r'C:/Users/dhers/Desktop/Videos_NOR/'
 experiment = r'2024-02_Persistance'
 folder = path + experiment
 
-# State video fps
-fps = 25
-
-# State the horizontal distance in cm between object 1 and object 2
-dist = 14 # (cm), we will use it to scale the video coordinates
-
 #%%
 
 """
@@ -73,11 +67,7 @@ def process_hdf5_file(path_name, distance, fps):
     
         for key in position_df.keys():
             if key[1] != "likelihood":
-                # Replace the positions of the objects in every frame by their medians across the video
-                if key[0] == "obj_1" or key[0] == "obj_2":
-                    current_data[str(key[0]) + "_" + str(key[1])] = [position_df[key].median()] * len(position_df[key])
-                else:
-                    current_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key]
+                current_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key]
             
         
         if "Hab" not in h5_file_path:

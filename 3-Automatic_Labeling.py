@@ -36,28 +36,28 @@ import datetime
 #%% Set the variables before starting
 
 # At home:
-desktop = 'C:/Users/dhers/Desktop'
+# desktop = 'C:/Users/dhers/Desktop'
 
 # At the lab:
-# desktop = '/home/usuario/Desktop'
+desktop = '/home/usuario/Desktop'
 
 STORM_folder = os.path.join(desktop, 'STORM')
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
 
-before = 1 # Say how many frames into the past the models will see
-after = 1 # Say how many frames into the future the models will see
+before = 3 # Say how many frames into the past the models will see
+after = 3 # Say how many frames into the future the models will see
 
 frames = before + after + 1
 
 # Set the number of neurons in each layer
-param_0 = 40 # 3x las columnas de entrada (16)
-param_H1 = 32
-param_H2 = 24
-param_H3 = 16
-param_H4 = 8
+param_0 = 48 # 3x las columnas de entrada (16)
+param_H1 = 40
+param_H2 = 32
+param_H3 = 24
+param_H4 = 16
 
-batch_size = 512 # Set the batch size
-epochs = 20 # Set the training epochs
+batch_size = 1024 # Set the batch size
+epochs = 100 # Set the training epochs
 
 patience = 10 # Set the wait for the early stopping mechanism
 
@@ -122,13 +122,13 @@ def remove_sparse_rows(df):
 
 #%% This function prepares data for training, testing and validating
 
-def divide_data(df):
+def divide_training_data(df):
 
     unique_values = df.iloc[:, 0].unique()
     unique_values_list = unique_values.tolist()
 
-    # Calculate the number of elements to select (20% of the list)
-    percentage = int(len(unique_values_list) * 0.2)
+    # Calculate the number of elements to select (30% of the list)
+    percentage = int(len(unique_values_list) * 0.3)
     
     # Randomly select 10% of the numbers
     selection = random.sample(unique_values_list, percentage)
@@ -165,20 +165,20 @@ else:
     
     colabels = pd.read_csv(colabels_file)
     
-    train, test, val = divide_data(colabels)
+    train, test, val = divide_training_data(colabels)
 
     # Define features (X) and target (y) columns
     X_train = train.iloc[:, :18]  # Position
     y_train_float = train.iloc[:, 22:24]  # Labels
-    y_train = (y_train_float > 0.5).astype(int)
+    y_train = (y_train_float > 0.6).astype(int)
     
     X_test = test.iloc[:, :18]
     y_test_float = test.iloc[:, 22:24]
-    y_test = (y_test_float > 0.5).astype(int)
+    y_test = (y_test_float > 0.6).astype(int)
 
     X_val = val.iloc[:, :18]
     y_val_float = val.iloc[:, 22:24]
-    y_val = (y_val_float > 0.5).astype(int)
+    y_val = (y_val_float > 0.6).astype(int)
 
     # Print the sizes of each set
     print(f"Training set size: {len(X_train)} samples")
@@ -503,39 +503,27 @@ Now we can use the models in an example video
 """
 
 #%% Prepare the dataset of a video we want to analyze and see
-"""
-position_df = pd.read_csv(path + '2024-01_TeNOR-3xTR/TS/position/2024-01_TeNOR-3xTR_TS_C01_A_L_position.csv')
-labels_df = pd.read_csv(path + '2024-01_TeNOR-3xTR/TS/labels/2024-01_TeNOR-3xTR_TS_C01_A_L_labels.csv')
-video_path = path + 'Example/2024-01_TeNOR-3xTR_TS_C01_A_L.mp4'
 
-position_df = pd.read_csv(path + '2023-05_TeNOR/TS/position/2023-05_TeNOR_TS_C3_B_R_position.csv')
-labels_df = pd.read_csv(path + '2023-05_TeNOR/TS/labels/2023-05_TeNOR_TS1_C3_B_R_santi_labels.csv')
-video_path = path + 'Example/2023-05_TeNOR_24h_TS_C3_B_R.mp4'
+position_df = pd.read_csv(os.path.join(STORM_folder, 'Example/Example_position.csv'))
+video_path = os.path.join(STORM_folder, 'Example/Example_video.mp4')
 
-position_df = pd.read_csv('/home/usuario/Desktop/Labeling Santi Dhers/L_merged_position.csv')
-labels_df = pd.read_csv('/home/usuario/Desktop/Labeling Santi Dhers/L_merged_labels.csv')
-video_path = '/home/usuario/Desktop/Labeling Santi Dhers/L_merged_video.mp4'
-"""
+labels_agus = pd.read_csv(os.path.join(STORM_folder, 'Example/Example_Agus.csv'), usecols=['Left', 'Right'])
+labels_marian = pd.read_csv(os.path.join(STORM_folder, 'Example/Example_Marian.csv'), usecols=['Left', 'Right'])
+labels_santi = pd.read_csv(os.path.join(STORM_folder, 'Example/Example_Santi.csv'), usecols=['Left', 'Right'])
+labels_dhers = pd.read_csv(os.path.join(STORM_folder, 'Example/Example_Dhers.csv'), usecols=['Left', 'Right'])
+labels_old = pd.read_csv(os.path.join(STORM_folder, 'Example/Example_old.csv'), usecols=['Left', 'Right'])
 
-position_df = pd.read_csv(os.path.join(desktop, 'Videos_NOR/2024-01_TeNOR-3xTR/TS/position/2024-01_TeNOR-3xTR_TS_C01_A_L_position.csv'))
-labels_df = pd.read_csv(os.path.join(desktop, 'Videos_NOR/2024-01_TeNOR-3xTR/TS/labels/2024-01_TeNOR-3xTR_TS_C01_A_L_labels.csv'))
-video_path = (os.path.join(desktop, 'Videos_NOR/Example/2024-01_TeNOR-3xTR_TS_C01_A_L.mp4'))
+colabels = (labels_agus + labels_marian + labels_santi + labels_dhers) / 4
 
-test_data = position_df.drop(['tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
-
-test_data['Left'] = labels_df['Left'] 
-test_data['Right'] = labels_df['Right']
-
-# We remove the rows where the mice is not on the video
-test_data = test_data.dropna(how='any')
+#%%
     
-X_view = test_data[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
+X_view = position_df[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
                 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
                 'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
                 'neck_x', 'neck_y', 'body_x', 'body_y', 'tail_1_x', 'tail_1_y']].values
 
 # Extract labels (exploring or not)
-y_view = smooth_column(test_data[['Left', 'Right']].values)
+y_view = (colabels > 0.5).astype(int)
 
 #%% Predict the simple labels
 
@@ -598,7 +586,6 @@ autolabels_old.insert(0, "Frame", autolabels_old.index + 1)
 #%% Prepare the manual labels
 
 autolabels_manual = pd.DataFrame(y_view, columns=["Left", "Right"])
-autolabels_manual.insert(0, "Frame", autolabels_manual.index + 1)
 
 #%%
 
@@ -644,6 +631,37 @@ plt.axhline(y=-0.5, color='black', linestyle='--')
 plt.legend()
 plt.show()
 
+#%% Lets plot the timeline to see the performance of each labeler
+
+plt.switch_backend('QtAgg')
+
+plt.figure(figsize = (16, 6))
+
+plt.plot(colabels["Left"], color = "black")
+plt.plot(colabels["Right"] * -1, color = "black")
+plt.plot(autolabels_manual["Left"] * 1, ".", color = "black", label = "Manual")
+plt.plot(autolabels_manual["Right"] * -1, ".", color = "black")
+
+plt.plot(labels_agus["Left"] * 1.05, ".", color = "r", label = "Agus")
+plt.plot(labels_agus["Right"] * -1.05, ".", color = "r")
+
+plt.plot(labels_marian["Left"] * 1.10, ".", color = "m", label = "Marian")
+plt.plot(labels_marian["Right"] * -1.10, ".", color = "m")
+
+plt.plot(labels_santi["Left"] * 1.15, ".", color = "g", label = "Santi Ojea")
+plt.plot(labels_santi["Right"] * -1.15, ".", color = "g")
+
+plt.plot(labels_dhers["Left"] * 1.20, ".", color = "b", label = "Santi Dhers")
+plt.plot(labels_dhers["Right"] * -1.20, ".", color = "b")
+
+# Zoom in on the labels and the minima of the distances and angles
+plt.ylim((-1.3, 1.3))
+plt.axhline(y=0.5, color='black', linestyle='--')
+plt.axhline(y=-0.5, color='black', linestyle='--')
+
+plt.legend()
+plt.show()
+
 #%% Get the end time
 
 end_time = datetime.datetime.now()
@@ -671,6 +689,18 @@ print(f"Accuracy = {accuracy_simple:.4f}, Precision = {precision_simple:.4f}, Re
 print(f"Accuracy = {accuracy_wide_1:.4f}, Precision = {precision_wide_1:.4f}, Recall = {recall_wide_1:.4f}, F1 Score = {f1_wide_1:.4f} -> wide_1")
 
 print(f"Accuracy = {accuracy_sides:.4f}, Precision = {precision_sides:.4f}, Recall = {recall_sides:.4f}, F1 Score = {f1_sides:.4f} -> sides")
+
+labelers = [labels_agus, labels_marian, labels_santi, labels_dhers]
+labelers_names = ['labels_agus', 'labels_marian', 'labels_santi', 'labels_dhers']
+
+for i, labeler in enumerate(labelers):
+    accuracy = accuracy_score(labeler, autolabels_manual)
+    precision = precision_score(labeler, autolabels_manual, average='weighted')
+    recall = recall_score(labeler, autolabels_manual, average='weighted')
+    f1 = f1_score(labeler, autolabels_manual, average='weighted')
+
+    # Print evaluation metrics along with the labeler's name
+    print(f"Accuracy = {accuracy:.4f}, Precision = {precision:.4f}, Recall = {recall:.4f}, F1 Score = {f1:.4f} -> {labelers_names[i]}")
 
 #%% Define a function that allows us to visualize the labels together with the video
 
@@ -861,3 +891,113 @@ model_wide_pytorch = WideLSTM()
 
 print(model_wide_pytorch)
 """
+
+#%%
+
+def process_frame_2(frame, frame_number):
+    
+    move = False
+    leave = False
+
+    # Plot using Matplotlib with Agg backend
+    fig, ax = plt.subplots(figsize=(6, 4))
+    
+    ax.plot(colabels["Left"] * 1, ".", color = "black")
+    ax.plot(colabels["Right"] * -1, ".", color = "black")
+    
+    ax.plot(labels_agus["Left"] * 1.05, ".", color = "r")
+    ax.plot(labels_agus["Right"] * -1.05, ".", color = "r")
+    
+    ax.plot(labels_marian["Left"] * 1.10, ".", color = "m")
+    ax.plot(labels_marian["Right"] * -1.10, ".", color = "m")
+    
+    ax.plot(labels_santi["Left"] * 1.15, ".", color = "g")
+    ax.plot(labels_santi["Right"] * -1.15, ".", color = "g")
+    
+    ax.plot(labels_dhers["Left"] * 1.20, ".", color = "b")
+    ax.plot(labels_dhers["Right"] * -1.20, ".", color = "b")
+    
+    
+    ax.set_xlim(frame_number-5, frame_number+5)
+    ax.set_ylim(-1.5, 1.5)
+    ax.axvline(x=frame_number, color='black', linestyle='--')
+    ax.axhline(y=0.5, color='black', linestyle='--')
+    ax.axhline(y=-0.5, color='black', linestyle='--')
+    
+    ax.set_title(f'Plot for Frame {frame_number}')
+    ax.set_xlabel('X-axis')
+    ax.set_ylabel('Y-axis')
+    ax.grid=True
+
+    # Save the plot as an image in memory
+    plot_img_path = 'plot_img.png'
+    canvas = FigureCanvas(fig)
+    canvas.print_png(plot_img_path)
+    
+    # Load the saved plot image
+    plot_img = cv2.imread(plot_img_path)
+    
+    # Resize the plot image to match the height of the frame
+    plot_img = cv2.resize(plot_img, (frame.shape[1], frame.shape[0]))
+    
+    # Combine the frame and plot images horizontally
+    combined_img = np.concatenate((frame, plot_img), axis=1)
+
+    # Display the combined image
+    cv2.imshow("Frame with Plot", combined_img)
+
+    # Wait for a keystroke
+    key = cv2.waitKey(0)
+    
+    if key == ord('6'):
+        move = 1
+    if key == ord('4'):
+        move = -1
+    if key == ord('9'):
+        move = 5
+    if key == ord('7'):
+        move = -5
+    if key == ord('3'):
+        move = 50
+    if key == ord('1'):
+        move = -50
+    if key == ord('q'):
+        leave = True
+    
+    return move, leave
+
+def visualize_video_frames_2(video_path):
+    
+    video = VideoFileClip(video_path)
+    
+    frame_generator = video.iter_frames()
+    frame_list = list(frame_generator) # This takes a while
+    
+    # Switch Matplotlib backend to Agg temporarily
+    original_backend = plt.get_backend()
+    plt.switch_backend('Agg')
+    
+    current_frame = 0 # Starting point of the video
+    leave = False
+    
+    while current_frame < len(frame_list) and not leave:
+              
+        frame = frame_list[current_frame] # The frame we are labeling
+        
+        # Process the current frames
+        move, leave = process_frame_2(frame, current_frame)
+        
+        if move: # Move some frames
+            if 0 < (current_frame + move) < len(frame_list):
+                current_frame += move
+                
+    
+    # Revert Matplotlib backend to the original backend
+    plt.switch_backend(original_backend)
+    
+    # Close the OpenCV windows
+    cv2.destroyAllWindows()
+
+#%%
+
+# visualize_video_frames_2(video_path)

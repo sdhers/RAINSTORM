@@ -31,21 +31,26 @@ from moviepy.editor import VideoFileClip
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import joblib
 
+
+import seaborn as sns
+from sklearn.metrics import jaccard_score
+from sklearn.metrics.pairwise import cosine_similarity
+
 import datetime
 
 #%% Set the variables before starting
 
 # At home:
-# desktop = 'C:/Users/dhers/Desktop'
+desktop = 'C:/Users/dhers/Desktop'
 
 # At the lab:
-desktop = '/home/usuario/Desktop'
+# desktop = '/home/usuario/Desktop'
 
 STORM_folder = os.path.join(desktop, 'STORM')
-colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
+colabels_file = os.path.join(STORM_folder, 'colabeled_data_2.csv')
 
-before = 3 # Say how many frames into the past the models will see
-after = 3 # Say how many frames into the future the models will see
+before = 1 # Say how many frames into the past the models will see
+after = 1 # Say how many frames into the future the models will see
 
 frames = before + after + 1
 
@@ -56,7 +61,7 @@ param_H2 = 32
 param_H3 = 24
 param_H4 = 16
 
-batch_size = 1024 # Set the batch size
+batch_size = 2048 # Set the batch size
 epochs = 100 # Set the training epochs
 
 patience = 10 # Set the wait for the early stopping mechanism
@@ -380,7 +385,7 @@ X_val_seq, y_val_seq = reshape_set(X_val, y_val, before, after)
 #%% Define a first LSTM model
 
 # Build a LSTM-based neural network
-model_wide_1 = tf.keras.Sequential([
+model_wide = tf.keras.Sequential([
     LSTM(param_0, input_shape=(frames, X_train_seq.shape[2]), return_sequences = True),
     LSTM(param_H1, return_sequences = True),
     LSTM(param_H2, return_sequences = True),
@@ -390,102 +395,28 @@ model_wide_1 = tf.keras.Sequential([
 ])
 
 # Compile the model
-model_wide_1.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=initial_lr),
+model_wide.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=initial_lr),
                      loss='binary_crossentropy', metrics=['accuracy'])
-model_wide_1.summary()
+model_wide.summary()
 
 #%% Train the model
 
-history_wide_1 = model_wide_1.fit(X_train_seq, y_train_seq,
+history_wide = model_wide.fit(X_train_seq, y_train_seq,
                               epochs = epochs,
                               batch_size = batch_size,
                               validation_data=(X_val_seq, y_val_seq),
                               callbacks=[early_stopping, lr_scheduler])
 
 #%% Calculate accuracy and precision of the model
-    
-accuracy_wide_1, precision_wide_1, recall_wide_1, f1_wide_1 = evaluate(X_test_seq, y_test_seq, model_wide_1)
-print(f"Accuracy = {accuracy_wide_1:.4f}, Precision = {precision_wide_1:.4f}, Recall = {recall_wide_1:.4f}, F1 Score = {f1_wide_1:.4f} -> wide")
 
-#%% Define a second LSTM model dividing Left and Right
-
-def create_model():
-    model = tf.keras.Sequential([
-        LSTM(param_0, input_shape=(frames, X_train_seq.shape[2]), return_sequences = True),
-        LSTM(param_H1, return_sequences = True),
-        LSTM(param_H2, return_sequences = True),
-        LSTM(param_H3, return_sequences = True),
-        LSTM(param_H4),
-        Dense(1, activation='sigmoid')
-    ])
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=initial_lr),
-                  loss='binary_crossentropy', metrics=['accuracy'])
-    return model
-
-def train_model(model, X_train, y_train, X_val, y_val):
-    history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,
-                        validation_data=(X_val, y_val), callbacks=[early_stopping, lr_scheduler])
-    return history
-
-#%%
-
-#Prepare the data by side
-y_test_left = y_test_seq[:, 0]
-y_test_right = y_test_seq[:, 1]
-
-y_val_left = y_val_seq[:, 0]
-y_val_right = y_val_seq[:, 1]
-
-y_train_left = y_train_seq[:, 0]
-y_train_right = y_train_seq[:, 1]
-
-# Create left and right models
-model_left = create_model()
-model_right = create_model()
-
-# Train left and right models
-history_left = train_model(model_left, X_train_seq, y_train_left, X_val_seq, y_val_left)
-history_right = train_model(model_right, X_train_seq, y_train_right, X_val_seq, y_val_right)
-
-#%% Calculate accuracy and precision of the model
-
-# Evaluate the model on the testing set
-y_pred_left = model_left.predict(X_test_seq)
-y_pred_right = model_right.predict(X_test_seq)
-
-y_pred_sides = np.hstack((y_pred_left, y_pred_right))
-y_pred_binary_sides = (y_pred_sides > 0.5).astype(int)  # Convert probabilities to binary predictions
-# y_pred_binary_sides = smooth_column(y_pred_binary_sides)
-
-accuracy_sides = accuracy_score(y_test_seq, y_pred_binary_sides)
-precision_sides = precision_score(y_test_seq, y_pred_binary_sides, average = 'weighted')
-recall_sides = recall_score(y_test_seq, y_pred_binary_sides, average = 'weighted')
-f1_sides = f1_score(y_test_seq, y_pred_binary_sides, average = 'weighted')
-
-print(f"Accuracy = {accuracy_sides:.4f}, Precision = {precision_sides:.4f}, Recall = {recall_sides:.4f}, F1 Score = {f1_sides:.4f} -> sides")
-print(classification_report(y_test_seq, y_pred_binary_sides))
+accuracy_wide, precision_wide, recall_wide, f1_wide = evaluate(X_test_seq, y_test_seq, model_wide)
+print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f}, Recall = {recall_wide:.4f}, F1 Score = {f1_wide:.4f} -> wide")
 
 #%%
 
 """
-Lets also train a Random Forest model to compare with
+Lets also Load a pretrained RF model
 """
-
-#%% We train a model with the same data
-
-# Create the Random Forest model (and set the number of estimators (decision trees))
-RF_model = RandomForestClassifier(n_estimators = 24, max_depth = 12)
-
-# Create a MultiOutputClassifier with the Random Forest as the base estimator
-multi_output_RF_model = MultiOutputClassifier(RF_model)
-
-# Train the MultiOutputClassifier with your data
-multi_output_RF_model.fit(X_train, y_train)
-
-#%% Calculate accuracy and precision of the model
-
-accuracy_RF, precision_RF, recall_RF, f1_RF = evaluate(X_test, y_test, multi_output_RF_model)
-print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_wide_1:.4f}, Recall = {recall_wide_1:.4f}, F1 Score = {f1_wide_1:.4f} -> simple")
 
 #%% Load a pretrained model
 
@@ -494,7 +425,7 @@ multi_output_old_model = joblib.load(os.path.join(STORM_folder, 'trained_model_2
 #%% Calculate accuracy and precision of the model
 
 accuracy_old, precision_old, recall_old, f1_old = evaluate(X_test, y_test, multi_output_old_model)
-print(f"Accuracy = {accuracy_old:.4f}, Precision = {precision_old:.4f}, Recall = {recall_old:.4f}, F1 Score = {f1_old:.4f} -> simple")
+print(f"Accuracy = {accuracy_old:.4f}, Precision = {precision_old:.4f}, Recall = {recall_old:.4f}, F1 Score = {f1_old:.4f} -> RF old")
 
 #%%
 
@@ -532,56 +463,33 @@ autolabels_simple = model_simple.predict(X_view)
 autolabels_simple_binary = (autolabels_simple > 0.5).astype(int) 
 # autolabels_simple_binary = smooth_column(np.array(autolabels_simple_binary))
 autolabels_simple_binary = pd.DataFrame(autolabels_simple_binary, columns=["Left", "Right"])
-autolabels_simple_binary.insert(0, "Frame", autolabels_simple_binary.index + 1)
+# autolabels_simple_binary.insert(0, "Frame", autolabels_simple_binary.index + 1)
 
 autolabels_simple = pd.DataFrame(autolabels_simple, columns=["Left", "Right"])
-autolabels_simple.insert(0, "Frame", autolabels_simple.index + 1)
+# autolabels_simple.insert(0, "Frame", autolabels_simple.index + 1)
 
 #%% Predict the wide_1 labels
 
 position_seq = reshape_set(X_view, False, before, after)
 
-autolabels_wide_1 = model_wide_1.predict(position_seq)
-autolabels_wide_1 = np.vstack((np.zeros((before, 2)), autolabels_wide_1))
+autolabels_wide = model_wide.predict(position_seq)
+autolabels_wide = np.vstack((np.zeros((before, 2)), autolabels_wide))
+autolabels_wide = np.vstack((autolabels_wide, np.zeros((after, 2))))
 
-autolabels_wide_1_binary = (autolabels_wide_1 > 0.5).astype(int)
+autolabels_wide_binary = (autolabels_wide > 0.5).astype(int)
 # autolabels_wide_1_binary = smooth_column(np.array(autolabels_wide_1_binary))
-autolabels_wide_1_binary = pd.DataFrame(autolabels_wide_1_binary, columns=["Left", "Right"])
-autolabels_wide_1_binary.insert(0, "Frame", autolabels_wide_1_binary.index + 1)
+autolabels_wide_binary = pd.DataFrame(autolabels_wide_binary, columns=["Left", "Right"])
+# autolabels_wide_binary.insert(0, "Frame", autolabels_wide_binary.index + 1)
 
-autolabels_wide_1 = pd.DataFrame(autolabels_wide_1, columns=["Left", "Right"])
-autolabels_wide_1.insert(0, "Frame", autolabels_wide_1.index + 1)
-
-#%% Predict the side labels
-
-autolabels_left = model_left.predict(position_seq)
-autolabels_right = model_right.predict(position_seq)
-
-autolabels_sides = np.hstack((autolabels_left, autolabels_right))
-
-autolabels_sides = np.vstack((np.zeros((before, 2)), autolabels_sides))
-
-autolabels_sides_binary = (autolabels_sides > 0.5).astype(int)
-# autolabels_sides_binary = smooth_column(np.array(autolabels_sides_binary))
-autolabels_sides_binary = pd.DataFrame(autolabels_sides_binary, columns=["Left", "Right"])
-autolabels_sides_binary.insert(0, "Frame", autolabels_sides_binary.index + 1)
-
-autolabels_sides = pd.DataFrame(autolabels_sides, columns=["Left", "Right"])
-autolabels_sides.insert(0, "Frame", autolabels_sides.index + 1)
+autolabels_wide = pd.DataFrame(autolabels_wide, columns=["Left", "Right"])
+# autolabels_wide_1.insert(0, "Frame", autolabels_wide_1.index + 1)
 
 #%% Predict the RF labels
 
-autolabels_RF = multi_output_RF_model.predict(X_view)
-# autolabels_RF = smooth_column(np.array(autolabels_RF))
-autolabels_RF = pd.DataFrame(autolabels_RF, columns=["Left", "Right"])
-autolabels_RF.insert(0, "Frame", autolabels_RF.index + 1)
-
-df = pd.DataFrame(X_view)
-
-autolabels_old = multi_output_old_model.predict(df)
+autolabels_old = multi_output_old_model.predict(X_view)
 # autolabels_old = smooth_column(np.array(autolabels_old))
 autolabels_old = pd.DataFrame(autolabels_old, columns=["Left", "Right"])
-autolabels_old.insert(0, "Frame", autolabels_old.index + 1)
+# autolabels_old.insert(0, "Frame", autolabels_old.index + 1)
 
 #%% Prepare the manual labels
 
@@ -602,57 +510,43 @@ plt.figure(figsize = (16, 6))
 plt.plot(autolabels_manual["Left"] * 1, ".", color = "black", label = "Manual")
 plt.plot(autolabels_manual["Right"] * -1, ".", color = "black")
 
-plt.plot(autolabels_old["Left"] * 1.025, ".", color = "y", label = "Old")
+plt.plot(autolabels_old["Left"] * 1.025, ".", color = "y", label = "RF_Old")
 plt.plot(autolabels_old["Right"] * -1.025, ".", color = "y")
-
-plt.plot(autolabels_RF["Left"] * 1.05, ".", color = "gray", label = "RF")
-plt.plot(autolabels_RF["Right"] * -1.05, ".", color = "gray")
 
 plt.plot(autolabels_simple["Left"], color = "r")
 plt.plot(autolabels_simple["Right"] * -1, color = "r")
-plt.plot(autolabels_simple_binary["Left"] * 1.1, ".", color = "r", label = "autolabels_simple")
-plt.plot(autolabels_simple_binary["Right"] * -1.1, ".", color = "r")
+plt.plot(autolabels_simple_binary["Left"] * 1.050, ".", color = "r", label = "autolabels_simple")
+plt.plot(autolabels_simple_binary["Right"] * -1.050, ".", color = "r")
 
-plt.plot(autolabels_wide_1["Left"], color = "b")
-plt.plot(autolabels_wide_1["Right"] * -1, color = "b")
-plt.plot(autolabels_wide_1_binary["Left"] * 1.15, ".", color = "b", label = "autolabels_wide_1")
-plt.plot(autolabels_wide_1_binary["Right"] * -1.15, ".", color = "b")
+plt.plot(autolabels_wide["Left"], color = "g")
+plt.plot(autolabels_wide["Right"] * -1, color = "g")
+plt.plot(autolabels_wide_binary["Left"] * 1.075, ".", color = "g", label = "autolabels_wide")
+plt.plot(autolabels_wide_binary["Right"] * -1.075, ".", color = "g")
+
+plt.plot(colabels["Left"], color = "black", linewidth = 2)
+plt.plot(colabels["Right"] * -1, color = "black", linewidth = 2)
+
+plt.plot(labels_marian["Left"] * 1.125, ".", color = "m", label = "Marian")
+plt.plot(labels_marian["Right"] * -1.125, ".", color = "m")
+
+plt.plot(labels_agus["Left"] * 1.150, ".", color = "c", label = "Agus")
+plt.plot(labels_agus["Right"] * -1.150, ".", color = "c")
+
+plt.plot(labels_santi["Left"] * 1.175, ".", color = "orange", label = "Santi Ojea")
+plt.plot(labels_santi["Right"] * -1.175, ".", color = "orange")
+
+plt.plot(labels_dhers["Left"] * 1.200, ".", color = "b", label = "Santi Dhers")
+plt.plot(labels_dhers["Right"] * -1.200, ".", color = "b")
+
+"""
+plt.plot(autolabels_RF["Left"] * 1.05, ".", color = "gray", label = "RF")
+plt.plot(autolabels_RF["Right"] * -1.05, ".", color = "gray")
 
 plt.plot(autolabels_sides["Left"], color = "g")
 plt.plot(autolabels_sides["Right"] * -1, color = "g")
 plt.plot(autolabels_sides_binary["Left"] * 1.2, ".", color = "g", label = "autolabels_sides")
 plt.plot(autolabels_sides_binary["Right"] * -1.2, ".", color = "g")
-
-# Zoom in on the labels and the minima of the distances and angles
-plt.ylim((-1.3, 1.3))
-plt.axhline(y=0.5, color='black', linestyle='--')
-plt.axhline(y=-0.5, color='black', linestyle='--')
-
-plt.legend()
-plt.show()
-
-#%% Lets plot the timeline to see the performance of each labeler
-
-plt.switch_backend('QtAgg')
-
-plt.figure(figsize = (16, 6))
-
-plt.plot(colabels["Left"], color = "black")
-plt.plot(colabels["Right"] * -1, color = "black")
-plt.plot(autolabels_manual["Left"] * 1, ".", color = "black", label = "Manual")
-plt.plot(autolabels_manual["Right"] * -1, ".", color = "black")
-
-plt.plot(labels_agus["Left"] * 1.05, ".", color = "r", label = "Agus")
-plt.plot(labels_agus["Right"] * -1.05, ".", color = "r")
-
-plt.plot(labels_marian["Left"] * 1.10, ".", color = "m", label = "Marian")
-plt.plot(labels_marian["Right"] * -1.10, ".", color = "m")
-
-plt.plot(labels_santi["Left"] * 1.15, ".", color = "g", label = "Santi Ojea")
-plt.plot(labels_santi["Right"] * -1.15, ".", color = "g")
-
-plt.plot(labels_dhers["Left"] * 1.20, ".", color = "b", label = "Santi Dhers")
-plt.plot(labels_dhers["Right"] * -1.20, ".", color = "b")
+"""
 
 # Zoom in on the labels and the minima of the distances and angles
 plt.ylim((-1.3, 1.3))
@@ -672,26 +566,35 @@ elapsed_time = end_time - start_time
 #%% Plot the training and validation loss
     
 plot_history(history_simple, "Simple")
-plot_history(history_wide_1, "wide")
+plot_history(history_wide, "wide")
+
+"""
 plot_history(history_left, "Left")
 plot_history(history_right, "Right")
+"""
 
 #%% Print the model results
 
 print(f"Script execution time: {elapsed_time}).")
 
-print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f}, Recall = {recall_RF:.4f}, F1 Score = {f1_RF:.4f} -> RF")
+# print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f}, Recall = {recall_RF:.4f}, F1 Score = {f1_RF:.4f} -> RF")
+
+print("Evaluate over testing data")
 
 print(f"Accuracy = {accuracy_old:.4f}, Precision = {precision_old:.4f}, Recall = {recall_old:.4f}, F1 Score = {f1_old:.4f} -> old")
 
 print(f"Accuracy = {accuracy_simple:.4f}, Precision = {precision_simple:.4f}, Recall = {recall_simple:.4f}, F1 Score = {f1_simple:.4f} -> simple")
 
-print(f"Accuracy = {accuracy_wide_1:.4f}, Precision = {precision_wide_1:.4f}, Recall = {recall_wide_1:.4f}, F1 Score = {f1_wide_1:.4f} -> wide_1")
+print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f}, Recall = {recall_wide:.4f}, F1 Score = {f1_wide:.4f} -> wide")
 
-print(f"Accuracy = {accuracy_sides:.4f}, Precision = {precision_sides:.4f}, Recall = {recall_sides:.4f}, F1 Score = {f1_sides:.4f} -> sides")
+# print(f"Accuracy = {accuracy_sides:.4f}, Precision = {precision_sides:.4f}, Recall = {recall_sides:.4f}, F1 Score = {f1_sides:.4f} -> sides")
 
-labelers = [labels_agus, labels_marian, labels_santi, labels_dhers]
-labelers_names = ['labels_agus', 'labels_marian', 'labels_santi', 'labels_dhers']
+#%%
+
+print("Evaluate over viewing data")
+
+labelers = [autolabels_old, autolabels_simple_binary, autolabels_wide_binary, labels_agus, labels_marian, labels_santi, labels_dhers]
+labelers_names = ['old', 'simple', 'wide', 'labels_agus', 'labels_marian', 'labels_santi', 'labels_dhers']
 
 for i, labeler in enumerate(labelers):
     accuracy = accuracy_score(labeler, autolabels_manual)
@@ -701,6 +604,61 @@ for i, labeler in enumerate(labelers):
 
     # Print evaluation metrics along with the labeler's name
     print(f"Accuracy = {accuracy:.4f}, Precision = {precision:.4f}, Recall = {recall:.4f}, F1 Score = {f1:.4f} -> {labelers_names[i]}")
+
+#%%
+
+"""
+Lets see how similar the labels are to each other
+"""
+
+#%%
+
+df = pd.DataFrame()
+
+df["old"] = autolabels_old["Left"] + autolabels_old["Right"]
+df["simple"] = autolabels_simple_binary["Left"] + autolabels_simple_binary["Right"]
+df["wide"] = autolabels_wide_binary["Left"] + autolabels_wide_binary["Right"]
+
+df["Marian"] = labels_marian["Left"] + labels_marian["Right"]
+df["Agus"] = labels_agus["Left"] + labels_agus["Right"]
+df["Santi"] = labels_santi["Left"] + labels_santi["Right"]
+df["Dhers"] = labels_dhers["Left"] + labels_dhers["Right"]
+
+#%% Compute Cosine similarity
+
+cosine_sim = pd.DataFrame(cosine_similarity(df.T), index=df.columns, columns=df.columns)
+
+print("\nCosine Similarity:")
+print(cosine_sim)
+
+#%% Plot Cosine similarity heatmap
+
+plt.figure(figsize=(8, 6))
+sns.heatmap(cosine_sim.astype(float), annot=True, cmap="coolwarm", fmt=".2f")
+plt.title("Cosine Similarity")
+plt.show()
+
+#%%
+
+from sklearn.decomposition import PCA
+
+# Use PCA for dimensionality reduction to 2 components
+pca = PCA(n_components=2)
+pca_result = pca.fit_transform(cosine_sim)
+
+# Plot the 2D representation
+plt.figure(figsize=(8, 6))
+plt.scatter(pca_result[:, 0], pca_result[:, 1])
+
+# Annotate the points with column names
+for i, column in enumerate(df.columns):
+    plt.annotate(column, (pca_result[i, 0], pca_result[i, 1]))
+
+plt.title("PCA Visualization of Column Similarity")
+plt.xlabel("Principal Component 1")
+plt.ylabel("Principal Component 2")
+plt.grid(True)
+plt.show()
 
 #%% Define a function that allows us to visualize the labels together with the video
 
@@ -718,11 +676,13 @@ def process_frame(frame, frame_number):
     ax.plot(autolabels_simple["Left"], color = "r")
     ax.plot(autolabels_simple["Right"] * -1, color = "r")
     
-    ax.plot(autolabels_wide_1["Left"], color = "b")
-    ax.plot(autolabels_wide_1["Right"] * -1, color = "b")
+    ax.plot(autolabels_wide["Left"], color = "b")
+    ax.plot(autolabels_wide["Right"] * -1, color = "b")
     
+    """
     ax.plot(autolabels_sides["Left"], color = "g")
     ax.plot(autolabels_sides["Right"] * -1, color = "g")
+    """
     
     
     ax.set_xlim(frame_number-5, frame_number+5)
@@ -890,114 +850,80 @@ class WideLSTM(nn.Module):
 model_wide_pytorch = WideLSTM()
 
 print(model_wide_pytorch)
+
+
+#%% Define a second LSTM model dividing Left and Right
+
+def create_model():
+    model = tf.keras.Sequential([
+        LSTM(param_0, input_shape=(frames, X_train_seq.shape[2]), return_sequences = True),
+        LSTM(param_H1, return_sequences = True),
+        LSTM(param_H2, return_sequences = True),
+        LSTM(param_H3, return_sequences = True),
+        LSTM(param_H4),
+        Dense(1, activation='sigmoid')
+    ])
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=initial_lr),
+                  loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+def train_model(model, X_train, y_train, X_val, y_val):
+    history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,
+                        validation_data=(X_val, y_val), callbacks=[early_stopping, lr_scheduler])
+    return history
+
+#%%
+
+#Prepare the data by side
+y_test_left = y_test_seq[:, 0]
+y_test_right = y_test_seq[:, 1]
+
+y_val_left = y_val_seq[:, 0]
+y_val_right = y_val_seq[:, 1]
+
+y_train_left = y_train_seq[:, 0]
+y_train_right = y_train_seq[:, 1]
+
+# Create left and right models
+model_left = create_model()
+model_right = create_model()
+
+# Train left and right models
+history_left = train_model(model_left, X_train_seq, y_train_left, X_val_seq, y_val_left)
+history_right = train_model(model_right, X_train_seq, y_train_right, X_val_seq, y_val_right)
+
+#%% Calculate accuracy and precision of the model
+
+# Evaluate the model on the testing set
+y_pred_left = model_left.predict(X_test_seq)
+y_pred_right = model_right.predict(X_test_seq)
+
+y_pred_sides = np.hstack((y_pred_left, y_pred_right))
+y_pred_binary_sides = (y_pred_sides > 0.5).astype(int)  # Convert probabilities to binary predictions
+# y_pred_binary_sides = smooth_column(y_pred_binary_sides)
+
+accuracy_sides = accuracy_score(y_test_seq, y_pred_binary_sides)
+precision_sides = precision_score(y_test_seq, y_pred_binary_sides, average = 'weighted')
+recall_sides = recall_score(y_test_seq, y_pred_binary_sides, average = 'weighted')
+f1_sides = f1_score(y_test_seq, y_pred_binary_sides, average = 'weighted')
+
+print(f"Accuracy = {accuracy_sides:.4f}, Precision = {precision_sides:.4f}, Recall = {recall_sides:.4f}, F1 Score = {f1_sides:.4f} -> sides")
+print(classification_report(y_test_seq, y_pred_binary_sides))
+
+#%% Predict the side labels
+
+autolabels_left = model_left.predict(position_seq)
+autolabels_right = model_right.predict(position_seq)
+
+autolabels_sides = np.hstack((autolabels_left, autolabels_right))
+
+autolabels_sides = np.vstack((np.zeros((before, 2)), autolabels_sides))
+
+autolabels_sides_binary = (autolabels_sides > 0.5).astype(int)
+# autolabels_sides_binary = smooth_column(np.array(autolabels_sides_binary))
+autolabels_sides_binary = pd.DataFrame(autolabels_sides_binary, columns=["Left", "Right"])
+autolabels_sides_binary.insert(0, "Frame", autolabels_sides_binary.index + 1)
+
+autolabels_sides = pd.DataFrame(autolabels_sides, columns=["Left", "Right"])
+autolabels_sides.insert(0, "Frame", autolabels_sides.index + 1)
 """
-
-#%%
-
-def process_frame_2(frame, frame_number):
-    
-    move = False
-    leave = False
-
-    # Plot using Matplotlib with Agg backend
-    fig, ax = plt.subplots(figsize=(6, 4))
-    
-    ax.plot(colabels["Left"] * 1, ".", color = "black")
-    ax.plot(colabels["Right"] * -1, ".", color = "black")
-    
-    ax.plot(labels_agus["Left"] * 1.05, ".", color = "r")
-    ax.plot(labels_agus["Right"] * -1.05, ".", color = "r")
-    
-    ax.plot(labels_marian["Left"] * 1.10, ".", color = "m")
-    ax.plot(labels_marian["Right"] * -1.10, ".", color = "m")
-    
-    ax.plot(labels_santi["Left"] * 1.15, ".", color = "g")
-    ax.plot(labels_santi["Right"] * -1.15, ".", color = "g")
-    
-    ax.plot(labels_dhers["Left"] * 1.20, ".", color = "b")
-    ax.plot(labels_dhers["Right"] * -1.20, ".", color = "b")
-    
-    
-    ax.set_xlim(frame_number-5, frame_number+5)
-    ax.set_ylim(-1.5, 1.5)
-    ax.axvline(x=frame_number, color='black', linestyle='--')
-    ax.axhline(y=0.5, color='black', linestyle='--')
-    ax.axhline(y=-0.5, color='black', linestyle='--')
-    
-    ax.set_title(f'Plot for Frame {frame_number}')
-    ax.set_xlabel('X-axis')
-    ax.set_ylabel('Y-axis')
-    ax.grid=True
-
-    # Save the plot as an image in memory
-    plot_img_path = 'plot_img.png'
-    canvas = FigureCanvas(fig)
-    canvas.print_png(plot_img_path)
-    
-    # Load the saved plot image
-    plot_img = cv2.imread(plot_img_path)
-    
-    # Resize the plot image to match the height of the frame
-    plot_img = cv2.resize(plot_img, (frame.shape[1], frame.shape[0]))
-    
-    # Combine the frame and plot images horizontally
-    combined_img = np.concatenate((frame, plot_img), axis=1)
-
-    # Display the combined image
-    cv2.imshow("Frame with Plot", combined_img)
-
-    # Wait for a keystroke
-    key = cv2.waitKey(0)
-    
-    if key == ord('6'):
-        move = 1
-    if key == ord('4'):
-        move = -1
-    if key == ord('9'):
-        move = 5
-    if key == ord('7'):
-        move = -5
-    if key == ord('3'):
-        move = 50
-    if key == ord('1'):
-        move = -50
-    if key == ord('q'):
-        leave = True
-    
-    return move, leave
-
-def visualize_video_frames_2(video_path):
-    
-    video = VideoFileClip(video_path)
-    
-    frame_generator = video.iter_frames()
-    frame_list = list(frame_generator) # This takes a while
-    
-    # Switch Matplotlib backend to Agg temporarily
-    original_backend = plt.get_backend()
-    plt.switch_backend('Agg')
-    
-    current_frame = 0 # Starting point of the video
-    leave = False
-    
-    while current_frame < len(frame_list) and not leave:
-              
-        frame = frame_list[current_frame] # The frame we are labeling
-        
-        # Process the current frames
-        move, leave = process_frame_2(frame, current_frame)
-        
-        if move: # Move some frames
-            if 0 < (current_frame + move) < len(frame_list):
-                current_frame += move
-                
-    
-    # Revert Matplotlib backend to the original backend
-    plt.switch_backend(original_backend)
-    
-    # Close the OpenCV windows
-    cv2.destroyAllWindows()
-
-#%%
-
-# visualize_video_frames_2(video_path)

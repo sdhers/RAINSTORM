@@ -17,6 +17,7 @@ import random
 
 # from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import accuracy_score, precision_score, classification_report, recall_score, f1_score
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.multioutput import MultiOutputClassifier
 
@@ -40,17 +41,16 @@ import datetime
 #%% Set the variables before starting
 
 # At home:
-# desktop = 'C:/Users/dhers/Desktop'
+desktop = 'C:/Users/dhers/Desktop'
 
 # At the lab:
-desktop = '/home/usuario/Desktop'
+# desktop = '/home/usuario/Desktop'
 
 STORM_folder = os.path.join(desktop, 'STORM')
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
 colabels = pd.read_csv(colabels_file)
 
 train_with_average = True
-cut = 0.5 # 0.5 means that more than half the labelers must label exploration
 
 before = 2 # Say how many frames into the past the models will see
 after = 2 # Say how many frames into the future the models will see
@@ -131,27 +131,33 @@ def divide_training_data(df):
 
 marian = colabels.iloc[:, 22:24]
 marian.columns = ['Left', 'Right']
+
 agus = colabels.iloc[:, 24:26]
 agus.columns = ['Left', 'Right']
+
 santi = colabels.iloc[:, 26:28]
 santi.columns = ['Left', 'Right']
+
 dhers = colabels.iloc[:, 28:30]
 dhers.columns = ['Left', 'Right']
 
 dfs = [marian, agus, santi, dhers]
 
-position = colabels.iloc[:, :18] / 14
+position = colabels.iloc[:, :18]
 
 if train_with_average:
+    # Calculate the mean of all the labelers
     average = (marian + agus + santi + dhers) / len(dfs)
-    average_binary = (average > cut).astype(int)
-    
+    ready_data = pd.concat([position, average], axis = 1)
+    """
+    # Make the labels discrete
+    average_binary = (average > 0.5).astype(int) 
     ready_data = pd.concat([position, average_binary], axis = 1)
-    
+    """
 else:
+    # Train with all the labels separately
     concatenated_df = pd.concat([position] * len(dfs), ignore_index=True)
     concatenated_labels = pd.concat(dfs, ignore_index=True)
-    
     ready_data = pd.concat([concatenated_df, concatenated_labels], axis = 1)
 
 #%%
@@ -233,15 +239,32 @@ def evaluate(X, y, model):
     y_pred = model.predict(X)
     y_pred_binary = (y_pred > 0.5).astype(int)  # Convert probabilities to binary predictions
     # y_pred_binary = smooth_column(y_pred_binary)
-
-    accuracy = accuracy_score(y, y_pred_binary)
-    precision = precision_score(y, y_pred_binary, average = 'weighted')
-    recall = recall_score(y, y_pred_binary, average = 'weighted')
-    f1 = f1_score(y, y_pred_binary, average = 'weighted')
     
-    print(classification_report(y, y_pred_binary))
+    if isinstance(y, tf.Tensor):
+        y = y.numpy()
+    y_binary = (y > 0.5).astype(int) # Convert average labels to binary labels
+
+    accuracy = accuracy_score(y_binary, y_pred_binary)
+    precision = precision_score(y_binary, y_pred_binary, average = 'weighted')
+    recall = recall_score(y_binary, y_pred_binary, average = 'weighted')
+    f1 = f1_score(y_binary, y_pred_binary, average = 'weighted')
+    
+    print(classification_report(y_binary, y_pred_binary))
     
     return accuracy, precision, recall, f1
+
+
+def evaluate_continuous(X, y, model):
+    
+    # Evaluate the model on the testing set
+    y_pred = model.predict(X)
+    
+    mse = mean_squared_error(y, y_pred)
+    mae = mean_absolute_error(y, y_pred)
+    r2 = r2_score(y, y_pred)
+    
+    return mse, mae, r2
+
 
 #%%
 
@@ -279,6 +302,9 @@ history_simple = model_simple.fit(X_train, y_train,
 
 accuracy_simple, precision_simple, recall_simple, f1_simple = evaluate(X_test, y_test, model_simple)
 print(f"Accuracy = {accuracy_simple:.4f}, Precision = {precision_simple:.4f}, Recall = {recall_simple:.4f}, F1 Score = {f1_simple:.4f} -> simple")
+
+mse_simple, mae_simple, r2_simple = evaluate_continuous(X_test, y_test, model_simple)
+print(f"Mean Squared Error = {mse_simple:.4f}, Mean Absolute Error = {mae_simple:.4f}, R-squared = {r2_simple:.4f} -> simple")
 
 #%%
 
@@ -380,6 +406,9 @@ history_wide = model_wide.fit(X_train_seq, y_train_seq,
 accuracy_wide, precision_wide, recall_wide, f1_wide = evaluate(X_test_seq, y_test_seq, model_wide)
 print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f}, Recall = {recall_wide:.4f}, F1 Score = {f1_wide:.4f} -> wide")
 
+mse_wide, mae_wide, r2_wide = evaluate_continuous(X_test_seq, y_test_seq, model_wide)
+print(f"Mean Squared Error = {mse_wide:.4f}, Mean Absolute Error = {mae_wide:.4f}, R-squared = {r2_wide:.4f} -> wide")
+
 #%%
 
 """
@@ -388,12 +417,15 @@ Lets also Load a pretrained RF model
 
 #%% Load a pretrained model
 
-multi_output_old_model = joblib.load(os.path.join(STORM_folder, 'trained_model_203.pkl'))
+multi_output_RF_model = joblib.load(os.path.join(STORM_folder, 'trained_model_203.pkl'))
 
 #%% Calculate accuracy and precision of the model
 
-accuracy_old, precision_old, recall_old, f1_old = evaluate(X_test * 14, y_test, multi_output_old_model)
-print(f"Accuracy = {accuracy_old:.4f}, Precision = {precision_old:.4f}, Recall = {recall_old:.4f}, F1 Score = {f1_old:.4f} -> RF old")
+accuracy_RF, precision_RF, recall_RF, f1_RF = evaluate(X_test, y_test, multi_output_RF_model)
+print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f}, Recall = {recall_RF:.4f}, F1 Score = {f1_RF:.4f} -> RF")
+
+mse_RF, mae_RF, r2_RF = evaluate_continuous(X_test, y_test, multi_output_RF_model)
+print(f"Mean Squared Error = {mse_RF:.4f}, Mean Absolute Error = {mae_RF:.4f}, R-squared = {r2_RF:.4f} -> RF")
 
 #%%
 
@@ -414,28 +446,18 @@ labels_dhers = pd.read_csv(os.path.join(STORM_folder, 'Example/Example_Dhers.csv
 
 mean_labels = (labels_agus + labels_marian + labels_santi + labels_dhers) / 4
 
-#%%
-    
 X_view = position_df[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
                 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
                 'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
                 'neck_x', 'neck_y', 'body_x', 'body_y', 
-                'tail_1_x', 'tail_1_y']].values / 14
-
-# Extract labels (exploring or not)
-y_view = (mean_labels > 0.5).astype(int)
+                'tail_1_x', 'tail_1_y']].values
 
 #%% Predict the simple labels
 
 autolabels_simple = model_simple.predict(X_view)
-
-autolabels_simple_binary = (autolabels_simple > 0.5).astype(int) 
-# autolabels_simple_binary = smooth_column(np.array(autolabels_simple_binary))
-autolabels_simple_binary = pd.DataFrame(autolabels_simple_binary, columns=["Left", "Right"])
-# autolabels_simple_binary.insert(0, "Frame", autolabels_simple_binary.index + 1)
-
+# autolabels_simple_binary = (autolabels_simple > 0.5).astype(int) 
+# autolabels_simple_binary = pd.DataFrame(autolabels_simple_binary, columns=["Left", "Right"])
 autolabels_simple = pd.DataFrame(autolabels_simple, columns=["Left", "Right"])
-# autolabels_simple.insert(0, "Frame", autolabels_simple.index + 1)
 
 #%% Predict the wide_1 labels
 
@@ -444,25 +466,14 @@ position_seq = reshape_set(X_view, False, before, after)
 autolabels_wide = model_wide.predict(position_seq)
 autolabels_wide = np.vstack((np.zeros((before, 2)), autolabels_wide))
 autolabels_wide = np.vstack((autolabels_wide, np.zeros((after, 2))))
-
-autolabels_wide_binary = (autolabels_wide > 0.5).astype(int)
-# autolabels_wide_1_binary = smooth_column(np.array(autolabels_wide_1_binary))
-autolabels_wide_binary = pd.DataFrame(autolabels_wide_binary, columns=["Left", "Right"])
-# autolabels_wide_binary.insert(0, "Frame", autolabels_wide_binary.index + 1)
-
+# autolabels_wide_binary = (autolabels_wide > 0.5).astype(int)
+# autolabels_wide_binary = pd.DataFrame(autolabels_wide_binary, columns=["Left", "Right"])
 autolabels_wide = pd.DataFrame(autolabels_wide, columns=["Left", "Right"])
-# autolabels_wide_1.insert(0, "Frame", autolabels_wide_1.index + 1)
 
 #%% Predict the RF labels
 
-autolabels_old = multi_output_old_model.predict(X_view * 14)
-# autolabels_old = smooth_column(np.array(autolabels_old))
-autolabels_old = pd.DataFrame(autolabels_old, columns=["Left", "Right"])
-# autolabels_old.insert(0, "Frame", autolabels_old.index + 1)
-
-#%% Prepare the manual labels
-
-autolabels_manual = pd.DataFrame(y_view, columns=["Left", "Right"])
+autolabels_RF = multi_output_RF_model.predict(X_view)
+autolabels_RF = pd.DataFrame(autolabels_RF, columns=["Left", "Right"])
 
 #%%
 
@@ -476,46 +487,30 @@ plt.switch_backend('QtAgg')
 
 plt.figure(figsize = (16, 6))
 
-plt.plot(autolabels_manual["Left"] * 1, ".", color = "black", label = "Manual")
-plt.plot(autolabels_manual["Right"] * -1, ".", color = "black")
 
-plt.plot(autolabels_old["Left"] * 1.025, ".", color = "y", label = "RF_Old")
-plt.plot(autolabels_old["Right"] * -1.025, ".", color = "y")
+plt.plot(labels_marian["Left"] * 1.05, ".", color = "m", label = "Marian")
+plt.plot(labels_marian["Right"] * -1.05, ".", color = "m")
 
-plt.plot(autolabels_simple["Left"], color = "r")
-plt.plot(autolabels_simple["Right"] * -1, color = "r")
-plt.plot(autolabels_simple_binary["Left"] * 1.050, ".", color = "r", label = "autolabels_simple")
-plt.plot(autolabels_simple_binary["Right"] * -1.050, ".", color = "r")
+plt.plot(labels_agus["Left"] * 1.10, ".", color = "c", label = "Agus")
+plt.plot(labels_agus["Right"] * -1.10, ".", color = "c")
 
-plt.plot(autolabels_wide["Left"], color = "g")
-plt.plot(autolabels_wide["Right"] * -1, color = "g")
-plt.plot(autolabels_wide_binary["Left"] * 1.075, ".", color = "g", label = "autolabels_wide")
-plt.plot(autolabels_wide_binary["Right"] * -1.075, ".", color = "g")
+plt.plot(labels_santi["Left"] * 1.15, ".", color = "orange", label = "Santi Ojea")
+plt.plot(labels_santi["Right"] * -1.15, ".", color = "orange")
 
-plt.plot(mean_labels["Left"], color = "black", linewidth = 2)
-plt.plot(mean_labels["Right"] * -1, color = "black", linewidth = 2)
+plt.plot(labels_dhers["Left"] * 1.20, ".", color = "b", label = "Santi Dhers")
+plt.plot(labels_dhers["Right"] * -1.20, ".", color = "b")
 
-plt.plot(labels_marian["Left"] * 1.125, ".", color = "m", label = "Marian")
-plt.plot(labels_marian["Right"] * -1.125, ".", color = "m")
+plt.plot(autolabels_simple["Left"], color = "r", alpha = 0.75, label = "simple")
+plt.plot(autolabels_simple["Right"] * -1, color = "r", alpha = 0.75)
 
-plt.plot(labels_agus["Left"] * 1.150, ".", color = "c", label = "Agus")
-plt.plot(labels_agus["Right"] * -1.150, ".", color = "c")
+plt.plot(autolabels_wide["Left"], color = "g", alpha = 0.75, label = "wide")
+plt.plot(autolabels_wide["Right"] * -1, color = "g", alpha = 0.75)
 
-plt.plot(labels_santi["Left"] * 1.175, ".", color = "orange", label = "Santi Ojea")
-plt.plot(labels_santi["Right"] * -1.175, ".", color = "orange")
+plt.plot(autolabels_RF["Left"], color = "y", alpha = 0.75, label = "RF")
+plt.plot(autolabels_RF["Right"] * -1, color = "y", alpha = 0.75)
 
-plt.plot(labels_dhers["Left"] * 1.200, ".", color = "b", label = "Santi Dhers")
-plt.plot(labels_dhers["Right"] * -1.200, ".", color = "b")
-
-"""
-plt.plot(autolabels_RF["Left"] * 1.05, ".", color = "gray", label = "RF")
-plt.plot(autolabels_RF["Right"] * -1.05, ".", color = "gray")
-
-plt.plot(autolabels_sides["Left"], color = "g")
-plt.plot(autolabels_sides["Right"] * -1, color = "g")
-plt.plot(autolabels_sides_binary["Left"] * 1.2, ".", color = "g", label = "autolabels_sides")
-plt.plot(autolabels_sides_binary["Right"] * -1.2, ".", color = "g")
-"""
+plt.plot(mean_labels["Left"], color = "black", label = "Average")
+plt.plot(mean_labels["Right"] * -1, color = "black")
 
 # Zoom in on the labels and the minima of the distances and angles
 plt.ylim((-1.3, 1.3))
@@ -546,15 +541,13 @@ plot_history(history_right, "Right")
 
 print(f"Script execution time: {elapsed_time}).")
 
-# print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f}, Recall = {recall_RF:.4f}, F1 Score = {f1_RF:.4f} -> RF")
-
 print("Evaluate over testing data")
 
-print(f"Accuracy = {accuracy_old:.4f}, Precision = {precision_old:.4f}, Recall = {recall_old:.4f}, F1 Score = {f1_old:.4f} -> RF_old")
+print(f"Accuracy = {accuracy_simple:.4f}, Precision = {precision_simple:.4f}, Recall = {recall_simple:.4f}, F1 Score = {f1_simple:.4f}, Mean Squared Error = {mse_simple:.4f}, Mean Absolute Error = {mae_simple:.4f}, R-squared = {r2_simple:.4f} -> simple")
 
-print(f"Accuracy = {accuracy_simple:.4f}, Precision = {precision_simple:.4f}, Recall = {recall_simple:.4f}, F1 Score = {f1_simple:.4f} -> simple")
+print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f}, Recall = {recall_wide:.4f}, F1 Score = {f1_wide:.4f}, Mean Squared Error = {mse_wide:.4f}, Mean Absolute Error = {mae_wide:.4f}, R-squared = {r2_wide:.4f} -> wide")
 
-print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f}, Recall = {recall_wide:.4f}, F1 Score = {f1_wide:.4f} -> wide")
+print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f}, Recall = {recall_RF:.4f}, F1 Score = {f1_RF:.4f}, Mean Squared Error = {mse_RF:.4f}, Mean Absolute Error = {mae_RF:.4f}, R-squared = {r2_RF:.4f} -> RF")
 
 # print(f"Accuracy = {accuracy_sides:.4f}, Precision = {precision_sides:.4f}, Recall = {recall_sides:.4f}, F1 Score = {f1_sides:.4f} -> sides")
 
@@ -567,10 +560,10 @@ Lets see how similar the labelers are to each other
 #%%
 
 # Define features (X) and target (y) columns
-X_all = position
+X_all = position.copy()
 
-all_RF_old = multi_output_old_model.predict(X_all * 14)
-all_RF_old = pd.DataFrame(all_RF_old, columns=["Left", "Right"])
+all_RF = multi_output_RF_model.predict(X_all)
+all_RF = pd.DataFrame(all_RF, columns=["Left", "Right"])
 
 all_simple = model_simple.predict(X_all)
 all_simple_binary = (all_simple > 0.5).astype(int) 
@@ -590,34 +583,45 @@ average_binary = (average > 0.5).astype(int)
 
 #%%
 
-labelers = [all_RF_old, all_simple_binary, all_wide_binary, agus, marian, santi, dhers]
-labelers_names = ['RF_old', 'simple', 'wide', 'labels_agus', 'labels_marian', 'labels_santi', 'labels_dhers']
+labelers = [all_simple_binary, all_wide_binary, all_RF, agus, marian, santi, dhers]
+labelers_names = ['simple', 'wide', 'RF', 'Agus', 'Marian', 'Santi', 'Dhers']
 
 for i, labeler in enumerate(labelers):
     accuracy = accuracy_score(labeler, average_binary)
     precision = precision_score(labeler, average_binary, average='weighted')
     recall = recall_score(labeler, average_binary, average='weighted')
     f1 = f1_score(labeler, average_binary, average='weighted')
+    
+    mse = mean_squared_error(labeler, average)
+    mae = mean_absolute_error(labeler, average)
+    r2 = r2_score(labeler, average)
 
     # Print evaluation metrics along with the labeler's name
-    print(f"Accuracy = {accuracy:.4f}, Precision = {precision:.4f}, Recall = {recall:.4f}, F1 Score = {f1:.4f} -> {labelers_names[i]}")
+    print(f"Accuracy = {accuracy:.4f}, Precision = {precision:.4f}, Recall = {recall:.4f}, F1 Score = {f1:.4f}, Mean Squared Error = {mse:.4f}, Mean Absolute Error = {mae:.4f}, R-squared = {r2:.4f} -> {labelers_names[i]}")
 
 #%%
 
+average_1 = (average > 0.2).astype(int)
+average_2 = (average > 0.4).astype(int)
+average_3 = (average > 0.6).astype(int)
+average_4 = (average > 0.8).astype(int)
+
 df = pd.DataFrame()
 
-
-# df["RF_old"] = all_RF_old["Left"] + all_RF_old["Right"]
-
-df["average"] = average_binary["Left"] + average_binary["Right"]
+df["average_1"] = average_1["Left"] + average_1["Right"]
+df["average_2"] = average_2["Left"] + average_2["Right"]
+df["average_3"] = average_3["Left"] + average_3["Right"]
+df["average_4"] = average_4["Left"] + average_4["Right"]
 
 df["simple"] = all_simple_binary["Left"] + all_simple_binary["Right"]
 df["wide"] = all_wide_binary["Left"] + all_wide_binary["Right"]
+df["RF"] = all_RF["Left"] + all_RF["Right"]
 
-df["marian"] = marian["Left"] + marian["Right"]
-df["agus"] = agus["Left"] + agus["Right"]
-df["santi"] = santi["Left"] + santi["Right"]
-df["dhers"] = dhers["Left"] + dhers["Right"]
+
+df["Marian"] = marian["Left"] + marian["Right"]
+df["Agus"] = agus["Left"] + agus["Right"]
+df["Santi Ojea"] = santi["Left"] + santi["Right"]
+df["Santi Dhers"] = dhers["Left"] + dhers["Right"]
 
 #%% Compute Cosine similarity
 
@@ -627,12 +631,12 @@ print("\nCosine Similarity:")
 print(cosine_sim)
 
 #%% Plot Cosine similarity heatmap
-
+"""
 plt.figure(figsize=(8, 6))
 sns.heatmap(cosine_sim.astype(float), annot=True, cmap="coolwarm", fmt=".2f")
 plt.title("Cosine Similarity")
 plt.show()
-
+"""
 #%%
 
 from sklearn.decomposition import PCA
@@ -665,38 +669,30 @@ def process_frame(frame, frame_number):
     # Plot using Matplotlib with Agg backend
     fig, ax = plt.subplots(figsize=(6, 4))
     
-    ax.plot(autolabels_manual["Left"] * 1, ".", color = "black", label = "Manual")
-    ax.plot(autolabels_manual["Right"] * -1, ".", color = "black")
-
-    ax.plot(autolabels_old["Left"] * 1.025, ".", color = "y", label = "RF_Old")
-    ax.plot(autolabels_old["Right"] * -1.025, ".", color = "y")
-
-    ax.plot(autolabels_simple["Left"], color = "r")
-    ax.plot(autolabels_simple["Right"] * -1, color = "r")
-    ax.plot(autolabels_simple_binary["Left"] * 1.050, ".", color = "r", label = "autolabels_simple")
-    ax.plot(autolabels_simple_binary["Right"] * -1.050, ".", color = "r")
-
-    ax.plot(autolabels_wide["Left"], color = "g")
-    ax.plot(autolabels_wide["Right"] * -1, color = "g")
-    ax.plot(autolabels_wide_binary["Left"] * 1.075, ".", color = "g", label = "autolabels_wide")
-    ax.plot(autolabels_wide_binary["Right"] * -1.075, ".", color = "g")
-
     ax.plot(mean_labels["Left"], color = "black", linewidth = 2)
     ax.plot(mean_labels["Right"] * -1, color = "black", linewidth = 2)
 
-    ax.plot(labels_marian["Left"] * 1.125, ".", color = "m", label = "Marian")
-    ax.plot(labels_marian["Right"] * -1.125, ".", color = "m")
+    ax.plot(autolabels_simple["Left"], color = "r", label = "simple")
+    ax.plot(autolabels_simple["Right"] * -1, color = "r")
 
-    ax.plot(labels_agus["Left"] * 1.150, ".", color = "c", label = "Agus")
-    ax.plot(labels_agus["Right"] * -1.150, ".", color = "c")
+    ax.plot(autolabels_wide["Left"], color = "g", label = "wide")
+    ax.plot(autolabels_wide["Right"] * -1, color = "g")
 
-    ax.plot(labels_santi["Left"] * 1.175, ".", color = "orange", label = "Santi Ojea")
-    ax.plot(labels_santi["Right"] * -1.175, ".", color = "orange")
+    ax.plot(autolabels_RF["Left"], color = "y", label = "RF")
+    ax.plot(autolabels_RF["Right"] * -1, color = "y")
 
-    ax.plot(labels_dhers["Left"] * 1.200, ".", color = "b", label = "Santi Dhers")
-    ax.plot(labels_dhers["Right"] * -1.200, ".", color = "b")
+    ax.plot(labels_marian["Left"] * 1.05, ".", color = "m", label = "Marian")
+    ax.plot(labels_marian["Right"] * -1.05, ".", color = "m")
 
-    
+    ax.plot(labels_agus["Left"] * 1.10, ".", color = "c", label = "Agus")
+    ax.plot(labels_agus["Right"] * -1.10, ".", color = "c")
+
+    ax.plot(labels_santi["Left"] * 1.15, ".", color = "orange", label = "Santi Ojea")
+    ax.plot(labels_santi["Right"] * -1.15, ".", color = "orange")
+
+    ax.plot(labels_dhers["Left"] * 1.20, ".", color = "b", label = "Santi Dhers")
+    ax.plot(labels_dhers["Right"] * -1.20, ".", color = "b")
+        
     ax.set_xlim(frame_number-5, frame_number+5)
     ax.set_ylim(-1.3, 1.3)
     ax.axvline(x=frame_number, color='black', linestyle='--')

@@ -41,10 +41,10 @@ import datetime
 #%% Set the variables before starting
 
 # At home:
-desktop = 'C:/Users/dhers/Desktop'
+# desktop = 'C:/Users/dhers/Desktop'
 
 # At the lab:
-# desktop = '/home/usuario/Desktop'
+desktop = '/home/usuario/Desktop'
 
 STORM_folder = os.path.join(desktop, 'STORM')
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
@@ -64,8 +64,8 @@ param_H2 = 54
 param_H3 = 36
 param_H4 = 18
 
-batch_size = 450 # Set the batch size
-epochs = 180 # Set the training epochs
+batch_size = 32 # Set the batch size
+epochs = 90 # Set the training epochs
 
 patience = 18 # Set the wait for the early stopping mechanism
 
@@ -140,6 +140,9 @@ santi.columns = ['Left', 'Right']
 
 dhers = colabels.iloc[:, 28:30]
 dhers.columns = ['Left', 'Right']
+
+geometric = colabels.iloc[:, 30:32]
+geometric.columns = ['Left', 'Right']
 
 dfs = [marian, agus, santi, dhers]
 
@@ -583,8 +586,8 @@ average_binary = (average > 0.5).astype(int)
 
 #%%
 
-labelers = [all_simple_binary, all_wide_binary, all_RF, agus, marian, santi, dhers]
-labelers_names = ['simple', 'wide', 'RF', 'Agus', 'Marian', 'Santi', 'Dhers']
+labelers = [all_simple_binary, all_wide_binary, all_RF, agus, marian, santi, dhers, geometric]
+labelers_names = ['simple', 'wide', 'RF', 'Agus', 'Marian', 'Santi', 'Dhers', 'geometric']
 
 for i, labeler in enumerate(labelers):
     accuracy = accuracy_score(labeler, average_binary)
@@ -623,6 +626,8 @@ df["Agus"] = agus["Left"] + agus["Right"]
 df["Santi Ojea"] = santi["Left"] + santi["Right"]
 df["Santi Dhers"] = dhers["Left"] + dhers["Right"]
 
+df["geometric"] = geometric["Left"] + geometric["Right"]
+
 #%% Compute Cosine similarity
 
 cosine_sim = pd.DataFrame(cosine_similarity(df.T), index=df.columns, columns=df.columns)
@@ -631,12 +636,12 @@ print("\nCosine Similarity:")
 print(cosine_sim)
 
 #%% Plot Cosine similarity heatmap
-"""
+
 plt.figure(figsize=(8, 6))
 sns.heatmap(cosine_sim.astype(float), annot=True, cmap="coolwarm", fmt=".2f")
 plt.title("Cosine Similarity")
 plt.show()
-"""
+
 #%%
 
 from sklearn.decomposition import PCA

@@ -39,7 +39,7 @@ import datetime
 # At the lab:
 desktop = '/home/usuario/Desktop'
 
-STORM_folder = os.path.join(desktop, 'STORM')
+STORM_folder = os.path.join(desktop, 'STORM/models')
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
 colabels = pd.read_csv(colabels_file)
 
@@ -49,14 +49,14 @@ after = 2 # Say how many frames into the future the models will see
 frames = before + after + 1
 
 # Set the number of neurons in each layer
-param_0 = 108 # Columns (18) x 6
+param_0 = 144 # Columns (18) x 6
 param_H1 = 90
 param_H2 = 72
 param_H3 = 54
 param_H4 = 36
 param_H5 = 18
 
-batch_size = 36 # Set the batch size
+batch_size = 144 # Set the batch size
 lr = 0.0001 # Set the initial learning rate
 epochs = 200 # Set the training epochs
 patience = 50 # Set the wait for the early stopping mechanism

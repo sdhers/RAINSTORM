@@ -30,6 +30,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 import joblib
 from keras.models import load_model
 
+import datetime
+
 #%% Set the variables before starting
 
 # At home:
@@ -38,7 +40,7 @@ from keras.models import load_model
 # At the lab:
 desktop = '/home/usuario/Desktop'
 
-STORM_folder = os.path.join(desktop, 'STORM')
+STORM_folder = os.path.join(desktop, 'STORM/models')
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
 colabels = pd.read_csv(colabels_file)
 
@@ -47,7 +49,9 @@ after = 2
 
 frames = before + after + 1
 
-use_model_date = '2024-04-18'
+today = datetime.datetime.now()
+use_model_date = today.date()
+# use_model_date = '2024-04-17'
 
 #%% Function to smooth the columns (filter 2 or less individual occurrences)
 
@@ -289,13 +293,13 @@ Now we can use the models in an example video
 
 #%% Prepare the dataset of a video we want to analyze and see
 
-position_df = pd.read_csv(os.path.join(STORM_folder, 'Example/Example_position.csv'))
-video_path = os.path.join(STORM_folder, 'Example/Example_video.mp4')
+position_df = pd.read_csv(os.path.join(STORM_folder, 'example/Example_position.csv'))
+video_path = os.path.join(STORM_folder, 'example/Example_video.mp4')
 
-labels_A = pd.read_csv(os.path.join(STORM_folder, 'Example/Example_Marian.csv'), usecols=['Left', 'Right'])
-labels_B = pd.read_csv(os.path.join(STORM_folder, 'Example/Example_Agus.csv'), usecols=['Left', 'Right'])
-labels_C = pd.read_csv(os.path.join(STORM_folder, 'Example/Example_Santi.csv'), usecols=['Left', 'Right'])
-labels_D = pd.read_csv(os.path.join(STORM_folder, 'Example/Example_Dhers.csv'), usecols=['Left', 'Right'])
+labels_A = pd.read_csv(os.path.join(STORM_folder, 'example/Example_Marian.csv'), usecols=['Left', 'Right'])
+labels_B = pd.read_csv(os.path.join(STORM_folder, 'example/Example_Agus.csv'), usecols=['Left', 'Right'])
+labels_C = pd.read_csv(os.path.join(STORM_folder, 'example/Example_Santi.csv'), usecols=['Left', 'Right'])
+labels_D = pd.read_csv(os.path.join(STORM_folder, 'example/Example_Dhers.csv'), usecols=['Left', 'Right'])
 
 """
 labels_A = smooth_column(labels_A)

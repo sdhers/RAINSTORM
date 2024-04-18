@@ -34,16 +34,14 @@ import datetime
 #%% Set the variables before starting
 
 # At home:
-desktop = 'C:/Users/dhers/Desktop'
+# desktop = 'C:/Users/dhers/Desktop'
 
 # At the lab:
-# desktop = '/home/usuario/Desktop'
+desktop = '/home/usuario/Desktop'
 
 STORM_folder = os.path.join(desktop, 'STORM')
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
 colabels = pd.read_csv(colabels_file)
-
-train_with_average = True
 
 before = 2 # Say how many frames into the past the models will see
 after = 2 # Say how many frames into the future the models will see
@@ -51,25 +49,26 @@ after = 2 # Say how many frames into the future the models will see
 frames = before + after + 1
 
 # Set the number of neurons in each layer
-param_0 = 90 # Columns (18) x 5
-param_H1 = 72
-param_H2 = 54
-param_H3 = 36
-param_H4 = 18
+param_0 = 108 # Columns (18) x 6
+param_H1 = 90
+param_H2 = 72
+param_H3 = 54
+param_H4 = 36
+param_H5 = 18
 
-batch_size = 2048 # Set the batch size
-epochs = 90 # Set the training epochs
+batch_size = 36 # Set the batch size
+lr = 0.0001 # Set the initial learning rate
+epochs = 200 # Set the training epochs
+patience = 50 # Set the wait for the early stopping mechanism
 
-patience = 18 # Set the wait for the early stopping mechanism
+train_with_average = True # If false, it trains with all the labels separately
 
 use_saved_data = False # if True, we use the dataframe processed previously
 
 if use_saved_data:
-    saved_data = 'saved_training_data.h5'
+    saved_data = 'saved_training_data_2024-04-17.h5'
 
-else:
-    focus = False # if True, the data processing will remove unimportant moments
-    save_data = False # if True, the data processed will be saved with today's date
+save_data = False # if True, the data processed will be saved with today's date
 
 #%% Start time
 
@@ -242,13 +241,13 @@ early_stopping = EarlyStopping(
 
 #%% Define a learning rate schedule function
 
-initial_lr = 0.001 # Set the initial lr
+initial_lr = lr # Set the initial lr
 
 # Define a learning rate schedule function
-def lr_schedule(epoch):
-    initial_lr = 0.001  # Initial learning rate
+def lr_schedule(epoch, lr):
+    initial_lr = lr  # Initial learning rate
     decay_factor = 0.9  # Learning rate decay factor
-    decay_epochs = 5    # Number of epochs after which to decay the learning rate
+    decay_epochs = 9    # Number of epochs after which to decay the learning rate
 
     # Calculate the new learning rate
     lr = initial_lr * (decay_factor ** (epoch // decay_epochs))
@@ -281,12 +280,12 @@ def evaluate(X, y, model):
     
     # Evaluate the model on the testing set
     y_pred = model.predict(X)
-    y_pred_binary = (y_pred > 0.5).astype(int)  # Convert probabilities to binary predictions
+    y_pred_binary = (y_pred > 0.4).astype(int)  # Convert probabilities to binary predictions
     y_pred_binary = smooth_column(y_pred_binary)
     
     if isinstance(y, tf.Tensor):
         y = y.numpy()
-    y_binary = (y > 0.5).astype(int) # Convert average labels to binary labels
+    y_binary = (y > 0.6).astype(int) # Convert average labels to binary labels
     y_binary = smooth_column(y_binary)
     
     accuracy = accuracy_score(y_binary, y_pred_binary)
@@ -325,6 +324,7 @@ model_simple = tf.keras.Sequential([
     Dense(param_H2, activation='relu'),
     Dense(param_H3, activation='relu'),
     Dense(param_H4, activation='relu'),
+    Dense(param_H5, activation='relu'),
     Dense(2, activation='sigmoid')
 ])
 
@@ -427,7 +427,8 @@ model_wide = tf.keras.Sequential([
     LSTM(param_H1, return_sequences = True),
     LSTM(param_H2, return_sequences = True),
     LSTM(param_H3, return_sequences = True),
-    LSTM(param_H4),
+    LSTM(param_H4, return_sequences = True),
+    LSTM(param_H5),
     Dense(2, activation='sigmoid')
 ])
 
@@ -488,7 +489,7 @@ RF2_model = RandomForestClassifier(n_estimators = 24, max_depth = 12)
 # Create a MultiOutputClassifier with the Random Forest as the base estimator
 multi_output_RF2_model = MultiOutputClassifier(RF2_model)
 
-y_train_binary = (y_train > 0.5).astype(int)
+y_train_binary = (y_train > 0.6).astype(int)
 
 # Train the MultiOutputClassifier with your data
 multi_output_RF2_model.fit(X_train, y_train_binary)

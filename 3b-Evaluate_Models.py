@@ -33,21 +33,21 @@ from keras.models import load_model
 #%% Set the variables before starting
 
 # At home:
-desktop = 'C:/Users/dhers/Desktop'
+# desktop = 'C:/Users/dhers/Desktop'
 
 # At the lab:
-# desktop = '/home/usuario/Desktop'
+desktop = '/home/usuario/Desktop'
 
 STORM_folder = os.path.join(desktop, 'STORM')
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
 colabels = pd.read_csv(colabels_file)
 
-use_model_date = '2024-04-18'
-
 before = 2
 after = 2
 
 frames = before + after + 1
+
+use_model_date = '2024-04-18'
 
 #%% Function to smooth the columns (filter 2 or less individual occurrences)
 
@@ -175,14 +175,14 @@ Lets see how similar the labelers are to each other
 X_all = position.copy()
 
 all_simple = model_simple.predict(X_all)
-all_simple_binary = (all_simple > 0.5).astype(int) 
+all_simple_binary = (all_simple > 0.3).astype(int) 
 all_simple_binary = smooth_column(all_simple_binary)
 
 all_position_seq = reshape_set(X_all, False, before, after)
 all_wide = model_wide.predict(all_position_seq)
 all_wide = np.vstack((np.zeros((before, 2)), all_wide))
 all_wide = np.vstack((all_wide, np.zeros((after, 2))))
-all_wide_binary = (all_wide > 0.5).astype(int)
+all_wide_binary = (all_wide > 0.3).astype(int)
 all_wide_binary = smooth_column(all_wide_binary)
 
 all_RF = RF_model.predict(X_all)
@@ -193,7 +193,7 @@ all_RF2 = smooth_column(all_RF2)
 
 #%%
 
-avrg_binary = (avrg > 0.5).astype(int)
+avrg_binary = (avrg > 0.6).astype(int)
 avrg_binary = smooth_column(avrg_binary)
 
 #%%

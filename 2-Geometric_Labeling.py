@@ -91,7 +91,7 @@ path = r'C:/Users/dhers/Desktop/Videos_NOR/'
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'2022-02_TORM_3h'
+experiment = r'2024-4_3xTg-vs-WT'
 
 Hab_position = find_files(path, experiment, "Hab", "position")
 TR1_position = find_files(path, experiment, "TR1", "position")

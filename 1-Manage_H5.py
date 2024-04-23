@@ -16,14 +16,14 @@ import shutil
 #%%
 
 # At home:
-path = r'C:/Users/dhers/Desktop/Videos_NOR/'
+path = r'C:/Users/dhers/Desktop/Videos_NOR'
 
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR' 
 
 # Replace with the name of the folder where your .H5 files are
-experiment = r'2024-02_Persistance'
-folder = path + experiment
+experiment = r'2024-4_3xTg-vs-WT'
+folder = os.path.join(path, experiment)
 
 #%%
 
@@ -32,7 +32,7 @@ This function turns _position.H5 files into _position.csv files
 It also scales the coordenates to be expressed in cm (by using the distance between objects)
 """
 
-def process_hdf5_file(path_name, distance, fps):
+def process_hdf5_file(path_name, distance = 14, fps = 25):
     
     # List all files in the folder
     h5_files = [file for file in os.listdir(path_name) if file.endswith('_position.h5')]
@@ -67,7 +67,11 @@ def process_hdf5_file(path_name, distance, fps):
     
         for key in position_df.keys():
             if key[1] != "likelihood":
-                current_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key]
+                # Replace the positions of the objects in every frame by their medians across the video
+                if key[0] == "obj_1" or key[0] == "obj_2":
+                    current_data[str(key[0]) + "_" + str(key[1])] = [position_df[key].median()] * len(position_df[key])
+                else:
+                    current_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key]
             
         
         if "Hab" not in h5_file_path:
@@ -127,7 +131,7 @@ def process_hdf5_file(path_name, distance, fps):
 Lets make the .csv files for our experiment folder
 """
 
-process_hdf5_file(folder, dist, fps)
+process_hdf5_file(folder)
 
 #%%
 

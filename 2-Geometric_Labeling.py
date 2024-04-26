@@ -68,16 +68,13 @@ class Vector:
 
 def find_files(path_name, exp_name, group, folder):
     
-    group_name = f"/{group}"
-    
-    folder_name = f"/{folder}"
-    
-    wanted_files_path = os.listdir(path_name + exp_name + group_name + folder_name)
+    files_path = os.path.join(path_name, exp_name, group, folder)
+    files = os.listdir(files_path)
     wanted_files = []
     
-    for file in wanted_files_path:
+    for file in files:
         if f"_{folder}.csv" in file:
-            wanted_files.append(path_name + exp_name + group_name + folder_name + "/" + file)
+            wanted_files.append(os.path.join(files_path, file))
             
     wanted_files = sorted(wanted_files)
     
@@ -86,12 +83,12 @@ def find_files(path_name, exp_name, group, folder):
 #%%
 
 # At home:
-path = r'C:/Users/dhers/Desktop/Videos_NOR/'
+path = r'C:\Users\dhers\Desktop\Results\3xTg'
 
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'2024-4_3xTg-vs-WT'
+experiment = r'2024-4_Tg-vs-Jksn'
 
 Hab_position = find_files(path, experiment, "Hab", "position")
 TR1_position = find_files(path, experiment, "TR1", "position")
@@ -247,8 +244,8 @@ def create_geolabels(files, maxDistance = 2.5, maxAngle = 45):
         geolabels['Right'] = geolabels['Right'].astype(int)
         
         # Calculate the Euclidean distance between consecutive nose positions
-        distances['nose_dist'] = ((position['nose_x'].diff())**2 + (position['nose_y'].diff())**2)**0.5
-        distances['body_dist'] = ((position['body_x'].diff())**2 + (position['body_y'].diff())**2)**0.5
+        distances['nose_dist'] = (((position['nose_x'].diff())**2 + (position['nose_y'].diff())**2)**0.5) / 100
+        distances['body_dist'] = (((position['body_x'].diff())**2 + (position['body_y'].diff())**2)**0.5) / 100
         
         # Replace NaN values with 0
         distances = distances.fillna(0)

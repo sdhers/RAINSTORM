@@ -16,14 +16,16 @@ import shutil
 #%%
 
 # At home:
-path = r'C:/Users/dhers/Desktop/Videos_NOR'
+path = r'C:\Users\dhers\Desktop\Results\3xTg'
 
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR' 
 
 # Replace with the name of the folder where your .H5 files are
-experiment = r'2024-4_3xTg-vs-WT'
+experiment = r'2024-4_Tg-vs-Jksn'
 folder = os.path.join(path, experiment)
+
+groups  = ["Hab", "TR1", "TR2", "TS"]
 
 #%%
 
@@ -100,7 +102,7 @@ def process_hdf5_file(path_name, distance = 14, fps = 25):
             # Calculate the difference
             difference = max_x - min_x
             
-            scale = (distance*2 / difference) + 0.008 # lets assume that the max width of the nose range is twice as the distance between objects
+            scale = (distance*2 / difference) + 0.01 # lets assume that the max width of the nose range is twice as the distance between objects
             
             # Apply the transformation to current_data
             current_data = current_data * scale
@@ -165,8 +167,6 @@ def filter_and_move_files(input_folder, word, folder_name):
 Finally we move all the files to their corresponding subfolder:
     - I have habituation, trainings and testing so I create a folder for each
 """
-
-groups  = ["Hab", "TR1", "TR2", "TS"]
 
 for group in groups:
     filter_and_move_files(folder, group, group)

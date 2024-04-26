@@ -68,16 +68,13 @@ class Vector:
 
 def find_files(path_name, exp_name, group, folder):
     
-    group_name = f"/{group}"
-    
-    folder_name = f"/{folder}"
-    
-    wanted_files_path = os.listdir(path_name + exp_name + group_name + folder_name)
+    files_path = os.path.join(path_name, exp_name, group, folder)
+    files = os.listdir(files_path)
     wanted_files = []
     
-    for file in wanted_files_path:
+    for file in files:
         if f"_{folder}.csv" in file:
-            wanted_files.append(path_name + exp_name + group_name + folder_name + "/" + file)
+            wanted_files.append(os.path.join(files_path, file))
             
     wanted_files = sorted(wanted_files)
     
@@ -86,20 +83,15 @@ def find_files(path_name, exp_name, group, folder):
 #%%
 
 # At home:
-path = r'C:/Users/dhers/Desktop/Videos_NOR/'
+path = r'C:\Users\dhers\Desktop\Results\3xTg'
 
 # In the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR' 
+# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
 
-experiment = r'2024-01_TeNOR-3xTR'
-
-# Hab_position = find_files(path, experiment, "Hab", "position")
-# TR1_position = find_files(path, experiment, "TR1", "position")
-# TR2_position = find_files(path, experiment, "TR2", "position")
+experiment = r'2024-03_Tg-6mth'
 
 TS_position = find_files(path, experiment, "TS", "position")
 
-# all_position = Hab_position + TR1_position + TR2_position + TS_position
 
 TS_labels = find_files(path, experiment, "TS", "labels")
 TS_geolabels = find_files(path, experiment, "TS", "geolabels")
@@ -397,101 +389,3 @@ def accuracy_scores(reference, compare, method):
 print(f"In {experiment}:")
 accuracy_scores(all_labels, all_geolabels, "geometric")
 accuracy_scores(all_labels, all_autolabels, "automatic")
-
-#%%
-
-"""
-In /2023-05_NOL:
-Mice explored 7.996666666666667% of the time.
-The geometric method measured 7.9159999999999995% of the time as exploration.
-It got 23.5431429762401% of false negatives and 22.534389328887038% of false positives.
-The automatic method measured 8.5% of the time as exploration.
-It got 1.8757815756565235% of false negatives and 8.170070862859525% of false positives.
-
-#%%
-
-In /2023-05_TeNOR:
-Mice explored 8.499333333333334% of the time.
-The geometric method measured 8.144% of the time as exploration.
-It got 24.95882029963134% of false negatives and 20.778100243156324% of false positives.
-The automatic method measured 9.04% of the time as exploration.
-It got 2.37665699270531% of false negatives and 8.737940230606323% of false positives.
-
-#%%
-
-In /2023-05_TORM_24h:
-Mice explored 6.85% of the time.
-The geometric method measured 6.34% of the time as exploration.
-It got 23.82% of false negatives and 16.44% of false positives.
-The automatic method measured 7.266% of the time as exploration.
-It got 4.48% of false negatives and 10.53% of false positives.
-
-#%%
-
-In /2023-07_TORM-delay:
-Mice explored 5.117333333333334% of the time.
-The geometric method measured 4.552% of the time as exploration.
-It got 32.556018759770716% of false negatives and 21.508598228243876% of false positives.
-The automatic method measured 5.5280000000000005% of the time as exploration.
-It got 2.3840541948931735% of false negatives and 10.409067222511725% of false positives.
-
-#%%
-
-In /2023-09_TeNOR:
-Mice explored 4.336923076923077% of the time.
-The geometric method measured 3.816410256410256% of the time as exploration.
-It got 27.101809152181627% of false negatives and 15.099917228331561% of false positives.
-The automatic method measured 4.7902564102564105% of the time as exploration.
-It got 3.228095069173466% of false negatives and 13.680974340782784% of false positives.
-
-#%%
-
-In /2023-11_Interferencia:
-Mice explored 3.6261111111111113% of the time.
-The geometric method measured 3.2377777777777776% of the time as exploration.
-It got 24.406312241458554% of false negatives and 13.69695112609162% of false positives.
-The automatic method measured 4.006388888888889% of the time as exploration.
-It got 3.470200704764823% of false negatives and 13.957407691129156% of false positives.
-
-#%%
-
-In /2023-11_NORm TS1:
-Mice explored 8.956944444444444% of the time.
-The geometric method measured 7.035416666666666% of the time as exploration.
-It got 30.089936424251825% of false negatives and 8.636997984183594% of false positives.
-The automatic method measured 8.093055555555557% of the time as exploration.
-It got 23.259420065126378% of false negatives and 13.614513878120638% of false positives.
-
-#%%
-
-In /2023-11_NORm TS2:
-Mice explored 7.893055555555556% of the time.
-The geometric method measured 6.909722222222222% of the time as exploration.
-It got 31.75259546014429% of false negatives and 19.29438676755235% of false positives.
-The automatic method measured 8.059027777777777% of the time as exploration.
-It got 5.094140418792891% of false negatives and 7.196903044166813% of false positives.
-
-In /2023-11_NORm TS3:
-Mice explored 5.563888888888889% of the time.
-The geometric method measured 4.934722222222223% of the time as exploration.
-It got 23.826759860209684% of false negatives and 12.518721917124315% of false positives.
-The automatic method measured 5.19375% of the time as exploration.
-It got 20.644033949076384% of false negatives and 13.991512730903644% of false positives.
-
-In /2023-11_TORM-3xTg:
-Mice explored 6.237575757575757% of the time.
-The geometric method measured 6.170909090909091% of the time as exploration.
-It got 20.015546055188498% of false negatives and 18.946754760979402% of false positives.
-The automatic method measured 7.330909090909091% of the time as exploration.
-It got 1.146521570151574% of false negatives and 18.67469879518072% of false positives.
-
-#%%
-
-In /2024-01_TeNOR-3xTR:
-Mice explored 7.455072463768116% of the time.
-The geometric method measured 6.598840579710146% of the time as exploration.
-It got 21.446345256609643% of false negatives and 9.961119751166407% of false positives.
-The automatic method measured 8.057391304347826% of the time as exploration.
-It got 2.1306376360808708% of false negatives and 10.2099533437014% of false positives.
-
-"""

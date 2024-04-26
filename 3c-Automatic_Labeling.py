@@ -10,17 +10,45 @@ This code will train a model that classifies positions into exploration
 
 import os
 import pandas as pd
-import numpy as np
 
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.multioutput import MultiOutputClassifier
-from sklearn.utils.class_weight import compute_class_weight
 import joblib
 
-import matplotlib.pyplot as plt
+#%% This function finds the files that we want to use and lists their path
 
-import random
+def find_files(path_name, exp_name, group, folder):
+    
+    files_path = os.path.join(path_name, exp_name, group, folder)
+    files = os.listdir(files_path)
+    wanted_files = []
+    
+    for file in files:
+        if f"_{folder}.csv" in file:
+            wanted_files.append(os.path.join(files_path, file))
+            
+    wanted_files = sorted(wanted_files)
+    
+    return wanted_files
+
+#%%
+
+# At home:
+path = r'C:\Users\dhers\Desktop\Results\3xTg'
+
+# In the lab:
+# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+
+experiment = r'2024-4_Tg-vs-Jksn'
+
+TR1_position = find_files(path, experiment, "TR1", "position")
+TR2_position = find_files(path, experiment, "TR2", "position")
+TS_position = find_files(path, experiment, "TS", "position")
+
+all_position = TR1_position + TR2_position + TS_position
+
+#%%
+
+# Load the saved model from file
+loaded_model = joblib.load(r'C:/Users/dhers/Desktop/STORM/models/model_RF_203.pkl')
 
 #%%
 
@@ -65,16 +93,4 @@ def create_autolabels(files, chosen_model):
 
 #%%
 
-wanted_files = []
-files_path = r'C:\Users\dhers\Desktop\Videos_NOR\2024-4_3xTg-vs-WT\TS\position'
-
-for file in os.listdir(files_path):
-    if "_position.csv" in file:
-        wanted_files.append(os.path.join(files_path, file))
-        
-wanted_files = sorted(wanted_files)
-
-# Load the saved model from file
-loaded_model = joblib.load(r'C:/Users/dhers/Desktop/STORM/models/model_RF_203.pkl')
-
-create_autolabels(wanted_files, loaded_model) # Lets analyze!
+create_autolabels(all_position, loaded_model) # Lets analyze!

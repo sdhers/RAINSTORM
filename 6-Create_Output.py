@@ -8,23 +8,24 @@ Created on Mon Sep 18 12:17:36 2023
 
 import os
 import csv
+import pandas as pd
 import itertools
 
 #%%
 
 # At home:
-path = r'C:\Users\dhers\Desktop\Videos_NOR'
+path = r'C:\Users\dhers\Desktop\Results\3xTg'
 
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR/'
 
-experiment ='2024-4_3xTg-vs-WT'
-trial = 'TS'
-labels = 'geolabels'
+experiment ='2024-4_Tg-vs-Jksn'
+trial = 'TR1'
+labels = 'autolabels'
 
 folder_path = os.path.join(path, experiment, trial, labels)
 
-time_limit = 240
+time_limit = 250
 fps = 25
 
 #%%
@@ -81,6 +82,23 @@ def process_csv_file(file_path, time_limit = None, fps = 25):
 
     return sum_col2/fps, sum_col3/fps, num_transitions_col2, num_transitions_col3, consecutive_ones_col2, consecutive_ones_col3
 
+def process_dist_file(file_path, time_limit = None, fps = 25):
+    
+    # Read the CSV file into a pandas DataFrame
+    df = pd.read_csv(file_path)
+    
+    if time_limit is not None:
+        # Filter rows based on row_limit
+        df_filtered = df.head(time_limit*fps)
+    else:
+        df_filtered = df
+
+    # Calculate the sum of the 'nose_dist' column
+    sum_nose_dist = df_filtered['nose_dist'].sum()
+    sum_body_dist = df_filtered['body_dist'].sum()
+    
+    return sum_nose_dist, sum_body_dist
+
 
 def process_label_files(folder_path, time_limit = None, fps = 25):
     
@@ -90,13 +108,16 @@ def process_label_files(folder_path, time_limit = None, fps = 25):
     for label_file in label_files:
         file_path = os.path.join(folder_path, label_file)
         sum_col2, sum_col3, num_transitions_col2, num_transitions_col3, consecutive_ones_col2, consecutive_ones_col3 = process_csv_file(file_path, time_limit, fps)
-        results.append((label_file, sum_col2, sum_col3, num_transitions_col2, num_transitions_col3, consecutive_ones_col2[1:], consecutive_ones_col3[1:]))
         
+        distance_path = file_path.replace(labels, "distances")
+        nose_dist, body_dist = process_dist_file(distance_path, time_limit, fps)
+        results.append((label_file, sum_col2, sum_col3, num_transitions_col2, num_transitions_col3, consecutive_ones_col2[1:], consecutive_ones_col3[1:], nose_dist, body_dist))
+                        
     output_file = os.path.join(os.path.dirname(folder_path), f'output_{os.path.basename(folder_path)}.csv')
     
     with open(output_file, 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
-        writer.writerow(['File', 'Sum of left', 'Sum of right', 'Transitions in left', 'Transitions in right', 'Consecutive 1s in left', 'Consecutive 1s in right'])
+        writer.writerow(['File', 'Sum of left', 'Sum of right', 'Transitions in left', 'Transitions in right', 'Consecutive 1s in left', 'Consecutive 1s in right', 'nose_dist', 'body_dist'])
 
         for result in results:
             writer.writerow(result)

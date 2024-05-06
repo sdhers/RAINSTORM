@@ -29,6 +29,16 @@ groups  = ["Hab", "TR1", "TR2", "TS"]
 
 #%%
 
+# Define a custom median filter function
+def custom_median_filter(column):
+    filtered_column = column.copy()
+    for i in range(1, len(column) - 1):
+        if abs((column[i] - column[i-1]) / 8) > abs((column[i+1] - column[i-1])):
+            filtered_column[i] = sorted([column[i-1], column[i], column[i+1]])[1]
+    return filtered_column
+
+#%%
+
 """
 This function turns _position.H5 files into _position.csv files
 It also scales the coordenates to be expressed in cm (by using the distance between objects)
@@ -106,6 +116,10 @@ def process_hdf5_file(path_name, distance = 14, fps = 25):
             
             # Apply the transformation to current_data
             current_data = current_data * scale
+        
+        # Apply a median filter to remove noise
+        for col in current_data.columns[4:22]:
+            current_data[col] = custom_median_filter(current_data[col])
         
         # Determine the output file path in the same directory as the input file
         # Split the path and filename

@@ -83,12 +83,12 @@ def find_files(path_name, exp_name, group, folder):
 #%%
 
 # At home:
-path = r'C:\Users\dhers\Desktop\Results\3xTg'
+path = r'C:\Users\dhers\Desktop\Results\TORM'
 
 # In the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+# path = r'/home/usuario/Desktop/Santi D/Videos_NOR' 
 
-experiment = r'2024-4_Tg-vs-Jksn'
+experiment = r'2023-05_TORM_2m_24h'
 
 Hab_position = find_files(path, experiment, "Hab", "position")
 TR1_position = find_files(path, experiment, "TR1", "position")

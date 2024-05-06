@@ -35,10 +35,10 @@ import datetime
 #%% Set the variables before starting
 
 # At home:
-# desktop = 'C:/Users/dhers/Desktop'
+desktop = 'C:/Users/dhers/Desktop'
 
 # At the lab:
-desktop = '/home/usuario/Desktop'
+# desktop = '/home/usuario/Desktop'
 
 STORM_folder = os.path.join(desktop, 'STORM/models')
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
@@ -147,10 +147,13 @@ lblr_C = smooth_column(lblr_C)
 lblr_D = colabels.iloc[:, 28:30]
 lblr_D = smooth_column(lblr_D)
 
-geometric = colabels.iloc[:, 30:32] # We dont use the geometric labels to train the model
+lblr_E = colabels.iloc[:, 30:32]
+lblr_E = smooth_column(lblr_E)
+
+geometric = colabels.iloc[:, 32:34] # We dont use the geometric labels to train the model
 geometric = smooth_column(geometric)
 
-dfs = [lblr_A, lblr_B, lblr_C, lblr_D]
+dfs = [lblr_A, lblr_B, lblr_C, lblr_D, lblr_E]
 
 # Calculate average labels
 sum_df = pd.DataFrame()
@@ -202,8 +205,8 @@ avrg_binary = smooth_column(avrg_binary)
 
 #%%
 
-labelers = [all_simple_binary, all_wide_binary, all_RF, all_RF2, lblr_A, lblr_B, lblr_C, lblr_D, geometric]
-labelers_names = ['simple', 'wide', 'RF', 'RF2', 'lblr_A', 'lblr_B', 'lblr_C', 'lblr_D', 'geometric']
+labelers = [all_simple_binary, all_wide_binary, all_RF, all_RF2, lblr_A, lblr_B, lblr_C, lblr_D, lblr_E, geometric]
+labelers_names = ['simple', 'wide', 'RF', 'RF2', 'lblr_A', 'lblr_B', 'lblr_C', 'lblr_D', 'lblr_E', 'geometric']
 
 for i, labeler in enumerate(labelers):
     accuracy = accuracy_score(labeler, avrg_binary)
@@ -220,14 +223,16 @@ for i, labeler in enumerate(labelers):
 
 #%%
 
-avrg_1 = (avrg > 0.2).astype(int)
+avrg_1 = (avrg > 0.1).astype(int)
 avrg_1 = smooth_column(avrg_1)
-avrg_2 = (avrg > 0.4).astype(int)
+avrg_2 = (avrg > 0.3).astype(int)
 avrg_2 = smooth_column(avrg_2)
-avrg_3 = (avrg > 0.6).astype(int)
+avrg_3 = (avrg > 0.5).astype(int)
 avrg_3 = smooth_column(avrg_3)
-avrg_4 = (avrg > 0.8).astype(int)
+avrg_4 = (avrg > 0.7).astype(int)
 avrg_4 = smooth_column(avrg_4)
+avrg_5 = (avrg > 0.9).astype(int)
+avrg_5 = smooth_column(avrg_5)
 
 df = pd.DataFrame()
 
@@ -235,9 +240,10 @@ df["avrg_1"] = avrg_1["Left"] + avrg_1["Right"]
 df["avrg_2"] = avrg_2["Left"] + avrg_2["Right"]
 df["avrg_3"] = avrg_3["Left"] + avrg_3["Right"]
 df["avrg_4"] = avrg_4["Left"] + avrg_4["Right"]
+df["avrg_5"] = avrg_5["Left"] + avrg_5["Right"]
 
-df["simple"] = all_simple_binary["Left"] + all_simple_binary["Right"]
-df["wide"] = all_wide_binary["Left"] + all_wide_binary["Right"]
+# df["simple"] = all_simple_binary["Left"] + all_simple_binary["Right"]
+# df["wide"] = all_wide_binary["Left"] + all_wide_binary["Right"]
 
 df["RF"] = all_RF["Left"] + all_RF["Right"]
 df["RF2"] = all_RF2["Left"] + all_RF2["Right"]
@@ -248,6 +254,7 @@ df["lblr_A"] = lblr_A["Left"] + lblr_A["Right"]
 df["lblr_B"] = lblr_B["Left"] + lblr_B["Right"]
 df["lblr_C"] = lblr_C["Left"] + lblr_C["Right"]
 df["lblr_D"] = lblr_D["Left"] + lblr_D["Right"]
+df["lblr_E"] = lblr_E["Left"] + lblr_E["Right"]
 
 #%% Compute Cosine similarity
 
@@ -299,16 +306,18 @@ video_path = os.path.join(STORM_folder, 'example/Example_video.mp4')
 labels_A = pd.read_csv(os.path.join(STORM_folder, 'example/Example_Marian.csv'), usecols=['Left', 'Right'])
 labels_B = pd.read_csv(os.path.join(STORM_folder, 'example/Example_Agus.csv'), usecols=['Left', 'Right'])
 labels_C = pd.read_csv(os.path.join(STORM_folder, 'example/Example_Santi.csv'), usecols=['Left', 'Right'])
-labels_D = pd.read_csv(os.path.join(STORM_folder, 'example/Example_Dhers.csv'), usecols=['Left', 'Right'])
+labels_D = pd.read_csv(os.path.join(STORM_folder, 'example/Example_Guille.csv'), usecols=['Left', 'Right'])
+labels_E = pd.read_csv(os.path.join(STORM_folder, 'example/Example_Dhers.csv'), usecols=['Left', 'Right'])
 
 """
 labels_A = smooth_column(labels_A)
 labels_B = smooth_column(labels_B)
 labels_C = smooth_column(labels_C)
 labels_D = smooth_column(labels_D)
+labels_E = smooth_column(labels_E)
 """
 
-dfs_example = [labels_A, labels_B, labels_C, labels_D]
+dfs_example = [labels_A, labels_B, labels_C, labels_D, labels_E]
 
 # Calculate average labels
 sum_df_example = pd.DataFrame()
@@ -365,8 +374,11 @@ plt.plot(labels_B["Right"] * -1.10, ".", color = "c")
 plt.plot(labels_C["Left"] * 1.15, ".", color = "orange", label = "lblr_C")
 plt.plot(labels_C["Right"] * -1.15, ".", color = "orange")
 
-plt.plot(labels_D["Left"] * 1.20, ".", color = "g", label = "lblr_D")
-plt.plot(labels_D["Right"] * -1.20, ".", color = "g")
+plt.plot(labels_D["Left"] * 1.20, ".", color = "purple", label = "lblr_D")
+plt.plot(labels_D["Right"] * -1.20, ".", color = "purple")
+
+plt.plot(labels_E["Left"] * 1.25, ".", color = "g", label = "lblr_E")
+plt.plot(labels_E["Right"] * -1.25, ".", color = "g")
 
 plt.plot(autolabels_simple["Left"], color = "r", alpha = 0.75, label = "simple")
 plt.plot(autolabels_simple["Right"] * -1, color = "r", alpha = 0.75)
@@ -410,8 +422,11 @@ def process_frame(frame, frame_number):
     ax.plot(labels_C["Left"] * 1.15, ".", color = "orange", label = "lblr_C")
     ax.plot(labels_C["Right"] * -1.15, ".", color = "orange")
     
-    ax.plot(labels_D["Left"] * 1.20, ".", color = "g", label = "lblr_D")
-    ax.plot(labels_D["Right"] * -1.20, ".", color = "g")
+    ax.plot(labels_D["Left"] * 1.20, ".", color = "purple", label = "lblr_D")
+    ax.plot(labels_D["Right"] * -1.20, ".", color = "purple")
+    
+    ax.plot(labels_E["Left"] * 1.25, ".", color = "g", label = "lblr_E")
+    ax.plot(labels_E["Right"] * -1.25, ".", color = "g")
     
     ax.plot(autolabels_simple["Left"], color = "r", alpha = 0.75, label = "simple")
     ax.plot(autolabels_simple["Right"] * -1, color = "r", alpha = 0.75)

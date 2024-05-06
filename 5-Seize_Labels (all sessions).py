@@ -67,12 +67,12 @@ class Vector:
 #%%
 
 # At home:
-path = r'C:\Users\dhers\Desktop\Results\3xTg'
+path = r'C:\Users\dhers\Desktop\Results\TORM filtered'
 
 # In the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+# path = r'/home/usuario/Desktop/Santi D/Videos_NOR' 
 
-experiment = r'2024-4_Tg-vs-Jksn'
+experiment = r'2023-05_TORM_2m_24h'
 
 # Complete with the different stages of the experiment
 stages = ["TR1", "TR2", "TS"] # Tip: Put TS last, so that rename_labels can return the path to it's folder
@@ -306,7 +306,7 @@ We define the functions that will plot the data
 
 def plot_all(path, name_start, experiment, labels_folder, fps = 25):
     
-    os.makedirs(os.path.join(path, "all_{labels_folder}_plots"), exist_ok = True)
+    os.makedirs(os.path.join(path, f"all_{labels_folder}_plots"), exist_ok = True)
 
     for filename in os.listdir(path):
         if filename.startswith(name_start) and "TS" in filename:
@@ -432,8 +432,8 @@ def plot_all(path, name_start, experiment, labels_folder, fps = 25):
 
             plt.suptitle(f"Analysis of {experiment}: {file}", y=0.98)
             plt.tight_layout()
-            plt.savefig(os.path.join(path, "all_{labels_folder}_plots", f"{file}_plot.png"))
-            #plt.show()
+            plt.savefig(os.path.join(path, f"all_{labels_folder}_plots", f"{file}_plot.png"))
+            # plt.show()
             
 #%%
 

@@ -14,18 +14,16 @@ import itertools
 #%%
 
 # At home:
-path = r'C:\Users\dhers\Desktop\Results\3xTg'
+path = r'C:\Users\dhers\Desktop\Results\TORM'
 
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR/'
 
-experiment ='2024-4_Tg-vs-Jksn'
-trial = 'TR1'
+experiment = '2023-05_TORM_2m_24h'
+trials = ["TR1", "TR2", "TS"]
 labels = 'autolabels'
 
-folder_path = os.path.join(path, experiment, trial, labels)
-
-time_limit = 250
+time_limit = 240
 fps = 25
 
 #%%
@@ -124,4 +122,6 @@ def process_label_files(folder_path, time_limit = None, fps = 25):
 
 #%%
 
-results = process_label_files(folder_path, time_limit, fps)
+for trial in trials:
+    folder_path = os.path.join(path, experiment, trial, labels)
+    results = process_label_files(folder_path, time_limit, fps)

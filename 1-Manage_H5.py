@@ -16,13 +16,13 @@ import shutil
 #%%
 
 # At home:
-path = r'C:\Users\dhers\Desktop\Results\3xTg'
+path = r'C:\Users\dhers\Desktop\Results\TORM'
 
 # In the lab:
 # path = r'/home/usuario/Desktop/Santi D/Videos_NOR' 
 
-# Replace with the name of the folder where your .H5 files are
-experiment = r'2024-4_Tg-vs-Jksn'
+experiment = r'2023-05_TORM_2m_24h'
+
 folder = os.path.join(path, experiment)
 
 groups  = ["Hab", "TR1", "TR2", "TS"]

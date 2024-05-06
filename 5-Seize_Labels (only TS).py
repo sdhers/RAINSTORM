@@ -67,13 +67,15 @@ class Vector:
 #%%
 
 # At home:
-path = r'C:\Users\dhers\Desktop\Results\3xTg'
+path = r'C:\Users\dhers\Desktop\Results\TORM'
 
 # In the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/'
+# path = r'/home/usuario/Desktop/Santi D/Videos_NOR' 
 
-stage_folder = os.path.join(path, '2024-03_Tg-6mth', 'TS')
-labels = 'autolabels'
+experiment = r'2023-05_TORM_2m_24h'
+
+stage_folder = os.path.join(path, experiment, 'TS')
+labels = 'labels'
 
 time_limit = None
 

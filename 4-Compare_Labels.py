@@ -83,15 +83,14 @@ def find_files(path_name, exp_name, group, folder):
 #%%
 
 # At home:
-path = r'C:\Users\dhers\Desktop\Results\3xTg'
+path = r'C:\Users\dhers\Desktop\Results\TORM'
 
 # In the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/' 
+# path = r'/home/usuario/Desktop/Santi D/Videos_NOR' 
 
-experiment = r'2024-03_Tg-6mth'
+experiment = r'2023-05_TORM_2m_24h'
 
 TS_position = find_files(path, experiment, "TS", "position")
-
 
 TS_labels = find_files(path, experiment, "TS", "labels")
 TS_geolabels = find_files(path, experiment, "TS", "geolabels")

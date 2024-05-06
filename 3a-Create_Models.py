@@ -34,10 +34,10 @@ import datetime
 #%% Set the variables before starting
 
 # At home:
-# desktop = 'C:/Users/dhers/Desktop'
+desktop = 'C:/Users/dhers/Desktop'
 
 # At the lab:
-desktop = '/home/usuario/Desktop'
+# desktop = '/home/usuario/Desktop'
 
 STORM_folder = os.path.join(desktop, 'STORM/models')
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
@@ -49,17 +49,17 @@ after = 2 # Say how many frames into the future the models will see
 frames = before + after + 1
 
 # Set the number of neurons in each layer
-param_0 = 144 # Columns (18) x 6
-param_H1 = 90
-param_H2 = 72
-param_H3 = 54
-param_H4 = 36
-param_H5 = 18
+param_0 = 64 # Columns (18) x 6
+param_H1 = 56
+param_H2 = 48
+param_H3 = 40
+param_H4 = 32
+param_H5 = 24
 
-batch_size = 144 # Set the batch size
+batch_size = 1024 # Set the batch size
 lr = 0.0001 # Set the initial learning rate
-epochs = 200 # Set the training epochs
-patience = 50 # Set the wait for the early stopping mechanism
+epochs = 100 # Set the training epochs
+patience = 10 # Set the wait for the early stopping mechanism
 
 train_with_average = True # If false, it trains with all the labels separately
 
@@ -68,7 +68,7 @@ use_saved_data = False # if True, we use the dataframe processed previously
 if use_saved_data:
     saved_data = 'saved_training_data_2024-04-17.h5'
 
-save_data = False # if True, the data processed will be saved with today's date
+save_data = True # if True, the data processed will be saved with today's date
 
 #%% Start time
 
@@ -152,10 +152,13 @@ lblr_C = smooth_column(lblr_C)
 lblr_D = colabels.iloc[:, 28:30]
 lblr_D = smooth_column(lblr_D)
 
-geometric = colabels.iloc[:, 30:32] # We dont use the geometric labels to train the model
+lblr_E = colabels.iloc[:, 30:32]
+lblr_E = smooth_column(lblr_E)
+
+geometric = colabels.iloc[:, 32:34] # We dont use the geometric labels to train the model
 geometric = smooth_column(geometric)
 
-dfs = [lblr_A, lblr_B, lblr_C, lblr_D]
+dfs = [lblr_A, lblr_B, lblr_C, lblr_D, lblr_E]
 
 # Calculate average labels
 sum_df = pd.DataFrame()

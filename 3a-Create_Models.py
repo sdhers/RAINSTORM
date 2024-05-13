@@ -13,6 +13,7 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+plt.switch_backend('QtAgg')
 import random
 
 # from sklearn.utils.class_weight import compute_class_weight
@@ -46,24 +47,24 @@ after = 2 # Say how many frames into the future the models will see
 frames = before + after + 1
 
 # Set the number of neurons in each layer
-param_0 = 64 # Columns (18) x 6
-param_H1 = 56
-param_H2 = 48
-param_H3 = 40
-param_H4 = 32
-param_H5 = 24
+param_0 = 56
+param_H1 = 48
+param_H2 = 40
+param_H3 = 32
+param_H4 = 24
+param_H5 = 16
 
-batch_size = 1024 # Set the batch size
+batch_size = 64 # Set the batch size
 lr = 0.0001 # Set the initial learning rate
 epochs = 100 # Set the training epochs
-patience = 10 # Set the wait for the early stopping mechanism
+patience = 20 # Set the wait for the early stopping mechanism
 
 train_with_average = True # If false, it trains with all the labels separately
 
 use_saved_data = False # if True, we use the dataframe processed previously
 
 if use_saved_data:
-    saved_data = 'saved_training_data_2024-04-17.h5'
+    saved_data = 'saved_training_data_2024-04-17.h5' # Select the model date you want to rescue
 
 save_data = True # if True, the data processed will be saved with today's date
 
@@ -71,11 +72,6 @@ save_data = True # if True, the data processed will be saved with today's date
 
 # Get the start time
 start_time = datetime.datetime.now()
-
-#%% Results
-
-"""
-"""
 
 #%% Function to smooth the columns (filter 2 or less individual occurrences)
 
@@ -134,7 +130,7 @@ def divide_training_data(df):
 #%% Lets load the data
 
 # The mouse position is on the first 22 columns of the csv file
-position = colabels.iloc[:, :18]
+position = colabels.iloc[:, :16] # We leave out the tail
 
 # The labels for left and right exploration are on the rest of the columns, we need to extract them
 lblr_A = colabels.iloc[:, 22:24]
@@ -202,14 +198,14 @@ else:
 
     train, test, val = divide_training_data(ready_data)
     
-    X_train = train.iloc[:, :18]
-    y_train = train.iloc[:, 18:20]
+    X_train = train.iloc[:, :16]
+    y_train = train.iloc[:, 16:18]
     
-    X_test = test.iloc[:, :18]
-    y_test = test.iloc[:, 18:20]
+    X_test = test.iloc[:, :16]
+    y_test = test.iloc[:, 16:18]
     
-    X_val = val.iloc[:, :18]
-    y_val = val.iloc[:, 18:20]
+    X_val = val.iloc[:, :16]
+    y_val = val.iloc[:, 16:18]
     
     # Print the sizes of each set
     print(f"Training set size: {len(X_train)} samples")
@@ -287,12 +283,12 @@ def evaluate(X, y, model):
     
     # Evaluate the model on the testing set
     y_pred = model.predict(X)
-    y_pred_binary = (y_pred > 0.4).astype(int)  # Convert probabilities to binary predictions
+    y_pred_binary = (y_pred > 0.5).astype(int)  # Convert probabilities to binary predictions
     y_pred_binary = smooth_column(y_pred_binary)
     
     if isinstance(y, tf.Tensor):
         y = y.numpy()
-    y_binary = (y > 0.6).astype(int) # Convert average labels to binary labels
+    y_binary = (y > 0.5).astype(int) # Convert average labels to binary labels
     y_binary = smooth_column(y_binary)
     
     accuracy = accuracy_score(y_binary, y_pred_binary)
@@ -467,12 +463,25 @@ print(f"MSE = {mse_wide:.4f}, MAE = {mae_wide:.4f}, R-squared = {r2_wide:.4f} ->
 #%%
 
 """
-Lets load a pretrained RF model
+Lets also train a new RF model
 """
 
-#%% Load a pretrained model
+#%% We train a model with the same data
 
-multi_output_RF_model = joblib.load(os.path.join(STORM_folder, 'model_RF_203.pkl'))
+# Create the Random Forest model (and set the number of estimators (decision trees))
+RF_model = RandomForestClassifier(n_estimators = 24, max_depth = 12)
+
+# Create a MultiOutputClassifier with the Random Forest as the base estimator
+multi_output_RF_model = MultiOutputClassifier(RF_model)
+
+y_train_binary = (y_train > 0.5).astype(int)
+
+# Train the MultiOutputClassifier with your data
+multi_output_RF_model.fit(X_train, y_train_binary)
+
+#%% Save the model
+
+joblib.dump(multi_output_RF_model, os.path.join(STORM_folder, f'model_RF_{start_time.date()}.pkl'))
 
 #%% Calculate accuracy and precision of the model
 
@@ -481,37 +490,6 @@ print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f}, Recall = {
 
 mse_RF, mae_RF, r2_RF = evaluate_continuous(X_test, y_test, multi_output_RF_model)
 print(f"MSE = {mse_RF:.4f}, MAE = {mae_RF:.4f}, R-squared = {r2_RF:.4f} -> RF")
-
-#%%
-
-"""
-Lets also train a new RF model
-"""
-
-#%% We train a model with the same data
-
-# Create the Random Forest model (and set the number of estimators (decision trees))
-RF2_model = RandomForestClassifier(n_estimators = 24, max_depth = 12)
-
-# Create a MultiOutputClassifier with the Random Forest as the base estimator
-multi_output_RF2_model = MultiOutputClassifier(RF2_model)
-
-y_train_binary = (y_train > 0.6).astype(int)
-
-# Train the MultiOutputClassifier with your data
-multi_output_RF2_model.fit(X_train, y_train_binary)
-
-#%% Save the model
-
-joblib.dump(multi_output_RF2_model, os.path.join(STORM_folder, f'model_RF2_{start_time.date()}.pkl'))
-
-#%% Calculate accuracy and precision of the model
-
-accuracy_RF2, precision_RF2, recall_RF2, f1_RF2 = evaluate(X_test, y_test, multi_output_RF2_model)
-print(f"Accuracy = {accuracy_RF2:.4f}, Precision = {precision_RF2:.4f}, Recall = {recall_RF2:.4f}, F1 Score = {f1_RF2:.4f} -> RF2")
-
-mse_RF2, mae_RF2, r2_RF2 = evaluate_continuous(X_test, y_test, multi_output_RF2_model)
-print(f"MSE = {mse_RF2:.4f}, MAE = {mae_RF2:.4f}, R-squared = {r2_RF2:.4f} -> RF2")
 
 #%% Get the end time
 
@@ -525,11 +503,6 @@ elapsed_time = end_time - start_time
 plot_history(history_simple, "Simple")
 plot_history(history_wide, "wide")
 
-"""
-plot_history(history_left, "Left")
-plot_history(history_right, "Right")
-"""
-
 #%% Print the model results
 
 print(f"Script execution time: {elapsed_time}).")
@@ -540,10 +513,8 @@ print("VS binary average")
 print(f"Accuracy = {accuracy_simple:.4f}, Precision = {precision_simple:.4f}, Recall = {recall_simple:.4f}, F1 Score = {f1_simple:.4f} -> simple")
 print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f}, Recall = {recall_wide:.4f}, F1 Score = {f1_wide:.4f} -> wide")
 print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f}, Recall = {recall_RF:.4f}, F1 Score = {f1_RF:.4f} -> RF")
-print(f"Accuracy = {accuracy_RF2:.4f}, Precision = {precision_RF2:.4f}, Recall = {recall_RF2:.4f}, F1 Score = {f1_RF2:.4f} -> RF2")
 
 print("VS continuous average")
 print (f"MSE = {mse_simple:.4f}, MAE = {mae_simple:.4f}, R-squared = {r2_simple:.4f} -> simple")
 print (f"MSE = {mse_wide:.4f}, MAE = {mae_wide:.4f}, R-squared = {r2_wide:.4f} -> wide")
 print (f"MSE = {mse_RF:.4f}, MAE = {mae_RF:.4f}, R-squared = {r2_RF:.4f} -> RF")
-print (f"MSE = {mse_RF2:.4f}, MAE = {mae_RF2:.4f}, R-squared = {r2_RF2:.4f} -> RF2")

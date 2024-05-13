@@ -44,8 +44,8 @@ STORM_folder = os.path.join(desktop, 'STORM/models')
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
 colabels = pd.read_csv(colabels_file)
 
-before = 2
-after = 2
+before = 3
+after = 3
 
 frames = before + after + 1
 
@@ -161,14 +161,19 @@ for df in dfs:
     sum_df = sum_df.add(df, fill_value=0)
 avrg = sum_df / len(dfs)
 
+def sigmoid(x, k=12):
+    return 1 / (1 + np.exp(-k * x+(k/2)))
+
+# Transform values using sigmoid function
+transformed_avrg = round(sigmoid(avrg, k=12),2)  # Adjust k as needed
+
 #%% Lets load the models
 
 # Load the saved models
 model_simple = load_model(os.path.join(STORM_folder, f'model_simple_{use_model_date}.h5'))
 model_wide = load_model(os.path.join(STORM_folder, f'model_wide_{use_model_date}.h5'))
 
-RF_model = joblib.load(os.path.join(STORM_folder, 'model_RF_203.pkl'))
-RF2_model = joblib.load(os.path.join(STORM_folder, f'model_RF2_{use_model_date}.pkl'))
+RF_model = joblib.load(os.path.join(STORM_folder, f'model_RF_{use_model_date}.pkl'))
 
 #%%
 
@@ -182,31 +187,28 @@ Lets see how similar the labelers are to each other
 X_all = position.copy()
 
 all_simple = model_simple.predict(X_all)
-all_simple_binary = (all_simple > 0.3).astype(int) 
+all_simple_binary = (all_simple > 0.5).astype(int) 
 all_simple_binary = smooth_column(all_simple_binary)
 
 all_position_seq = reshape_set(X_all, False, before, after)
 all_wide = model_wide.predict(all_position_seq)
 all_wide = np.vstack((np.zeros((before, 2)), all_wide))
 all_wide = np.vstack((all_wide, np.zeros((after, 2))))
-all_wide_binary = (all_wide > 0.3).astype(int)
+all_wide_binary = (all_wide > 0.5).astype(int)
 all_wide_binary = smooth_column(all_wide_binary)
 
 all_RF = RF_model.predict(X_all)
 all_RF = smooth_column(all_RF)
 
-all_RF2 = RF2_model.predict(X_all)
-all_RF2 = smooth_column(all_RF2)
-
 #%%
 
-avrg_binary = (avrg > 0.6).astype(int)
+avrg_binary = (avrg > 0.5).astype(int)
 avrg_binary = smooth_column(avrg_binary)
 
 #%%
 
-labelers = [all_simple_binary, all_wide_binary, all_RF, all_RF2, lblr_A, lblr_B, lblr_C, lblr_D, lblr_E, geometric]
-labelers_names = ['simple', 'wide', 'RF', 'RF2', 'lblr_A', 'lblr_B', 'lblr_C', 'lblr_D', 'lblr_E', 'geometric']
+labelers = [all_simple_binary, all_wide_binary, all_RF, lblr_A, lblr_B, lblr_C, lblr_D, lblr_E, geometric]
+labelers_names = ['simple', 'wide', 'RF', 'lblr_A', 'lblr_B', 'lblr_C', 'lblr_D', 'lblr_E', 'geometric']
 
 for i, labeler in enumerate(labelers):
     accuracy = accuracy_score(labeler, avrg_binary)
@@ -242,11 +244,10 @@ df["avrg_3"] = avrg_3["Left"] + avrg_3["Right"]
 df["avrg_4"] = avrg_4["Left"] + avrg_4["Right"]
 df["avrg_5"] = avrg_5["Left"] + avrg_5["Right"]
 
-# df["simple"] = all_simple_binary["Left"] + all_simple_binary["Right"]
-# df["wide"] = all_wide_binary["Left"] + all_wide_binary["Right"]
+df["simple"] = all_simple_binary["Left"] + all_simple_binary["Right"]
+df["wide"] = all_wide_binary["Left"] + all_wide_binary["Right"]
 
 df["RF"] = all_RF["Left"] + all_RF["Right"]
-df["RF2"] = all_RF2["Left"] + all_RF2["Right"]
 
 df["geometric"] = geometric["Left"] + geometric["Right"]
 
@@ -325,6 +326,9 @@ for df in dfs_example:
     sum_df_example = sum_df_example.add(df, fill_value=0)
 avrg_example = sum_df_example / len(dfs)
 
+# Transform values using sigmoid function
+transformed_avrg_example = round(sigmoid(avrg_example, k=12),2)  # Adjust k as needed
+
 X_view = position_df[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
                 'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
                 'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
@@ -349,11 +353,6 @@ autolabels_wide = pd.DataFrame(autolabels_wide, columns=["Left", "Right"])
 
 autolabels_RF = RF_model.predict(X_view)
 autolabels_RF = smooth_column(autolabels_RF)
-
-#%% Predict the RF2 labels
-
-autolabels_RF2 = RF2_model.predict(X_view)
-autolabels_RF2 = smooth_column(autolabels_RF2)
 
 #%%
 
@@ -389,11 +388,8 @@ plt.plot(autolabels_wide["Right"] * -1, color = "b", alpha = 0.75)
 plt.plot(autolabels_RF["Left"], color = "gray", alpha = 0.75, label = "RF")
 plt.plot(autolabels_RF["Right"] * -1, color = "gray", alpha = 0.75)
 
-plt.plot(autolabels_RF2["Left"], color = "y", alpha = 0.75, label = "RF2")
-plt.plot(autolabels_RF2["Right"] * -1, color = "y", alpha = 0.75)
-
-plt.plot(avrg_example["Left"], color = "black", label = "Average")
-plt.plot(avrg_example["Right"] * -1, color = "black")
+plt.plot(transformed_avrg_example["Left"], color = "black", label = "Average")
+plt.plot(transformed_avrg_example["Right"] * -1, color = "black")
 
 # Zoom in on the labels and the minima of the distances and angles
 plt.ylim((-1.3, 1.3))
@@ -437,11 +433,8 @@ def process_frame(frame, frame_number):
     ax.plot(autolabels_RF["Left"], color = "gray", alpha = 0.75, label = "RF")
     ax.plot(autolabels_RF["Right"] * -1, color = "gray", alpha = 0.75)
     
-    ax.plot(autolabels_RF2["Left"], color = "y", alpha = 0.75, label = "RF2")
-    ax.plot(autolabels_RF2["Right"] * -1, color = "y", alpha = 0.75)
-    
-    ax.plot(avrg_example["Left"], color = "black", label = "Average")
-    ax.plot(avrg_example["Right"] * -1, color = "black")
+    ax.plot(transformed_avrg_example["Left"], color = "black", label = "Average")
+    ax.plot(transformed_avrg_example["Right"] * -1, color = "black")
         
     ax.set_xlim(frame_number-5, frame_number+5)
     ax.set_ylim(-1.3, 1.3)

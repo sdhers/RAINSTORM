@@ -36,9 +36,6 @@ import datetime
 # At home:
 desktop = 'C:/Users/dhers/Desktop'
 
-# At the lab:
-# desktop = '/home/usuario/Desktop'
-
 STORM_folder = os.path.join(desktop, 'STORM/models')
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
 colabels = pd.read_csv(colabels_file)
@@ -166,14 +163,21 @@ for df in dfs:
     sum_df = sum_df.add(df, fill_value=0)
 avrg = sum_df / len(dfs)
 
+def sigmoid(x, k=12):
+    return 1 / (1 + np.exp(-k * x+(k/2)))
+
+# Transform values using sigmoid function
+transformed_avrg = round(sigmoid(avrg, k=12),2)  # Adjust k as needed
+
 if train_with_average:
     # Join position with the average labels
-    ready_data = pd.concat([position, avrg], axis = 1)
+    ready_data = pd.concat([position, transformed_avrg], axis = 1)
     """
     # Make the labels discrete
     average_binary = (average > 0.5).astype(int) 
     ready_data = pd.concat([position, average_binary], axis = 1)
     """
+    
 else:
     # Join position with all the labels separately
     concatenated_df = pd.concat([position] * len(dfs), ignore_index=True)

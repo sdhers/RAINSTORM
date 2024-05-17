@@ -8,20 +8,19 @@ This code will prepare the .H5 files with the positions to be analyzed
 
 #%% Import libraries
 
+import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import os
 import shutil
+import random
 
 #%%
 
-# At home:
-path = r'C:\Users\dhers\Desktop\Results\TORM'
+# State your path:
+path = r'C:\Users\dhers\OneDrive - UBA\NOR position'
 
-# In the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR' 
-
-experiment = r'2023-05_TORM_2m_24h'
+experiment = r'TORM\2022-01_TORM-2m-3h'
 
 folder = os.path.join(path, experiment)
 
@@ -29,11 +28,75 @@ groups  = ["Hab", "TR1", "TR2", "TS"]
 
 #%%
 
+h5_files = [file for file in os.listdir(folder) if file.endswith('.h5')]
+
+if not h5_files:
+    print("No files found")
+
+else:
+    example_path = os.path.join(folder, random.choice(h5_files))
+
+#%%
+
+# Read the HDF5 file
+hdf_store = pd.read_hdf(example_path)
+all_keys = hdf_store.keys()
+main_key = str(all_keys[0][0])
+position_df = pd.read_hdf(example_path)[main_key]
+
+example_data = pd.DataFrame()
+
+max_i = 0 # To see when the mouse enters
+
+for key in position_df.columns:
+    # We tap into the likelihood of each coordenate
+    section, component = key[0], key[1]
+    likelihood_key = (section, 'likelihood') 
+    
+    if component in ('x', 'y') and section not in ('obj_1','obj_2'):
+        i = 0
+        while i < len(position_df) and position_df[likelihood_key][i] < 0.9 :
+            # If the likelihood is less than 0.99 (mouse not in the video yet) the point is erased
+            position_df.loc[i, key] = np.nan
+            i += 1
+        if max_i < i:
+            max_i = i
+
+for key in position_df.keys():
+    if key[1] != "likelihood":
+        # Replace the positions of the objects in every frame by their medians across the video
+        if key[0] == "obj_1" or key[0] == "obj_2":
+            example_data[str(key[0]) + "_" + str(key[1])] = [position_df[key].median()] * len(position_df[key])
+        else:
+            example_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key]
+            
+#%%
+
+# Selecting only the even columns
+nose_columns = [col for col in example_data.columns if col.split('_')[0] == 'nose']
+example_data_nose = example_data[nose_columns]
+
+# Plotting lines for each even column
+plt.figure(figsize=(10, 6))
+for column in example_data_nose.columns:
+    plt.scatter(example_data_nose.index, example_data_nose[column], label = column, marker='.')
+
+plt.xlabel('Frame')
+# plt.xlim(4000, 4500)
+plt.ylabel('Value')
+plt.title('Data over Video Frames (Even Columns)')
+plt.legend(loc='upper right')
+plt.grid(True)
+plt.show()
+
+#%%
+
 # Define a custom median filter function
-def custom_median_filter(column):
+def custom_median_filter(column, excess = 8):
     filtered_column = column.copy()
     for i in range(1, len(column) - 1):
-        if abs((column[i] - column[i-1]) / 8) > abs((column[i+1] - column[i-1])):
+        if abs((column[i] - column[i-1]) / excess) > abs((column[i+1] - column[i-1])): 
+            # If the difference between a frame and the prevoius exceeds the value, then we apply a median filter
             filtered_column[i] = sorted([column[i-1], column[i], column[i+1]])[1]
     return filtered_column
 

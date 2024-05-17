@@ -132,7 +132,7 @@ def reshape_set(data, labels, back, forward):
 #%% Lets load the data
 
 # The mouse position is on the first 22 columns of the csv file
-position = colabels.iloc[:, :18]
+position = colabels.iloc[:, :16]
 
 # The labels for left and right exploration are on the rest of the columns, we need to extract them
 lblr_A = colabels.iloc[:, 22:24]

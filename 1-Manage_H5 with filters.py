@@ -9,6 +9,8 @@ This code will prepare the .H5 files with the positions to be analyzed
 #%% Import libraries
 
 import matplotlib.pyplot as plt
+%matplotlib qt
+
 import pandas as pd
 import numpy as np
 import os
@@ -18,7 +20,7 @@ import random
 #%%
 
 # State your path:
-path = r'C:\Users\dhers\Desktop\Workshop'
+path = r'C:\Users\dhers\Desktop\workshop'
 
 experiment = r'2024-04_TORM-Tg-2m'
 
@@ -28,7 +30,7 @@ groups  = ["Hab", "TR1", "TR2", "TS"]
 
 #%%
 
-h5_files = [file for file in os.listdir(folder) if file.endswith('.h5')]
+h5_files = [file for file in os.listdir(folder) if file.endswith('.h5') and 'TS' in file]
 
 if not h5_files:
     print("No files found")
@@ -48,8 +50,6 @@ position_df = pd.read_hdf(example_path)[main_key]
 
 example_data = pd.DataFrame()
 
-max_i = 0 # To see when the mouse enters
-
 for key in position_df.columns:
     # We tap into the likelihood of each coordenate
     section, component = key[0], key[1]
@@ -68,13 +68,31 @@ for key in position_df.keys():
 #%%
 
 # Selecting only the even columns
-nose_columns = [col for col in example_data.columns if col.split('_')[0] == 'nose' and col.split('_')[1] == 'x']
-example_data_nose = example_data[nose_columns]
+nose_columns = [col for col in example_data.columns if col.split('_')[0] == 'nose']
+example_nose = example_data[nose_columns]
+
+#%%
+
+# Erase the low likelihood points
+example_filtered = example_nose.copy()
+
+example_filtered.loc[example_filtered['nose_likelihood'] < 0.1, ['nose_x', 'nose_y']] = np.nan
+
+#%%
+
+# Fill missing values using interpolation
+example_interpolated = example_filtered.interpolate(method='linear')
+
+#%%
 
 # Plotting lines for each even column
 plt.figure(figsize=(10, 6))
-for column in example_data_nose.columns:
-    plt.plot(example_data_nose.index, example_data_nose[column], label = column, marker='.', markersize = 5)
+
+for column in example_nose.columns:
+    plt.plot(example_nose.index, example_nose[column], label = column, marker='.', markersize = 5)
+
+for column in example_interpolated.columns:
+    plt.plot(example_interpolated.index, example_interpolated[column], label = column, marker='.', markersize = 3)
 
 plt.xlabel('Frame')
 # plt.xlim(4000, 4500)
@@ -82,27 +100,83 @@ plt.ylabel('Value')
 plt.title('Data over Video Frames (Even Columns)')
 plt.legend(loc='upper right')
 plt.grid(True)
+plt.axhline(y=0.05, color='r', linestyle='-')
 plt.show()
 
 #%%
 
 from scipy import signal
 
-# Construyendo una ventana gaussiana
-sigma_tiempo = 0.05   # el sigma definido en segundos (buscamos un valor que suavize el ruido sin deformar la señal)
-n_sigmas = 3  # cuántos sigmas incluir de cada lado
+# PRIMERO aplicamos la mediana móvil
+filtered_likelihood = signal.medfilt(example_nose['nose_likelihood'], kernel_size=5)  # Median filter
 
-sigma = int(sigma_tiempo/dt_sr)   # sigma (en cantidad de puntos)
-print(f'El sigma quedó de {sigma} puntos.')
+# Construyendo una ventana gaussiana
+sigma = 1   # el sigma definido en frames (buscamos un valor que suavize el ruido sin deformar la señal)
+n_sigmas = 1  # cuántos sigmas incluir de cada lado
+N = 2*n_sigmas*sigma + 1
+kernel = signal.windows.gaussian(N, sigma)
+kernel = kernel/sum(kernel)
+
+# aplicamos la convolución
+softened_likelihood = signal.convolve(filtered_likelihood, kernel, mode='same')  # notar que uso filtered_likelihood como entrada
+
+#%%
+
+# Plotting lines for each even column
+plt.figure(figsize=(10, 6))
+for column in example_data_nose.columns:
+    plt.plot(example_data_nose.index, example_data_nose[column], label = column, marker='.', markersize = 5)
+
+# plt.plot(filtered_likelihood, label = 'filtered_likelihood', marker='.', markersize = 5)
+# plt.plot(softened_likelihood, label = 'softened_likelihood', marker='.', markersize = 5)
+
+plt.xlabel('Frame')
+# plt.xlim(4000, 4500)
+plt.ylabel('Value')
+plt.title('Data over Video Frames (Even Columns)')
+plt.legend(loc='upper right')
+plt.grid(True)
+plt.axhline(y=0.05, color='r', linestyle='-')
+plt.show()
+
+#%%
+
+# Plotting lines for each even column
+plt.figure(figsize=(10, 6))
+for column in example_data_nose_filtered.columns:
+    plt.plot(example_data_nose_filtered.index, example_data_nose_filtered[column], label = column, marker='.', markersize = 5)
+
+# plt.plot(filtered_likelihood, label = 'filtered_likelihood', marker='.', markersize = 5)
+# plt.plot(softened_likelihood, label = 'softened_likelihood', marker='.', markersize = 5)
+
+plt.xlabel('Frame')
+# plt.xlim(4000, 4500)
+plt.ylabel('Value')
+plt.title('Data over Video Frames (Even Columns)')
+plt.legend(loc='upper right')
+plt.grid(True)
+plt.axhline(y=0.05, color='r', linestyle='-')
+plt.show()
+
+#%%
+
+# Construyendo una ventana gaussiana
+sigma = 5
+n_sigmas = 3
 N = 2*n_sigmas*sigma+1
 kernel = signal.windows.gaussian(N, sigma)
 kernel = kernel/sum(kernel)
 
-# PRIMERO aplicamos la mediana móvil
-sr_med = signal.medfilt(sr, kernel_size=3)  # Median filter
+example_data_nose_median = pd.DataFrame()
+example_data_nose_softened = pd.DataFrame()
 
-# SEGUNDO aplicamos la convolución
-sr_suave = signal.convolve(sr_med, kernel, mode='same')  # notar que uso sr_med como entrada
+for column in example_data_nose_filtered.columns:
+    
+    # PRIMERO aplicamos la mediana móvil
+    example_data_nose_median[column] = signal.medfilt(example_data_nose_filtered[column], kernel_size=5)  # Median filter
+    
+    # SEGUNDO aplicamos la convolución
+    example_data_nose_softened[column] = signal.convolve(example_data_nose_median[column], kernel, mode='same')  # notar que uso sr_med como entrada
 
 #%%
 
@@ -110,8 +184,8 @@ plt.figure(figsize=(10, 6))
 for column in example_data_nose.columns:
     plt.plot(example_data_nose.index, example_data_nose[column], label = column, marker='.', markersize = 5)
     
-for column in filtered_example_data_nose.columns:
-    plt.plot(filtered_example_data_nose.index, filtered_example_data_nose[column], label = column, marker='x', markersize = 5)
+for column in example_data_nose_median.columns:
+    plt.plot(example_data_nose_median.index, example_data_nose_median[column], label = column, marker='x', markersize = 5)
 
 plt.xlabel('Frame')
 # plt.xlim(4000, 4500)

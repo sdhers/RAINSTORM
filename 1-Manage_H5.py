@@ -18,9 +18,9 @@ import random
 #%%
 
 # State your path:
-path = r'C:\Users\dhers\OneDrive - UBA\NOR position'
+path = r'C:\Users\dhers\Desktop\Workshop'
 
-experiment = r'TORM\2022-01_TORM-2m-3h'
+experiment = r'2024-04_TORM-Tg-2m'
 
 folder = os.path.join(path, experiment)
 
@@ -79,7 +79,7 @@ example_data_nose = example_data[nose_columns]
 # Plotting lines for each even column
 plt.figure(figsize=(10, 6))
 for column in example_data_nose.columns:
-    plt.scatter(example_data_nose.index, example_data_nose[column], label = column, marker='.')
+    plt.plot(example_data_nose.index, example_data_nose[column], label = column, marker='.', markersize = 5)
 
 plt.xlabel('Frame')
 # plt.xlim(4000, 4500)
@@ -88,17 +88,6 @@ plt.title('Data over Video Frames (Even Columns)')
 plt.legend(loc='upper right')
 plt.grid(True)
 plt.show()
-
-#%%
-
-# Define a custom median filter function
-def custom_median_filter(column, excess = 8):
-    filtered_column = column.copy()
-    for i in range(1, len(column) - 1):
-        if abs((column[i] - column[i-1]) / excess) > abs((column[i+1] - column[i-1])): 
-            # If the difference between a frame and the prevoius exceeds the value, then we apply a median filter
-            filtered_column[i] = sorted([column[i-1], column[i], column[i+1]])[1]
-    return filtered_column
 
 #%%
 
@@ -165,7 +154,8 @@ def process_hdf5_file(path_name, distance = 14, fps = 25):
             scale = (distance / difference)
             
             current_data = current_data * scale
-            
+
+
         else: # We ned to modify the script when there is no objects on the arena
             
             # Calculate the max and min point the nose can reach
@@ -179,10 +169,7 @@ def process_hdf5_file(path_name, distance = 14, fps = 25):
             
             # Apply the transformation to current_data
             current_data = current_data * scale
-        
-        # Apply a median filter to remove noise
-        for col in current_data.columns[4:22]:
-            current_data[col] = custom_median_filter(current_data[col])
+            
         
         # Determine the output file path in the same directory as the input file
         # Split the path and filename

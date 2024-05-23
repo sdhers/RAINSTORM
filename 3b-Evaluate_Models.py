@@ -44,14 +44,14 @@ STORM_folder = os.path.join(desktop, 'STORM/models')
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
 colabels = pd.read_csv(colabels_file)
 
-before = 3
-after = 3
+before = 2
+after = 2
 
 frames = before + after + 1
 
 today = datetime.datetime.now()
-use_model_date = today.date()
-# use_model_date = '2024-04-17'
+# use_model_date = today.date()
+use_model_date = '2024-04-17'
 
 #%% Function to smooth the columns (filter 2 or less individual occurrences)
 
@@ -132,7 +132,7 @@ def reshape_set(data, labels, back, forward):
 #%% Lets load the data
 
 # The mouse position is on the first 22 columns of the csv file
-position = colabels.iloc[:, :16]
+position = colabels.iloc[:, :18]
 
 # The labels for left and right exploration are on the rest of the columns, we need to extract them
 lblr_A = colabels.iloc[:, 22:24]
@@ -170,10 +170,10 @@ transformed_avrg = round(sigmoid(avrg, k=12),2)  # Adjust k as needed
 #%% Lets load the models
 
 # Load the saved models
-model_simple = load_model(os.path.join(STORM_folder, f'model_simple_{use_model_date}.h5'))
-model_wide = load_model(os.path.join(STORM_folder, f'model_wide_{use_model_date}.h5'))
+model_simple = load_model(os.path.join(STORM_folder, 'model_simple_2024-05-06.h5'))
+model_wide = load_model(os.path.join(STORM_folder, 'model_wide_2024-05-06.h5'))
 
-RF_model = joblib.load(os.path.join(STORM_folder, f'model_RF_{use_model_date}.pkl'))
+RF_model = joblib.load(os.path.join(STORM_folder, 'model_RF2_2024-05-06.pkl'))
 
 #%%
 
@@ -397,6 +397,49 @@ plt.axhline(y=0.5, color='black', linestyle='--')
 plt.axhline(y=-0.5, color='black', linestyle='--')
 
 plt.legend()
+plt.show()
+
+#%%
+
+def calculate_ID(df):
+    # Calculate the sum of each column
+    sum_col1 = df.iloc[:, 1].sum()
+    sum_col2 = df.iloc[:, 0].sum()
+    
+    # Perform the calculation (sum_col1 - sum_col2) / (sum_col1 + sum_col2)
+    result = (sum_col1 - sum_col2) / (sum_col1 + sum_col2)
+    
+    return result
+
+ID_A = calculate_ID(labels_A)
+ID_B = calculate_ID(labels_B)
+ID_C = calculate_ID(labels_C)
+ID_D = calculate_ID(labels_D)
+ID_E = calculate_ID(labels_E)
+ID_Avrg = calculate_ID(transformed_avrg_example)
+ID_Simple = calculate_ID(autolabels_simple)
+ID_Wide = calculate_ID(autolabels_wide)
+ID_RF = calculate_ID(autolabels_RF)
+
+#%%
+
+# Sample data points
+data = [ID_A, ID_B, ID_C, ID_D, ID_E, ID_Avrg, ID_Simple, ID_Wide, ID_RF]
+labels = ['Marian', 'Agus', 'Santi', 'Guille', 'Dhers', 'ID_Avrg', 'ID_Simple', 'ID_Wide', 'ID_RF']
+
+# Create a boxplot
+plt.boxplot(data)
+
+# Overlay the individual points
+for i, value in enumerate(data):
+    plt.scatter(1, value, color='red')  # plot points
+    plt.text(1.05, value, labels[i], verticalalignment='center')  # add labels
+
+# Add title and labels
+plt.title('Boxplot of 9 Data Points with Labels')
+plt.ylabel('Values')
+
+# Show the plot
 plt.show()
 
 #%% Define a function that allows us to visualize the labels together with the video

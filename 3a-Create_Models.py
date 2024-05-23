@@ -41,8 +41,8 @@ STORM_folder = os.path.join(desktop, 'STORM/models')
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
 colabels = pd.read_csv(colabels_file)
 
-before = 2 # Say how many frames into the past the models will see
-after = 2 # Say how many frames into the future the models will see
+before = 1 # Say how many frames into the past the models will see
+after = 1 # Say how many frames into the future the models will see
 
 frames = before + after + 1
 
@@ -54,7 +54,7 @@ param_H3 = 32
 param_H4 = 24
 param_H5 = 16
 
-batch_size = 64 # Set the batch size
+batch_size = 1024 # Set the batch size
 lr = 0.0001 # Set the initial learning rate
 epochs = 100 # Set the training epochs
 patience = 20 # Set the wait for the early stopping mechanism
@@ -159,15 +159,29 @@ for df in dfs:
     sum_df = sum_df.add(df, fill_value=0)
 avrg = sum_df / len(dfs)
 
+#%%
+
 def sigmoid(x, k=12):
     return 1 / (1 + np.exp(-k * x+(k/2)))
+
+def apply_median_filter(df, window_size=3):
+    if window_size % 2 == 0:
+        raise ValueError("Window size must be odd")
+    filtered_df = df.apply(lambda x: x.rolling(window=window_size, center=True).median())
+    return filtered_df
+
+#%%
 
 # Transform values using sigmoid function
 transformed_avrg = round(sigmoid(avrg, k=12),2)  # Adjust k as needed
 
+filtered_avrg = apply_median_filter(transformed_avrg, window_size=3)
+
+#%%
+
 if train_with_average:
     # Join position with the average labels
-    ready_data = pd.concat([position, transformed_avrg], axis = 1)
+    ready_data = pd.concat([position, filtered_avrg], axis = 1)
     """
     # Make the labels discrete
     average_binary = (average > 0.5).astype(int) 

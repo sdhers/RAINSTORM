@@ -22,7 +22,7 @@ import random
 # State your path:
 path = r'C:\Users\dhers\Desktop\workshop'
 
-experiment = r'2024-04_TORM-Tg-2m'
+experiment = r'2024-05_PD-45'
 
 folder = os.path.join(path, experiment)
 
@@ -30,13 +30,17 @@ groups  = ["Hab", "TR1", "TR2", "TS"]
 
 #%%
 
-h5_files = [file for file in os.listdir(folder) if file.endswith('.h5') and 'TS' in file]
+h5_files = [file for file in os.listdir(folder) if file.endswith('.h5') and 'filtered' not in file]
 
 if not h5_files:
     print("No files found")
 
 else:
-    example_path = os.path.join(folder, random.choice(h5_files))
+    example = random.choice(h5_files)
+    
+    example_path = os.path.join(folder, example)
+    
+    example_path_2 = os.path.join(folder, example.replace('_position', '_position_filtered'))
 
 #%%
 
@@ -45,6 +49,8 @@ hdf_store = pd.read_hdf(example_path)
 all_keys = hdf_store.keys()
 main_key = str(all_keys[0][0])
 position_df = pd.read_hdf(example_path)[main_key]
+
+position_df_2 = pd.read_hdf(example_path_2)[main_key]
 
 #%%
 
@@ -64,12 +70,55 @@ for key in position_df.keys():
             example_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key] / 1000
     else:
         example_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key]
+        
+#%%
+
+example_data_2 = pd.DataFrame()
+
+for key in position_df_2.columns:
+    # We tap into the likelihood of each coordenate
+    section, component = key[0], key[1]
+    likelihood_key = (section, 'likelihood')
+
+for key in position_df_2.keys():
+    if key[1] != "likelihood":
+        # Replace the positions of the objects in every frame by their medians across the video
+        if key[0] == "obj_1" or key[0] == "obj_2":
+            example_data_2[str(key[0]) + "_" + str(key[1])] = [position_df_2[key].median()] * len(position_df_2[key])
+        else:
+            example_data_2[str( key[0] ) + "_" + str( key[1] )] = position_df_2[key] / 1000
+    else:
+        example_data_2[str( key[0] ) + "_" + str( key[1] )] = position_df_2[key]
             
 #%%
 
 # Selecting only the even columns
 nose_columns = [col for col in example_data.columns if col.split('_')[0] == 'nose']
 example_nose = example_data[nose_columns]
+
+# Selecting only the even columns
+nose_columns_2 = [col for col in example_data_2.columns if col.split('_')[0] == 'nose']
+example_nose_2 = example_data_2[nose_columns_2]
+
+#%%
+
+# Plotting lines for each even column
+plt.figure(figsize=(10, 6))
+
+for column in example_nose.columns:
+    plt.plot(example_nose.index, example_nose[column], label = column, marker='.', markersize = 5)
+
+for column in example_nose_2.columns:
+    plt.plot(example_nose_2.index, example_nose_2[column], label = column, marker='.', markersize = 3)
+
+plt.xlabel('Frame')
+# plt.xlim(4000, 4500)
+plt.ylabel('Value')
+plt.title('Data over Video Frames (Even Columns)')
+plt.legend(loc='upper right')
+plt.grid(True)
+plt.axhline(y=0.05, color='r', linestyle='-')
+plt.show()
 
 #%%
 

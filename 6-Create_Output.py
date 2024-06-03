@@ -13,17 +13,15 @@ import itertools
 
 #%%
 
-# At home:
-path = r'C:\Users\dhers\Desktop\Results\TORM'
+# State your path:
+path = r'C:\Users\dhers\Desktop\workshop'
 
-# In the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR/'
+experiment = r'2024-05_PD-45'
 
-experiment = '2023-05_TORM_2m_24h'
-trials = ["TR1", "TR2", "TS"]
+trials = ["TS"]
 labels = 'autolabels'
 
-time_limit = 240
+time_limit = None
 fps = 25
 
 #%%

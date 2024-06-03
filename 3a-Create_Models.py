@@ -132,6 +132,8 @@ def divide_training_data(df):
 # The mouse position is on the first 22 columns of the csv file
 position = colabels.iloc[:, :16] # We leave out the tail
 
+tail = colabels.iloc[:, 16:22]
+
 # The labels for left and right exploration are on the rest of the columns, we need to extract them
 lblr_A = colabels.iloc[:, 22:24]
 lblr_A = smooth_column(lblr_A)

@@ -44,6 +44,8 @@ all_keys = hdf_store.keys()
 main_key = str(all_keys[0][0])
 position_df = pd.read_hdf(example_path)[main_key]
 
+#%%
+
 example_data = pd.DataFrame()
 
 max_i = 0 # To see when the mouse enters
@@ -51,16 +53,7 @@ max_i = 0 # To see when the mouse enters
 for key in position_df.columns:
     # We tap into the likelihood of each coordenate
     section, component = key[0], key[1]
-    likelihood_key = (section, 'likelihood') 
-    
-    if component in ('x', 'y') and section not in ('obj_1','obj_2'):
-        i = 0
-        while i < len(position_df) and position_df[likelihood_key][i] < 0.9 :
-            # If the likelihood is less than 0.99 (mouse not in the video yet) the point is erased
-            position_df.loc[i, key] = np.nan
-            i += 1
-        if max_i < i:
-            max_i = i
+    likelihood_key = (section, 'likelihood')
 
 for key in position_df.keys():
     if key[1] != "likelihood":
@@ -68,7 +61,9 @@ for key in position_df.keys():
         if key[0] == "obj_1" or key[0] == "obj_2":
             example_data[str(key[0]) + "_" + str(key[1])] = [position_df[key].median()] * len(position_df[key])
         else:
-            example_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key]
+            example_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key] / 1000
+    else:
+        example_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key]
             
 #%%
 

@@ -50,8 +50,8 @@ after = 2
 frames = before + after + 1
 
 today = datetime.datetime.now()
-# use_model_date = today.date()
-use_model_date = '2024-04-17'
+use_model_date = today.date()
+# use_model_date = '2024-04-17'
 
 #%% Function to smooth the columns (filter 2 or less individual occurrences)
 

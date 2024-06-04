@@ -63,16 +63,13 @@ class Vector:
             )
 
         return angle
-    
+
 #%%
 
-# At home:
-path = r'C:\Users\dhers\Desktop\Results\TORM filtered'
+# State your path:
+path = r'C:\Users\dhers\Desktop\workshop'
 
-# In the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR' 
-
-experiment = r'2023-05_TORM_2m_24h'
+experiment = r'2024-04_TORM-Tg-2m'
 
 # Complete with the different stages of the experiment
 stages = ["TR1", "TR2", "TS"] # Tip: Put TS last, so that rename_labels can return the path to it's folder
@@ -350,8 +347,8 @@ def plot_all(path, name_start, experiment, labels_folder, fps = 25):
             axes[0, 0].plot(Hab['time_seconds'], Hab['nose_dist_cumsum'], label='Nose Distance')
             axes[0, 0].plot(Hab['time_seconds'], Hab['body_dist_cumsum'], label='Body Distance')
             axes[0, 0].set_xlabel('Time (s)')
-            axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
-            axes[0, 0].set_ylabel('Distance Traveled (cm)')
+            # axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
+            axes[0, 0].set_ylabel('Distance Traveled (m)')
             # axes[0, 0].set_ylim(0, 4000)
             axes[0, 0].set_title('Hab')
             axes[0, 0].legend(loc='upper left', fancybox=True, shadow=True)
@@ -361,7 +358,7 @@ def plot_all(path, name_start, experiment, labels_folder, fps = 25):
             axes[0, 1].plot(TR1['time_seconds'], TR1[f'{TR1.columns[1]}'], label=f'{TR1.columns[1]}', marker='_')
             axes[0, 1].plot(TR1['time_seconds'], TR1[f'{TR1.columns[2]}'], label=f'{TR1.columns[2]}', marker='_')
             axes[0, 1].set_xlabel('Time (s)')
-            axes[0, 1].set_xticks([0, 60, 120, 180, 240, 300])
+            # axes[0, 1].set_xticks([0, 60, 120, 180, 240, 300])
             axes[0, 1].set_ylabel('Exploration Time (s)')
             axes[0, 1].set_ylim(0, maxtime)
             axes[0, 1].set_title('TR1')
@@ -372,7 +369,7 @@ def plot_all(path, name_start, experiment, labels_folder, fps = 25):
             axes[0, 2].plot(TR2['time_seconds'], TR2[f'{TR2.columns[1]}'], label=f'{TR2.columns[1]}', marker='_')
             axes[0, 2].plot(TR2['time_seconds'], TR2[f'{TR2.columns[2]}'], label=f'{TR2.columns[2]}', marker='_')
             axes[0, 2].set_xlabel('Time (s)')
-            axes[0, 2].set_xticks([0, 60, 120, 180, 240, 300])
+            # axes[0, 2].set_xticks([0, 60, 120, 180, 240, 300])
             axes[0, 2].set_ylabel('Exploration Time (s)')
             axes[0, 2].set_ylim(0, maxtime)
             axes[0, 2].set_title('TR2')
@@ -385,7 +382,7 @@ def plot_all(path, name_start, experiment, labels_folder, fps = 25):
             axes[1, 0].set_xlabel('Time (s)')
             axes[1, 0].set_xticks([0, 60, 120, 180, 240, 300])
             axes[1, 0].set_ylabel('Exploration Time (s)')
-            axes[1, 0].set_ylim(0, maxtime)
+            # axes[1, 0].set_ylim(0, maxtime)
             axes[1, 0].set_title('TS')
             axes[1, 0].legend(loc='upper left', fancybox=True, shadow=True)
             axes[1, 0].grid(True)
@@ -528,7 +525,7 @@ def plot_groups(path, name_start, experiment, labels_folder, fps=25):
     axes[0, 0].plot(Hab['time_seconds'], Hab[("body_dist_cumsum" ,'mean')], label = B_Hab)
     axes[0, 0].fill_between(Hab['time_seconds'], Hab[("body_dist_cumsum" ,'mean')] - Hab[("body_dist_cumsum", 'std')], Hab[("body_dist_cumsum" ,'mean')] + Hab[("body_dist_cumsum" ,'std')], alpha=0.2)
     axes[0, 0].set_xlabel('Time (s)')
-    axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
+    # axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
     axes[0, 0].set_ylabel('Distance (cm)')
     # axes[0, 0].set_ylim(0, 4000)
     axes[0, 0].set_title('Distance Traveled in Habituation')
@@ -541,7 +538,7 @@ def plot_groups(path, name_start, experiment, labels_folder, fps=25):
     axes[0, 1].plot(TR1['time_seconds'], TR1[(f'{B_TR1}' ,'mean')], label = B_TR1, marker='_')
     axes[0, 1].fill_between(TR1['time_seconds'], TR1[(f'{B_TR1}' ,'mean')] - TR1[(f'{B_TR1}', 'std')] /se, TR1[(f'{B_TR1}' ,'mean')] + TR1[(f'{B_TR1}' ,'std')] /se, alpha=0.2)
     axes[0, 1].set_xlabel('Time (s)')
-    axes[0, 1].set_xticks([0, 60, 120, 180, 240, 300])
+    # axes[0, 1].set_xticks([0, 60, 120, 180, 240, 300])
     axes[0, 1].set_ylabel('Exploration Time (s)')
     axes[0, 1].set_ylim(0, maxtime)
     axes[0, 1].set_title('Exploration of objects during TR1')
@@ -554,7 +551,7 @@ def plot_groups(path, name_start, experiment, labels_folder, fps=25):
     axes[0, 2].plot(TR2['time_seconds'], TR2[(f'{B_TR2}' ,'mean')], label = B_TR2, marker='_')
     axes[0, 2].fill_between(TR2['time_seconds'], TR2[(f'{B_TR2}' ,'mean')] - TR2[(f'{B_TR2}', 'std')] /se, TR2[(f'{B_TR2}' ,'mean')] + TR2[(f'{B_TR2}' ,'std')] /se, alpha=0.2)
     axes[0, 2].set_xlabel('Time (s)')
-    axes[0, 2].set_xticks([0, 60, 120, 180, 240, 300])
+    # axes[0, 2].set_xticks([0, 60, 120, 180, 240, 300])
     axes[0, 2].set_ylabel('Exploration Time (s)')
     axes[0, 2].set_ylim(0, maxtime)
     axes[0, 2].set_title('Exploration of objects during TR2')
@@ -569,7 +566,7 @@ def plot_groups(path, name_start, experiment, labels_folder, fps=25):
     axes[1, 0].set_xlabel('Time (s)')
     axes[1, 0].set_xticks([0, 60, 120, 180, 240, 300])
     axes[1, 0].set_ylabel('Exploration Time (s)')
-    axes[1, 0].set_ylim(0, maxtime)
+    # axes[1, 0].set_ylim(0, maxtime)
     axes[1, 0].set_title('Exploration of objects during TS')
     axes[1, 0].legend(loc='upper left', fancybox=True, shadow=True)
     axes[1, 0].grid(True)
@@ -712,7 +709,7 @@ def plot_experiment(path, groups, experiment, labels_folder, fps=25):
         axes[0, 0].plot(Hab['time_seconds'], Hab[("body_dist_cumsum" ,'mean')], label = f'{B_Hab} {name_start}')
         axes[0, 0].fill_between(Hab['time_seconds'], Hab[("body_dist_cumsum" ,'mean')] - Hab[("body_dist_cumsum", 'std')], Hab[("body_dist_cumsum" ,'mean')] + Hab[("body_dist_cumsum" ,'std')], alpha=0.2)
         axes[0, 0].set_xlabel('Time (s)')
-        axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
+        # axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
         axes[0, 0].set_ylabel('Distance (cm)')
         # axes[0, 0].set_ylim(0, 4000)
         axes[0, 0].set_title('Distance Traveled in Habituation')
@@ -725,7 +722,7 @@ def plot_experiment(path, groups, experiment, labels_folder, fps=25):
         axes[0, 1].plot(TR1['time_seconds'], TR1[(f'{B_TR1}' ,'mean')], label = f'{B_TR1} {name_start}', marker='_')
         axes[0, 1].fill_between(TR1['time_seconds'], TR1[(f'{B_TR1}' ,'mean')] - TR1[(f'{B_TR1}', 'std')] /se, TR1[(f'{B_TR1}' ,'mean')] + TR1[(f'{B_TR1}' ,'std')] /se, alpha=0.2)
         axes[0, 1].set_xlabel('Time (s)')
-        axes[0, 1].set_xticks([0, 60, 120, 180, 240, 300])
+        # axes[0, 1].set_xticks([0, 60, 120, 180, 240, 300])
         axes[0, 1].set_ylabel('Exploration Time (s)')
         axes[0, 1].set_ylim(0, maxtime)
         axes[0, 1].set_title('Exploration of objects during TR1')
@@ -738,7 +735,7 @@ def plot_experiment(path, groups, experiment, labels_folder, fps=25):
         axes[0, 2].plot(TR2['time_seconds'], TR2[(f'{B_TR2}' ,'mean')], label = f'{B_TR2} {name_start}', marker='_')
         axes[0, 2].fill_between(TR2['time_seconds'], TR2[(f'{B_TR2}' ,'mean')] - TR2[(f'{B_TR2}', 'std')] /se, TR2[(f'{B_TR2}' ,'mean')] + TR2[(f'{B_TR2}' ,'std')] /se, alpha=0.2)
         axes[0, 2].set_xlabel('Time (s)')
-        axes[0, 2].set_xticks([0, 60, 120, 180, 240, 300])
+        # axes[0, 2].set_xticks([0, 60, 120, 180, 240, 300])
         axes[0, 2].set_ylabel('Exploration Time (s)')
         axes[0, 2].set_ylim(0, maxtime)
         axes[0, 2].set_title('Exploration of objects during TR2')
@@ -753,7 +750,7 @@ def plot_experiment(path, groups, experiment, labels_folder, fps=25):
         axes[1, 0].set_xlabel('Time (s)')
         axes[1, 0].set_xticks([0, 60, 120, 180, 240, 300])
         axes[1, 0].set_ylabel('Exploration Time (s)')
-        axes[1, 0].set_ylim(0, maxtime)
+        # axes[1, 0].set_ylim(0, maxtime)
         axes[1, 0].set_title('Exploration of objects during TS')
         axes[1, 0].legend(loc='upper left', fancybox=True, shadow=True)
         axes[1, 0].grid(True)

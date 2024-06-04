@@ -69,10 +69,10 @@ class Vector:
 # State your path:
 path = r'C:\Users\dhers\Desktop\workshop'
 
-experiment = r'2024-05_PD-45'
+experiment = r'2024-05_TORM-Tg-3m'
 
 stage_folder = os.path.join(path, experiment, 'TS')
-labels = 'autolabels'
+labels = 'geolabels'
 
 time_limit = None
 
@@ -307,7 +307,7 @@ def plot_all(path, name_start, time_limit = None, fps=25):
             axes[0, 0].plot(file['time_seconds'], file['body_dist_cumsum'], label='Body Distance')
             axes[0, 0].set_xlabel('Time (s)')
             axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
-            axes[0, 0].set_ylabel('Distance Traveled (cm)')
+            axes[0, 0].set_ylabel('Distance Traveled (m)')
             # axes[0, 0].set_ylim(0, 4000)
             axes[0, 0].set_title('Hab')
             axes[0, 0].legend(loc='upper left', fancybox=True, shadow=True)
@@ -420,13 +420,13 @@ def plot_groups(path, name_start, time_limit = None, fps=25):
     df['time_seconds'] = df['Frame'] / fps
         
     # Distance covered
-    axes[0, 0].plot(df['time_seconds'], df[("nose_dist_cumsum" ,'mean')], label = A_files)
+    axes[0, 0].plot(df['time_seconds'], df[("nose_dist_cumsum" ,'mean')], label = "nose distance")
     axes[0, 0].fill_between(df['time_seconds'], df[("nose_dist_cumsum" ,'mean')] - df[("nose_dist_cumsum", 'std')], df[("nose_dist_cumsum" ,'mean')] + df[("nose_dist_cumsum" ,'std')], alpha=0.2)
-    axes[0, 0].plot(df['time_seconds'], df[("body_dist_cumsum" ,'mean')], label = B_files)
+    axes[0, 0].plot(df['time_seconds'], df[("body_dist_cumsum" ,'mean')], label = "body distance")
     axes[0, 0].fill_between(df['time_seconds'], df[("body_dist_cumsum" ,'mean')] - df[("body_dist_cumsum", 'std')], df[("body_dist_cumsum" ,'mean')] + df[("body_dist_cumsum" ,'std')], alpha=0.2)
     axes[0, 0].set_xlabel('Time (s)')
     axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
-    axes[0, 0].set_ylabel('Distance (cm)')
+    axes[0, 0].set_ylabel('Distance (m)')
     axes[0, 0].set_title('Distance Traveled in Habituation')
     axes[0, 0].legend(loc='upper left', fancybox=True, shadow=True)
     axes[0, 0].grid(True)
@@ -540,13 +540,13 @@ def plot_experiment(path, time_limit = None, fps=25):
         maxtime = max(df.loc[df.index[-1], (f'{A_files}' ,'mean')], df.loc[df.index[-1], (f'{B_files}' ,'mean')], maxtime) + 2
         
         # Distance covered
-        axes[0, 0].plot(df['time_seconds'], df[("nose_dist_cumsum" ,'mean')], label = f'{A_files} {name_start}')
+        axes[0, 0].plot(df['time_seconds'], df[("nose_dist_cumsum" ,'mean')], label = f'nose distance {name_start}')
         axes[0, 0].fill_between(df['time_seconds'], df[("nose_dist_cumsum" ,'mean')] - df[("nose_dist_cumsum", 'std')], df[("nose_dist_cumsum" ,'mean')] + df[("nose_dist_cumsum" ,'std')], alpha=0.2)
-        axes[0, 0].plot(df['time_seconds'], df[("body_dist_cumsum" ,'mean')], label = f'{B_files} {name_start}')
+        axes[0, 0].plot(df['time_seconds'], df[("body_dist_cumsum" ,'mean')], label = f'body distance {name_start}')
         axes[0, 0].fill_between(df['time_seconds'], df[("body_dist_cumsum" ,'mean')] - df[("body_dist_cumsum", 'std')], df[("body_dist_cumsum" ,'mean')] + df[("body_dist_cumsum" ,'std')], alpha=0.2)
         axes[0, 0].set_xlabel('Time (s)')
         axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
-        axes[0, 0].set_ylabel('Distance (cm)')
+        axes[0, 0].set_ylabel('Distance (m)')
         # axes[0, 0].set_ylim(0, 4000)
         axes[0, 0].set_title('Distance Traveled in dfituation')
         axes[0, 0].legend(loc='upper left', fancybox=True, shadow=True)

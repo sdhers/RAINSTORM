@@ -34,7 +34,7 @@ def find_files(path_name, exp_name, group, folder):
 # State your path:
 path = r'C:\Users\dhers\Desktop\workshop'
 
-experiment = r'2024-05_PD-45'
+experiment = r'2024-04_TORM-Tg-2m'
 
 TR1_position = find_files(path, experiment, "TR1", "position")
 TR2_position = find_files(path, experiment, "TR2", "position")

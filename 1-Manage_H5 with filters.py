@@ -8,21 +8,23 @@ This code will prepare the .H5 files with the positions to be analyzed
 
 #%% Import libraries
 
-import matplotlib.pyplot as plt
-%matplotlib qt
-
+import os
 import pandas as pd
 import numpy as np
-import os
+
+import matplotlib.pyplot as plt
+
 import shutil
 import random
+
+from scipy import signal
 
 #%%
 
 # State your path:
 path = r'C:\Users\dhers\Desktop\workshop'
 
-experiment = r'2024-05_PD-45'
+experiment = r'2024-04_TORM-Tg-2m'
 
 folder = os.path.join(path, experiment)
 
@@ -30,18 +32,15 @@ groups  = ["Hab", "TR1", "TR2", "TS"]
 
 #%%
 
-h5_files = [file for file in os.listdir(folder) if file.endswith('.h5') and 'filtered' not in file]
+h5_files = [file for file in os.listdir(folder) if file.endswith('.h5') and 'TS' in file]
 
 if not h5_files:
     print("No files found")
 
 else:
-    example = random.choice(h5_files)
-    
+    example = random.choice(h5_files) # Choose one file at random to use as example
     example_path = os.path.join(folder, example)
-    
-    example_path_2 = os.path.join(folder, example.replace('_position', '_position_filtered'))
-
+                   
 #%%
 
 # Read the HDF5 file
@@ -50,10 +49,7 @@ all_keys = hdf_store.keys()
 main_key = str(all_keys[0][0])
 position_df = pd.read_hdf(example_path)[main_key]
 
-position_df_2 = pd.read_hdf(example_path_2)[main_key]
-
-#%%
-
+# Organize data in a new dataframe
 example_data = pd.DataFrame()
 
 for key in position_df.columns:
@@ -62,33 +58,7 @@ for key in position_df.columns:
     likelihood_key = (section, 'likelihood')
 
 for key in position_df.keys():
-    if key[1] != "likelihood":
-        # Replace the positions of the objects in every frame by their medians across the video
-        if key[0] == "obj_1" or key[0] == "obj_2":
-            example_data[str(key[0]) + "_" + str(key[1])] = [position_df[key].median()] * len(position_df[key])
-        else:
-            example_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key] / 1000
-    else:
-        example_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key]
-        
-#%%
-
-example_data_2 = pd.DataFrame()
-
-for key in position_df_2.columns:
-    # We tap into the likelihood of each coordenate
-    section, component = key[0], key[1]
-    likelihood_key = (section, 'likelihood')
-
-for key in position_df_2.keys():
-    if key[1] != "likelihood":
-        # Replace the positions of the objects in every frame by their medians across the video
-        if key[0] == "obj_1" or key[0] == "obj_2":
-            example_data_2[str(key[0]) + "_" + str(key[1])] = [position_df_2[key].median()] * len(position_df_2[key])
-        else:
-            example_data_2[str( key[0] ) + "_" + str( key[1] )] = position_df_2[key] / 1000
-    else:
-        example_data_2[str( key[0] ) + "_" + str( key[1] )] = position_df_2[key]
+    example_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key]
             
 #%%
 
@@ -96,152 +66,145 @@ for key in position_df_2.keys():
 nose_columns = [col for col in example_data.columns if col.split('_')[0] == 'nose']
 example_nose = example_data[nose_columns]
 
-# Selecting only the even columns
-nose_columns_2 = [col for col in example_data_2.columns if col.split('_')[0] == 'nose']
-example_nose_2 = example_data_2[nose_columns_2]
-
 #%%
 
-# Plotting lines for each even column
-plt.figure(figsize=(10, 6))
+# Creating the plot
+fig, ax1 = plt.subplots()
 
+# Creating a secondary y-axis
+ax2 = ax1.twinx()
+
+# Plotting the primary y-axis data
 for column in example_nose.columns:
-    plt.plot(example_nose.index, example_nose[column], label = column, marker='.', markersize = 5)
+    if 'likelihood' not in column:
+        ax1.plot(example_nose.index, example_nose[column], label=column, marker='.', markersize=5)
+    else:
+        ax2.plot(example_nose.index, example_nose[column], label = f'{column}', color = 'gray', alpha = 0.5, markersize=5)
 
-for column in example_nose_2.columns:
-    plt.plot(example_nose_2.index, example_nose_2[column], label = column, marker='.', markersize = 3)
+# Adding labels and titles
+ax1.set_xlabel('Date')
+ax1.set_ylabel('Primary Y-axis')
+ax2.set_ylabel('Nose Likelihood Y-axis')
 
-plt.xlabel('Frame')
-# plt.xlim(4000, 4500)
-plt.ylabel('Value')
-plt.title('Data over Video Frames (Even Columns)')
-plt.legend(loc='upper right')
+# Adding legends
+lines_1, labels_1 = ax1.get_legend_handles_labels()
+lines_2, labels_2 = ax2.get_legend_handles_labels()
+ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='best')
+
+plt.title('Multiple Columns with Independent Y-axis for Nose Likelihood')
 plt.grid(True)
-plt.axhline(y=0.05, color='r', linestyle='-')
+plt.axhline(y=0.1, color='r', linestyle='-')
 plt.show()
 
 #%%
 
 # Erase the low likelihood points
 example_filtered = example_nose.copy()
-
 example_filtered.loc[example_filtered['nose_likelihood'] < 0.1, ['nose_x', 'nose_y']] = np.nan
 
 #%%
 
 # Fill missing values using interpolation
-example_interpolated = example_filtered.interpolate(method='linear')
+example_interpolated = example_filtered.interpolate(method='pchip')
 
 #%%
 
-# Plotting lines for each even column
-plt.figure(figsize=(10, 6))
+# Creating the plot
+fig, ax1 = plt.subplots()
+
+# Creating a secondary y-axis
+ax2 = ax1.twinx()
 
 for column in example_nose.columns:
-    plt.plot(example_nose.index, example_nose[column], label = column, marker='.', markersize = 5)
+    if 'likelihood' not in column:
+        ax1.plot(example_nose.index, example_nose[column], label=column, marker='.', markersize=5)
+    else:
+        ax2.plot(example_nose.index, example_nose[column], label = f'{column}', color = 'gray', alpha = 0.5, markersize=5)
 
 for column in example_interpolated.columns:
-    plt.plot(example_interpolated.index, example_interpolated[column], label = column, marker='.', markersize = 3)
+    if 'likelihood' not in column:
+        ax1.plot(example_interpolated.index, example_interpolated[column], label = column, marker='x', markersize = 3)
 
-plt.xlabel('Frame')
-# plt.xlim(4000, 4500)
-plt.ylabel('Value')
-plt.title('Data over Video Frames (Even Columns)')
-plt.legend(loc='upper right')
+    
+# Adding labels and titles
+ax1.set_xlabel('Date')
+ax1.set_ylabel('Primary Y-axis')
+ax2.set_ylabel('Nose Likelihood Y-axis')
+
+# Adding legends
+lines_1, labels_1 = ax1.get_legend_handles_labels()
+lines_2, labels_2 = ax2.get_legend_handles_labels()
+ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='best')
+
+plt.title('Multiple Columns with Independent Y-axis for Nose Likelihood')
 plt.grid(True)
-plt.axhline(y=0.05, color='r', linestyle='-')
+plt.axhline(y=0.1, color='r', linestyle='-')
 plt.show()
 
 #%%
 
-from scipy import signal
+# Parameters
+window = 3
+sigma = 1
+n_sigmas = 2
+N = int(2 * n_sigmas * sigma + 1)
 
-# PRIMERO aplicamos la mediana móvil
-filtered_likelihood = signal.medfilt(example_nose['nose_likelihood'], kernel_size=5)  # Median filter
-
-# Construyendo una ventana gaussiana
-sigma = 1   # el sigma definido en frames (buscamos un valor que suavize el ruido sin deformar la señal)
-n_sigmas = 1  # cuántos sigmas incluir de cada lado
-N = 2*n_sigmas*sigma + 1
+# Gaussian kernel
 kernel = signal.windows.gaussian(N, sigma)
-kernel = kernel/sum(kernel)
+kernel = kernel / sum(kernel)
 
-# aplicamos la convolución
-softened_likelihood = signal.convolve(filtered_likelihood, kernel, mode='same')  # notar que uso filtered_likelihood como entrada
+# Example DataFrames
+example_median = pd.DataFrame()
+example_soft = pd.DataFrame()
 
-#%%
-
-# Plotting lines for each even column
-plt.figure(figsize=(10, 6))
-for column in example_data_nose.columns:
-    plt.plot(example_data_nose.index, example_data_nose[column], label = column, marker='.', markersize = 5)
-
-# plt.plot(filtered_likelihood, label = 'filtered_likelihood', marker='.', markersize = 5)
-# plt.plot(softened_likelihood, label = 'softened_likelihood', marker='.', markersize = 5)
-
-plt.xlabel('Frame')
-# plt.xlim(4000, 4500)
-plt.ylabel('Value')
-plt.title('Data over Video Frames (Even Columns)')
-plt.legend(loc='upper right')
-plt.grid(True)
-plt.axhline(y=0.05, color='r', linestyle='-')
-plt.show()
+# Applying median filter and convolution
+for column in example_interpolated.columns:
+    if 'likelihood' not in column:
+        # Apply median filter
+        example_median[column] = signal.medfilt(example_interpolated[column], kernel_size=window)
+        
+        # Pad the median filtered data to mitigate edge effects
+        pad_width = (len(kernel) - 1) // 2
+        padded_data = np.pad(example_median[column], pad_width, mode='edge')
+        
+        # Apply convolution
+        smoothed_data = signal.convolve(padded_data, kernel, mode='valid')
+        
+        # Trim the padded edges to restore original length
+        example_soft[column] = smoothed_data[:len(example_median[column])]
 
 #%%
 
-# Plotting lines for each even column
-plt.figure(figsize=(10, 6))
-for column in example_data_nose_filtered.columns:
-    plt.plot(example_data_nose_filtered.index, example_data_nose_filtered[column], label = column, marker='.', markersize = 5)
+# Creating the plot
+fig, ax1 = plt.subplots()
 
-# plt.plot(filtered_likelihood, label = 'filtered_likelihood', marker='.', markersize = 5)
-# plt.plot(softened_likelihood, label = 'softened_likelihood', marker='.', markersize = 5)
+# Creating a secondary y-axis
+ax2 = ax1.twinx()
 
-plt.xlabel('Frame')
-# plt.xlim(4000, 4500)
-plt.ylabel('Value')
-plt.title('Data over Video Frames (Even Columns)')
-plt.legend(loc='upper right')
-plt.grid(True)
-plt.axhline(y=0.05, color='r', linestyle='-')
-plt.show()
+for column in example_nose.columns:
+    if 'likelihood' not in column:
+        ax1.plot(example_nose.index, example_nose[column], label=column, marker='.', markersize=5)
+    else:
+        ax2.plot(example_nose.index, example_nose[column], label = f'{column}', color = 'gray', alpha = 0.5, markersize=5)
 
-#%%
+for column in example_interpolated.columns:
+    if 'likelihood' not in column:
+        ax1.plot(example_soft.index, example_soft[column], label = column, marker='x', markersize = 3)
 
-# Construyendo una ventana gaussiana
-sigma = 5
-n_sigmas = 3
-N = 2*n_sigmas*sigma+1
-kernel = signal.windows.gaussian(N, sigma)
-kernel = kernel/sum(kernel)
-
-example_data_nose_median = pd.DataFrame()
-example_data_nose_softened = pd.DataFrame()
-
-for column in example_data_nose_filtered.columns:
     
-    # PRIMERO aplicamos la mediana móvil
-    example_data_nose_median[column] = signal.medfilt(example_data_nose_filtered[column], kernel_size=5)  # Median filter
-    
-    # SEGUNDO aplicamos la convolución
-    example_data_nose_softened[column] = signal.convolve(example_data_nose_median[column], kernel, mode='same')  # notar que uso sr_med como entrada
+# Adding labels and titles
+ax1.set_xlabel('Date')
+ax1.set_ylabel('Primary Y-axis')
+ax2.set_ylabel('Nose Likelihood Y-axis')
 
-#%%
+# Adding legends
+lines_1, labels_1 = ax1.get_legend_handles_labels()
+lines_2, labels_2 = ax2.get_legend_handles_labels()
+ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='best')
 
-plt.figure(figsize=(10, 6))
-for column in example_data_nose.columns:
-    plt.plot(example_data_nose.index, example_data_nose[column], label = column, marker='.', markersize = 5)
-    
-for column in example_data_nose_median.columns:
-    plt.plot(example_data_nose_median.index, example_data_nose_median[column], label = column, marker='x', markersize = 5)
-
-plt.xlabel('Frame')
-# plt.xlim(4000, 4500)
-plt.ylabel('Value')
-plt.title('Data over Video Frames (Even Columns)')
-plt.legend(loc='upper right')
+plt.title('Multiple Columns with Independent Y-axis for Nose Likelihood')
 plt.grid(True)
+plt.axhline(y=0.1, color='r', linestyle='-')
 plt.show()
 
 #%%
@@ -251,7 +214,14 @@ This function turns _position.H5 files into _position.csv files
 It also scales the coordenates to be expressed in cm (by using the distance between objects)
 """
 
-def process_hdf5_file(path_name, distance = 14, fps = 25):
+def process_hdf5_file(path_name, distance = 14, fps = 25, low_likelihood = 0.1, window = 3, sigma = 1, n_sigmas = 2):
+    
+    # Parameters
+    N = int(2 * n_sigmas * sigma + 1)
+
+    # Gaussian kernel
+    kernel = signal.windows.gaussian(N, sigma)
+    kernel = kernel / sum(kernel)
     
     # List all files in the folder
     h5_files = [file for file in os.listdir(path_name) if file.endswith('_position.h5')]
@@ -265,33 +235,45 @@ def process_hdf5_file(path_name, distance = 14, fps = 25):
         all_keys = hdf_store.keys()
         main_key = str(all_keys[0][0])
         position_df = pd.read_hdf(h5_file_path)[main_key]
-    
+
         current_data = pd.DataFrame()
-    
-        max_i = 0 # To see when the mouse enters
-    
+
         for key in position_df.columns:
-            # We tap into the likelihood of each coordenate
+            # We tap into the likelihood of each coordinate
             section, component = key[0], key[1]
             likelihood_key = (section, 'likelihood') 
             
-            if component in ('x', 'y') and section not in ('obj_1','obj_2'):
-                i = 0
-                while i < len(position_df) and position_df[likelihood_key][i] < 0.9 :
-                    # If the likelihood is less than 0.99 (mouse not in the video yet) the point is erased
-                    position_df.loc[i, key] = np.nan
-                    i += 1
-                if max_i < i:
-                    max_i = i
-    
-        for key in position_df.keys():
-            if key[1] != "likelihood":
+            if component in ('x', 'y'):
+                
+                for i in range(len(position_df)):
+                    if position_df[likelihood_key][i] < low_likelihood:
+                        # If the likelihood is less than 0.1 the point is erased
+                        position_df.loc[i, key] = np.nan
+                        
+                position_df[key] = position_df[key].interpolate(method='pchip')
+
+                # Apply median filter
+                median_filtered = signal.medfilt(position_df[key], kernel_size=3)
+                
+                # Pad the median filtered data to mitigate edge effects
+                pad_width = (len(kernel) - 1) // 2
+                padded_data = np.pad(median_filtered, pad_width, mode='edge')
+                
+                # Apply convolution
+                convolved_data = signal.convolve(padded_data, kernel, mode='valid')
+                
+                # Trim the padded edges to restore original length
+                soft_df = convolved_data[:len(median_filtered)]
+                
+                # Create DataFrame for soft_df
+                soft_df = pd.DataFrame({key: soft_df})
+
                 # Replace the positions of the objects in every frame by their medians across the video
                 if key[0] == "obj_1" or key[0] == "obj_2":
-                    current_data[str(key[0]) + "_" + str(key[1])] = [position_df[key].median()] * len(position_df[key])
+                    current_data[str(key[0]) + "_" + str(key[1])] = [soft_df[key].median()] * len(soft_df[key])
                 else:
-                    current_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key]
-            
+                    current_data[str(key[0]) + "_" + str(key[1])] = soft_df[key]
+
         
         if "Hab" not in h5_file_path:
             
@@ -309,7 +291,6 @@ def process_hdf5_file(path_name, distance = 14, fps = 25):
             scale = (distance / difference)
             
             current_data = current_data * scale
-
 
         else: # We ned to modify the script when there is no objects on the arena
             
@@ -340,7 +321,7 @@ def process_hdf5_file(path_name, distance = 14, fps = 25):
         current_data.to_csv(output_csv_path, index=False)
         
         # Calculate the moment when the mouse enters the video
-        mouse_enters = max_i/fps
+        mouse_enters = current_data.dropna().index[0] / fps
         
         #print(f"Processed {input_filename} and saved results to {output_csv_path}. The mouse took {mouse_enters} sec to enter the video and the scale is {scale*100}")
         

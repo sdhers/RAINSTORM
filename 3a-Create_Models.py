@@ -34,27 +34,26 @@ import datetime
 
 #%% Set the variables before starting
 
-# At home:
+# State your path
 desktop = 'C:/Users/dhers/Desktop'
 
 STORM_folder = os.path.join(desktop, 'STORM/models')
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
 colabels = pd.read_csv(colabels_file)
 
-before = 1 # Say how many frames into the past the models will see
-after = 1 # Say how many frames into the future the models will see
+before = 2 # Say how many frames into the past the models will see
+after = 2 # Say how many frames into the future the models will see
 
 frames = before + after + 1
 
 # Set the number of neurons in each layer
-param_0 = 56
-param_H1 = 48
-param_H2 = 40
+param_0 = 16
+param_H1 = 32
+param_H2 = 64
 param_H3 = 32
-param_H4 = 24
-param_H5 = 16
+param_H4 = 16
 
-batch_size = 1024 # Set the batch size
+batch_size = 128 # Set the batch size
 lr = 0.0001 # Set the initial learning rate
 epochs = 100 # Set the training epochs
 patience = 20 # Set the wait for the early stopping mechanism
@@ -343,7 +342,6 @@ model_simple = tf.keras.Sequential([
     Dense(param_H2, activation='relu'),
     Dense(param_H3, activation='relu'),
     Dense(param_H4, activation='relu'),
-    Dense(param_H5, activation='relu'),
     Dense(2, activation='sigmoid')
 ])
 
@@ -363,7 +361,7 @@ history_simple = model_simple.fit(X_train, y_train,
 
 #%% Save the model
 
-model_simple.save(os.path.join(STORM_folder, f'model_simple_{start_time.date()}.h5'))
+model_simple.save(os.path.join(STORM_folder, f'model_simple_{start_time.date()}.keras'))
 
 #%% Calculate accuracy and precision of the model
 
@@ -446,8 +444,7 @@ model_wide = tf.keras.Sequential([
     LSTM(param_H1, return_sequences = True),
     LSTM(param_H2, return_sequences = True),
     LSTM(param_H3, return_sequences = True),
-    LSTM(param_H4, return_sequences = True),
-    LSTM(param_H5),
+    LSTM(param_H4),
     Dense(2, activation='sigmoid')
 ])
 
@@ -466,7 +463,7 @@ history_wide = model_wide.fit(X_train_seq, y_train_seq,
 
 #%% Save the model
 
-model_wide.save(os.path.join(STORM_folder, f'model_wide_{start_time.date()}.h5'))
+model_wide.save(os.path.join(STORM_folder, f'model_wide_{start_time.date()}.keras'))
 
 #%% Calculate accuracy and precision of the model
 

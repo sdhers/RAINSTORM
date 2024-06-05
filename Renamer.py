@@ -25,10 +25,20 @@ def rename_files(folder, before, after):
 
 #%%
 
-folder_path = r'C:\Users\dhers\Desktop\workshop'
+folder_path = r'C:\Users\dhers\OneDrive - UBA\NOR position\Pharma\2024-05_PD-45'
 
 before = 'DLC_resnet50_VaderDec1shuffle1_200000'
 
 after = '_position'
+
+rename_files(folder_path, before, after)
+
+#%%
+
+folder_path = r'C:\Users\dhers\OneDrive - UBA\NOR position\Pharma\2024-05_PD-45'
+
+before = 'TS2'
+
+after = 'TW'
 
 rename_files(folder_path, before, after)

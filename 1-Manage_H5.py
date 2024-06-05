@@ -24,7 +24,7 @@ from scipy import signal
 # State your path:
 path = r'C:\Users\dhers\Desktop\workshop'
 
-experiment = r'2024-04_TORM-Tg-2m'
+experiment = r'2024-05_PD-45'
 
 folder = os.path.join(path, experiment)
 
@@ -123,7 +123,7 @@ for column in example_nose.columns:
 
 for column in example_interpolated.columns:
     if 'likelihood' not in column:
-        ax1.plot(example_interpolated.index, example_interpolated[column], label = column, marker='x', markersize = 3)
+        ax1.plot(example_interpolated.index, example_interpolated[column], label = f'correted {column}', marker='x', markersize = 3)
 
     
 # Adding labels and titles
@@ -189,7 +189,7 @@ for column in example_nose.columns:
 
 for column in example_interpolated.columns:
     if 'likelihood' not in column:
-        ax1.plot(example_soft.index, example_soft[column], label = column, marker='x', markersize = 3)
+        ax1.plot(example_soft.index, example_soft[column], label = f'soft {column}', marker='x', markersize = 3)
 
     
 # Adding labels and titles
@@ -302,7 +302,7 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, low_likelihood = 0.1, 
             difference = max_x - min_x
             
             scale = (distance*2 / difference) + 0.01 # lets assume that the max width of the nose range is twice as the distance between objects
-            
+
             # Apply the transformation to current_data
             current_data = current_data * scale
             

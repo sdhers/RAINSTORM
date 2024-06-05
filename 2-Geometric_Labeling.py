@@ -85,14 +85,14 @@ def find_files(path_name, exp_name, group, folder):
 # State your path:
 path = r'C:\Users\dhers\Desktop\workshop'
 
-experiment = r'2024-04_TORM-Tg-2m'
+experiment = r'2024-05_PD-45'
 
 Hab_position = find_files(path, experiment, "Hab", "position")
-TR1_position = find_files(path, experiment, "TR1", "position")
-TR2_position = find_files(path, experiment, "TR2", "position")
+TR_position = find_files(path, experiment, "TR", "position")
+TW_position = find_files(path, experiment, "TW", "position")
 TS_position = find_files(path, experiment, "TS", "position")
 
-all_position = Hab_position + TR1_position + TR2_position + TS_position
+all_position = Hab_position + TR_position + TW_position + TS_position
 
 #%%
 

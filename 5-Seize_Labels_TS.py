@@ -67,12 +67,12 @@ class Vector:
 #%%
 
 # State your path:
-path = r'C:\Users\dhers\Desktop\workshop'
+path = r'C:/Users/dhers/OneDrive - UBA/workshop'
 
-experiment = r'2024-05_PD-45'
+experiment = r'2024-05_TORM-Tg-3m'
 
-stage_folder = os.path.join(path, experiment, 'TW')
-labels = 'autolabels'
+stage_folder = os.path.join(path, experiment, 'TS')
+labels = 'geolabels'
 
 time_limit = None
 
@@ -372,8 +372,8 @@ def plot_all(path, name_start, time_limit = None, fps=25):
             
 #%%
 
-for group in groups:
-    plot_all(final_path, group)
+# for group in groups:
+#     plot_all(final_path, group)
 
 #%%
 

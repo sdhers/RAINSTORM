@@ -1,9 +1,9 @@
 """
 Created on Wed Oct 25 09:56:54 2023
 
-@author: dhers
+@author: Santiago D'hers
 
-This code will prepare the .H5 files with the positions to be analyzed
+This script will prepare the .H5 files with the positions to be analyzed
 """
 
 #%% Import libraries
@@ -22,13 +22,15 @@ from scipy import signal
 #%%
 
 # State your path:
-path = r'C:\Users\dhers\Desktop\workshop'
+path = r'C:/Users/dhers/OneDrive - UBA/workshop'
 
-experiment = r'2024-05_PD-45'
+experiment = r'2024-05_TORM-Tg-3m'
 
 folder = os.path.join(path, experiment)
 
 groups  = ["Hab", "TR1", "TR2", "TS"]
+
+tolerance = 0.05
 
 #%%
 
@@ -68,78 +70,14 @@ example_nose = example_data[nose_columns]
 
 #%%
 
-# Creating the plot
-fig, ax1 = plt.subplots()
-
-# Creating a secondary y-axis
-ax2 = ax1.twinx()
-
-# Plotting the primary y-axis data
-for column in example_nose.columns:
-    if 'likelihood' not in column:
-        ax1.plot(example_nose.index, example_nose[column], label=column, marker='.', markersize=5)
-    else:
-        ax2.plot(example_nose.index, example_nose[column], label = f'{column}', color = 'gray', alpha = 0.5, markersize=5)
-
-# Adding labels and titles
-ax1.set_xlabel('Date')
-ax1.set_ylabel('Primary Y-axis')
-ax2.set_ylabel('Nose Likelihood Y-axis')
-
-# Adding legends
-lines_1, labels_1 = ax1.get_legend_handles_labels()
-lines_2, labels_2 = ax2.get_legend_handles_labels()
-ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='best')
-
-plt.title('Multiple Columns with Independent Y-axis for Nose Likelihood')
-plt.grid(True)
-plt.axhline(y=0.1, color='r', linestyle='-')
-plt.show()
-
-#%%
-
 # Erase the low likelihood points
 example_filtered = example_nose.copy()
-example_filtered.loc[example_filtered['nose_likelihood'] < 0.1, ['nose_x', 'nose_y']] = np.nan
+example_filtered.loc[example_filtered['nose_likelihood'] < tolerance, ['nose_x', 'nose_y']] = np.nan
 
 #%%
 
 # Fill missing values using interpolation
 example_interpolated = example_filtered.interpolate(method='pchip')
-
-#%%
-
-# Creating the plot
-fig, ax1 = plt.subplots()
-
-# Creating a secondary y-axis
-ax2 = ax1.twinx()
-
-for column in example_nose.columns:
-    if 'likelihood' not in column:
-        ax1.plot(example_nose.index, example_nose[column], label=column, marker='.', markersize=5)
-    else:
-        ax2.plot(example_nose.index, example_nose[column], label = f'{column}', color = 'gray', alpha = 0.5, markersize=5)
-
-for column in example_interpolated.columns:
-    if 'likelihood' not in column:
-        ax1.plot(example_interpolated.index, example_interpolated[column], label = f'correted {column}', marker='x', markersize = 3)
-
-    
-# Adding labels and titles
-ax1.set_xlabel('Date')
-ax1.set_ylabel('Primary Y-axis')
-ax2.set_ylabel('Nose Likelihood Y-axis')
-
-# Adding legends
-lines_1, labels_1 = ax1.get_legend_handles_labels()
-lines_2, labels_2 = ax2.get_legend_handles_labels()
-ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='best')
-
-plt.title('Multiple Columns with Independent Y-axis for Nose Likelihood')
-plt.grid(True)
-plt.axhline(y=0.1, color='r', linestyle='-')
-plt.show()
 
 #%%
 
@@ -204,7 +142,7 @@ ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='best')
 
 plt.title('Multiple Columns with Independent Y-axis for Nose Likelihood')
 plt.grid(True)
-plt.axhline(y=0.1, color='r', linestyle='-')
+plt.axhline(y=tolerance, color='r', linestyle='-')
 plt.show()
 
 #%%
@@ -214,7 +152,7 @@ This function turns _position.H5 files into _position.csv files
 It also scales the coordenates to be expressed in cm (by using the distance between objects)
 """
 
-def process_hdf5_file(path_name, distance = 14, fps = 25, low_likelihood = 0.1, window = 3, sigma = 1, n_sigmas = 2):
+def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.25, window = 3, sigma = 1, n_sigmas = 2):
     
     # Parameters
     N = int(2 * n_sigmas * sigma + 1)
@@ -245,12 +183,16 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, low_likelihood = 0.1, 
             
             if component in ('x', 'y'):
                 
-                for i in range(len(position_df)):
-                    if position_df[likelihood_key][i] < low_likelihood:
-                        # If the likelihood is less than 0.1 the point is erased
-                        position_df.loc[i, key] = np.nan
-                        
-                position_df[key] = position_df[key].interpolate(method='pchip')
+                # Set values to NaN where likelihood is less than the threshold
+                position_df.loc[position_df[likelihood_key] < llhd, key] = np.nan
+                
+                # Check if there are any non-NaN values left to interpolate
+                if position_df[key].notna().sum() > 0:
+                    # Interpolate the column with 'pchip' method
+                    position_df[key] = position_df[key].interpolate(method='pchip')
+                else:
+                    # Set the entire column to NaN if there are no points left to interpolate
+                    position_df[key] = np.nan
 
                 # Apply median filter
                 median_filtered = signal.medfilt(position_df[key], kernel_size=3)
@@ -321,7 +263,7 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, low_likelihood = 0.1, 
         current_data.to_csv(output_csv_path, index=False)
         
         # Calculate the moment when the mouse enters the video
-        mouse_enters = current_data.dropna().index[0] / fps
+        mouse_enters = current_data.iloc[:, 4:].dropna().index[0] / fps
         
         #print(f"Processed {input_filename} and saved results to {output_csv_path}. The mouse took {mouse_enters} sec to enter the video and the scale is {scale*100}")
         
@@ -333,7 +275,7 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, low_likelihood = 0.1, 
 Lets make the .csv files for our experiment folder
 """
 
-process_hdf5_file(folder)
+process_hdf5_file(folder, distance = 14, fps = 25, llhd = tolerance, window = 3, sigma = 1, n_sigmas = 2)
 
 #%%
 

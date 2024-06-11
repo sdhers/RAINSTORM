@@ -3,7 +3,7 @@ Created on Wed Oct 25 09:56:54 2023
 
 @author: Santiago D'hers
 
-This script will prepare the .H5 files with the positions to be analyzed
+This script will use .H5 files to prepare the .csv files with the positions to be analyzed
 """
 
 #%% Import libraries
@@ -24,13 +24,13 @@ from scipy import signal
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
 
-experiment = r'2024-05_TORM-Tg-3m'
+experiment = r'2023-05_TeNOR'
 
 folder = os.path.join(path, experiment)
 
 groups  = ["Hab", "TR1", "TR2", "TS"]
 
-tolerance = 0.05
+tolerance = 0.99
 
 #%%
 
@@ -263,11 +263,9 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.25, window = 
         current_data.to_csv(output_csv_path, index=False)
         
         # Calculate the moment when the mouse enters the video
-        mouse_enters = current_data.iloc[:, 4:].dropna().index[0] / fps
-        
-        #print(f"Processed {input_filename} and saved results to {output_csv_path}. The mouse took {mouse_enters} sec to enter the video and the scale is {scale*100}")
-        
-        print(f"{input_filename}. The mouse took {mouse_enters} sec. scale is {scale*100}.")
+        mouse_enters = current_data.iloc[:, 4:].dropna().index[0] / fps # I dont use the first 4 columns because they belong to the object's position
+               
+        print(f"{input_filename}. The mouse took {mouse_enters:.2f} sec. scale is {scale*100:.2f}.")
 
 #%%
 

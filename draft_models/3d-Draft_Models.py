@@ -21,6 +21,7 @@ from sklearn.metrics import accuracy_score, precision_score, classification_repo
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.multioutput import MultiOutputClassifier
+from sklearn.utils.class_weight import compute_class_weight
 
 import tensorflow as tf
 from tensorflow.keras.layers import LSTM, Dense
@@ -52,8 +53,8 @@ param_H1 = 32
 param_H2 = 24
 param_H3 = 16
 
-batch_size = 128 # Set the batch size
-lr = 0.00001 # Set the initial learning rate
+batch_size = 64 # Set the batch size
+lr = 0.0001 # Set the initial learning rate
 epochs = 50 # Set the training epochs
 patience = 5 # Set the wait for the early stopping mechanism
 
@@ -63,7 +64,7 @@ make_discrete = True # If false, labels are float (not 0 and 1)
 use_saved_data = False # if True, we use the dataframe processed previously
 
 if use_saved_data:
-    saved_data = 'saved_training_data_2024-04-17.h5' # Select the model date you want to rescue
+    saved_data = '' # Select the model date you want to rescue
 
 save_data = False # if True, the data processed will be saved with today's date
 
@@ -93,7 +94,7 @@ def smooth_column(data):
                 changes += 1
         
         smoothed_columns.append(smoothed_column)
-        print(f"Number of changes in column {i}: {changes}")
+        print(f"Changes in column {i}: {changes}")
         
     smoothed_array = np.column_stack(smoothed_columns)
     smoothed = pd.DataFrame(smoothed_array, columns = ['Left', 'Right'])
@@ -165,6 +166,48 @@ else:
     concatenated_labels = pd.concat(dfs, ignore_index=True)
     ready_data = pd.concat([concatenated_df, concatenated_labels], axis = 1)
 
+#%%
+
+def rescale(df):
+    
+    # First for the object on the left
+    # Select columns 5 to 16 (bodyparts)
+    left_df = df.iloc[:, 4:16]
+    
+    # Calculate the offsets for x and y coordinates for each row
+    x_left = df.iloc[:, 0]  # Assuming x-coordinate is in the first column
+    y_left = df.iloc[:, 1]  # Assuming y-coordinate is in the second column
+
+    # Subtract the offsets from all values in the appropriate columns
+    for col in range(0, left_df.shape[1]):
+        if col % 2 == 0:  # Even columns
+            left_df.iloc[:, col] -= x_left
+        else:  # Odd columns
+            left_df.iloc[:, col] -= y_left
+    
+    left_df['Labels'] = df.iloc[:, 16]
+    
+    # Now for the object on the right
+    # Select columns 5 to 16 (bodyparts)
+    right_df = df.iloc[:, 4:16]
+    
+    # Calculate the offsets for x and y coordinates for each row
+    x_right = df.iloc[:, 2]  # Assuming x-coordinate is in the first column
+    y_right = df.iloc[:, 3]  # Assuming y-coordinate is in the second column
+
+    # Subtract the offsets from all values in the appropriate columns
+    for col in range(0, right_df.shape[1]):
+        if col % 2 == 0:  # Even columns
+            right_df.iloc[:, col] -= x_right
+        else:  # Odd columns
+            right_df.iloc[:, col] -= y_right
+    
+    right_df['Labels'] = df.iloc[:, 17]
+    
+    final_df = pd.concat([left_df, right_df], ignore_index=True)
+    
+    return final_df
+
 #%% This function prepares data for training, testing and validating
 
 def divide_training_data(df):
@@ -189,7 +232,7 @@ def divide_training_data(df):
     # Remove the selected rows from the original dataframe 'df'
     df = df[~df.iloc[:, 0].astype(str).str.startswith(tuple(map(str, selection)))]
     
-    return df, test, val
+    return rescale(df), rescale(test), rescale(val)
 
 #%%
 
@@ -209,14 +252,14 @@ else:
 
     train, test, val = divide_training_data(ready_data)
     
-    X_train = train.iloc[:, :16]
-    y_train = train.iloc[:, 16:18]
+    X_train = train.iloc[:, :-1]
+    y_train = train.iloc[:, -1]
     
-    X_test = test.iloc[:, :16]
-    y_test = test.iloc[:, 16:18]
+    X_test = test.iloc[:, :-1]
+    y_test = test.iloc[:, -1]
     
-    X_val = val.iloc[:, :16]
-    y_val = val.iloc[:, 16:18]
+    X_val = val.iloc[:, :-1]
+    y_val = val.iloc[:, -1]
     
     # Print the sizes of each set
     print(f"Training set size: {len(X_train)} samples")
@@ -237,11 +280,34 @@ else:
 
 #%%
 
+# Select the first and last columns
+first_column = X_val.iloc[:, 0]
+last_column = y_val
+
+# Plotting
+plt.figure(figsize=(10, 6))
+plt.plot(first_column, label=X_val.columns[0])
+plt.plot(last_column)
+plt.xlabel('Index')
+plt.ylabel('Values')
+plt.title('Line Plot of First and Last Columns')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+#%%
+
 """
 Lets get some tools ready for model training:
     early stopping
     scheduled learning rate
 """
+
+#%%
+
+# Compute class weights if dataset is imbalanced
+class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
+class_weights = {i: class_weights[i] for i in range(len(class_weights))}
 
 #%% Define the EarlyStopping callback
 
@@ -295,12 +361,10 @@ def evaluate(X, y, model):
     # Evaluate the model on the testing set
     y_pred = model.predict(X)
     y_pred_binary = (y_pred > 0.5).astype(int)  # Convert probabilities to binary predictions
-    y_pred_binary = smooth_column(y_pred_binary)
     
     if isinstance(y, tf.Tensor):
         y = y.numpy()
     y_binary = (y > 0.5).astype(int) # Convert average labels to binary labels
-    y_binary = smooth_column(y_binary)
     
     accuracy = accuracy_score(y_binary, y_pred_binary)
     precision = precision_score(y_binary, y_pred_binary, average = 'weighted')
@@ -337,7 +401,10 @@ model_simple = tf.keras.Sequential([
     Dense(param_H1),
     Dense(param_H2),
     Dense(param_H3),
-    Dense(2, activation='sigmoid')
+    Dense(param_H1),
+    Dense(param_H2),
+    Dense(param_H3),
+    Dense(1, activation='sigmoid')
 ])
 
 # Compile the model
@@ -349,10 +416,11 @@ model_simple.summary()
 #%% Train the model
 
 history_simple = model_simple.fit(X_train, y_train,
-                              epochs = epochs,
-                              batch_size = batch_size,
-                              validation_data=(X_val, y_val),
-                              callbacks=[early_stopping, lr_scheduler])
+                                  epochs=epochs,
+                                  batch_size=batch_size,
+                                  validation_data=(X_val, y_val),
+                                  class_weight=class_weights,
+                                  callbacks=[early_stopping, lr_scheduler])
 
 #%%
 
@@ -410,9 +478,8 @@ def reshape_set(data, labels, back, forward):
         reshaped_labels = []
     
         for i in range(back, len(data) - forward):
-            if data[i - back, 0] == data[i, 0] == data[i + forward, 0]:
-                reshaped_data.append(data[i - back : 1 + i + forward])
-                reshaped_labels.append(labels[i])
+            reshaped_data.append(data[i - back : 1 + i + forward])
+            reshaped_labels.append(labels[i])
         
         # Calculate the number of removed rows
         removed_rows = len(data) - len(reshaped_data)
@@ -443,7 +510,7 @@ model_wide = tf.keras.Sequential([
     LSTM(param_H1, return_sequences = True),
     LSTM(param_H2, return_sequences = True),
     LSTM(param_H3),
-    Dense(2, activation='sigmoid')
+    Dense(1, activation='sigmoid')
 ])
 
 # Compile the model
@@ -457,11 +524,12 @@ history_wide = model_wide.fit(X_train_seq, y_train_seq,
                               epochs = epochs,
                               batch_size = batch_size,
                               validation_data=(X_val_seq, y_val_seq),
+                              class_weight=class_weights,
                               callbacks=[early_stopping, lr_scheduler])
 
-#%% Save the model
-
-model_wide.save(os.path.join(STORM_folder, f'model_wide_{start_time.date()}.keras'))
+#%% Plot the training and validation loss
+    
+plot_history(history_wide, "wide")
 
 #%% Calculate accuracy and precision of the model
 
@@ -470,6 +538,10 @@ print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f}, Recall
 
 mse_wide, mae_wide, r2_wide = evaluate_continuous(X_test_seq, y_test_seq, model_wide)
 print(f"MSE = {mse_wide:.4f}, MAE = {mae_wide:.4f}, R-squared = {r2_wide:.4f} -> wide")
+
+#%% Save the model
+
+model_wide.save(os.path.join(STORM_folder, f'model_wide_{start_time.date()}.keras'))
 
 #%%
 
@@ -482,24 +554,19 @@ Lets also train a new RF model
 # Create the Random Forest model (and set the number of estimators (decision trees))
 RF_model = RandomForestClassifier(n_estimators = 24, max_depth = 12)
 
-# Create a MultiOutputClassifier with the Random Forest as the base estimator
-multi_output_RF_model = MultiOutputClassifier(RF_model)
-
-y_train_binary = (y_train > 0.5).astype(int)
-
 # Train the MultiOutputClassifier with your data
-multi_output_RF_model.fit(X_train, y_train_binary)
+RF_model.fit(X_train, y_train)
 
 #%% Save the model
 
-joblib.dump(multi_output_RF_model, os.path.join(STORM_folder, f'model_RF_{start_time.date()}.pkl'))
+joblib.dump(RF_model, os.path.join(STORM_folder, f'model_RF_{start_time.date()}.pkl'))
 
 #%% Calculate accuracy and precision of the model
 
-accuracy_RF, precision_RF, recall_RF, f1_RF = evaluate(X_test, y_test, multi_output_RF_model)
+accuracy_RF, precision_RF, recall_RF, f1_RF = evaluate(X_test, y_test, RF_model)
 print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f}, Recall = {recall_RF:.4f}, F1 Score = {f1_RF:.4f} -> RF")
 
-mse_RF, mae_RF, r2_RF = evaluate_continuous(X_test, y_test, multi_output_RF_model)
+mse_RF, mae_RF, r2_RF = evaluate_continuous(X_test, y_test, RF_model)
 print(f"MSE = {mse_RF:.4f}, MAE = {mae_RF:.4f}, R-squared = {r2_RF:.4f} -> RF")
 
 #%% Get the end time

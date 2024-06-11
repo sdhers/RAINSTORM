@@ -20,11 +20,10 @@ import random
 from sklearn.metrics import accuracy_score, precision_score, classification_report, recall_score, f1_score
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.multioutput import MultiOutputClassifier
 from sklearn.utils.class_weight import compute_class_weight
 
 import tensorflow as tf
-from tensorflow.keras.layers import LSTM, Dense
+from tensorflow.keras.layers import LSTM, Dense, Input
 from tensorflow.keras.callbacks import EarlyStopping, LearningRateScheduler
 
 print(tf.config.list_physical_devices('GPU'))
@@ -73,33 +72,28 @@ save_data = False # if True, the data processed will be saved with today's date
 # Get the start time
 start_time = datetime.datetime.now()
 
-#%% Function to smooth the columns (filter 2 or less individual occurrences)
+#%% Function to apply a median filter
 
-def smooth_column(data):
+def median_filter(df, window_size=3):
+    if window_size % 2 == 0:
+        raise ValueError("Window size must be odd")
     
-    if isinstance(data, pd.DataFrame):
-        data = data.to_numpy()
+    # Apply the median filter
+    filtered_df = df.apply(lambda x: x.rolling(window=window_size, center=True).median())
     
-    smoothed_columns = []
-    for i in range(2):  # Loop through both columns
-        smoothed_column = data[:, i].copy()
-        changes = 0
-        for j in range(1, len(smoothed_column) - 1):
-            # Smooth occurrences with fewer than 3 consecutive 1s or 0s
-            if (smoothed_column[j - 1] == smoothed_column[j + 1] or 
-                (j > 1 and smoothed_column[j - 2] == smoothed_column[j + 1]) or
-                (j < len(smoothed_column) - 2 and smoothed_column[j - 1] == smoothed_column[j + 2])) and \
-                smoothed_column[j] != smoothed_column[j - 1]:
-                smoothed_column[j] = smoothed_column[j - 1]
-                changes += 1
-        
-        smoothed_columns.append(smoothed_column)
-        print(f"Changes in column {i}: {changes}")
-        
-    smoothed_array = np.column_stack(smoothed_columns)
-    smoothed = pd.DataFrame(smoothed_array, columns = ['Left', 'Right'])
+    # Fill NaN values with the original values
+    filtered_df = filtered_df.combine_first(df)
     
-    return smoothed
+    # Count the number of changed values
+    changed_values_count = (df != filtered_df).sum().sum()
+    
+    # Print the count of changed values
+    print(f"Number of values changed by the filter: {changed_values_count}")
+    
+    return filtered_df
+
+def sigmoid(x, k=20):
+    return 1 / (1 + np.exp(-k * x+(k/2)))
 
 #%% Lets load the data
 
@@ -110,50 +104,39 @@ tail = colabels.iloc[:, 16:22]
 
 # The labels for left and right exploration are on the rest of the columns, we need to extract them
 lblr_A = colabels.iloc[:, 22:24]
-lblr_A = smooth_column(lblr_A)
+lblr_A = median_filter(lblr_A, window_size = 5)
 
 lblr_B = colabels.iloc[:, 24:26]
-lblr_B = smooth_column(lblr_B)
+lblr_B = median_filter(lblr_B, window_size = 5)
 
 lblr_C = colabels.iloc[:, 26:28]
-lblr_C = smooth_column(lblr_C)
+lblr_C = median_filter(lblr_C, window_size = 5)
 
 lblr_D = colabels.iloc[:, 28:30]
-lblr_D = smooth_column(lblr_D)
+lblr_D = median_filter(lblr_D, window_size = 5)
 
 lblr_E = colabels.iloc[:, 30:32]
-lblr_E = smooth_column(lblr_E)
+lblr_E = median_filter(lblr_E, window_size = 5)
 
 geometric = colabels.iloc[:, 32:34] # We dont use the geometric labels to train the model
-geometric = smooth_column(geometric)
+geometric = median_filter(geometric, window_size = 5)
 
 dfs = [lblr_A, lblr_B, lblr_C, lblr_D, lblr_E]
-
-# Calculate average labels
-sum_df = pd.DataFrame()
-for df in dfs:
-    sum_df = sum_df.add(df, fill_value=0)
-avrg = sum_df / len(dfs)
-
-#%%
-
-def sigmoid(x, k=20):
-    return 1 / (1 + np.exp(-k * x+(k/2)))
-
-def apply_median_filter(df, window_size=3):
-    if window_size % 2 == 0:
-        raise ValueError("Window size must be odd")
-    filtered_df = df.apply(lambda x: x.rolling(window=window_size, center=True).median())
-    return filtered_df
 
 #%%
 
 if train_with_average:
     
+    # Calculate average labels
+    sum_df = pd.DataFrame()
+    for df in dfs:
+        df.columns = ['Left', 'Right']
+        sum_df = sum_df.add(df, fill_value=0)
+    avrg = sum_df / len(dfs)
+    
     # Transform values using sigmoid function
     avrg_sigmoid = round(sigmoid(avrg),2)  # Adjust k as needed
-
-    avrg_filtered = apply_median_filter(avrg_sigmoid, window_size=3)
+    avrg_filtered = median_filter(avrg_sigmoid, window_size = 5)
     
     if make_discrete:
         avrg_filtered = (avrg_filtered > 0.5).astype(int)
@@ -210,7 +193,7 @@ def rescale(df):
 
 #%% This function prepares data for training, testing and validating
 
-def divide_training_data(df):
+def divide_training_data(df, rescaling = False):
 
     unique_values = df.iloc[:, 0].unique()
     unique_values_list = unique_values.tolist()
@@ -232,7 +215,10 @@ def divide_training_data(df):
     # Remove the selected rows from the original dataframe 'df'
     df = df[~df.iloc[:, 0].astype(str).str.startswith(tuple(map(str, selection)))]
     
-    return rescale(df), rescale(test), rescale(val)
+    if rescaling:
+        return rescale(df), rescale(test), rescale(val)
+    
+    return df, test, val
 
 #%%
 
@@ -250,7 +236,7 @@ if use_saved_data:
 
 else:
 
-    train, test, val = divide_training_data(ready_data)
+    train, test, val = divide_training_data(ready_data, rescaling = True)
     
     X_train = train.iloc[:, :-1]
     y_train = train.iloc[:, -1]
@@ -401,9 +387,6 @@ model_simple = tf.keras.Sequential([
     Dense(param_H1),
     Dense(param_H2),
     Dense(param_H3),
-    Dense(param_H1),
-    Dense(param_H2),
-    Dense(param_H3),
     Dense(1, activation='sigmoid')
 ])
 
@@ -504,11 +487,11 @@ X_val_seq, y_val_seq = reshape_set(X_val, y_val, before, after)
 
 #%% Define a first LSTM model
 
-# Build a LSTM-based neural network
 model_wide = tf.keras.Sequential([
-    LSTM(param_0, input_shape=(frames, X_train_seq.shape[2]), return_sequences = True),
-    LSTM(param_H1, return_sequences = True),
-    LSTM(param_H2, return_sequences = True),
+    Input(shape=(frames, X_train_seq.shape[2])),
+    LSTM(param_0, return_sequences=True),
+    LSTM(param_H1, return_sequences=True),
+    LSTM(param_H2, return_sequences=True),
     LSTM(param_H3),
     Dense(1, activation='sigmoid')
 ])

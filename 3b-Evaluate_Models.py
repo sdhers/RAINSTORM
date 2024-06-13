@@ -34,13 +34,9 @@ import datetime
 
 #%% Set the variables before starting
 
-# At home:
 desktop = 'C:/Users/dhers/Desktop'
-
-# At the lab:
-# desktop = '/home/usuario/Desktop'
-
 STORM_folder = os.path.join(desktop, 'STORM/models')
+
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
 colabels = pd.read_csv(colabels_file)
 
@@ -50,84 +46,110 @@ after = 2
 frames = before + after + 1
 
 today = datetime.datetime.now()
-use_model_date = today.date()
-# use_model_date = '2024-04-17'
+# use_model_date = today.date()
+use_model_date = '2024-06-12'
 
-#%% Function to smooth the columns (filter 2 or less individual occurrences)
+#%% Function to apply a median filter
 
-def smooth_column(data):
+def median_filter(df, window_size = 3):
+    if window_size % 2 == 0:
+        raise ValueError("Window size must be odd")
     
-    if isinstance(data, pd.DataFrame):
-        data = data.to_numpy()
+    # Apply the median filter
+    filtered_df = df.apply(lambda x: x.rolling(window=window_size, center=True).median())
     
-    smoothed_columns = []
-    for i in range(2):  # Loop through both columns
-        smoothed_column = data[:, i].copy()
-        changes = 0
-        for j in range(1, len(smoothed_column) - 1):
-            # Smooth occurrences with fewer than 3 consecutive 1s or 0s
-            if (smoothed_column[j - 1] == smoothed_column[j + 1] or 
-                (j > 1 and smoothed_column[j - 2] == smoothed_column[j + 1]) or
-                (j < len(smoothed_column) - 2 and smoothed_column[j - 1] == smoothed_column[j + 2])) and \
-                smoothed_column[j] != smoothed_column[j - 1]:
-                smoothed_column[j] = smoothed_column[j - 1]
-                changes += 1
-        
-        smoothed_columns.append(smoothed_column)
-        print(f"Number of changes in column {i}: {changes}")
-        
-    smoothed_array = np.column_stack(smoothed_columns)
-    smoothed = pd.DataFrame(smoothed_array, columns = ['Left', 'Right'])
+    # Fill NaN values with the original values
+    filtered_df = filtered_df.combine_first(df)
     
-    return smoothed
+    # Count the number of changed values
+    changed_values_count = (df != filtered_df).sum().sum()
+    
+    # Print the count of changed values
+    print(f"Number of values changed by the filter: {changed_values_count}")
+    
+    return filtered_df
+
+def sigmoid(x, k=20):
+    return 1 / (1 + np.exp(-k * x+(k/2)))
+
+#%%
+
+def rescale(df, obj_cols = 4, body_cols = 16, labels = True):
+    
+    # First for the object on the left
+    # Select columns 5 to 16 (bodyparts)
+    left_df = df.iloc[:, obj_cols:body_cols].copy()
+    
+    # Calculate the offsets for x and y coordinates for each row
+    x_left = df.iloc[:, 0].copy()  # Assuming x-coordinate is in the first column
+    y_left = df.iloc[:, 1].copy()  # Assuming y-coordinate is in the second column
+
+    # Subtract the offsets from all values in the appropriate columns
+    for col in range(0, left_df.shape[1]):
+        if col % 2 == 0:  # Even columns
+            left_df.iloc[:, col] -= x_left
+        else:  # Odd columns
+            left_df.iloc[:, col] -= y_left
+    
+    # Now for the object on the right
+    # Select columns 5 to 16 (bodyparts)
+    right_df = df.iloc[:, obj_cols:body_cols].copy()
+    
+    # Calculate the offsets for x and y coordinates for each row
+    x_right = df.iloc[:, 2].copy()  # Assuming x-coordinate is in the first column
+    y_right = df.iloc[:, 3].copy()  # Assuming y-coordinate is in the second column
+
+    # Subtract the offsets from all values in the appropriate columns
+    for col in range(0, right_df.shape[1]):
+        if col % 2 == 0:  # Even columns
+            right_df.iloc[:, col] -= x_right
+        else:  # Odd columns
+            right_df.iloc[:, col] -= y_right
+    
+    if labels:
+        left_df['Labels'] = df.iloc[:, -2].copy()
+        right_df['Labels'] = df.iloc[:, -1].copy()
+    
+    final_df = pd.concat([left_df, right_df], ignore_index=True)
+    
+    return final_df
 
 #%% This function reshapes data for LSTM models
 
-def reshape_set(data, labels, back, forward):
+def reshape(data, labels, back, forward):
+        
+    if isinstance(data, pd.DataFrame):
+        data = data.to_numpy()
+    reshaped_data = []
     
-    if labels is False:
-        
-        if isinstance(data, pd.DataFrame):
-            data = data.to_numpy()
-        
-        reshaped_data = []
-    
-        for i in range(back, len(data) - forward):
-            reshaped_data.append(data[i - back : 1 + i + forward])
-        
-        # Calculate the number of removed rows
-        removed_rows = len(data) - len(reshaped_data)
-        
-        print(f"Reshaping removed {removed_rows} rows")
-        
-        reshaped_data_tf = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
-    
-        return reshaped_data_tf
-        
-    else:
-        
-        if isinstance(data, pd.DataFrame):
-            data = data.to_numpy()
+    if labels is not False:
         if isinstance(labels, pd.DataFrame):
             labels = labels.to_numpy()
-        
-        reshaped_data = []
         reshaped_labels = []
+        
+    for i in range(0, back):
+        reshaped_data.append(data[: 1 + back + forward])
+        if labels is not False:
+            reshaped_labels.append(labels[0])
+            
+    for i in range(back, len(data) - forward):
+        reshaped_data.append(data[i - back : 1 + i + forward])
+        if labels is not False:
+            reshaped_labels.append(labels[i])
     
-        for i in range(back, len(data) - forward):
-            if data[i - back, 0] == data[i, 0] == data[i + forward, 0]:
-                reshaped_data.append(data[i - back : 1 + i + forward])
-                reshaped_labels.append(labels[i])
-        
-        # Calculate the number of removed rows
-        removed_rows = len(data) - len(reshaped_data)
-        
-        print(f"Reshaping removed {removed_rows} rows")
-        
-        reshaped_data_tf = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
+    for i in range(len(data) - forward, len(data)):
+        reshaped_data.append(data[-(1 + back + forward):])
+        if labels is not False:
+            reshaped_labels.append(labels[i])
+    
+    reshaped_data_tf = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
+    
+    if labels is not False:
         reshaped_labels_tf = tf.convert_to_tensor(reshaped_labels, dtype=tf.float64)
     
         return reshaped_data_tf, reshaped_labels_tf
+    
+    return reshaped_data_tf
 
 #%% Lets load the data
 
@@ -136,74 +158,100 @@ position = colabels.iloc[:, :18]
 
 # The labels for left and right exploration are on the rest of the columns, we need to extract them
 lblr_A = colabels.iloc[:, 22:24]
-lblr_A = smooth_column(lblr_A)
+lblr_A = median_filter(lblr_A)
 
 lblr_B = colabels.iloc[:, 24:26]
-lblr_B = smooth_column(lblr_B)
+lblr_B = median_filter(lblr_B)
 
 lblr_C = colabels.iloc[:, 26:28]
-lblr_C = smooth_column(lblr_C)
+lblr_C = median_filter(lblr_C)
 
 lblr_D = colabels.iloc[:, 28:30]
-lblr_D = smooth_column(lblr_D)
+lblr_D = median_filter(lblr_D)
 
 lblr_E = colabels.iloc[:, 30:32]
-lblr_E = smooth_column(lblr_E)
+lblr_E = median_filter(lblr_E)
 
 geometric = colabels.iloc[:, 32:34] # We dont use the geometric labels to train the model
-geometric = smooth_column(geometric)
+geometric = median_filter(geometric)
+geometric.columns = ['Left', 'Right']
 
 dfs = [lblr_A, lblr_B, lblr_C, lblr_D, lblr_E]
 
 # Calculate average labels
 sum_df = pd.DataFrame()
 for df in dfs:
+    df.columns = ['Left', 'Right']
     sum_df = sum_df.add(df, fill_value=0)
 avrg = sum_df / len(dfs)
 
-def sigmoid(x, k=12):
-    return 1 / (1 + np.exp(-k * x+(k/2)))
-
 # Transform values using sigmoid function
-transformed_avrg = round(sigmoid(avrg, k=12),2)  # Adjust k as needed
+avrg_sigmoid = round(sigmoid(avrg),2)  # Adjust k as needed
+avrg_filtered = median_filter(avrg_sigmoid, window_size = 5)
 
 #%% Lets load the models
 
 # Load the saved models
-model_simple = load_model(os.path.join(STORM_folder, 'model_simple_2024-05-06.h5'))
-model_wide = load_model(os.path.join(STORM_folder, 'model_wide_2024-05-06.h5'))
+model_simple = load_model(os.path.join(STORM_folder, f'simple/model_simple_{use_model_date}.keras'))
+model_wide = load_model(os.path.join(STORM_folder, f'wide/model_wide_{use_model_date}.keras'))
 
-RF_model = joblib.load(os.path.join(STORM_folder, 'model_RF2_2024-05-06.pkl'))
+RF_model = joblib.load(os.path.join(STORM_folder, f'RF/model_RF_{use_model_date}.pkl'))
 
 #%%
 
 """
 Lets see how similar the labelers are to each other
 """
+#%% Predict the labels
+
+def use_model(position, model, rescaling = True, reshaping = False):
+    
+    if rescaling:
+        df = rescale(position, labels = False)
+    
+    if reshaping:
+        df = reshape(df, False, before, after)
+    
+    pred = model.predict(df)
+    
+    pred = pred.flatten()
+    
+    # Determine the midpoint
+    midpoint = len(pred) // 2
+    
+    # Split the array into two halves
+    left = pred[:midpoint]
+    right = pred[midpoint:]
+    
+    # Create a new DataFrame with the two halves as separate columns
+    labels = pd.DataFrame({
+        'Left': left,
+        'Right': right
+    })
+    
+    labels = median_filter(labels.round(2))
+    
+    return labels
 
 #%%
 
-# Define features (X) and target (y) columns
 X_all = position.copy()
 
-all_simple = model_simple.predict(X_all)
+all_simple = use_model(X_all, model_simple)
 all_simple_binary = (all_simple > 0.5).astype(int) 
-all_simple_binary = smooth_column(all_simple_binary)
+all_simple_binary = median_filter(all_simple_binary)
 
-all_position_seq = reshape_set(X_all, False, before, after)
-all_wide = model_wide.predict(all_position_seq)
-all_wide = np.vstack((np.zeros((before, 2)), all_wide))
-all_wide = np.vstack((all_wide, np.zeros((after, 2))))
+all_wide = use_model(X_all, model_wide, reshaping = True)
 all_wide_binary = (all_wide > 0.5).astype(int)
-all_wide_binary = smooth_column(all_wide_binary)
+all_wide_binary = median_filter(all_wide_binary)
 
-all_RF = RF_model.predict(X_all)
-all_RF = smooth_column(all_RF)
+all_RF = use_model(X_all, RF_model)
+all_RF = median_filter(all_RF)
 
 #%%
 
-avrg_binary = (avrg > 0.5).astype(int)
-avrg_binary = smooth_column(avrg_binary)
+avrg_binary = (avrg_filtered > 0.5).astype(int)
+avrg_binary = median_filter(avrg_binary)
 
 #%%
 
@@ -226,15 +274,15 @@ for i, labeler in enumerate(labelers):
 #%%
 
 avrg_1 = (avrg > 0.1).astype(int)
-avrg_1 = smooth_column(avrg_1)
+avrg_1 = median_filter(avrg_1)
 avrg_2 = (avrg > 0.3).astype(int)
-avrg_2 = smooth_column(avrg_2)
+avrg_2 = median_filter(avrg_2)
 avrg_3 = (avrg > 0.5).astype(int)
-avrg_3 = smooth_column(avrg_3)
+avrg_3 = median_filter(avrg_3)
 avrg_4 = (avrg > 0.7).astype(int)
-avrg_4 = smooth_column(avrg_4)
+avrg_4 = median_filter(avrg_4)
 avrg_5 = (avrg > 0.9).astype(int)
-avrg_5 = smooth_column(avrg_5)
+avrg_5 = median_filter(avrg_5)
 
 df = pd.DataFrame()
 
@@ -301,7 +349,7 @@ Now we can use the models in an example video
 
 #%% Prepare the dataset of a video we want to analyze and see
 
-position_df = pd.read_csv(os.path.join(STORM_folder, 'example/Example_position.csv'))
+X_view = pd.read_csv(os.path.join(STORM_folder, 'example/Example_position.csv'))
 video_path = os.path.join(STORM_folder, 'example/Example_video.mp4')
 
 labels_A = pd.read_csv(os.path.join(STORM_folder, 'example/Example_Marian.csv'), usecols=['Left', 'Right'])
@@ -327,32 +375,19 @@ for df in dfs_example:
 avrg_example = sum_df_example / len(dfs)
 
 # Transform values using sigmoid function
-transformed_avrg_example = round(sigmoid(avrg_example, k=12),2)  # Adjust k as needed
+transformed_avrg_example = round(sigmoid(avrg_example, k=20),2)  # Adjust k as needed
 
-X_view = position_df[['obj_1_x', 'obj_1_y', 'obj_2_x', 'obj_2_y',
-                'nose_x', 'nose_y', 'L_ear_x', 'L_ear_y',
-                'R_ear_x', 'R_ear_y', 'head_x', 'head_y',
-                'neck_x', 'neck_y', 'body_x', 'body_y', 
-                'tail_1_x', 'tail_1_y']].values
+#%%
 
-#%% Predict the simple labels
+autolabels_simple = use_model(X_view, model_simple)
 
-autolabels_simple = model_simple.predict(X_view)
-autolabels_simple = pd.DataFrame(autolabels_simple, columns=["Left", "Right"])
+#%%
 
-#%% Predict the wide_1 labels
+autolabels_wide = use_model(X_view, model_wide, reshaping = True)
 
-position_seq = reshape_set(X_view, False, before, after)
+#%%
 
-autolabels_wide = model_wide.predict(position_seq)
-autolabels_wide = np.vstack((np.zeros((before, 2)), autolabels_wide))
-autolabels_wide = np.vstack((autolabels_wide, np.zeros((after, 2))))
-autolabels_wide = pd.DataFrame(autolabels_wide, columns=["Left", "Right"])
-
-#%% Predict the RF labels
-
-autolabels_RF = RF_model.predict(X_view)
-autolabels_RF = smooth_column(autolabels_RF)
+autolabels_RF = use_model(X_view, RF_model)
 
 #%%
 
@@ -397,49 +432,6 @@ plt.axhline(y=0.5, color='black', linestyle='--')
 plt.axhline(y=-0.5, color='black', linestyle='--')
 
 plt.legend()
-plt.show()
-
-#%%
-
-def calculate_ID(df):
-    # Calculate the sum of each column
-    sum_col1 = df.iloc[:, 1].sum()
-    sum_col2 = df.iloc[:, 0].sum()
-    
-    # Perform the calculation (sum_col1 - sum_col2) / (sum_col1 + sum_col2)
-    result = (sum_col1 - sum_col2) / (sum_col1 + sum_col2)
-    
-    return result
-
-ID_A = calculate_ID(labels_A)
-ID_B = calculate_ID(labels_B)
-ID_C = calculate_ID(labels_C)
-ID_D = calculate_ID(labels_D)
-ID_E = calculate_ID(labels_E)
-ID_Avrg = calculate_ID(transformed_avrg_example)
-ID_Simple = calculate_ID(autolabels_simple)
-ID_Wide = calculate_ID(autolabels_wide)
-ID_RF = calculate_ID(autolabels_RF)
-
-#%%
-
-# Sample data points
-data = [ID_A, ID_B, ID_C, ID_D, ID_E, ID_Avrg, ID_Simple, ID_Wide, ID_RF]
-labels = ['Marian', 'Agus', 'Santi', 'Guille', 'Dhers', 'ID_Avrg', 'ID_Simple', 'ID_Wide', 'ID_RF']
-
-# Create a boxplot
-plt.boxplot(data)
-
-# Overlay the individual points
-for i, value in enumerate(data):
-    plt.scatter(1, value, color='red')  # plot points
-    plt.text(1.05, value, labels[i], verticalalignment='center')  # add labels
-
-# Add title and labels
-plt.title('Boxplot of 9 Data Points with Labels')
-plt.ylabel('Values')
-
-# Show the plot
 plt.show()
 
 #%% Define a function that allows us to visualize the labels together with the video
@@ -491,7 +483,7 @@ def process_frame(frame, frame_number):
     ax.grid=True
 
     # Save the plot as an image in memory
-    plot_img_path = 'plot_img.png'
+    plot_img_path = 'models\example\plot_img.png'
     canvas = FigureCanvas(fig)
     canvas.print_png(plot_img_path)
     

@@ -23,14 +23,13 @@ from scipy import signal
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-
-experiment = r'2023-05_TeNOR'
+experiment = r'2023-05_TORM-2m-24h'
 
 folder = os.path.join(path, experiment)
 
 groups  = ["Hab", "TR1", "TR2", "TS"]
 
-tolerance = 0.99
+tolerance = 0.5
 
 #%%
 
@@ -187,7 +186,7 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.25, window = 
                 position_df.loc[position_df[likelihood_key] < llhd, key] = np.nan
                 
                 # Check if there are any non-NaN values left to interpolate
-                if position_df[key].notna().sum() > 0:
+                if position_df[key].notna().sum() > 1:
                     # Interpolate the column with 'pchip' method
                     position_df[key] = position_df[key].interpolate(method='pchip')
                 else:

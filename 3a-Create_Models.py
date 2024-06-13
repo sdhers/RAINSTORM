@@ -20,10 +20,10 @@ import random
 from sklearn.metrics import accuracy_score, precision_score, classification_report, recall_score, f1_score
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.multioutput import MultiOutputClassifier
+from sklearn.utils.class_weight import compute_class_weight
 
 import tensorflow as tf
-from tensorflow.keras.layers import LSTM, Dense
+from tensorflow.keras.layers import LSTM, Dense, Input
 from tensorflow.keras.callbacks import EarlyStopping, LearningRateScheduler
 
 print(tf.config.list_physical_devices('GPU'))
@@ -34,10 +34,9 @@ import datetime
 
 #%% Set the variables before starting
 
-# State your path
 desktop = 'C:/Users/dhers/Desktop'
-
 STORM_folder = os.path.join(desktop, 'STORM/models')
+
 colabels_file = os.path.join(STORM_folder, 'colabeled_data.csv')
 colabels = pd.read_csv(colabels_file)
 
@@ -52,107 +51,91 @@ param_H1 = 32
 param_H2 = 24
 param_H3 = 16
 
-batch_size = 128 # Set the batch size
-lr = 0.00001 # Set the initial learning rate
-epochs = 50 # Set the training epochs
-patience = 5 # Set the wait for the early stopping mechanism
+batch_size = 8 # Set the batch size
+lr = 0.0001 # Set the initial learning rate
+epochs = 100 # Set the training epochs
+patience = 10 # Set the wait for the early stopping mechanism
 
 train_with_average = True # If false, it trains with all the labels separately
-make_discrete = True # If false, labels are float (not 0 and 1)
+make_discrete = False # If false, labels are float (not 0 and 1)
 
 use_saved_data = False # if True, we use the dataframe processed previously
 
 if use_saved_data:
-    saved_data = 'saved_training_data_2024-04-17.h5' # Select the model date you want to rescue
+    saved_data = '' # Select the model date you want to rescue
 
-save_data = False # if True, the data processed will be saved with today's date
+save_data = True # if True, the data processed will be saved with today's date
 
 #%% Start time
 
 # Get the start time
 start_time = datetime.datetime.now()
 
-#%% Function to smooth the columns (filter 2 or less individual occurrences)
+#%% Function to apply a median filter
 
-def smooth_column(data):
+def median_filter(df, window_size = 3):
+    if window_size % 2 == 0:
+        raise ValueError("Window size must be odd")
     
-    if isinstance(data, pd.DataFrame):
-        data = data.to_numpy()
+    # Apply the median filter
+    filtered_df = df.apply(lambda x: x.rolling(window=window_size, center=True).median())
     
-    smoothed_columns = []
-    for i in range(2):  # Loop through both columns
-        smoothed_column = data[:, i].copy()
-        changes = 0
-        for j in range(1, len(smoothed_column) - 1):
-            # Smooth occurrences with fewer than 3 consecutive 1s or 0s
-            if (smoothed_column[j - 1] == smoothed_column[j + 1] or 
-                (j > 1 and smoothed_column[j - 2] == smoothed_column[j + 1]) or
-                (j < len(smoothed_column) - 2 and smoothed_column[j - 1] == smoothed_column[j + 2])) and \
-                smoothed_column[j] != smoothed_column[j - 1]:
-                smoothed_column[j] = smoothed_column[j - 1]
-                changes += 1
-        
-        smoothed_columns.append(smoothed_column)
-        print(f"Number of changes in column {i}: {changes}")
-        
-    smoothed_array = np.column_stack(smoothed_columns)
-    smoothed = pd.DataFrame(smoothed_array, columns = ['Left', 'Right'])
+    # Fill NaN values with the original values
+    filtered_df = filtered_df.combine_first(df)
     
-    return smoothed
-
-#%% Lets load the data
-
-# The mouse position is on the first 22 columns of the csv file
-position = colabels.iloc[:, :16] # We leave out the tail
-
-tail = colabels.iloc[:, 16:22]
-
-# The labels for left and right exploration are on the rest of the columns, we need to extract them
-lblr_A = colabels.iloc[:, 22:24]
-lblr_A = smooth_column(lblr_A)
-
-lblr_B = colabels.iloc[:, 24:26]
-lblr_B = smooth_column(lblr_B)
-
-lblr_C = colabels.iloc[:, 26:28]
-lblr_C = smooth_column(lblr_C)
-
-lblr_D = colabels.iloc[:, 28:30]
-lblr_D = smooth_column(lblr_D)
-
-lblr_E = colabels.iloc[:, 30:32]
-lblr_E = smooth_column(lblr_E)
-
-geometric = colabels.iloc[:, 32:34] # We dont use the geometric labels to train the model
-geometric = smooth_column(geometric)
-
-dfs = [lblr_A, lblr_B, lblr_C, lblr_D, lblr_E]
-
-# Calculate average labels
-sum_df = pd.DataFrame()
-for df in dfs:
-    sum_df = sum_df.add(df, fill_value=0)
-avrg = sum_df / len(dfs)
-
-#%%
+    # Count the number of changed values
+    changed_values_count = (df != filtered_df).sum().sum()
+    
+    # Print the count of changed values
+    print(f"Number of values changed by the filter: {changed_values_count}")
+    
+    return filtered_df
 
 def sigmoid(x, k=20):
     return 1 / (1 + np.exp(-k * x+(k/2)))
 
-def apply_median_filter(df, window_size=3):
-    if window_size % 2 == 0:
-        raise ValueError("Window size must be odd")
-    filtered_df = df.apply(lambda x: x.rolling(window=window_size, center=True).median())
-    return filtered_df
+#%% Lets load the data
+
+# The mouse position is on the first 22 columns of the csv file
+position = colabels.iloc[:, :16].copy() # We leave out the tail
+
+tail = colabels.iloc[:, 16:22].copy()
+
+# The labels for left and right exploration are on the rest of the columns, we need to extract them
+lblr_A = colabels.iloc[:, 22:24].copy()
+lblr_A = median_filter(lblr_A, window_size = 5)
+
+lblr_B = colabels.iloc[:, 24:26].copy()
+lblr_B = median_filter(lblr_B, window_size = 5)
+
+lblr_C = colabels.iloc[:, 26:28].copy()
+lblr_C = median_filter(lblr_C, window_size = 5)
+
+lblr_D = colabels.iloc[:, 28:30].copy()
+lblr_D = median_filter(lblr_D, window_size = 5)
+
+lblr_E = colabels.iloc[:, 30:32].copy()
+lblr_E = median_filter(lblr_E, window_size = 5)
+
+geometric = colabels.iloc[:, 32:34].copy() # We dont use the geometric labels to train the model
+geometric = median_filter(geometric, window_size = 5)
+
+dfs = [lblr_A, lblr_B, lblr_C, lblr_D, lblr_E]
 
 #%%
 
 if train_with_average:
     
+    # Calculate average labels
+    sum_df = pd.DataFrame()
+    for df in dfs:
+        df.columns = ['Left', 'Right']
+        sum_df = sum_df.add(df, fill_value=0)
+    avrg = sum_df / len(dfs)
+    
     # Transform values using sigmoid function
     avrg_sigmoid = round(sigmoid(avrg),2)  # Adjust k as needed
-
-    avrg_filtered = apply_median_filter(avrg_sigmoid, window_size=3)
+    avrg_filtered = median_filter(avrg_sigmoid, window_size = 5)
     
     if make_discrete:
         avrg_filtered = (avrg_filtered > 0.5).astype(int)
@@ -165,9 +148,51 @@ else:
     concatenated_labels = pd.concat(dfs, ignore_index=True)
     ready_data = pd.concat([concatenated_df, concatenated_labels], axis = 1)
 
+#%%
+
+def rescale(df, obj_cols = 4, body_cols = 16, labels = True):
+    
+    # First for the object on the left
+    # Select columns 5 to 16 (bodyparts)
+    left_df = df.iloc[:, obj_cols:body_cols].copy()
+    
+    # Calculate the offsets for x and y coordinates for each row
+    x_left = df.iloc[:, 0].copy()  # Assuming x-coordinate is in the first column
+    y_left = df.iloc[:, 1].copy()  # Assuming y-coordinate is in the second column
+
+    # Subtract the offsets from all values in the appropriate columns
+    for col in range(0, left_df.shape[1]):
+        if col % 2 == 0:  # Even columns
+            left_df.iloc[:, col] -= x_left
+        else:  # Odd columns
+            left_df.iloc[:, col] -= y_left
+    
+    # Now for the object on the right
+    # Select columns 5 to 16 (bodyparts)
+    right_df = df.iloc[:, obj_cols:body_cols].copy()
+    
+    # Calculate the offsets for x and y coordinates for each row
+    x_right = df.iloc[:, 2].copy()  # Assuming x-coordinate is in the first column
+    y_right = df.iloc[:, 3].copy()  # Assuming y-coordinate is in the second column
+
+    # Subtract the offsets from all values in the appropriate columns
+    for col in range(0, right_df.shape[1]):
+        if col % 2 == 0:  # Even columns
+            right_df.iloc[:, col] -= x_right
+        else:  # Odd columns
+            right_df.iloc[:, col] -= y_right
+    
+    if labels:
+        left_df['Labels'] = df.iloc[:, -2].copy()
+        right_df['Labels'] = df.iloc[:, -1].copy()
+    
+    final_df = pd.concat([left_df, right_df], ignore_index=True)
+    
+    return final_df
+
 #%% This function prepares data for training, testing and validating
 
-def divide_training_data(df):
+def divide_training_data(df, rescaling = False):
 
     unique_values = df.iloc[:, 0].unique()
     unique_values_list = unique_values.tolist()
@@ -189,6 +214,9 @@ def divide_training_data(df):
     # Remove the selected rows from the original dataframe 'df'
     df = df[~df.iloc[:, 0].astype(str).str.startswith(tuple(map(str, selection)))]
     
+    if rescaling:
+        return rescale(df), rescale(test), rescale(val)
+    
     return df, test, val
 
 #%%
@@ -207,16 +235,16 @@ if use_saved_data:
 
 else:
 
-    train, test, val = divide_training_data(ready_data)
+    train, test, val = divide_training_data(ready_data, rescaling = True)
     
-    X_train = train.iloc[:, :16]
-    y_train = train.iloc[:, 16:18]
+    X_train = train.iloc[:, :-1].copy()
+    y_train = train.iloc[:, -1].copy()
     
-    X_test = test.iloc[:, :16]
-    y_test = test.iloc[:, 16:18]
+    X_test = test.iloc[:, :-1].copy()
+    y_test = test.iloc[:, -1].copy()
     
-    X_val = val.iloc[:, :16]
-    y_val = val.iloc[:, 16:18]
+    X_val = val.iloc[:, :-1].copy()
+    y_val = val.iloc[:, -1].copy()
     
     # Print the sizes of each set
     print(f"Training set size: {len(X_train)} samples")
@@ -225,7 +253,7 @@ else:
 
     if save_data:
         # Save arrays
-        with h5py.File(f'saved_training_data_{start_time.date()}.h5', 'w') as hf:
+        with h5py.File(os.path.join(STORM_folder, f'training_data_{start_time.date()}.h5'), 'w') as hf:
             hf.create_dataset('X_test', data=X_test)
             hf.create_dataset('y_test', data=y_test)
             hf.create_dataset('X_val', data=X_val)
@@ -233,7 +261,24 @@ else:
             hf.create_dataset('X_train', data=X_train)
             hf.create_dataset('y_train', data=y_train)
             
-            print(f'Saved data to saved_training_data_{start_time.date()}.h5')
+            print(f'Saved data to training_data_{start_time.date()}.h5')
+
+#%%
+
+# Select the first and last columns
+first_column = X_val.iloc[:, 0].copy()
+last_column = y_val.copy()
+
+# Plotting
+plt.figure(figsize=(10, 6))
+plt.plot(first_column, label=X_val.columns[0])
+plt.plot(last_column, label='exploration event')
+plt.xlabel('Index')
+plt.ylabel('Values')
+plt.title('Line Plot of First and Last Columns')
+plt.legend()
+plt.grid(True)
+plt.show()
 
 #%%
 
@@ -242,6 +287,12 @@ Lets get some tools ready for model training:
     early stopping
     scheduled learning rate
 """
+
+#%%
+
+# Compute class weights if dataset is imbalanced
+class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
+class_weights = {i: class_weights[i] for i in range(len(class_weights))}
 
 #%% Define the EarlyStopping callback
 
@@ -295,12 +346,10 @@ def evaluate(X, y, model):
     # Evaluate the model on the testing set
     y_pred = model.predict(X)
     y_pred_binary = (y_pred > 0.5).astype(int)  # Convert probabilities to binary predictions
-    y_pred_binary = smooth_column(y_pred_binary)
     
     if isinstance(y, tf.Tensor):
         y = y.numpy()
     y_binary = (y > 0.5).astype(int) # Convert average labels to binary labels
-    y_binary = smooth_column(y_binary)
     
     accuracy = accuracy_score(y_binary, y_pred_binary)
     precision = precision_score(y_binary, y_pred_binary, average = 'weighted')
@@ -333,11 +382,12 @@ Now we train the first model
 
 # Build a simple neural network
 model_simple = tf.keras.Sequential([
-    Dense(param_0, input_shape=(X_train.shape[1],)),
-    Dense(param_H1),
-    Dense(param_H2),
-    Dense(param_H3),
-    Dense(2, activation='sigmoid')
+    Input(shape=(X_train.shape[1],)),
+    Dense(param_0, activation = 'relu'),
+    Dense(param_H1, activation = 'relu'),
+    Dense(param_H2, activation = 'relu'),
+    Dense(param_H3, activation = 'relu'),
+    Dense(1, activation='sigmoid')
 ])
 
 # Compile the model
@@ -349,10 +399,11 @@ model_simple.summary()
 #%% Train the model
 
 history_simple = model_simple.fit(X_train, y_train,
-                              epochs = epochs,
-                              batch_size = batch_size,
-                              validation_data=(X_val, y_val),
-                              callbacks=[early_stopping, lr_scheduler])
+                                  epochs=epochs,
+                                  batch_size=batch_size,
+                                  validation_data=(X_val, y_val),
+                                  class_weight=class_weights,
+                                  callbacks=[early_stopping, lr_scheduler])
 
 #%%
 
@@ -378,72 +429,61 @@ Lets move onto training a Recursive Network (that can see sequences)
 
 #%% This function reshapes data for LSTM models
 
-def reshape_set(data, labels, back, forward):
+def reshape(data, labels, back, forward):
+        
+    if isinstance(data, pd.DataFrame):
+        data = data.to_numpy()
+    reshaped_data = []
     
-    if labels is False:
-        
-        if isinstance(data, pd.DataFrame):
-            data = data.to_numpy()
-        
-        reshaped_data = []
-    
-        for i in range(back, len(data) - forward):
-            reshaped_data.append(data[i - back : 1 + i + forward])
-        
-        # Calculate the number of removed rows
-        removed_rows = len(data) - len(reshaped_data)
-        
-        print(f"Reshaping removed {removed_rows} rows")
-        
-        reshaped_data_tf = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
-    
-        return reshaped_data_tf
-        
-    else:
-        
-        if isinstance(data, pd.DataFrame):
-            data = data.to_numpy()
+    if labels is not False:
         if isinstance(labels, pd.DataFrame):
             labels = labels.to_numpy()
-        
-        reshaped_data = []
         reshaped_labels = []
+        
+    for i in range(0, back):
+        reshaped_data.append(data[: 1 + back + forward])
+        if labels is not False:
+            reshaped_labels.append(labels[0])
+            
+    for i in range(back, len(data) - forward):
+        reshaped_data.append(data[i - back : 1 + i + forward])
+        if labels is not False:
+            reshaped_labels.append(labels[i])
     
-        for i in range(back, len(data) - forward):
-            if data[i - back, 0] == data[i, 0] == data[i + forward, 0]:
-                reshaped_data.append(data[i - back : 1 + i + forward])
-                reshaped_labels.append(labels[i])
-        
-        # Calculate the number of removed rows
-        removed_rows = len(data) - len(reshaped_data)
-        
-        print(f"Reshaping removed {removed_rows} rows")
-        
-        reshaped_data_tf = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
+    for i in range(len(data) - forward, len(data)):
+        reshaped_data.append(data[-(1 + back + forward):])
+        if labels is not False:
+            reshaped_labels.append(labels[i])
+    
+    reshaped_data_tf = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
+    
+    if labels is not False:
         reshaped_labels_tf = tf.convert_to_tensor(reshaped_labels, dtype=tf.float64)
     
         return reshaped_data_tf, reshaped_labels_tf
+    
+    return reshaped_data_tf
 
 #%% Prepare the wide data
 
 # Reshape the training set
-X_train_seq, y_train_seq = reshape_set(X_train, y_train, before, after)
+X_train_seq, y_train_seq = reshape(X_train, y_train, before, after)
 
 # Reshape the testing set
-X_test_seq, y_test_seq = reshape_set(X_test, y_test, before, after)
+X_test_seq, y_test_seq = reshape(X_test, y_test, before, after)
 
 # Reshape the validating set
-X_val_seq, y_val_seq = reshape_set(X_val, y_val, before, after)
+X_val_seq, y_val_seq = reshape(X_val, y_val, before, after)
 
 #%% Define a first LSTM model
 
-# Build a LSTM-based neural network
 model_wide = tf.keras.Sequential([
-    LSTM(param_0, input_shape=(frames, X_train_seq.shape[2]), return_sequences = True),
-    LSTM(param_H1, return_sequences = True),
-    LSTM(param_H2, return_sequences = True),
-    LSTM(param_H3),
-    Dense(2, activation='sigmoid')
+    Input(shape=(frames, X_train_seq.shape[2])),
+    LSTM(param_0, activation = 'relu', return_sequences=True),
+    LSTM(param_H1, activation = 'relu', return_sequences=True),
+    LSTM(param_H2, activation = 'relu', return_sequences=True),
+    LSTM(param_H3, activation = 'relu'),
+    Dense(1, activation='sigmoid')
 ])
 
 # Compile the model
@@ -457,11 +497,12 @@ history_wide = model_wide.fit(X_train_seq, y_train_seq,
                               epochs = epochs,
                               batch_size = batch_size,
                               validation_data=(X_val_seq, y_val_seq),
+                              class_weight=class_weights,
                               callbacks=[early_stopping, lr_scheduler])
 
-#%% Save the model
-
-model_wide.save(os.path.join(STORM_folder, f'model_wide_{start_time.date()}.keras'))
+#%% Plot the training and validation loss
+    
+plot_history(history_wide, "wide")
 
 #%% Calculate accuracy and precision of the model
 
@@ -471,6 +512,10 @@ print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f}, Recall
 mse_wide, mae_wide, r2_wide = evaluate_continuous(X_test_seq, y_test_seq, model_wide)
 print(f"MSE = {mse_wide:.4f}, MAE = {mae_wide:.4f}, R-squared = {r2_wide:.4f} -> wide")
 
+#%% Save the model
+
+model_wide.save(os.path.join(STORM_folder, f'model_wide_{start_time.date()}.keras'))
+
 #%%
 
 """
@@ -479,28 +524,26 @@ Lets also train a new RF model
 
 #%% We train a model with the same data
 
+if not make_discrete:
+    y_train = (y_train > 0.5).astype(int)
+
 # Create the Random Forest model (and set the number of estimators (decision trees))
 RF_model = RandomForestClassifier(n_estimators = 24, max_depth = 12)
 
-# Create a MultiOutputClassifier with the Random Forest as the base estimator
-multi_output_RF_model = MultiOutputClassifier(RF_model)
-
-y_train_binary = (y_train > 0.5).astype(int)
-
 # Train the MultiOutputClassifier with your data
-multi_output_RF_model.fit(X_train, y_train_binary)
-
-#%% Save the model
-
-joblib.dump(multi_output_RF_model, os.path.join(STORM_folder, f'model_RF_{start_time.date()}.pkl'))
+RF_model.fit(X_train, y_train)
 
 #%% Calculate accuracy and precision of the model
 
-accuracy_RF, precision_RF, recall_RF, f1_RF = evaluate(X_test, y_test, multi_output_RF_model)
+accuracy_RF, precision_RF, recall_RF, f1_RF = evaluate(X_test, y_test, RF_model)
 print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f}, Recall = {recall_RF:.4f}, F1 Score = {f1_RF:.4f} -> RF")
 
-mse_RF, mae_RF, r2_RF = evaluate_continuous(X_test, y_test, multi_output_RF_model)
+mse_RF, mae_RF, r2_RF = evaluate_continuous(X_test, y_test, RF_model)
 print(f"MSE = {mse_RF:.4f}, MAE = {mae_RF:.4f}, R-squared = {r2_RF:.4f} -> RF")
+
+#%% Save the model
+
+joblib.dump(RF_model, os.path.join(STORM_folder, f'model_RF_{start_time.date()}.pkl'))
 
 #%% Get the end time
 
@@ -508,11 +551,6 @@ end_time = datetime.datetime.now()
 
 # Calculate elapsed time
 elapsed_time = end_time - start_time
-
-#%% Plot the training and validation loss
-    
-plot_history(history_simple, "Simple")
-plot_history(history_wide, "wide")
 
 #%% Print the model results
 

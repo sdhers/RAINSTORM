@@ -82,13 +82,9 @@ def find_files(path_name, exp_name, group, folder):
 
 #%%
 
-# At home:
-path = r'C:\Users\dhers\Desktop\Results\TORM'
-
-# In the lab:
-# path = r'/home/usuario/Desktop/Santi D/Videos_NOR' 
-
-experiment = r'2023-05_TORM_2m_24h'
+# State your path:
+path = r'C:/Users/dhers/OneDrive - UBA/workshop'
+experiment = r'2023-05_TORM-2m-24h'
 
 TS_position = find_files(path, experiment, "TS", "position")
 
@@ -158,12 +154,12 @@ def plot_timeline(position, labels, geolabels, autolabels):
     # Exploration on the left object
     plt.plot(labels["Left"][a:b] * 4, ".", color = "black", label = "Manual")
     plt.plot(geolabels["Left"][a:b] * 3, ".", color = "blue", label = "Geometric")
-    plt.plot(autolabels["Left"][a:b] * 2, ".", color = "red", label = "Automatic")    
+    plt.plot(autolabels["Left"][a:b] * 2, color = "red", label = "Automatic")    
     
     # Exploration on the right object
     plt.plot(labels["Right"][a:b] * -4, ".", color = "black")
     plt.plot(geolabels["Right"][a:b] * -3, ".", color = "blue")
-    plt.plot(autolabels["Right"][a:b] * -2, ".", color = "red")
+    plt.plot(autolabels["Right"][a:b] * -2, color = "red")
     
     # Plot distance and orientation to object 2
     plt.plot(angle2[a:b]*(-1) - 6, color = "lightgreen", label = "Orientation to 2 (deg)")
@@ -355,28 +351,28 @@ def accuracy_scores(reference, compare, method):
 
     for i in range(len(reference)):
 
-        if reference["Left"][i] != 0: # Count the total events of exploration
+        if reference["Left"][i] > 0.5: # Count the total events of exploration
             events += 1
-        if compare["Left"][i] != 0: # Count the total events of exploration
+        if compare["Left"][i] > 0.5: # Count the total events of exploration
             detected += 1
-        if reference["Left"][i] != 0 and compare["Left"][i] != 0: # Correct 
+        if reference["Left"][i] > 0.5 and compare["Left"][i] > 0.5: # Correct 
             sum_correct += 1
-        if reference["Left"][i] != 0 and compare["Left"][i] == 0: # False negative
+        if reference["Left"][i] > 0.5 and compare["Left"][i] < 0.5: # False negative
             sum_error += 1
-        if reference["Left"][i] == 0 and compare["Left"][i] != 0: # False positive
+        if reference["Left"][i] < 0.5 and compare["Left"][i] > 0.5: # False positive
             sum_false += 1
             
     for i in range(len(reference)):
         
-        if reference["Right"][i] != 0: # Count the total events of exploration
+        if reference["Right"][i] > 0.5: # Count the total events of exploration
             events += 1
-        if compare["Right"][i] != 0: # Count the total events of exploration
+        if compare["Right"][i] > 0.5: # Count the total events of exploration
             detected += 1
-        if reference["Right"][i] != 0 and compare["Right"][i] != 0: # Correct 
+        if reference["Right"][i] > 0.5 and compare["Right"][i] > 0.5: # Correct 
             sum_correct += 1
-        if reference["Right"][i] != 0 and compare["Right"][i] == 0: # False negative
+        if reference["Right"][i] > 0.5 and compare["Right"][i] < 0.5: # False negative
             sum_error += 1
-        if reference["Right"][i] == 0 and compare["Right"][i] != 0: # False positive
+        if reference["Right"][i] < 0.5 and compare["Right"][i] > 0.5: # False positive
             sum_false += 1
     
     print(f"Mice explored {(events/len(reference))*100}% of the time.")

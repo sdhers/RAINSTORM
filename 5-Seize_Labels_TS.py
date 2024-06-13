@@ -68,11 +68,12 @@ class Vector:
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-
-experiment = r'2024-05_TORM-Tg-3m'
+experiment = r'2023-05_TORM-2m-24h'
 
 stage_folder = os.path.join(path, experiment, 'TS')
-labels = 'geolabels'
+
+# State which labels you want to use
+label_type = 'labels'
 
 time_limit = None
 
@@ -113,7 +114,7 @@ def create_reference(folder_path, label_type):
 #%%
 
 # Lets create the reference.csv file
-reference_path = create_reference(stage_folder, labels)
+reference_path = create_reference(stage_folder, label_type)
 
 #%%
 
@@ -190,7 +191,7 @@ def rename_labels(reference_path, label_type):
 #%%
 
 # Lets rename the labels
-final_path, groups = rename_labels(reference_path, labels)
+final_path, groups = rename_labels(reference_path, label_type)
 
 #%%
 
@@ -371,10 +372,10 @@ def plot_all(path, name_start, time_limit = None, fps=25):
             # plt.show()
             
 #%%
-
-# for group in groups:
-#     plot_all(final_path, group)
-
+"""
+for group in groups:
+    plot_all(final_path, group)
+"""
 #%%
 
 def plot_groups(path, name_start, time_limit = None, fps=25):

@@ -23,7 +23,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.utils.class_weight import compute_class_weight
 
 import tensorflow as tf
-from tensorflow.keras.layers import LSTM, Dense, Input
+from tensorflow.keras.layers import LSTM, Dense, Input, Dropout
 from tensorflow.keras.callbacks import EarlyStopping, LearningRateScheduler
 
 print(tf.config.list_physical_devices('GPU'))
@@ -46,12 +46,12 @@ after = 2 # Say how many frames into the future the models will see
 frames = before + after + 1
 
 # Set the number of neurons in each layer
-param_0 = 48
+param_0 = 40
 param_H1 = 32
 param_H2 = 24
 param_H3 = 16
 
-batch_size = 8 # Set the batch size
+batch_size = 64 # Set the batch size
 lr = 0.0001 # Set the initial learning rate
 epochs = 100 # Set the training epochs
 patience = 10 # Set the wait for the early stopping mechanism
@@ -362,9 +362,21 @@ def evaluate(X, y, model):
 
 
 def evaluate_continuous(X, y, model):
-    
+    # Ensure X and y are on the same device
+    if isinstance(X, tf.Tensor):
+        if '/GPU:' in X.device:
+            y = tf.convert_to_tensor(y)
+            y = tf.identity(y)
+
     # Evaluate the model on the testing set
     y_pred = model.predict(X)
+
+    # Convert y and y_pred to numpy arrays if they are tensors
+    if isinstance(y_pred, tf.Tensor):
+        y_pred = y_pred.numpy()
+    
+    if isinstance(y, tf.Tensor):
+        y = y.numpy()
     
     mse = mean_squared_error(y, y_pred)
     mae = mean_absolute_error(y, y_pred)
@@ -383,10 +395,14 @@ Now we train the first model
 # Build a simple neural network
 model_simple = tf.keras.Sequential([
     Input(shape=(X_train.shape[1],)),
-    Dense(param_0, activation = 'relu'),
-    Dense(param_H1, activation = 'relu'),
-    Dense(param_H2, activation = 'relu'),
-    Dense(param_H3, activation = 'relu'),
+    Dense(param_0, activation='relu'),
+    Dropout(0.2),
+    Dense(param_H1, activation='relu'),
+    Dropout(0.2),
+    Dense(param_H2, activation='relu'),
+    Dropout(0.2),
+    Dense(param_H3, activation='relu'),
+    Dropout(0.2),
     Dense(1, activation='sigmoid')
 ])
 
@@ -480,9 +496,13 @@ X_val_seq, y_val_seq = reshape(X_val, y_val, before, after)
 model_wide = tf.keras.Sequential([
     Input(shape=(frames, X_train_seq.shape[2])),
     LSTM(param_0, activation = 'relu', return_sequences=True),
+    Dropout(0.2),
     LSTM(param_H1, activation = 'relu', return_sequences=True),
+    Dropout(0.2),
     LSTM(param_H2, activation = 'relu', return_sequences=True),
+    Dropout(0.2),
     LSTM(param_H3, activation = 'relu'),
+    Dropout(0.2),
     Dense(1, activation='sigmoid')
 ])
 

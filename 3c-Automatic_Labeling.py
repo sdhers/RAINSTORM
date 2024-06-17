@@ -40,7 +40,7 @@ STORM_folder = os.path.join(desktop, 'STORM/models')
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-05_TORM-2m-24h'
+experiment = r'2023-11_Interferencia'
 
 before = 2
 after = 2
@@ -56,9 +56,7 @@ all_position = TR1_position + TR2_position + TS_position
 #%%
 
 # Load the saved model from file
-loaded_model = load_model(os.path.join(STORM_folder, 'wide/model_wide_2024-06-12.keras'))
-
-# loaded_model = joblib.load(os.path.join(STORM_folder, f'RF/model_RF_203.pkl'))
+loaded_model = load_model(os.path.join(STORM_folder, 'wide/model_wide_2024-06-14.keras'))
 
 #%% Function to apply a median filter
 

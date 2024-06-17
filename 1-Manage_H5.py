@@ -23,7 +23,7 @@ from scipy import signal
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-05_TORM-2m-24h'
+experiment = r'2023-11_Interferencia'
 
 folder = os.path.join(path, experiment)
 
@@ -41,7 +41,7 @@ if not h5_files:
 else:
     example = random.choice(h5_files) # Choose one file at random to use as example
     example_path = os.path.join(folder, example)
-                   
+    
 #%%
 
 # Read the HDF5 file

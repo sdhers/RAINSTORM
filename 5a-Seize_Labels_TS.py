@@ -68,12 +68,12 @@ class Vector:
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-05_TORM-2m-24h'
+experiment = r'2023-11_Interferencia'
 
 stage_folder = os.path.join(path, experiment, 'TS')
 
 # State which labels you want to use
-label_type = 'labels'
+label_type = 'geolabels'
 
 time_limit = None
 

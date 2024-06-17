@@ -84,7 +84,7 @@ def find_files(path_name, exp_name, group, folder):
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-05_TORM-2m-24h'
+experiment = r'2023-11_Interferencia'
 
 TS_position = find_files(path, experiment, "TS", "position")
 

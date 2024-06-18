@@ -3,7 +3,13 @@ Created on Wed Oct 25 09:56:54 2023
 
 @author: Santiago D'hers
 
-This script will use .H5 files to prepare the .csv files with the positions to be analyzed
+Use:
+    - This script will use .H5 files to prepare the .csv files with the positions to be analyzed
+    - The positions are scaled from pixels to cm for better generalization
+
+Requirements:
+    - An "experiment" folder with files of extention .H5 (from DeepLabCut)
+    - Files have the position of two objects and the desired bodyparts
 """
 
 #%% Import libraries
@@ -23,13 +29,17 @@ from scipy import signal
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-11_Interferencia'
+experiment = r'2023-05_TeNOR'
 
 folder = os.path.join(path, experiment)
 
 groups  = ["Hab", "TR1", "TR2", "TS"]
 
-tolerance = 0.5
+tolerance = 0.5 # State the likelihood limit under which the coordenate will be erased
+
+obj_dist = 14 # State the distance between objects in the video
+
+video_fps = 25 # State the frames per second
 
 #%%
 
@@ -39,7 +49,8 @@ if not h5_files:
     print("No files found")
 
 else:
-    example = random.choice(h5_files) # Choose one file at random to use as example
+    # Choose one file at random to use as example
+    example = random.choice(h5_files)
     example_path = os.path.join(folder, example)
     
 #%%
@@ -50,7 +61,7 @@ all_keys = hdf_store.keys()
 main_key = str(all_keys[0][0])
 position_df = pd.read_hdf(example_path)[main_key]
 
-# Organize data in a new dataframe
+# Organize the data into a new dataframe
 example_data = pd.DataFrame()
 
 for key in position_df.columns:
@@ -63,7 +74,7 @@ for key in position_df.keys():
             
 #%%
 
-# Selecting only the even columns
+# Selecting some columns to visualize
 nose_columns = [col for col in example_data.columns if col.split('_')[0] == 'nose']
 example_nose = example_data[nose_columns]
 
@@ -80,7 +91,7 @@ example_interpolated = example_filtered.interpolate(method='pchip')
 
 #%%
 
-# Parameters
+# Try different filtering parameters
 window = 3
 sigma = 1
 n_sigmas = 2
@@ -120,28 +131,34 @@ ax2 = ax1.twinx()
 
 for column in example_nose.columns:
     if 'likelihood' not in column:
-        ax1.plot(example_nose.index, example_nose[column], label=column, marker='.', markersize=5)
+        ax1.plot(example_nose.index, example_nose[column], label=f'raw {column}', marker='.', markersize=6)
     else:
-        ax2.plot(example_nose.index, example_nose[column], label = f'{column}', color = 'gray', alpha = 0.5, markersize=5)
+        ax2.plot(example_nose.index, example_nose[column], label = f'{column}', color = 'black', alpha = 0.5, markersize=6)
 
 for column in example_interpolated.columns:
     if 'likelihood' not in column:
-        ax1.plot(example_soft.index, example_soft[column], label = f'soft {column}', marker='x', markersize = 3)
+        ax1.plot(example_soft.index, example_soft[column], label = f'new {column}', marker='x', markersize = 4)
 
     
 # Adding labels and titles
-ax1.set_xlabel('Date')
-ax1.set_ylabel('Primary Y-axis')
-ax2.set_ylabel('Nose Likelihood Y-axis')
+ax1.set_xlabel('Video frame')
+ax1.set_ylabel('Nose position (pixels)')
+ax2.set_ylabel('Nose Likelihood')
 
 # Adding legends
 lines_1, labels_1 = ax1.get_legend_handles_labels()
 lines_2, labels_2 = ax2.get_legend_handles_labels()
-ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='best')
+plt.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper left', fancybox=True, shadow=True, framealpha=1.0)
 
-plt.title('Multiple Columns with Independent Y-axis for Nose Likelihood')
+plt.title('Nose position & likelihood')
 plt.grid(True)
 plt.axhline(y=tolerance, color='r', linestyle='-')
+
+# Zoom in on some frames
+plt.xlim((2250, 2450))
+plt.ylim((-0.02, 1.02))
+
+plt.tight_layout()
 plt.show()
 
 #%%
@@ -151,7 +168,7 @@ This function turns _position.H5 files into _position.csv files
 It also scales the coordenates to be expressed in cm (by using the distance between objects)
 """
 
-def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.25, window = 3, sigma = 1, n_sigmas = 2):
+def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.5, window = 3, sigma = 1, n_sigmas = 2):
     
     # Parameters
     N = int(2 * n_sigmas * sigma + 1)
@@ -242,7 +259,7 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.25, window = 
             # Calculate the difference
             difference = max_x - min_x
             
-            scale = (distance*2 / difference) + 0.01 # lets assume that the max width of the nose range is twice as the distance between objects
+            scale = (distance*2 / difference) # lets assume that the max width of the nose range is twice as the distance between objects
 
             # Apply the transformation to current_data
             current_data = current_data * scale
@@ -272,7 +289,7 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.25, window = 
 Lets make the .csv files for our experiment folder
 """
 
-process_hdf5_file(folder, distance = 14, fps = 25, llhd = tolerance, window = 3, sigma = 1, n_sigmas = 2)
+process_hdf5_file(folder, distance = obj_dist, fps = video_fps, llhd = tolerance, window = 3, sigma = 1, n_sigmas = 2)
 
 #%%
 
@@ -299,8 +316,6 @@ def filter_and_move_files(input_folder, word, folder_name):
             shutil.move(file_path, output_path)
 
     print("Files filtered and moved successfully.")
-
-#%%
 
 """
 Finally we move all the files to their corresponding subfolder:

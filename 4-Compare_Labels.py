@@ -1,9 +1,14 @@
 """
 Created on Tue Oct 31 09:31:24 2023
 
-@author: dhers
+@author: Santiago D'hers
 
-This code will compare labels from the manual, geometric and automatic model
+Use:
+    - This script will compare manual labels, geolabels and autolabels
+
+Requirements:
+    - The position.csv files processed by 1-Manage_H5.py
+    - Geolabels, autolabels and manual labels
 """
 
 #%% Import libraries
@@ -84,7 +89,7 @@ def find_files(path_name, exp_name, group, folder):
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-11_Interferencia'
+experiment = r'2023-05_TeNOR'
 
 TS_position = find_files(path, experiment, "TS", "position")
 
@@ -94,12 +99,9 @@ TS_autolabels = find_files(path, experiment, "TS", "autolabels")
 
 #%%
 
-"""
-Select one video to use as example
-"""
+# Select one video to use as example
 
 video = random.randint(1, len(TS_position)) # Select the number of the video you want to use
-
 video_name = os.path.basename(TS_position[video - 1]).replace("_position.csv", "")
 
 position = pd.read_csv(TS_position[video - 1])
@@ -147,34 +149,40 @@ def plot_timeline(position, labels, geolabels, autolabels):
     
     plt.figure(figsize = (16, 6))
     
-    # Plot distance and orientation to object 1
-    plt.plot(angle1[a:b] + 6, color = "grey", label = "Orientation to 1 (deg)")
-    plt.plot(dist1[a:b] + 6, color = "black", label = "Distance to 1 (cm)" )
-    
     # Exploration on the left object
     plt.plot(labels["Left"][a:b] * 4, ".", color = "black", label = "Manual")
     plt.plot(geolabels["Left"][a:b] * 3, ".", color = "blue", label = "Geometric")
-    plt.plot(autolabels["Left"][a:b] * 2, color = "red", label = "Automatic")    
     
     # Exploration on the right object
     plt.plot(labels["Right"][a:b] * -4, ".", color = "black")
     plt.plot(geolabels["Right"][a:b] * -3, ".", color = "blue")
+    
+    # Add the rectangle to the plot
+    plt.gca().add_patch(plt.Rectangle((-10,-1), 7520, 2, color='white', ec='none', zorder=2))
+    
+    # Autolabels
+    plt.plot(autolabels["Left"][a:b] * 2, color = "red", label = "Automatic")    
     plt.plot(autolabels["Right"][a:b] * -2, color = "red")
+    
+    # Plot distance and orientation to object 1
+    plt.plot(angle1[a:b] + 6, color = "grey", label = "Orientation to 1 (deg)")
+    plt.plot(dist1[a:b] + 6, color = "black", label = "Distance to 1 (cm)" )
     
     # Plot distance and orientation to object 2
     plt.plot(angle2[a:b]*(-1) - 6, color = "lightgreen", label = "Orientation to 2 (deg)")
     plt.plot(dist2[a:b]*(-1) - 6, color = "darkgreen", label = "Distance to 2 (cm)")
     
     # Zoom in on some frames
-    # plt.xlim((3400, 6700))
+    plt.xlim((1200, 2250))
     
     # Zoom in on the labels and the minima of the distances and angles
-    plt.ylim((-30, 30))
+    plt.ylim((-20, 20))
     
     plt.xlabel("Frame number")
     plt.legend(loc='upper left', fancybox=True, shadow=True)
     
-    plt.suptitle(f"Analysis of {video_name}", y=0.98)
+    # plt.suptitle(f"Analysis of {video_name}", y=0.98)
+    plt.suptitle("Manual, geometric and automatic labels along with distance & angle of approach", y=0.95)
     plt.tight_layout()
     plt.show()
 
@@ -286,7 +294,8 @@ def polar_graph(position, label_1, label_2, Left = "Left", Right = "Right"):
     # Adjust layout to prevent clipping of labels
     plt.tight_layout()
     
-    plt.suptitle(f"Analysis of {video_name}", y=0.98)
+    # plt.suptitle(f"Analysis of {video_name}", y=0.98)
+    plt.suptitle("Polar graph indicating exploration", y=0.95)
     
     # Show the figure with two subplots
     plt.show()

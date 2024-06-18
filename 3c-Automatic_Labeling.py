@@ -1,9 +1,14 @@
 """
-Created on Tue Nov  7 16:59:14 2023
+Created on Thu Apr 18 05:43:21 2024
 
-@author: dhers
+@author: Santiago D'hers
 
-This code will train a model that classifies positions into exploration
+Use:
+    - This script will create autolabels analyzing position files
+
+Requirements:
+    - The position.csv files processed by 1-Manage_H5.py
+    - The desired model trained with 3a-Create_Models.py
 """
 
 #%% Import libraries
@@ -40,7 +45,7 @@ STORM_folder = os.path.join(desktop, 'STORM/models')
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-11_Interferencia'
+experiment = r'2023-05_TeNOR'
 
 before = 2
 after = 2
@@ -56,7 +61,7 @@ all_position = TR1_position + TR2_position + TS_position
 #%%
 
 # Load the saved model from file
-loaded_model = load_model(os.path.join(STORM_folder, 'wide/model_wide_2024-06-14.keras'))
+loaded_model = load_model(os.path.join(STORM_folder, 'wide/model_wide_2024-06-18.keras'))
 
 #%% Function to apply a median filter
 

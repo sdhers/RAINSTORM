@@ -1,9 +1,12 @@
 """
 Created on Thu Oct 26 10:28:08 2023
 
-@author: dhers
+@author: Santiago D'hers
 
-This code will help us visualize the results from the labeled videos
+Use:
+
+Requirements:
+
 """
 
 #%% Import libraries

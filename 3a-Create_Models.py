@@ -1,9 +1,18 @@
 """
 Created on Tue Nov  7 16:59:14 2023
 
-@author: dhers
+@author: Santiago D'hers
 
-This script will train a model that classifies positions into exploration
+Use:
+    - This script will train AI models to identify exploration using mouse and object position
+
+Requirements:
+    - The position.csv files processed by 1-Manage_H5.py
+    - Labeled data for the position files (to train the model)
+    or
+    - Access to the file colabeled_data.csv, where we can find:
+        - Position and labels for representative exploration events
+        - It includes the labels of 5 viewers (so far)
 """
 
 #%% Import libraries
@@ -133,8 +142,14 @@ if train_with_average:
         sum_df = sum_df.add(df, fill_value=0)
     avrg = sum_df / len(dfs)
     
+    """
+    We will process the average labels so that:
+        - If only one out of 5 viewers labeled exploration, the value be 0
+        - If 4 out of 5 viewers labeled exploration, the value be 1
+    """
+    
     # Transform values using sigmoid function
-    avrg_sigmoid = round(sigmoid(avrg),2)  # Adjust k as needed
+    avrg_sigmoid = round(sigmoid(avrg),2)
     avrg_filtered = median_filter(avrg_sigmoid, window_size = 5)
     
     if make_discrete:
@@ -193,21 +208,22 @@ def rescale(df, obj_cols = 4, body_cols = 16, labels = True):
 #%% This function prepares data for training, testing and validating
 
 def divide_training_data(df, rescaling = False):
-
+    
+    # We can discriminate the videos in the dataframe using the position of the objects
     unique_values = df.iloc[:, 0].unique()
     unique_values_list = unique_values.tolist()
 
-    # Calculate the number of elements to select (30% of the list)
+    # Calculate the number of elements to separate
     percentage = int(len(unique_values_list) * 0.3)
     
-    # Randomly select 10% of the numbers
+    # Randomly select the videos to separate
     selection = random.sample(unique_values_list, percentage)
     
-    # Split the list into two halves
+    # Split the separated list into two halves
     selection_test = selection[:len(selection) // 2]
     selection_val = selection[len(selection) // 2:]
     
-    # Create a new dataframe 'test' with rows from 'df' that start with the selected numbers
+    # Create new dataframes 'test' and 'val' with rows from 'df' that start with the separated numbers
     test = df[df.iloc[:, 0].astype(str).str.startswith(tuple(map(str, selection_test)))]
     val = df[df.iloc[:, 0].astype(str).str.startswith(tuple(map(str, selection_val)))]
     
@@ -253,7 +269,7 @@ else:
 
     if save_data:
         # Save arrays
-        with h5py.File(os.path.join(STORM_folder, f'training_data_{start_time.date()}.h5'), 'w') as hf:
+        with h5py.File(os.path.join(STORM_folder, f'training_data/training_data_{start_time.date()}.h5'), 'w') as hf:
             hf.create_dataset('X_test', data=X_test)
             hf.create_dataset('y_test', data=y_test)
             hf.create_dataset('X_val', data=X_val)
@@ -265,19 +281,27 @@ else:
 
 #%%
 
-# Select the first and last columns
-first_column = X_val.iloc[:, 0].copy()
-last_column = y_val.copy()
+# Select data to plot
+position = X_test.iloc[:, 0].copy()
+exploration = y_test.copy()
 
-# Plotting
-plt.figure(figsize=(10, 6))
-plt.plot(first_column, label=X_val.columns[0])
-plt.plot(last_column, label='exploration event')
-plt.xlabel('Index')
-plt.ylabel('Values')
-plt.title('Line Plot of First and Last Columns')
-plt.legend()
-plt.grid(True)
+# Plotting position
+plt.plot(position, label='position', color='blue')
+
+# Shading exploration regions
+plt.fill_between(range(len(exploration)), -30, 30, where=exploration>0.5, label='exploration', color='red', alpha=0.3)
+
+# Adding labels
+plt.xlabel('Frames')
+plt.ylabel('Nose horizontal position (cm)')
+plt.legend(loc='upper right', fancybox=True, shadow=True, framealpha=1.0)
+plt.title('Nose position with respect to the object')
+plt.axhline(y=0, color='black', linestyle='--')
+
+# Zoom in on some frames
+plt.xlim((0, 2500))
+plt.ylim((-11, 25))
+
 plt.show()
 
 #%%
@@ -333,7 +357,7 @@ def plot_history(model, model_name):
     plt.plot(model.history['accuracy'], label='Training accuracy')
     plt.plot(model.history['val_accuracy'], label='Validation accuracy')
     
-    plt.title(model_name)
+    plt.title(f'Training of model {model_name}')
     plt.xlabel('Epochs')
     plt.ylabel('%')
     plt.legend()
@@ -435,7 +459,7 @@ print(f"MSE = {mse_simple:.4f}, MAE = {mae_simple:.4f}, R-squared = {r2_simple:.
 
 #%% Save the model
 
-model_simple.save(os.path.join(STORM_folder, f'model_simple_{start_time.date()}.keras'))
+model_simple.save(os.path.join(STORM_folder, f'simple/model_simple_{start_time.date()}.keras'))
 
 #%%
 
@@ -534,15 +558,15 @@ print(f"MSE = {mse_wide:.4f}, MAE = {mae_wide:.4f}, R-squared = {r2_wide:.4f} ->
 
 #%% Save the model
 
-model_wide.save(os.path.join(STORM_folder, f'model_wide_{start_time.date()}.keras'))
+model_wide.save(os.path.join(STORM_folder, f'wide/model_wide_{start_time.date()}.keras'))
 
 #%%
 
 """
-Lets also train a new RF model
+Lets also train a Random Forest model
 """
 
-#%% We train a model with the same data
+#%% We train a RF model with the same data
 
 if not make_discrete:
     y_train = (y_train > 0.5).astype(int)
@@ -563,7 +587,7 @@ print(f"MSE = {mse_RF:.4f}, MAE = {mae_RF:.4f}, R-squared = {r2_RF:.4f} -> RF")
 
 #%% Save the model
 
-joblib.dump(RF_model, os.path.join(STORM_folder, f'model_RF_{start_time.date()}.pkl'))
+joblib.dump(RF_model, os.path.join(STORM_folder, f'RF/model_RF_{start_time.date()}.pkl'))
 
 #%% Get the end time
 

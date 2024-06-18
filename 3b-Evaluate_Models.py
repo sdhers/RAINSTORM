@@ -1,8 +1,16 @@
-# -*- coding: utf-8 -*-
 """
 Created on Thu Apr 18 05:43:21 2024
 
-@author: dhers
+@author: Santiago D'hers
+
+Use:
+    - This script will compare the performance of different trained models
+
+Requirements:
+    - Models trained with 3a-Create_Models.py
+    - Access to the file colabeled_data.csv, where we can find:
+        - Position and labels for representative exploration events
+        - It includes the labels of 5 viewers (so far)
 """
 
 #%% Import libraries
@@ -46,8 +54,7 @@ after = 2
 frames = before + after + 1
 
 today = datetime.datetime.now()
-# use_model_date = today.date()
-use_model_date = '2024-06-12'
+use_model_date = today.date()
 
 #%% Function to apply a median filter
 
@@ -239,19 +246,15 @@ X_all = position.copy()
 
 all_simple = use_model(X_all, model_simple)
 all_simple_binary = (all_simple > 0.5).astype(int) 
-all_simple_binary = median_filter(all_simple_binary)
 
 all_wide = use_model(X_all, model_wide, reshaping = True)
 all_wide_binary = (all_wide > 0.5).astype(int)
-all_wide_binary = median_filter(all_wide_binary)
 
 all_RF = use_model(X_all, RF_model)
-all_RF = median_filter(all_RF)
 
 #%%
 
 avrg_binary = (avrg_filtered > 0.5).astype(int)
-avrg_binary = median_filter(avrg_binary)
 
 #%%
 

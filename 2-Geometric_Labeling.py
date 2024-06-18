@@ -1,9 +1,13 @@
 """
 Created on Thu Oct 26 10:28:08 2023
 
-@author: dhers
+@author: Santiago D'hers
 
-This code will analyze the positions according to geometric parameters
+Use:
+    - This script will create the geolabels and calculate the distance traveled
+
+Requirements:
+    - The position.csv files processed by 1-Manage_H5.py
 """
 
 #%% Import libraries
@@ -84,7 +88,7 @@ def find_files(path_name, exp_name, group, folder):
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-11_Interferencia'
+experiment = r'2023-05_TeNOR'
 
 Hab_position = find_files(path, experiment, "Hab", "position")
 TR1_position = find_files(path, experiment, "TR1", "position")
@@ -93,21 +97,15 @@ TS_position = find_files(path, experiment, "TS", "position")
 
 all_position = Hab_position + TR1_position + TR2_position + TS_position
 
-#%%
-
-"""
-Lets see an example of the geometric algorithm
-"""
+#%% Lets see an example of the geometric algorithm
 
 video = random.randint(1, len(TS_position)) # Select the number of the video you want to use
-
 example = TS_position[video - 1]
 
-# %%
+#%%
 
-"""
-We extract the positions of both objects and all the bodyparts.
-"""
+# We extract the positions of both objects and all the bodyparts.
+
 def plot_position(file, maxDistance = 2.5, maxAngle = 45):
     
     # Read the .csv
@@ -115,10 +113,8 @@ def plot_position(file, maxDistance = 2.5, maxAngle = 45):
     
     # Extract the filename without extension
     filename = os.path.splitext(os.path.basename(file))[0]
-    
-    """
-    Extract positions of both objects and bodyparts
-    """
+
+    # Extract positions of both objects and bodyparts
     
     obj1 = Point(df, 'obj_1')
     obj2 = Point(df, 'obj_2')
@@ -126,17 +122,13 @@ def plot_position(file, maxDistance = 2.5, maxAngle = 45):
     nose = Point(df, 'nose')
     head = Point(df, 'head')
     
-    """
-    We now filter the frames where the mouse's nose is close to each object
-    """
+    # We now filter the frames where the mouse's nose is close to each object
     
     # Find distance from the nose to each object
     dist1 = Point.dist(nose, obj1)
     dist2 = Point.dist(nose, obj2)
     
-    """
-    Next, we filter the points where the mouse is looking at each object
-    """
+    # Next, we filter the points where the mouse is looking at each object
     
     # Compute normalized head-nose and head-object vectors
     head_nose = Vector(head, nose, normalize = True)
@@ -152,9 +144,7 @@ def plot_position(file, maxDistance = 2.5, maxAngle = 45):
     towards1 = nose.positions[(angle1 < maxAngle) & (dist1 < 2 * maxDistance)]
     towards2 = nose.positions[(angle2 < maxAngle) & (dist2 < 2 * maxDistance)]
 
-    """
-    Finally, we can plot the points that match both conditions
-    """
+    # Finally, we can plot the points that match both conditions
     
     # Highlight positions where the mouse is close to each object
     fig, ax = plt.subplots()
@@ -177,9 +167,10 @@ def plot_position(file, maxDistance = 2.5, maxAngle = 45):
     ax.axis('equal')
     ax.set_xlabel("Horizontal position (cm)")
     ax.set_ylabel("Vertical position (cm)")
-    ax.legend(bbox_to_anchor = (0, 0, 1, 1), ncol=2, loc='upper left', fancybox=True, shadow=True)
+    ax.legend(bbox_to_anchor = (0, 0, 1, 1), ncol=2, loc='upper left', fancybox=True, shadow=True, framealpha=1.0)
     
-    plt.title(f"Analysis of {filename}")
+    # plt.title(f"Analysis of {filename}")
+    plt.title("Nose coordinates during object exploration")
     plt.tight_layout()
     plt.show()
 
@@ -187,11 +178,7 @@ def plot_position(file, maxDistance = 2.5, maxAngle = 45):
 
 plot_position(example, maxDistance = 2.5, maxAngle = 45)
 
-#%%
-
-"""
-Now we define the function that creates the geometric labels for all _position.csv files in a folder
-"""
+#%% Now we define the function that creates the geometric labels for all _position.csv files in a folder
 
 def create_geolabels(files, maxDistance = 2.5, maxAngle = 45):
     
@@ -223,17 +210,17 @@ def create_geolabels(files, maxDistance = 2.5, maxAngle = 45):
         
         for i in range(len(dist1)):
             
-            geolabels["Frame"][i] = i+1
+            geolabels.loc[i, "Frame"] = i+1
             
-            distances["Frame"][i] = i+1
+            distances.loc[i, "Frame"] = i+1
             
             # Check if mouse is exploring object 1
             if dist1[i] < maxDistance and angle1[i] < maxAngle:
-                geolabels["Left"][i] = 1
+                geolabels.loc[i, "Left"] = 1
     
             # Check if mouse is exploring object 2
             elif dist2[i] < maxDistance and angle2[i] < maxAngle:
-                geolabels["Right"][i] = 1
+                geolabels.loc[i, "Right"] = 1
     
         geolabels['Frame'] = geolabels['Frame'].astype(int)
         geolabels['Left'] = geolabels['Left'].astype(int)
@@ -261,7 +248,7 @@ def create_geolabels(files, maxDistance = 2.5, maxAngle = 45):
         output_folder_distances = os.path.join(parent_dir + '/distances')
         os.makedirs(output_folder_distances, exist_ok = True)
         output_path_distances = os.path.join(output_folder_distances, output_filename_distances)
-        distances.to_csv(output_path_distances, index=False)        
+        distances.to_csv(output_path_distances, index=False)
             
         print(f"Processed {input_filename} and saved results to {output_filename_geolabels}")
 

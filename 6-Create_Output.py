@@ -1,7 +1,13 @@
 """
 Created on Mon Sep 18 12:17:36 2023
 
-@author: dhers
+@author: Santiago D'hers
+
+Use:
+    - This script will export a csv containing exploration times of a whole experiment
+
+Requirements:
+    - Geolabels, autolabels or manual labels
 """
 
 #%% Import libraries
@@ -15,7 +21,6 @@ import itertools
 
 # State your path:
 path = r'C:\Users\dhers\Desktop\workshop'
-
 experiment = r'2024-05_PD-45'
 
 trials = ["TS"]

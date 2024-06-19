@@ -4,9 +4,11 @@ Created on Thu Oct 26 10:28:08 2023
 @author: Santiago D'hers
 
 Use:
+    - This script will help us visualize the results of labeled videos
 
 Requirements:
-
+    - The position.csv files processed by 1-Manage_H5.py
+    - Geolabels, autolabels or manual labels
 """
 
 #%% Import libraries
@@ -71,7 +73,7 @@ class Vector:
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-05_TORM-2m-24h'
+experiment = r'2023-05_TeNOR'
 
 # Complete with the different stages of the experiment
 stages = ["TR1", "TR2", "TS"] # Tip: Put TS last, so that rename_labels can return the path to it's folder
@@ -80,7 +82,6 @@ stages = ["TR1", "TR2", "TS"] # Tip: Put TS last, so that rename_labels can retu
 label_type = "autolabels"
 
 time_limit = None
-
 fps = 25
 
 #%% Prepare the Reference file to change side into novelty
@@ -435,10 +436,10 @@ def plot_all(path, name_start, experiment, labels_folder, fps = 25):
             # plt.show()
             
 #%%
-"""
+
 for group in groups:
     plot_all(all_path, group, experiment, label_type)
-"""
+
 #%% Plot groups -> See all sessions for the mean of all mice, per group
 
 def plot_groups(path, name_start, experiment, labels_folder, fps=25):

@@ -1,9 +1,14 @@
 """
 Created on Thu Oct 26 10:28:08 2023
 
-@author: dhers
+@author: Santiago D'hers
 
-This code will help us visualize the results from the labeled videos
+Use:
+    - This script will help us visualize the results of labeled videos
+
+Requirements:
+    - The position.csv files processed by 1-Manage_H5.py
+    - Geolabels, autolabels or manual labels
 """
 
 #%% Import libraries
@@ -68,16 +73,16 @@ class Vector:
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-11_Interferencia'
+experiment = r'2023-05_TeNOR'
 
+# Since we are going to analyze only one session of the experiment, we need to access its folder (eg: TS)
 stage_folder = os.path.join(path, experiment, 'TS')
 
 # State which labels you want to use
-label_type = 'geolabels'
+label_type = 'labels'
 
 time_limit = None
-
-fps = 25
+video_fps = 25
 
 #%% Prepare the Reference file to change side into novelty
 
@@ -119,11 +124,7 @@ reference_path = create_reference(stage_folder, label_type)
 #%%
 
 """
-
-STOP!
-
-go to the Reference.csv and complete the columns
-
+STOP! Go to the Reference.csv and complete the columns
 """
 
 #%% Now we can rename the columns of our labels using the reference.csv file
@@ -133,7 +134,7 @@ def rename_labels(reference_path, label_type):
     parent_dir = os.path.dirname(reference_path)
     reference = pd.read_csv(reference_path)
     
-    # Create a subfolder named "final_labels"
+    # Create a subfolder named "final_{label_type}"
     renamed_path = os.path.join(parent_dir, f'final_{label_type}')
 
     # Check if it exists
@@ -235,29 +236,19 @@ def calculate_cumulative_sums(df, time_limit=None, fps=25):
 #%%
 
 def Extract_positions(position):
-    
-    """
-    Extract positions of both objects and bodyparts
-    """
-    
+
+    # Extract positions of both objects and bodyparts
     obj1 = Point(position, 'obj_1')
     obj2 = Point(position, 'obj_2')
-    
     nose = Point(position, 'nose')
     head = Point(position, 'head')
     
-    """
-    We now filter the frames where the mouse's nose is close to each object
-    """
-    
+    # We now filter the frames where the mouse's nose is close to each object
     # Find distance from the nose to each object
     dist1 = Point.dist(nose, obj1)
     dist2 = Point.dist(nose, obj2)
     
-    """
-    Next, we filter the points where the mouse is looking at each object
-    """
-    
+    # Next, we filter the points where the mouse is looking at each object    
     # Compute normalized head-nose and head-object vectors
     head_nose = Vector(head, nose, normalize = True)
     head_obj1 = Vector(head, obj1, normalize = True)
@@ -269,8 +260,8 @@ def Extract_positions(position):
     
     # Find points where the mouse is looking at the objects
     # Im asking the nose be closer to the aimed object to filter distant sighting
-    towards1 = nose.positions[(angle1 < 45) & (dist1 < 2.5 * 2.5)]
-    towards2 = nose.positions[(angle2 < 45) & (dist2 < 2.5 * 2.5)]
+    towards1 = nose.positions[(angle1 < 45) & (dist1 < 2.5 * 3)]
+    towards2 = nose.positions[(angle2 < 45) & (dist2 < 2.5 * 3)]
     
     return nose, towards1, towards2, obj1, obj2
 
@@ -369,7 +360,7 @@ def plot_all(path, name_start, time_limit = None, fps=25):
             plt.suptitle(f"Analysis of {subfolders[-3]}: {file_name}", y=0.98)  # Add DataFrame name as the overall title
             plt.tight_layout()
             plt.savefig(os.path.join(path, "plots", f"{file_name}_plot.png"))
-            # plt.show()
+            plt.show()
             
 #%%
 """

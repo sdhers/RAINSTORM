@@ -6,17 +6,16 @@ STORM is a tool for tracking object recognition memory. It allows users to track
 
 ### Features
 
+- Data processing to avoid dissapearing bodyparts
 - Geometric labeling through distance and angle of aproach
-- Automatic labeling using a random forest model
+- Automatic labeling using a trained AI model able to detect of temporal sequences of behaviour
 - Comparing labels in a visual and simple way
 
 ### Future steps
 
 - Learn to apply further DeepLabCut analysis:
   - Multianimal tracking for social memories
-  - Data filtering to avoid dissapearing bodyparts
   - Apply detection of moving objects for dinamic maze designs
-- Allow the automatic labeling model to detect temporal sequences
 
 # Pipeline
 
@@ -24,6 +23,7 @@ STORM is a tool for tracking object recognition memory. It allows users to track
 
 - DeepLabCut analyzes video files and returns a .H5 file with the position of the mouse's bodyparts (along with two objects, in the case of object exploration)
 - It is important to filter from the file the frames where the mouse is not in the video
+- Points that have a low likelihood assigned by DLC are filtered and data is processed by filters
 - Also, it is convenient to scale the video from pixels to cm
 - Return: We obtain .csv files with the scaled positions of the mice
 

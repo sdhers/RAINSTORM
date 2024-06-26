@@ -60,10 +60,10 @@ param_H1 = 32
 param_H2 = 24
 param_H3 = 16
 
-batch_size = 64 # Set the batch size
+batch_size = 32 # Set the batch size
 lr = 0.0001 # Set the initial learning rate
 epochs = 100 # Set the training epochs
-patience = 10 # Set the wait for the early stopping mechanism
+patience = 20 # Set the wait for the early stopping mechanism
 
 train_with_average = True # If false, it trains with all the labels separately
 make_discrete = False # If false, labels are float (not 0 and 1)
@@ -519,13 +519,13 @@ X_val_seq, y_val_seq = reshape(X_val, y_val, before, after)
 
 model_wide = tf.keras.Sequential([
     Input(shape=(frames, X_train_seq.shape[2])),
-    LSTM(param_0, activation = 'relu', return_sequences=True),
+    LSTM(param_0, return_sequences=True),
     Dropout(0.2),
-    LSTM(param_H1, activation = 'relu', return_sequences=True),
+    LSTM(param_H1, return_sequences=True),
     Dropout(0.2),
-    LSTM(param_H2, activation = 'relu', return_sequences=True),
+    LSTM(param_H2, return_sequences=True),
     Dropout(0.2),
-    LSTM(param_H3, activation = 'relu'),
+    LSTM(param_H3),
     Dropout(0.2),
     Dense(1, activation='sigmoid')
 ])

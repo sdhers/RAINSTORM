@@ -29,13 +29,13 @@ from scipy import signal
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-05_TeNOR'
+experiment = r'TeNOR'
 
 folder = os.path.join(path, experiment)
 
 groups  = ["Hab", "TR1", "TR2", "TS"]
 
-tolerance = 0.5 # State the likelihood limit under which the coordenate will be erased
+tolerance = 0.98 # State the likelihood limit under which the coordenate will be erased
 
 obj_dist = 14 # State the distance between objects in the video
 
@@ -155,8 +155,8 @@ plt.grid(True)
 plt.axhline(y=tolerance, color='r', linestyle='-')
 
 # Zoom in on some frames
-plt.xlim((2250, 2450))
-plt.ylim((-0.02, 1.02))
+# plt.xlim((2250, 2450))
+# plt.ylim((-0.02, 1.02))
 
 plt.tight_layout()
 plt.show()
@@ -250,7 +250,7 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.5, window = 3
             
             current_data = current_data * scale
 
-        else: # We ned to modify the script when there is no objects on the arena
+        else: # We need to modify the script when there is no objects on the arena
             
             # Calculate the max and min point the nose can reach
             max_x = current_data['nose_x'].max()
@@ -259,7 +259,7 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.5, window = 3
             # Calculate the difference
             difference = max_x - min_x
             
-            scale = (distance*2 / difference) # lets assume that the max width of the nose range is twice as the distance between objects
+            scale = (distance*2.5 / difference) # lets assume that the max width of the nose range is 2.5 times the distance between objects
 
             # Apply the transformation to current_data
             current_data = current_data * scale

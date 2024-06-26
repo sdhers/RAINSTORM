@@ -89,7 +89,7 @@ def find_files(path_name, exp_name, group, folder):
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-05_TeNOR'
+experiment = r'2023-11_Interferencia'
 
 TS_position = find_files(path, experiment, "TS", "position")
 
@@ -173,7 +173,7 @@ def plot_timeline(position, labels, geolabels, autolabels):
     plt.plot(dist2[a:b]*(-1) - 6, color = "darkgreen", label = "Distance to 2 (cm)")
     
     # Zoom in on some frames
-    plt.xlim((1200, 2250))
+    # plt.xlim((1200, 2250))
     
     # Zoom in on the labels and the minima of the distances and angles
     plt.ylim((-20, 20))

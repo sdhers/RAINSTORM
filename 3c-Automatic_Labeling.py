@@ -22,6 +22,8 @@ import tensorflow as tf
 import joblib
 from keras.models import load_model
 
+import datetime
+
 #%% This function finds the files that we want to use and lists their path
 
 def find_files(path_name, exp_name, group, folder):
@@ -45,7 +47,7 @@ STORM_folder = os.path.join(desktop, 'STORM/models')
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-05_TeNOR'
+experiment = r'TeNOR'
 
 before = 2
 after = 2
@@ -58,10 +60,15 @@ TS_position = find_files(path, experiment, "TS", "position")
 
 all_position = TR1_position + TR2_position + TS_position
 
+today = datetime.datetime.now()
+# use_model_date = today.date()
+use_model_date = '2024-06-13'
+
 #%%
 
 # Load the saved model from file
-loaded_model = load_model(os.path.join(STORM_folder, 'wide/model_wide_2024-06-18.keras'))
+# loaded_model = load_model(os.path.join(STORM_folder, 'wide/model_wide_{use_model_date}.keras'))
+loaded_model = joblib.load(os.path.join(STORM_folder, f'RF/model_RF_{use_model_date}.pkl'))
 
 #%% Function to apply a median filter
 
@@ -238,4 +245,4 @@ def create_autolabels(files, chosen_model, rescaling = True, reshaping = False):
 
 #%%
 
-create_autolabels(all_position, loaded_model, rescaling = True, reshaping = True) # Lets analyze!
+create_autolabels(all_position, loaded_model, rescaling = True, reshaping = False) # Lets analyze!

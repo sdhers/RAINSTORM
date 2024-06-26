@@ -73,13 +73,13 @@ class Vector:
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-05_TeNOR'
+experiment = r'TeNOR'
 
 # Since we are going to analyze only one session of the experiment, we need to access its folder (eg: TS)
 stage_folder = os.path.join(path, experiment, 'TS')
 
 # State which labels you want to use
-label_type = 'labels'
+label_type = 'autolabels'
 
 time_limit = None
 video_fps = 25
@@ -196,36 +196,36 @@ final_path, groups = rename_labels(reference_path, label_type)
 
 #%%
 
-def calculate_cumulative_sums(df, time_limit=None, fps=25):
+def calculate_cumulative_sums(df, _limit=None, fps=25):
     # Get the actual names of the second and third columns
     second_column_name = df.columns[1]
     third_column_name = df.columns[2]
 
     # Calculate cumulative sums
-    if time_limit is None:
-        df[f"{second_column_name}_cumsum"] = df[second_column_name].cumsum() / fps
-        df[f"{third_column_name}_cumsum"] = df[third_column_name].cumsum() / fps
+    if _limit is None:
+        df[f"{second_column_name} "] = df[second_column_name].cumsum() / fps
+        df[f"{third_column_name} "] = df[third_column_name].cumsum() / fps
         
     else:
-        row_limit = time_limit*fps
+        row_limit = _limit*fps
         
-        df[f"{second_column_name}_cumsum"] = df[second_column_name].cumsum() / fps
-        df[f"{second_column_name}_cumsum"].iloc[row_limit:] = df[f"{second_column_name}_cumsum"].iloc[row_limit-1]
+        df[f"{second_column_name} "] = df[second_column_name].cumsum() / fps
+        df[f"{second_column_name} "].iloc[row_limit:] = df[f"{second_column_name} "].iloc[row_limit-1]
         
-        df[f"{third_column_name}_cumsum"] = df[third_column_name].cumsum() / fps
-        df[f"{third_column_name}_cumsum"].iloc[row_limit:] = df[f"{third_column_name}_cumsum"].iloc[row_limit-1]
+        df[f"{third_column_name} "] = df[third_column_name].cumsum() / fps
+        df[f"{third_column_name} "].iloc[row_limit:] = df[f"{third_column_name} "].iloc[row_limit-1]
 
     # Calculate Discrimination Index
     df['Discrimination_Index'] = (
-        (df[f"{second_column_name}_cumsum"] - df[f"{third_column_name}_cumsum"]) /
-        (df[f"{second_column_name}_cumsum"] + df[f"{third_column_name}_cumsum"])
+        (df[f"{second_column_name} "] - df[f"{third_column_name} "]) /
+        (df[f"{second_column_name} "] + df[f"{third_column_name} "])
     ) * 100
     
     # Calculate Discrimination Index 2
-    df['Discrimination_Index_2'] = ((df[f"{second_column_name}_cumsum"] - df[f"{third_column_name}_cumsum"]))
+    df['Discrimination_Index_2'] = ((df[f"{second_column_name} "] - df[f"{third_column_name} "]))
 
     # Create a list of column names in the desired order
-    desired_order = ["Frame", f"{second_column_name}_cumsum", f"{third_column_name}_cumsum", "Discrimination_Index", "Discrimination_Index_2"]
+    desired_order = ["Frame", f"{second_column_name} ", f"{third_column_name} ", "Discrimination_Index", "Discrimination_Index_2"]
     desired_order = desired_order + [col for col in df.columns if col not in desired_order]
 
     # Reorder columns without losing data
@@ -363,10 +363,10 @@ def plot_all(path, name_start, time_limit = None, fps=25):
             plt.show()
             
 #%%
-"""
+
 for group in groups:
     plot_all(final_path, group)
-"""
+
 #%%
 
 def plot_groups(path, name_start, time_limit = None, fps=25):
@@ -482,18 +482,16 @@ for group in groups:
     
 #%%
 
-def plot_experiment(path, time_limit = None, fps=25):
+def plot_experiment(path, group_list, time_limit = None, fps=25):
     
     subfolders = path.split(os.path.sep) # list the name of the subfolders in the directory
     
     # Create a single figure
     fig, axes = plt.subplots(2, 2, figsize=(16, 8))
     
-    bxplt_positions = list(range(1, len(groups) + 1))
-    
-    maxtime = 5
-    
-    for i, name_start in enumerate(groups):
+    bxplt_positions = list(range(1, len(group_list) + 1))
+        
+    for i, name_start in enumerate(group_list):
         # Initialize an empty list to store DataFrames
         files = []
         bxplt = []
@@ -529,36 +527,33 @@ def plot_experiment(path, time_limit = None, fps=25):
         
         df['time_seconds'] = df['Frame'] / fps
         
-        maxtime = max(df.loc[df.index[-1], (f'{A_files}' ,'mean')], df.loc[df.index[-1], (f'{B_files}' ,'mean')], maxtime) + 2
-        
         # Distance covered
-        axes[0, 0].plot(df['time_seconds'], df[("nose_dist_cumsum" ,'mean')], label = f'nose distance {name_start}')
+        axes[0, 0].plot(df['time_seconds'], df[("nose_dist_cumsum" ,'mean')], label = f'Nose {name_start}')
         axes[0, 0].fill_between(df['time_seconds'], df[("nose_dist_cumsum" ,'mean')] - df[("nose_dist_cumsum", 'std')], df[("nose_dist_cumsum" ,'mean')] + df[("nose_dist_cumsum" ,'std')], alpha=0.2)
-        axes[0, 0].plot(df['time_seconds'], df[("body_dist_cumsum" ,'mean')], label = f'body distance {name_start}')
+        axes[0, 0].plot(df['time_seconds'], df[("body_dist_cumsum" ,'mean')], label = f'Body {name_start}')
         axes[0, 0].fill_between(df['time_seconds'], df[("body_dist_cumsum" ,'mean')] - df[("body_dist_cumsum", 'std')], df[("body_dist_cumsum" ,'mean')] + df[("body_dist_cumsum" ,'std')], alpha=0.2)
         axes[0, 0].set_xlabel('Time (s)')
         axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
         axes[0, 0].set_ylabel('Distance (m)')
         # axes[0, 0].set_ylim(0, 4000)
-        axes[0, 0].set_title('Distance Traveled in dfituation')
+        axes[0, 0].set_title('Distance Traveled')
         axes[0, 0].legend(loc='upper left', fancybox=True, shadow=True)
         axes[0, 0].grid(True)
         
         # Object exploration
-        axes[0, 1].plot(df['time_seconds'], df[(f'{A_files}' ,'mean')], label = f'{A_files} {name_start}', marker='_')
+        axes[0, 1].plot(df['time_seconds'], df[(f'{A_files}' ,'mean')], label = f'{A_files}{name_start}', marker='_')
         axes[0, 1].fill_between(df['time_seconds'], df[(f'{A_files}' ,'mean')] - df[(f'{A_files}', 'std')] /se, df[(f'{A_files}' ,'mean')] + df[(f'{A_files}' ,'std')] /se, alpha=0.2)
-        axes[0, 1].plot(df['time_seconds'], df[(f'{B_files}' ,'mean')], label = f'{B_files} {name_start}', marker='_')
+        axes[0, 1].plot(df['time_seconds'], df[(f'{B_files}' ,'mean')], label = f'{B_files}{name_start}', marker='_')
         axes[0, 1].fill_between(df['time_seconds'], df[(f'{B_files}' ,'mean')] - df[(f'{B_files}', 'std')] /se, df[(f'{B_files}' ,'mean')] + df[(f'{B_files}' ,'std')] /se, alpha=0.2)
         axes[0, 1].set_xlabel('Time (s)')
         axes[0, 1].set_xticks([0, 60, 120, 180, 240, 300])
         axes[0, 1].set_ylabel('Exploration Time (s)')
-        axes[0, 1].set_ylim(0, maxtime)
-        axes[0, 1].set_title('Exploration of objecdf during df')
+        axes[0, 1].set_title('Exploration of objects')
         axes[0, 1].legend(loc='upper left', fancybox=True, shadow=True)
         axes[0, 1].grid(True)
         
         # Discrimination Index
-        axes[1, 0].plot(df['time_seconds'], df[('Discrimination_Index', 'mean')], label=f'DI {name_start}', linestyle='--')
+        axes[1, 0].plot(df['time_seconds'], df[('Discrimination_Index', 'mean')], label=f'{name_start}', linestyle='--')
         axes[1, 0].fill_between(df['time_seconds'], df[('Discrimination_Index', 'mean')] - df[('Discrimination_Index', 'std')] /se, df[('Discrimination_Index', 'mean')] + df[('Discrimination_Index', 'std')] /se, alpha=0.2)
         axes[1, 0].set_xlabel('Time (s)')
         axes[1, 0].set_xticks([0, 60, 120, 180, 240, 300])
@@ -570,7 +565,7 @@ def plot_experiment(path, time_limit = None, fps=25):
         axes[1, 0].grid(True)
         
         # Boxplot
-        axes[1, 1].boxplot(bxplt[0], positions=[bxplt_positions[i]], labels=[f'{name_start}'])
+        axes[1, 1].boxplot(bxplt[0], positions=[bxplt_positions[i]], tick_labels = [f'{name_start}'])
         
         # Replace boxplots with scatter plots with jitter
         jitter_amount = 0.05  # Adjust the jitter amount as needed
@@ -578,13 +573,13 @@ def plot_experiment(path, time_limit = None, fps=25):
         
         axes[1, 1].axhline(y=0, color='black', linestyle='--', linewidth = 2)
         axes[1, 1].set_ylabel('DI (%)')
-        axes[1, 1].set_title('Boxplot of DI for each group')
+        axes[1, 1].set_title('Discrimination Index by group')
     
-    plt.suptitle(f"Analysis of {subfolders[-3]}", y=0.98)  # Add DataFrame name as the overall title
+    plt.suptitle(f"Analysis of experiment: {subfolders[-3]}", y=0.98)  # Add DataFrame name as the overall title
     plt.tight_layout()
     plt.savefig(os.path.join(os.path.dirname(path), f"{subfolders[-3]}_({subfolders[-1]}).png"))
     plt.show()
 
 #%%
 
-plot_experiment(final_path)
+plot_experiment(final_path, groups)

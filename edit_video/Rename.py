@@ -35,10 +35,10 @@ rename_files(folder_path, before, after)
 
 #%%
 
-folder_path = r'C:\Users\dhers\OneDrive - UBA\NOR position\Pharma\2024-05_PD-45'
+folder_path = r'C:\Users\dhers\OneDrive - UBA\workshop\TeNOR\TS\autolabels'
 
-before = 'TS2'
+before = 'TS1'
 
-after = 'TW'
+after = 'TS'
 
 rename_files(folder_path, before, after)

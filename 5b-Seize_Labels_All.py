@@ -73,7 +73,7 @@ class Vector:
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-05_TeNOR'
+experiment = r'TeNOR'
 
 # Complete with the different stages of the experiment
 stages = ["TR1", "TR2", "TS"] # Tip: Put TS last, so that rename_labels can return the path to it's folder
@@ -437,8 +437,8 @@ def plot_all(path, name_start, experiment, labels_folder, fps = 25):
             
 #%%
 
-for group in groups:
-    plot_all(all_path, group, experiment, label_type)
+# for group in groups:
+#   plot_all(all_path, group, experiment, label_type)
 
 #%% Plot groups -> See all sessions for the mean of all mice, per group
 
@@ -885,4 +885,4 @@ def plot_both_IDs(path, groups, experiment, labels_folder, fps=25):
 
 #%%
 
-plot_both_IDs(all_path, groups, experiment, label_type)
+# plot_both_IDs(all_path, groups, experiment, label_type)

@@ -35,7 +35,7 @@ folder = os.path.join(path, experiment)
 
 groups  = ["Hab", "TR1", "TR2", "TS"]
 
-tolerance = 0.98 # State the likelihood limit under which the coordenate will be erased
+tolerance = 0.99 # State the likelihood limit under which the coordenate will be erased
 
 obj_dist = 14 # State the distance between objects in the video
 
@@ -344,3 +344,5 @@ for file in other_files:
     
     # Move the file to the "extra" subfolder
     shutil.move(file_path, output_path)
+
+print("All .H5 files are stored away")

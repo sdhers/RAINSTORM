@@ -111,6 +111,9 @@ def plot_position(file, maxDistance = 2.5, maxAngle = 45):
     # Read the .csv
     df = pd.read_csv(file)
     
+    # Remove the rows where the mouse is still not in the video
+    df.dropna(inplace=True)
+    
     # Extract the filename without extension
     filename = os.path.splitext(os.path.basename(file))[0]
 
@@ -141,8 +144,8 @@ def plot_position(file, maxDistance = 2.5, maxAngle = 45):
     
     # Find points where the mouse is looking at the objects
     # Im asking the nose be closer to the aimed object to filter distant sighting
-    towards1 = nose.positions[(angle1 < maxAngle) & (dist1 < 2 * maxDistance)]
-    towards2 = nose.positions[(angle2 < maxAngle) & (dist2 < 2 * maxDistance)]
+    towards1 = nose.positions[(angle1 < maxAngle) & (dist1 < dist2)]
+    towards2 = nose.positions[(angle2 < maxAngle) & (dist2 < dist1)]
 
     # Finally, we can plot the points that match both conditions
     
@@ -180,11 +183,22 @@ plot_position(example, maxDistance = 2.5, maxAngle = 45)
 
 #%% Now we define the function that creates the geometric labels for all _position.csv files in a folder
 
-def create_geolabels(files, maxDistance = 2.5, maxAngle = 45):
+def create_geolabels(files, maxDistance = 2.5, maxAngle = 45, nan_to_0 = False):
     
     for file in files:
-    
+        
+        # Determine the output file path
+        input_dir, input_filename = os.path.split(file)
+        parent_dir = os.path.dirname(input_dir)
+        
+        # Read the file
         position = pd.read_csv(file)
+        
+        # Remove the rows where the mouse is still not in the video, excluding the first 4 columns (the object)
+        original_rows = position.shape[0]
+        position.dropna(subset = position.columns[4:], inplace=True)
+        position.reset_index(drop=True, inplace=True)
+        rows_removed = original_rows - position.shape[0]
     
         # Extract positions of both objects and bodyparts
         obj1 = Point(position, 'obj_1')
@@ -203,46 +217,62 @@ def create_geolabels(files, maxDistance = 2.5, maxAngle = 45):
     
         angle1 = Vector.angle(head_nose, head_obj1)
         angle2 = Vector.angle(head_nose, head_obj2)
-    
-        geolabels = pd.DataFrame(np.zeros((len(dist1), 3)), columns=["Frame", "Left", "Right"]) 
         
-        distances = pd.DataFrame(np.zeros((len(dist1), 3)), columns=["Frame", "nose_dist", "body_dist"])
+        if "Hab" not in file:
+            
+            # Create the geolabels dataframe
+            geolabels = pd.DataFrame(np.zeros((position.shape[0], 2)), columns=["Left", "Right"]) 
+            
+            for i in range(position.shape[0]):
+                
+                # Check if mouse is exploring object 1
+                if dist1[i] < maxDistance and angle1[i] < maxAngle:
+                    geolabels.loc[i, "Left"] = 1
         
-        for i in range(len(dist1)):
+                # Check if mouse is exploring object 2
+                elif dist2[i] < maxDistance and angle2[i] < maxAngle:
+                    geolabels.loc[i, "Right"] = 1
+
+            geolabels['Left'] = geolabels['Left'].astype(int)
+            geolabels['Right'] = geolabels['Right'].astype(int)
             
-            geolabels.loc[i, "Frame"] = i+1
+            # Add rows filled with zeros at the beginning of geolabels
+            zeros_rows = pd.DataFrame(np.nan, index=np.arange(rows_removed), columns=geolabels.columns)
+            geolabels = pd.concat([zeros_rows, geolabels]).reset_index(drop=True)
             
-            distances.loc[i, "Frame"] = i+1
+            # Insert a new column with the frame number at the beginning of the DataFrame
+            geolabels.insert(0, 'Frame', range(1, len(geolabels) + 1))
             
-            # Check if mouse is exploring object 1
-            if dist1[i] < maxDistance and angle1[i] < maxAngle:
-                geolabels.loc[i, "Left"] = 1
-    
-            # Check if mouse is exploring object 2
-            elif dist2[i] < maxDistance and angle2[i] < maxAngle:
-                geolabels.loc[i, "Right"] = 1
-    
-        geolabels['Frame'] = geolabels['Frame'].astype(int)
-        geolabels['Left'] = geolabels['Left'].astype(int)
-        geolabels['Right'] = geolabels['Right'].astype(int)
+            if nan_to_0:
+                # Fill any remaining nan with 0
+                geolabels.fillna(0, inplace=True)
+            
+            # Create a filename for the output CSV file
+            output_filename_geolabels = input_filename.replace('_position.csv', '_geolabels.csv')
+            output_folder_geolabels = os.path.join(parent_dir + '/geolabels')
+            os.makedirs(output_folder_geolabels, exist_ok = True)
+            output_path_geolabels = os.path.join(output_folder_geolabels, output_filename_geolabels)
+            geolabels.to_csv(output_path_geolabels, index=False)
+            
+            print(f"Saved geolabels to {output_filename_geolabels}")
+        
+        # Create the distances dataframe
+        distances = pd.DataFrame(np.zeros((position.shape[0], 2)), columns=["nose_dist", "body_dist"])
         
         # Calculate the Euclidean distance between consecutive nose positions
         distances['nose_dist'] = (((position['nose_x'].diff())**2 + (position['nose_y'].diff())**2)**0.5) / 100
         distances['body_dist'] = (((position['body_x'].diff())**2 + (position['body_y'].diff())**2)**0.5) / 100
         
-        # Replace NaN values with 0
-        distances = distances.fillna(0)
-    
-        # Determine the output file path
-        input_dir, input_filename = os.path.split(file)
-        parent_dir = os.path.dirname(input_dir)
-    
-        # Create a filename for the output CSV file
-        output_filename_geolabels = input_filename.replace('_position.csv', '_geolabels.csv')
-        output_folder_geolabels = os.path.join(parent_dir + '/geolabels')
-        os.makedirs(output_folder_geolabels, exist_ok = True)
-        output_path_geolabels = os.path.join(output_folder_geolabels, output_filename_geolabels)
-        geolabels.to_csv(output_path_geolabels, index=False)
+        # Add rows filled with zeros at the beginning of distances
+        zeros_rows = pd.DataFrame(np.nan, index=np.arange(rows_removed), columns=distances.columns)
+        distances = pd.concat([zeros_rows, distances]).reset_index(drop=True)
+        
+        # Insert a new column with the frame number at the beginning of the DataFrame
+        distances.insert(0, 'Frame', range(1, len(distances) + 1))
+        
+        if nan_to_0:
+            # Fill any remaining nan with 0
+            distances.fillna(0, inplace=True)
         
         output_filename_distances = input_filename.replace('_position.csv', '_distances.csv')
         output_folder_distances = os.path.join(parent_dir + '/distances')
@@ -250,8 +280,8 @@ def create_geolabels(files, maxDistance = 2.5, maxAngle = 45):
         output_path_distances = os.path.join(output_folder_distances, output_filename_distances)
         distances.to_csv(output_path_distances, index=False)
             
-        print(f"Processed {input_filename} and saved results to {output_filename_geolabels}")
+        print(f"Saved distances to {output_filename_distances}")
 
 #%%
 
-create_geolabels(all_position, maxDistance = 2.5, maxAngle = 45)
+create_geolabels(all_position)

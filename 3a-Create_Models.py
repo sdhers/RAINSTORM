@@ -60,13 +60,13 @@ param_H1 = 32
 param_H2 = 24
 param_H3 = 16
 
-batch_size = 32 # Set the batch size
+batch_size = 64 # Set the batch size
 lr = 0.0001 # Set the initial learning rate
 epochs = 100 # Set the training epochs
-patience = 20 # Set the wait for the early stopping mechanism
+patience = 10 # Set the wait for the early stopping mechanism
 
-train_with_average = True # If false, it trains with all the labels separately
-make_discrete = False # If false, labels are float (not 0 and 1)
+train_with_average = True # If False, it trains with all the labels separately
+make_discrete = False # If False, labels are float (not 0 and 1)
 
 use_saved_data = False # if True, we use the dataframe processed previously
 
@@ -100,8 +100,8 @@ def median_filter(df, window_size = 3):
     
     return filtered_df
 
-def sigmoid(x, k=20):
-    return 1 / (1 + np.exp(-k * x+(k/2)))
+def sigmoid(x, k=20, c = 0.2):
+    return 1 / (1 + np.exp(-k * (x - c) + (k / 2)))
 
 #%% Lets load the data
 
@@ -289,7 +289,7 @@ exploration = y_test.copy()
 plt.plot(position, label='position', color='blue')
 
 # Shading exploration regions
-plt.fill_between(range(len(exploration)), -30, 30, where=exploration>0.5, label='exploration', color='red', alpha=0.3)
+plt.fill_between(range(len(exploration)), -30, 30, where = exploration > 0.5, label = 'exploration', color='red', alpha=0.3)
 
 # Adding labels
 plt.xlabel('Frames')
@@ -545,7 +545,7 @@ history_wide = model_wide.fit(X_train_seq, y_train_seq,
                               callbacks=[early_stopping, lr_scheduler])
 
 #%% Plot the training and validation loss
-    
+
 plot_history(history_wide, "wide")
 
 #%% Calculate accuracy and precision of the model
@@ -608,6 +608,63 @@ print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f}, Recall
 print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f}, Recall = {recall_RF:.4f}, F1 Score = {f1_RF:.4f} -> RF")
 
 print("VS continuous average")
-print (f"MSE = {mse_simple:.4f}, MAE = {mae_simple:.4f}, R-squared = {r2_simple:.4f} -> simple")
-print (f"MSE = {mse_wide:.4f}, MAE = {mae_wide:.4f}, R-squared = {r2_wide:.4f} -> wide")
-print (f"MSE = {mse_RF:.4f}, MAE = {mae_RF:.4f}, R-squared = {r2_RF:.4f} -> RF")
+print(f"MSE = {mse_simple:.4f}, MAE = {mae_simple:.4f}, R-squared = {r2_simple:.4f} -> simple")
+print(f"MSE = {mse_wide:.4f}, MAE = {mae_wide:.4f}, R-squared = {r2_wide:.4f} -> wide")
+print(f"MSE = {mse_RF:.4f}, MAE = {mae_RF:.4f}, R-squared = {r2_RF:.4f} -> RF")
+
+#%% Lets test the accuracy of a random and zero y_test
+
+y_zeros = y_test - y_test
+
+y_random = y_test.sample(frac=1).reset_index(drop=True)
+y_random_binary = (y_random > 0.5).astype(int)
+
+y_binary = (y_test > 0.5).astype(int)
+
+#%% zeros
+
+print(classification_report(y_binary, y_zeros))
+
+accuracy_zeros = accuracy_score(y_binary, y_zeros)
+precision_zeros = precision_score(y_binary, y_zeros, average = 'weighted')
+recall_zeros = recall_score(y_binary, y_zeros, average = 'weighted')
+f1_zeros = f1_score(y_binary, y_zeros, average = 'weighted')
+print(f"Accuracy = {accuracy_zeros:.4f}, Precision = {precision_zeros:.4f}, Recall = {recall_zeros:.4f}, F1 Score = {f1_zeros:.4f} -> zeros")
+
+mse_zeros = mean_squared_error(y_test, y_zeros)
+mae_zeros = mean_absolute_error(y_test, y_zeros)
+r2_zeros = r2_score(y_test, y_zeros)
+print(f"MSE = {mse_zeros:.4f}, MAE = {mae_zeros:.4f}, R-squared = {r2_zeros:.4f} -> zeros")
+
+#%% random
+
+print(classification_report(y_binary, y_random_binary))
+
+accuracy_random = accuracy_score(y_binary, y_random_binary)
+precision_random = precision_score(y_binary, y_random_binary, average = 'weighted')
+recall_random = recall_score(y_binary, y_random_binary, average = 'weighted')
+f1_random = f1_score(y_binary, y_random_binary, average = 'weighted')
+print(f"Accuracy = {accuracy_random:.4f}, Precision = {precision_random:.4f}, Recall = {recall_random:.4f}, F1 Score = {f1_random:.4f} -> random")
+
+mse_random = mean_squared_error(y_test, y_random)
+mae_random = mean_absolute_error(y_test, y_random)
+r2_random = r2_score(y_test, y_random)
+print(f"MSE = {mse_random:.4f}, MAE = {mae_random:.4f}, R-squared = {r2_random:.4f} -> random")
+
+#%%
+
+print("Evaluate model vs testing data")
+
+print("VS binary average")
+print(f"Accuracy = {accuracy_simple:.4f}, Precision = {precision_simple:.4f}, Recall = {recall_simple:.4f}, F1 Score = {f1_simple:.4f} -> simple")
+print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f}, Recall = {recall_wide:.4f}, F1 Score = {f1_wide:.4f} -> wide")
+print(f"Accuracy = {accuracy_RF:.4f}, Precision = {precision_RF:.4f}, Recall = {recall_RF:.4f}, F1 Score = {f1_RF:.4f} -> RF")
+print(f"Accuracy = {accuracy_zeros:.4f}, Precision = {precision_zeros:.4f}, Recall = {recall_zeros:.4f}, F1 Score = {f1_zeros:.4f} -> zeros")
+print(f"Accuracy = {accuracy_random:.4f}, Precision = {precision_random:.4f}, Recall = {recall_random:.4f}, F1 Score = {f1_random:.4f} -> random")
+
+print("VS continuous average")
+print(f"MSE = {mse_simple:.4f}, MAE = {mae_simple:.4f}, R-squared = {r2_simple:.4f} -> simple")
+print(f"MSE = {mse_wide:.4f}, MAE = {mae_wide:.4f}, R-squared = {r2_wide:.4f} -> wide")
+print(f"MSE = {mse_RF:.4f}, MAE = {mae_RF:.4f}, R-squared = {r2_RF:.4f} -> RF")
+print(f"MSE = {mse_zeros:.4f}, MAE = {mae_zeros:.4f}, R-squared = {r2_zeros:.4f} -> zeros")
+print(f"MSE = {mse_random:.4f}, MAE = {mae_random:.4f}, R-squared = {r2_random:.4f} -> random")

@@ -76,8 +76,8 @@ def median_filter(df, window_size = 3):
     
     return filtered_df
 
-def sigmoid(x, k=20):
-    return 1 / (1 + np.exp(-k * x+(k/2)))
+def sigmoid(x, k=20, c = 0.2):
+    return 1 / (1 + np.exp(-k * (x - c) + (k / 2)))
 
 #%%
 

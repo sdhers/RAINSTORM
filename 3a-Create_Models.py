@@ -55,15 +55,15 @@ after = 2 # Say how many frames into the future the models will see
 frames = before + after + 1
 
 # Set the number of neurons in each layer
-param_0 = 40
-param_H1 = 32
-param_H2 = 24
-param_H3 = 16
+param_0 = 34
+param_H1 = 21
+param_H2 = 13
+param_H3 = 8
 
-batch_size = 32 # Set the batch size
+batch_size = 64 # Set the batch size
 lr = 0.0001 # Set the initial learning rate
-epochs = 100 # Set the training epochs
-patience = 20 # Set the wait for the early stopping mechanism
+epochs = 20 # Set the training epochs
+patience = 5 # Set the wait for the early stopping mechanism
 
 train_with_average = True # If false, it trains with all the labels separately
 make_discrete = False # If false, labels are float (not 0 and 1)
@@ -96,12 +96,12 @@ def median_filter(df, window_size = 3):
     changed_values_count = (df != filtered_df).sum().sum()
     
     # Print the count of changed values
-    print(f"Number of values changed by the filter: {changed_values_count}")
+    print(f"Median filter changed {changed_values_count} points")
     
     return filtered_df
 
 def sigmoid(x, k=20):
-    return 1 / (1 + np.exp(-k * x+(k/2)))
+    return 1 / (1 + np.exp(-k * (x - 0.2) + (k/2)))
 
 #%% Lets load the data
 
@@ -142,13 +142,7 @@ if train_with_average:
         sum_df = sum_df.add(df, fill_value=0)
     avrg = sum_df / len(dfs)
     
-    """
-    We will process the average labels so that:
-        - If only one out of 5 viewers labeled exploration, the value be 0
-        - If 4 out of 5 viewers labeled exploration, the value be 1
-    """
-    
-    # Transform values using sigmoid function
+    # Transform values using sigmoid function, to emphasize agreement between labelers
     avrg_sigmoid = round(sigmoid(avrg),2)
     avrg_filtered = median_filter(avrg_sigmoid, window_size = 5)
     
@@ -163,9 +157,27 @@ else:
     concatenated_labels = pd.concat(dfs, ignore_index=True)
     ready_data = pd.concat([concatenated_df, concatenated_labels], axis = 1)
 
+#%% Function to focus on the most important video parts
+
+def focus_rows(df, window = 25):
+    # Initialize a list to store indices of rows to be removed
+    rows_to_remove = []
+
+    # Iterate through the dataframe
+    for i in range(len(df)):
+        # Check if the last two columns have a 1 in at least 10 rows prior and after the current row
+        if (df.iloc[max(0, i - window):i, -1:] == 0).all().all() and (df.iloc[i + 1:i + window + 1, -1:] == 0).all().all():
+            rows_to_remove.append(i)
+
+    # Drop the rows from the dataframe
+    df_focused = df.drop(rows_to_remove)
+    print(f'Removed {len(rows_to_remove)} rows')
+
+    return df_focused
+
 #%%
 
-def rescale(df, obj_cols = 4, body_cols = 16, labels = True):
+def rescale(df, obj_cols = 4, body_cols = 16, labels = True, focus = True):
     
     # First for the object on the left
     # Select columns 5 to 16 (bodyparts)
@@ -203,37 +215,108 @@ def rescale(df, obj_cols = 4, body_cols = 16, labels = True):
     
     final_df = pd.concat([left_df, right_df], ignore_index=True)
     
+    if labels:
+        if focus:
+            final_df = focus_rows(final_df)
+        # Pop the last column and store it in 'labels'
+        labels = final_df.pop(final_df.columns[-1])
+    
+        return final_df, labels
+    
     return final_df
 
-#%% This function prepares data for training, testing and validating
+#%% This function reshapes data for LSTM models
 
-def divide_training_data(df, rescaling = False):
+def reshape(df, back = before, forward = after):
     
-    # We can discriminate the videos in the dataframe using the position of the objects
-    unique_values = df.iloc[:, 0].unique()
-    unique_values_list = unique_values.tolist()
+    reshaped_df = []
+    
+    for i in range(0, back):
+        reshaped_df.append(df[: 1 + back + forward])
+            
+    for i in range(back, len(df) - forward):
+        reshaped_df.append(df[i - back : 1 + i + forward])
+    
+    for i in range(len(df) - forward, len(df)):
+        reshaped_df.append(df[-(1 + back + forward):])
+    
+    return reshaped_df
 
-    # Calculate the number of elements to separate
-    percentage = int(len(unique_values_list) * 0.3)
+#%%
+
+def prepare_training_data(df, focusing = False):
     
-    # Randomly select the videos to separate
-    selection = random.sample(unique_values_list, percentage)
+    # Group the DataFrame by the values in the first column
+    groups = df.groupby(df.columns[0])
     
-    # Split the separated list into two halves
-    selection_test = selection[:len(selection) // 2]
-    selection_val = selection[len(selection) // 2:]
+    # Split the DataFrame into multiple DataFrames and labels
+    final_dataframes = {}
+    wide_dataframes = {}
     
-    # Create new dataframes 'test' and 'val' with rows from 'df' that start with the separated numbers
-    test = df[df.iloc[:, 0].astype(str).str.startswith(tuple(map(str, selection_test)))]
-    val = df[df.iloc[:, 0].astype(str).str.startswith(tuple(map(str, selection_val)))]
+    for category, group in groups:
+        rescaled_data, labels = rescale(group, focus=focusing)
+        final_dataframes[category] = {'position': rescaled_data, 'labels': labels}
+        reshaped_data = reshape(rescaled_data)
+        wide_dataframes[category] = {'position': reshaped_data, 'labels': labels}
+        
+    # Get a list of the keys (categories)
+    keys = list(wide_dataframes.keys())
     
-    # Remove the selected rows from the original dataframe 'df'
-    df = df[~df.iloc[:, 0].astype(str).str.startswith(tuple(map(str, selection)))]
+    # Shuffle the keys
+    np.random.shuffle(keys)
     
-    if rescaling:
-        return rescale(df), rescale(test), rescale(val)
+    # Calculate the total length of the list
+    total_length = len(keys)
     
-    return df, test, val
+    # Calculate the lengths for each part
+    len_train = total_length * 70 // 100
+    len_test = total_length * 15 // 100
+    
+    # Use slicing to divide the list
+    train_keys = keys[:len_train]
+    test_keys = keys[len_train:(len_train + len_test)]
+    val_keys = keys[(len_train + len_test):]
+    
+    # Initialize empty lists to collect dataframes
+    X_train = []
+    y_train = []
+    X_test = []
+    y_test = []
+    X_val = []
+    y_val = []
+    
+    # first the simple data 
+    for key in train_keys:
+        X_train.append(final_dataframes[key]['position'])
+        y_train.append(final_dataframes[key]['labels'])
+    for key in test_keys:
+        X_test.append(final_dataframes[key]['position'])
+        y_test.append(final_dataframes[key]['labels'])
+    for key in val_keys:
+        X_val.append(final_dataframes[key]['position'])
+        y_val.append(final_dataframes[key]['labels'])
+    
+    X_train = pd.concat(X_train, ignore_index=True)
+    X_test = pd.concat(X_test, ignore_index=True)
+    X_val = pd.concat(X_val, ignore_index=True)
+        
+    y_train = pd.concat(y_train, ignore_index=True)
+    y_test = pd.concat(y_test, ignore_index=True)
+    y_val = pd.concat(y_val, ignore_index=True)
+    
+    # Now for the wide data
+    X_train_wide = []
+    X_test_wide = []
+    X_val_wide = []
+     
+    for key in train_keys:
+        X_train_wide.extend(wide_dataframes[key]['position'])
+    for key in test_keys:
+        X_test_wide.extend(wide_dataframes[key]['position'])
+    for key in val_keys:
+        X_val_wide.extend(wide_dataframes[key]['position'])
+
+    return X_train_wide, X_train, y_train, X_test_wide, X_test, y_test, X_val_wide, X_val, y_val
 
 #%%
 
@@ -246,26 +329,20 @@ if use_saved_data:
         y_val = hf['y_val'][:]
         X_train = hf['X_train'][:]
         y_train = hf['y_train'][:]
+        X_test_wide = hf['X_test_wide'][:]
+        X_val_wide = hf['X_val_wide'][:]
+        X_train_wide = hf['X_train_wide'][:]
         
     print("Data is ready to train")
 
 else:
-
-    train, test, val = divide_training_data(ready_data, rescaling = True)
-    
-    X_train = train.iloc[:, :-1].copy()
-    y_train = train.iloc[:, -1].copy()
-    
-    X_test = test.iloc[:, :-1].copy()
-    y_test = test.iloc[:, -1].copy()
-    
-    X_val = val.iloc[:, :-1].copy()
-    y_val = val.iloc[:, -1].copy()
+    X_train_wide, X_train, y_train, X_test_wide, X_test, y_test, X_val_wide, X_val, y_val = prepare_training_data(ready_data, focusing = True)
     
     # Print the sizes of each set
     print(f"Training set size: {len(X_train)} samples")
     print(f"Validation set size: {len(X_val)} samples")
     print(f"Testing set size: {len(X_test)} samples")
+    print(f"Total samples: {len(X_train)+len(X_val)+len(X_test)}")
 
     if save_data:
         # Save arrays
@@ -276,6 +353,9 @@ else:
             hf.create_dataset('y_val', data=y_val)
             hf.create_dataset('X_train', data=X_train)
             hf.create_dataset('y_train', data=y_train)
+            hf.create_dataset('X_test_wide', data=X_test_wide)
+            hf.create_dataset('X_val_wide', data=X_val_wide)
+            hf.create_dataset('X_train_wide', data=X_train_wide)
             
             print(f'Saved data to training_data_{start_time.date()}.h5')
 
@@ -311,12 +391,6 @@ Lets get some tools ready for model training:
     early stopping
     scheduled learning rate
 """
-
-#%%
-
-# Compute class weights if dataset is imbalanced
-class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
-class_weights = {i: class_weights[i] for i in range(len(class_weights))}
 
 #%% Define the EarlyStopping callback
 
@@ -442,7 +516,6 @@ history_simple = model_simple.fit(X_train, y_train,
                                   epochs=epochs,
                                   batch_size=batch_size,
                                   validation_data=(X_val, y_val),
-                                  class_weight=class_weights,
                                   callbacks=[early_stopping, lr_scheduler])
 
 #%%
@@ -467,53 +540,9 @@ model_simple.save(os.path.join(STORM_folder, f'simple/model_simple_{start_time.d
 Lets move onto training a Recursive Network (that can see sequences)
 """
 
-#%% This function reshapes data for LSTM models
-
-def reshape(data, labels, back, forward):
-        
-    if isinstance(data, pd.DataFrame):
-        data = data.to_numpy()
-    reshaped_data = []
-    
-    if labels is not False:
-        if isinstance(labels, pd.DataFrame):
-            labels = labels.to_numpy()
-        reshaped_labels = []
-        
-    for i in range(0, back):
-        reshaped_data.append(data[: 1 + back + forward])
-        if labels is not False:
-            reshaped_labels.append(labels[0])
-            
-    for i in range(back, len(data) - forward):
-        reshaped_data.append(data[i - back : 1 + i + forward])
-        if labels is not False:
-            reshaped_labels.append(labels[i])
-    
-    for i in range(len(data) - forward, len(data)):
-        reshaped_data.append(data[-(1 + back + forward):])
-        if labels is not False:
-            reshaped_labels.append(labels[i])
-    
-    reshaped_data_tf = tf.convert_to_tensor(reshaped_data, dtype=tf.float64)
-    
-    if labels is not False:
-        reshaped_labels_tf = tf.convert_to_tensor(reshaped_labels, dtype=tf.float64)
-    
-        return reshaped_data_tf, reshaped_labels_tf
-    
-    return reshaped_data_tf
-
-#%% Prepare the wide data
-
-# Reshape the training set
-X_train_seq, y_train_seq = reshape(X_train, y_train, before, after)
-
-# Reshape the testing set
-X_test_seq, y_test_seq = reshape(X_test, y_test, before, after)
-
-# Reshape the validating set
-X_val_seq, y_val_seq = reshape(X_val, y_val, before, after)
+X_train_seq = np.array([df.values for df in X_train_wide])
+X_val_seq = np.array([df.values for df in X_val_wide])
+X_test_seq = np.array([df.values for df in X_test_wide])
 
 #%% Define a first LSTM model
 
@@ -537,11 +566,10 @@ model_wide.summary()
 
 #%% Train the model
 
-history_wide = model_wide.fit(X_train_seq, y_train_seq,
+history_wide = model_wide.fit(X_train_seq, y_train,
                               epochs = epochs,
                               batch_size = batch_size,
-                              validation_data=(X_val_seq, y_val_seq),
-                              class_weight=class_weights,
+                              validation_data=(X_val_seq, y_val),
                               callbacks=[early_stopping, lr_scheduler])
 
 #%% Plot the training and validation loss
@@ -550,10 +578,10 @@ plot_history(history_wide, "wide")
 
 #%% Calculate accuracy and precision of the model
 
-accuracy_wide, precision_wide, recall_wide, f1_wide = evaluate(X_test_seq, y_test_seq, model_wide)
+accuracy_wide, precision_wide, recall_wide, f1_wide = evaluate(X_test_seq, y_test, model_wide)
 print(f"Accuracy = {accuracy_wide:.4f}, Precision = {precision_wide:.4f}, Recall = {recall_wide:.4f}, F1 Score = {f1_wide:.4f} -> wide")
 
-mse_wide, mae_wide, r2_wide = evaluate_continuous(X_test_seq, y_test_seq, model_wide)
+mse_wide, mae_wide, r2_wide = evaluate_continuous(X_test_seq, y_test, model_wide)
 print(f"MSE = {mse_wide:.4f}, MAE = {mae_wide:.4f}, R-squared = {r2_wide:.4f} -> wide")
 
 #%% Save the model

@@ -22,7 +22,7 @@
 # Pipeline
 
 - DeepLabCut analyzes video files and returns a .H5 file with the position of the mouse's bodyparts (along with two objects, in the case of object exploration). What we do next is up to us!
-- 
+
 ## Manage_H5
 
 - It is important to filter from the file the frames where the mouse is not in the video
@@ -46,38 +46,42 @@
 
 ![Example Autolabels](images/3a-Create_Models.png)
 
-  - Using TensorFlow, we were able to train a simple model that is able to clasify a mouse's position into exploration
-![Example Autolabels](images/3a-Create_Models_simple.png)
-  - We also trained a more complex LSTM network that is aware of frame sequences, and performs better as exploration is time dependant
-  - It trains based on our own manual labeling, so it acquires the criteria of the user.
+Using TensorFlow, we were able to train a simple model that is able to clasify a mouse's position into exploration
+
+![Example Autolabels_2](images/3a-Create_Models_simple.png)
+
+We also trained a more complex LSTM network that is aware of frame sequences, and performs better as exploration is time dependant
+It trains based on our own manual labeling, so it acquires the criteria of the user.
 
 ## Compare_Labels
 
 - Once we have the manual, geometric and automatic labels, we can compare the performance of each on an example video:
+
 ![Example compare_1](images/4-Compare_Labels_line.png)
-using a polar graph, which shows the angle of approach and distance in which the mice is exploring the objects
+
+Using a polar graph, we can see for each position the angle of approach and distance in which the mice is exploring the objects
 - For a single video:
 
-![Example compare_1](images/example_compare_labels_polar.png)
+![Example compare_1](images/4-Compare_Labels_polar.png)
 
 - Or for many videos together:
 
-![Example compare_2](images/example_compare_labels_polar_all.png)
+![Example compare_2](images/4-Compare_Labels_polar_all.png)
 
-#### Since the automatic method learns to detect exploration unrestricted by the angle and distance to the object, it tends to be more accurate
+#### Since the automatic method learns to detect exploration unrestricted by the angle and distance to the object, it tends to be more accurate (Although, let's face it... I chose the best numbers I've ever gotten for the picture)
 
 ![Example compare_3](images/results_compare_labels.png)
 
 ## Seize_Labels
 
-- We can use the desired labels to evauate the performance of a mouse during the different sessions:
+- We can use the best labels to evauate the performance of a mouse during the different sessions:
 
 ![Example seize_1](images/example_seize_labels.png)
 
 - And finally, we can find differences in the exploration of objects for a group of trained mice (which was the obective all along):
 
-![Example seize_2](images/example_seize_labels_mean.png)
+![Example seize_2](images/TeNOR_experiment.png)
 
 # In conclusion
 - This project, although already in use, is a work in progress that could someday improve the way we analyze object exploration videos.
-- If you wish to contact us, please do so: simple.torm@gmail.com
+- If you wish to contact us, please do so at: simple.torm@gmail.com

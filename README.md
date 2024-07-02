@@ -8,7 +8,7 @@
 
 ### Features
 
-- DeepLabCut data processing to avoid dissapearing bodyparts and glitching
+- post-DeepLabCut data processing to avoid dissapearing bodyparts and glitching
 - Geometric labeling through distance and angle of aproach
 - Automatic labeling using a trained AI model able to detect of temporal sequences of behaviour
 - Comparing labels in a visual and simple way
@@ -85,3 +85,7 @@ Using a polar graph, we can see for each position the angle of approach and dist
 # In conclusion
 - This project, although already in use, is a work in progress that could someday improve the way we analyze object exploration videos.
 - If you wish to contact us, please do so: simple.torm@gmail.com
+
+#### Thanks for exploring us!
+
+![Final_gif](images/mouse_exploring.gif)

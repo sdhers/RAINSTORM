@@ -61,14 +61,14 @@ TS_position = find_files(path, experiment, "TS", "position")
 all_position = TR1_position + TR2_position + TS_position
 
 today = datetime.datetime.now()
-# use_model_date = today.date()
-use_model_date = '2024-06-13'
+use_model_date = today.date()
+# use_model_date = '2024-07-01'
 
 #%%
 
 # Load the saved model from file
-# loaded_model = load_model(os.path.join(STORM_folder, 'wide/model_wide_{use_model_date}.keras'))
-loaded_model = joblib.load(os.path.join(STORM_folder, f'RF/model_RF_{use_model_date}.pkl'))
+loaded_model = load_model(os.path.join(STORM_folder, f'wide/model_wide_{use_model_date}.keras'))
+# loaded_model = joblib.load(os.path.join(STORM_folder, f'RF/model_RF_{use_model_date}.pkl'))
 
 #%% Function to apply a median filter
 
@@ -212,23 +212,31 @@ Now we define the function that creates the automatic labels for all _position.c
 def create_autolabels(files, chosen_model, rescaling = True, reshaping = False):
     
     for file in files:
-
-        position = pd.read_csv(file)
-        
-        position = position.drop(['tail_1_y', 'tail_1_x','tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
-        
-        # Lets remove the frames where the mice is not in the video before analyzing it
-        position.fillna(0, inplace=True)
-    
-        # lets analyze it!
-        autolabels = use_model(position, chosen_model, rescaling, reshaping)
-        
-        # Set column names and add a new column "Frame" with row numbers
-        autolabels.insert(0, "Frame", autolabels.index + 1)
         
         # Determine the output file path
         input_dir, input_filename = os.path.split(file)
         parent_dir = os.path.dirname(input_dir)
+        
+        # Read the file
+        position = pd.read_csv(file)
+        
+        # Remove the rows where the mouse is still not in the video, excluding the first 4 columns (the object)
+        original_rows = position.shape[0]
+        position.dropna(subset = position.columns[4:], inplace=True)
+        position.reset_index(drop=True, inplace=True)
+        rows_removed = original_rows - position.shape[0]
+        
+        position = position.drop(['tail_1_y', 'tail_1_x','tail_2_x', 'tail_2_y', 'tail_3_x', 'tail_3_y'], axis=1)
+    
+        # lets analyze it!
+        autolabels = use_model(position, chosen_model, rescaling, reshaping)
+        
+        # Add rows filled with zeros at the beginning of autolabels
+        zeros_rows = pd.DataFrame(np.nan, index=np.arange(rows_removed), columns=autolabels.columns)
+        autolabels = pd.concat([zeros_rows, autolabels]).reset_index(drop=True)
+        
+        # Set column names and add a new column "Frame" with row numbers
+        autolabels.insert(0, "Frame", autolabels.index + 1)
     
         # Create a filename for the output CSV file
         output_filename = input_filename.replace('_position.csv', '_autolabels.csv')
@@ -245,4 +253,4 @@ def create_autolabels(files, chosen_model, rescaling = True, reshaping = False):
 
 #%%
 
-create_autolabels(all_position, loaded_model, rescaling = True, reshaping = False) # Lets analyze!
+create_autolabels(all_position, loaded_model, rescaling = True, reshaping = True) # Lets analyze!

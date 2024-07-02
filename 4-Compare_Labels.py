@@ -89,7 +89,7 @@ def find_files(path_name, exp_name, group, folder):
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-11_Interferencia'
+experiment = r'TeNOR'
 
 TS_position = find_files(path, experiment, "TS", "position")
 

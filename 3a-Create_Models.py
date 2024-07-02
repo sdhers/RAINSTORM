@@ -55,15 +55,15 @@ after = 2 # Say how many frames into the future the models will see
 frames = before + after + 1
 
 # Set the number of neurons in each layer
-param_0 = 34
-param_H1 = 21
-param_H2 = 13
-param_H3 = 8
+param_0 = 55
+param_H1 = 34
+param_H2 = 21
+param_H3 = 13
 
-batch_size = 64 # Set the batch size
+batch_size = 32 # Set the batch size
 lr = 0.0001 # Set the initial learning rate
-epochs = 20 # Set the training epochs
-patience = 5 # Set the wait for the early stopping mechanism
+epochs = 100 # Set the training epochs
+patience = 20 # Set the wait for the early stopping mechanism
 
 train_with_average = True # If false, it trains with all the labels separately
 make_discrete = False # If false, labels are float (not 0 and 1)
@@ -102,60 +102,6 @@ def median_filter(df, window_size = 3):
 
 def sigmoid(x, k=20):
     return 1 / (1 + np.exp(-k * (x - 0.2) + (k/2)))
-
-#%% Lets load the data
-
-# The mouse position is on the first 22 columns of the csv file
-position = colabels.iloc[:, :16].copy() # We leave out the tail
-
-tail = colabels.iloc[:, 16:22].copy()
-
-# The labels for left and right exploration are on the rest of the columns, we need to extract them
-lblr_A = colabels.iloc[:, 22:24].copy()
-lblr_A = median_filter(lblr_A, window_size = 5)
-
-lblr_B = colabels.iloc[:, 24:26].copy()
-lblr_B = median_filter(lblr_B, window_size = 5)
-
-lblr_C = colabels.iloc[:, 26:28].copy()
-lblr_C = median_filter(lblr_C, window_size = 5)
-
-lblr_D = colabels.iloc[:, 28:30].copy()
-lblr_D = median_filter(lblr_D, window_size = 5)
-
-lblr_E = colabels.iloc[:, 30:32].copy()
-lblr_E = median_filter(lblr_E, window_size = 5)
-
-geometric = colabels.iloc[:, 32:34].copy() # We dont use the geometric labels to train the model
-geometric = median_filter(geometric, window_size = 5)
-
-dfs = [lblr_A, lblr_B, lblr_C, lblr_D, lblr_E]
-
-#%%
-
-if train_with_average:
-    
-    # Calculate average labels
-    sum_df = pd.DataFrame()
-    for df in dfs:
-        df.columns = ['Left', 'Right']
-        sum_df = sum_df.add(df, fill_value=0)
-    avrg = sum_df / len(dfs)
-    
-    # Transform values using sigmoid function, to emphasize agreement between labelers
-    avrg_sigmoid = round(sigmoid(avrg),2)
-    avrg_filtered = median_filter(avrg_sigmoid, window_size = 5)
-    
-    if make_discrete:
-        avrg_filtered = (avrg_filtered > 0.5).astype(int)
-    
-    ready_data = pd.concat([position, avrg_filtered], axis = 1)
-
-else:
-    # Join position with all the labels separately
-    concatenated_df = pd.concat([position] * len(dfs), ignore_index=True)
-    concatenated_labels = pd.concat(dfs, ignore_index=True)
-    ready_data = pd.concat([concatenated_df, concatenated_labels], axis = 1)
 
 #%% Function to focus on the most important video parts
 
@@ -318,6 +264,60 @@ def prepare_training_data(df, focusing = False):
 
     return X_train_wide, X_train, y_train, X_test_wide, X_test, y_test, X_val_wide, X_val, y_val
 
+#%% Lets load the data
+
+# The mouse position is on the first 22 columns of the csv file
+position = colabels.iloc[:, :16].copy() # We leave out the tail
+
+tail = colabels.iloc[:, 16:22].copy()
+
+# The labels for left and right exploration are on the rest of the columns, we need to extract them
+lblr_A = colabels.iloc[:, 22:24].copy()
+lblr_A = median_filter(lblr_A, window_size = 5)
+
+lblr_B = colabels.iloc[:, 24:26].copy()
+lblr_B = median_filter(lblr_B, window_size = 5)
+
+lblr_C = colabels.iloc[:, 26:28].copy()
+lblr_C = median_filter(lblr_C, window_size = 5)
+
+lblr_D = colabels.iloc[:, 28:30].copy()
+lblr_D = median_filter(lblr_D, window_size = 5)
+
+lblr_E = colabels.iloc[:, 30:32].copy()
+lblr_E = median_filter(lblr_E, window_size = 5)
+
+geometric = colabels.iloc[:, 32:34].copy() # We dont use the geometric labels to train the model
+geometric = median_filter(geometric, window_size = 5)
+
+dfs = [lblr_A, lblr_B, lblr_C, lblr_D, lblr_E]
+
+#%%
+
+if train_with_average:
+    
+    # Calculate average labels
+    sum_df = pd.DataFrame()
+    for df in dfs:
+        df.columns = ['Left', 'Right']
+        sum_df = sum_df.add(df, fill_value=0)
+    avrg = sum_df / len(dfs)
+    
+    # Transform values using sigmoid function, to emphasize agreement between labelers
+    avrg_sigmoid = round(sigmoid(avrg),2)
+    avrg_filtered = median_filter(avrg_sigmoid, window_size = 5)
+    
+    if make_discrete:
+        avrg_filtered = (avrg_filtered > 0.5).astype(int)
+    
+    ready_data = pd.concat([position, avrg_filtered], axis = 1)
+
+else:
+    # Join position with all the labels separately
+    concatenated_df = pd.concat([position] * len(dfs), ignore_index=True)
+    concatenated_labels = pd.concat(dfs, ignore_index=True)
+    ready_data = pd.concat([concatenated_df, concatenated_labels], axis = 1)
+    
 #%%
 
 if use_saved_data:

@@ -224,29 +224,29 @@ def calculate_cumulative_sums(df, time_limit=None, fps=25):
 
     # Calculate cumulative sums
     if time_limit is None:
-        df[f"{second_column_name}_cumsum"] = df[second_column_name].cumsum() / fps
-        df[f"{third_column_name}_cumsum"] = df[third_column_name].cumsum() / fps
+        df[f"{second_column_name} sum"] = df[second_column_name].cumsum() / fps
+        df[f"{third_column_name} sum"] = df[third_column_name].cumsum() / fps
         
     else:
         row_limit = time_limit*fps
         
-        df[f"{second_column_name}_cumsum"] = df[second_column_name].cumsum() / fps
-        df[f"{second_column_name}_cumsum"].iloc[row_limit:] = df[f"{second_column_name}_cumsum"].iloc[row_limit-1]
+        df[f"{second_column_name} sum"] = df[second_column_name].cumsum() / fps
+        df[f"{second_column_name} sum"].iloc[row_limit:] = df[f"{second_column_name} sum"].iloc[row_limit-1]
         
-        df[f"{third_column_name}_cumsum"] = df[third_column_name].cumsum() / fps
-        df[f"{third_column_name}_cumsum"].iloc[row_limit:] = df[f"{third_column_name}_cumsum"].iloc[row_limit-1]
+        df[f"{third_column_name} sum"] = df[third_column_name].cumsum() / fps
+        df[f"{third_column_name} sum"].iloc[row_limit:] = df[f"{third_column_name} sum"].iloc[row_limit-1]
 
     # Calculate Discrimination Index
     df['Discrimination_Index'] = (
-        (df[f"{second_column_name}_cumsum"] - df[f"{third_column_name}_cumsum"]) /
-        (df[f"{second_column_name}_cumsum"] + df[f"{third_column_name}_cumsum"])
+        (df[f"{second_column_name} sum"] - df[f"{third_column_name} sum"]) /
+        (df[f"{second_column_name} sum"] + df[f"{third_column_name} sum"])
     ) * 100
     
     # Calculate Discrimination Index 2
-    df['Discrimination_Index_2'] = ((df[f"{second_column_name}_cumsum"] - df[f"{third_column_name}_cumsum"]))
+    df['Discrimination_Index_2'] = ((df[f"{second_column_name} sum"] - df[f"{third_column_name} sum"]))
 
     # Create a list of column names in the desired order
-    desired_order = ["Frame", f"{second_column_name}_cumsum", f"{third_column_name}_cumsum", "Discrimination_Index", "Discrimination_Index_2"]
+    desired_order = ["Frame", f"{second_column_name} sum", f"{third_column_name} sum", "Discrimination_Index", "Discrimination_Index_2"]
     desired_order = desired_order + [col for col in df.columns if col not in desired_order]
 
     # Reorder columns without losing data
@@ -347,8 +347,8 @@ def plot_all(path, name_start, experiment, labels_folder, fps = 25):
                           TS.loc[TS.index[-1], f'{TS.columns[1]}'], TS.loc[TS.index[-1], f'{TS.columns[2]}'], 5) + 2
             
             # Distance covered in Hab
-            axes[0, 0].plot(Hab['time_seconds'], Hab['nose_dist_cumsum'], label='Nose Distance')
-            axes[0, 0].plot(Hab['time_seconds'], Hab['body_dist_cumsum'], label='Body Distance')
+            axes[0, 0].plot(Hab['time_seconds'], Hab['nose_dist sum'], label='Nose Distance')
+            axes[0, 0].plot(Hab['time_seconds'], Hab['body_dist sum'], label='Body Distance')
             axes[0, 0].set_xlabel('Time (s)')
             # axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
             axes[0, 0].set_ylabel('Distance Traveled (m)')
@@ -437,8 +437,8 @@ def plot_all(path, name_start, experiment, labels_folder, fps = 25):
             
 #%%
 
-# for group in groups:
-#   plot_all(all_path, group, experiment, label_type)
+for group in groups:
+    plot_all(all_path, group, experiment, label_type)
 
 #%% Plot groups -> See all sessions for the mean of all mice, per group
 
@@ -529,9 +529,9 @@ def plot_groups(path, name_start, experiment, labels_folder, fps=25):
     axes[0, 0].fill_between(Hab['time_seconds'], Hab[("body_dist_cumsum" ,'mean')] - Hab[("body_dist_cumsum", 'std')], Hab[("body_dist_cumsum" ,'mean')] + Hab[("body_dist_cumsum" ,'std')], alpha=0.2)
     axes[0, 0].set_xlabel('Time (s)')
     # axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
-    axes[0, 0].set_ylabel('Distance (cm)')
+    axes[0, 0].set_ylabel('Distance (m)')
     # axes[0, 0].set_ylim(0, 4000)
-    axes[0, 0].set_title('Distance Traveled in Habituation')
+    axes[0, 0].set_title('Distance Traveled during Habituation')
     axes[0, 0].legend(loc='upper left', fancybox=True, shadow=True)
     axes[0, 0].grid(True)
     
@@ -575,14 +575,14 @@ def plot_groups(path, name_start, experiment, labels_folder, fps=25):
     axes[1, 0].grid(True)
     
     # Discrimination Index
-    axes[1, 1].plot(TS['time_seconds'], TS[('Discrimination_Index', 'mean')], label='Discrimination Index', color='darkgreen', linestyle='--')
+    axes[1, 1].plot(TS['time_seconds'], TS[('Discrimination_Index', 'mean')], color='darkgreen', linestyle='--')
     axes[1, 1].fill_between(TS['time_seconds'], TS[('Discrimination_Index', 'mean')] - TS[('Discrimination_Index', 'std')] /se, TS[('Discrimination_Index', 'mean')] + TS[('Discrimination_Index', 'std')] /se, color='green', alpha=0.2)
     axes[1, 1].set_xlabel('Time (s)')
     axes[1, 1].set_xticks([0, 60, 120, 180, 240, 300])
     axes[1, 1].set_ylabel('DI (%)')
     axes[1, 1].set_ylim(-30, 60)
     axes[1, 1].axhline(y=0, color='black', linestyle='--', linewidth = 2)
-    axes[1, 1].set_title('Discrimination Index')
+    axes[1, 1].set_title('Discrimination Index during TS')
     axes[1, 1].legend(loc='upper left', fancybox=True, shadow=True)
     axes[1, 1].grid(True)
     
@@ -618,7 +618,7 @@ def plot_groups(path, name_start, experiment, labels_folder, fps=25):
 
 for group in groups:
     plot_groups(all_path, group, experiment, label_type)
-    
+  
 #%%
 
 def plot_experiment(path, groups, experiment, labels_folder, fps=25):
@@ -704,7 +704,7 @@ def plot_experiment(path, groups, experiment, labels_folder, fps=25):
         
         maxtime = max(TR1.loc[TR1.index[-1], (f'{A_TR1}' ,'mean')], TR1.loc[TR1.index[-1], (f'{B_TR1}' ,'mean')], 
                       TR2.loc[TR2.index[-1], (f'{A_TR2}' ,'mean')], TR2.loc[TR2.index[-1], (f'{B_TR2}' ,'mean')], 
-                      TS.loc[TS.index[-1], (f'{A_TS}' ,'mean')], TS.loc[TS.index[-1], (f'{B_TS}' ,'mean')], maxtime) + 2
+                      TS.loc[TS.index[-1], (f'{A_TS}' ,'mean')], TS.loc[TS.index[-1], (f'{B_TS}' ,'mean')], maxtime) + 3
         
         # Hab
         axes[0, 0].plot(Hab['time_seconds'], Hab[("nose_dist_cumsum" ,'mean')], label = f'{A_Hab} {name_start}')
@@ -713,9 +713,9 @@ def plot_experiment(path, groups, experiment, labels_folder, fps=25):
         axes[0, 0].fill_between(Hab['time_seconds'], Hab[("body_dist_cumsum" ,'mean')] - Hab[("body_dist_cumsum", 'std')], Hab[("body_dist_cumsum" ,'mean')] + Hab[("body_dist_cumsum" ,'std')], alpha=0.2)
         axes[0, 0].set_xlabel('Time (s)')
         # axes[0, 0].set_xticks([0, 60, 120, 180, 240, 300])
-        axes[0, 0].set_ylabel('Distance (cm)')
+        axes[0, 0].set_ylabel('Distance (m)')
         # axes[0, 0].set_ylim(0, 4000)
-        axes[0, 0].set_title('Distance Traveled in Habituation')
+        axes[0, 0].set_title('Distance Traveled during Habituation')
         axes[0, 0].legend(loc='upper left', fancybox=True, shadow=True)
         axes[0, 0].grid(True)
         
@@ -766,7 +766,7 @@ def plot_experiment(path, groups, experiment, labels_folder, fps=25):
         axes[1, 1].set_ylabel('DI (%)')
         axes[1, 1].set_ylim(-40, 60)
         axes[1, 1].axhline(y=0, color='black', linestyle='--', linewidth = 2)
-        axes[1, 1].set_title('Discrimination Index')
+        axes[1, 1].set_title('Discrimination Index during TS')
         axes[1, 1].legend(loc='upper left', fancybox=True, shadow=True)
         axes[1, 1].grid(True)
         
@@ -779,7 +779,7 @@ def plot_experiment(path, groups, experiment, labels_folder, fps=25):
         
         axes[1, 2].axhline(y=0, color='black', linestyle='--', linewidth = 2)
         axes[1, 2].set_ylabel('DI (%)')
-        axes[1, 2].set_title('Boxplot of DI for each group')
+        axes[1, 2].set_title('DI at the end of TS')
     
     plt.suptitle(f"Analysis of: {experiment}", y=0.98)  # Add DataFrame name as the overall title
     plt.tight_layout()

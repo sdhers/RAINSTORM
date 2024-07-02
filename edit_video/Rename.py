@@ -35,10 +35,10 @@ rename_files(folder_path, before, after)
 
 #%%
 
-folder_path = r'C:\Users\dhers\Desktop\2024-06_TORM-Tg-9m'
+folder_path = r'C:\Users\dhers\OneDrive - UBA\workshop\TeNOR\TS\labels'
 
-before = '_TORM-'
+before = 'santi_'
 
-after = '_'
+after = ''
 
 rename_files(folder_path, before, after)

@@ -235,8 +235,8 @@ def polar_graph(position, label_1, label_2, Left = "Left", Right = "Right"):
     ax1.set_title(f"{Left} object")
     
     # Determine the colors of the exploration points by the method that detected them
-    colors_1 = ['red' if label == 1 else 'gray' for label in label_1[f"{Left}"][a:b]]
-    alpha_1 = [0.5 if label == 1 else 0.2 for label in label_1[f"{Left}"][a:b]]
+    colors_1 = ['red' if label >= 0.5 else 'gray' for label in label_1[f"{Left}"][a:b]]
+    alpha_1 = [0.5 if label >= 0.5 else 0.2 for label in label_1[f"{Left}"][a:b]]
     
     colors_2 = ['blue' if label == 1 else 'gray' for label in label_2[f"{Left}"][a:b]]
     alpha_2 = [0.5 if label == 1 else 0.2 for label in label_2[f"{Left}"][a:b]]
@@ -262,8 +262,8 @@ def polar_graph(position, label_1, label_2, Left = "Left", Right = "Right"):
     ax2.set_title(f"{Right} object")
     
     # Determine the colors of the exploration points by the method that detected them
-    colors_1 = ['red' if label == 1 else 'gray' for label in label_1[f"{Right}"][a:b]]
-    alpha_1 = [0.5 if label == 1 else 0.2 for label in label_1[f"{Right}"][a:b]]
+    colors_1 = ['red' if label >= 0.5 else 'gray' for label in label_1[f"{Right}"][a:b]]
+    alpha_1 = [0.5 if label >= 0.5 else 0.2 for label in label_1[f"{Right}"][a:b]]
     
     colors_2 = ['blue' if label == 1 else 'gray' for label in label_2[f"{Right}"][a:b]]
     alpha_2 = [0.5 if label == 1 else 0.2 for label in label_2[f"{Right}"][a:b]]
@@ -388,8 +388,17 @@ def accuracy_scores(reference, compare, method):
     print(f"The {method} method measured {(detected/len(reference))*100}% of the time as exploration.")
     print(f"It got {(sum_error/events)*100}% of false negatives and {(sum_false/events)*100}% of false positives.")
 
+#%%
+
+# Create a new dataframe from the merge of both
+all_merge = pd.DataFrame(index=all_autolabels.index)
+all_merge['Frame'] = all_geolabels['Frame']
+all_merge['Left'] = ((all_geolabels['Left'] >= 0.5) & (all_autolabels['Left'] >= 0.5)).astype(int)
+all_merge['Right'] = ((all_geolabels['Right'] >= 0.5) & (all_autolabels['Right'] >= 0.5)).astype(int)
 
 #%%
+
 print(f"In {experiment}:")
 accuracy_scores(all_labels, all_geolabels, "geometric")
 accuracy_scores(all_labels, all_autolabels, "automatic")
+accuracy_scores(all_labels, all_merge, "merge")

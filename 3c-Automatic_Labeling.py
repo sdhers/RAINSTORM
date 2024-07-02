@@ -199,7 +199,7 @@ def use_model(position, model, rescaling = True, reshaping = False):
         'Right': right
     })
     
-    labels = median_filter(labels.round(2))
+    # labels = median_filter(labels.round(2))
     
     return labels
 

@@ -71,3 +71,7 @@ STORM is a tool for tracking object recognition memory. It allows users to track
 # In conclusion
 - This project, although already in use, is a work in progress that could someday improve the way we analyze object exploration videos.
 - If you wish to contact us, please do so: simple.torm@gmail.com
+
+Thanks for exploring us!
+
+![Final_gif](images/mouse_exploring.gif)

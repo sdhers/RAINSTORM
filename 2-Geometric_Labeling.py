@@ -241,7 +241,7 @@ def create_geolabels(files, maxDistance = 2.5, maxAngle = 45, nan_to_0 = False):
             geolabels = pd.concat([zeros_rows, geolabels]).reset_index(drop=True)
             
             # Insert a new column with the frame number at the beginning of the DataFrame
-            geolabels.insert(0, 'Frame', range(1, len(geolabels) + 1))
+            geolabels.insert(0, "Frame", geolabels.index + 1)
             
             if nan_to_0:
                 # Fill any remaining nan with 0
@@ -268,7 +268,8 @@ def create_geolabels(files, maxDistance = 2.5, maxAngle = 45, nan_to_0 = False):
         distances = pd.concat([zeros_rows, distances]).reset_index(drop=True)
         
         # Insert a new column with the frame number at the beginning of the DataFrame
-        distances.insert(0, 'Frame', range(1, len(distances) + 1))
+        distances.insert(0, "Frame", distances.index + 1)
+
         
         if nan_to_0:
             # Fill any remaining nan with 0

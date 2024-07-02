@@ -565,7 +565,7 @@ def plot_experiment(path, group_list, time_limit = None, fps=25):
         axes[1, 0].grid(True)
         
         # Boxplot
-        axes[1, 1].boxplot(bxplt[0], positions=[bxplt_positions[i]], tick_labels = [f'{name_start}'])
+        axes[1, 1].boxplot(bxplt[0], positions=[bxplt_positions[i]], labels = [f'{name_start}'])
         
         # Replace boxplots with scatter plots with jitter
         jitter_amount = 0.05  # Adjust the jitter amount as needed

@@ -20,8 +20,8 @@ import itertools
 #%%
 
 # State your path:
-path = r'C:\Users\dhers\Desktop\workshop'
-experiment = r'2024-05_PD-45'
+path = r'C:/Users/dhers/OneDrive - UBA/workshop'
+experiment = r'TeNOR'
 
 trials = ["TS"]
 labels = 'autolabels'
@@ -47,10 +47,13 @@ def process_csv_file(file_path, time_limit = None, fps = 25):
     with open(file_path, 'r') as csv_file:
         reader = csv.reader(csv_file)
         next(reader)  # Skip header row
+        
+        labels = [row for row in reader if not any(cell == '' for cell in row)]
+        
         if time_limit is None:
-            limited_reader = itertools.islice(reader, 7500)
+            limited_reader = itertools.islice(labels, 7500)
         else:
-            limited_reader = itertools.islice(reader, time_limit*fps)
+            limited_reader = itertools.islice(labels, time_limit*fps)
         
         for row in limited_reader:
             col2 = float(row[1])
@@ -68,10 +71,10 @@ def process_csv_file(file_path, time_limit = None, fps = 25):
                 consecutive_ones_col3.append(consecutive_ones_count_col3)
                 consecutive_ones_count_col3 = 0
 
-            if col2 == 1:
+            if col2 != 0:
                 consecutive_ones_count_col2 += 1
 
-            if col3 == 1:
+            if col3 != 0:
                 consecutive_ones_count_col3 += 1
 
             prev_value_col2 = col2

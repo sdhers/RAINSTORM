@@ -70,7 +70,7 @@ Using a polar graph, we can see for each position the angle of approach and dist
 
 #### Since the automatic method learns to detect exploration unrestricted by the angle and distance to the object, it tends to be more accurate (Although, let's face it... I chose the best numbers I've ever gotten for the picture)
 
-![Example compare_3](images/results_compare_labels.png)
+![Example compare_3](images/4-Compare_Labels_result.png)
 
 ## Seize_Labels
 

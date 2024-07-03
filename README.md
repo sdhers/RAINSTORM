@@ -1,6 +1,6 @@
 # STORM - Simple Tracker for Object Recognition Memory
 
-![STORM Logo](images/storm_logo.jpg)
+![STORM Logo](images/0-storm_logo.jpg)
 
 **STORM** is a tool for tracking object recognition memory in mice 🐭. It allows users to track and analyze memory performance through the exploration of objects.
 
@@ -70,17 +70,17 @@ Using a polar graph, we can see for each position the angle of approach and dist
 
 #### Since the automatic method learns to detect exploration unrestricted by the angle and distance to the object, it tends to be more accurate (Although, let's face it... I chose the best numbers I've ever gotten for the picture)
 
-![Example compare_3](images/results_compare_labels.png)
+![Example compare_3](images/4-Compare_Labels_result.png)
 
 ## Seize_Labels
 
 - We can use the best labels to evauate the performance of a mouse during the different sessions:
 
-![Example seize_1](images/example_seize_labels.png)
+![Example seize_1](images/5-Seize_Labels_example.png)
 
 - And finally, we can find differences in the exploration of objects for a group of trained mice (which was the obective all along):
 
-![Example seize_2](images/TeNOR_experiment.png)
+![Example seize_2](images/5-Seize_Labels_experiment.png)
 
 # In conclusion
 - This project, although already in use, is a work in progress that could someday improve the way we analyze object exploration videos.

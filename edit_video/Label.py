@@ -35,13 +35,12 @@ def converter(value): # We need the numbers as integers to calculate the sum
 
 # This function draws text on the frames
 def draw_text(img, text,
-          font = cv2.FONT_HERSHEY_PLAIN,
-          pos = (0, 0),
-          font_scale = 2,
-          font_thickness = 1,
-          text_color = (0, 0, 255),
-          text_color_bg = (0, 0, 0)
-          ):
+              font=cv2.FONT_HERSHEY_PLAIN,
+              pos=(0, 0),
+              font_scale=2,
+              font_thickness=1,
+              text_color=(0, 0, 255),
+              text_color_bg=(0, 0, 0)):
 
     x, y = pos
     text_size, _ = cv2.getTextSize(text, font, font_scale, font_thickness)
@@ -56,6 +55,9 @@ def process_frame(video_name, frame, frame_number, total_frames, L, R, left_sum,
     left = L
     right = R
     move = False
+    
+    # Ensure the image array is writable
+    frame = frame.copy()
 
     # Add frame number to the frame
     draw_text(frame, f"Frame: {frame_number + 1}/{total_frames}", 

@@ -73,13 +73,13 @@ class Vector:
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'TeNOR'
+experiment = r'viruta'
 
 # Since we are going to analyze only one session of the experiment, we need to access its folder (eg: TS)
 stage_folder = os.path.join(path, experiment, 'TS')
 
 # State which labels you want to use
-label_type = 'autolabels'
+label_type = 'geolabels'
 
 time_limit = None
 video_fps = 25

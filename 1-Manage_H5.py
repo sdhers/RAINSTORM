@@ -29,7 +29,7 @@ from scipy import signal
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
-experiment = r'2024-06_Tg-9m'
+experiment = r'2024-05_TORM-Tg-3m'
 
 folder = os.path.join(path, experiment)
 
@@ -207,6 +207,10 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.5, window = 3
                 
                 # Check if there are any non-NaN values left to interpolate
                 if position_df[key].notna().sum() > 1:
+                    
+                    position_df[key] = position_df[key].ffill()
+                    position_df[key] = position_df[key].bfill()
+                    
                     # Interpolate the column with 'pchip' method
                     position_df[key] = position_df[key].interpolate(method='pchip')
                 else:

@@ -87,8 +87,8 @@ def find_files(path_name, exp_name, group, folder):
 #%%
 
 # State your path:
-path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'TeNOR'
+path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
+experiment = r'2024-06_Tg-9m'
 
 Hab_position = find_files(path, experiment, "Hab", "position")
 TR1_position = find_files(path, experiment, "TR1", "position")

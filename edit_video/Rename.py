@@ -25,9 +25,9 @@ def rename_files(folder, before, after):
 
 #%%
 
-folder_path = r'C:\Users\dhers\OneDrive - UBA\NOR position\Pharma\2024-05_PD-45'
+folder_path = r'C:\Users\dhers\OneDrive - UBA\NOR position\3xTg\1st batch\2024-06_Tg-9m'
 
-before = 'DLC_resnet50_VaderDec1shuffle1_200000'
+before = 'DLC_resnet50_STORMJul11shuffle1_100000'
 
 after = '_position'
 

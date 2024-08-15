@@ -20,11 +20,11 @@ import itertools
 #%%
 
 # State your path:
-path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'TeNOR'
+path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
+experiment = r'2023-11_Interferencia'
 
 trials = ["TS"]
-labels = 'autolabels'
+labels = 'labels'
 
 time_limit = None
 fps = 25

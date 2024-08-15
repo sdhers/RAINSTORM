@@ -46,8 +46,8 @@ desktop = 'C:/Users/dhers/Desktop'
 STORM_folder = os.path.join(desktop, 'STORM/models')
 
 # State your path:
-path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'TeNOR'
+path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
+experiment = r'2024-06_Tg-9m'
 
 before = 2
 after = 2
@@ -61,14 +61,14 @@ TS_position = find_files(path, experiment, "TS", "position")
 all_position = TR1_position + TR2_position + TS_position
 
 today = datetime.datetime.now()
-use_model_date = today.date()
-# use_model_date = '2024-07-01'
+# use_model_date = today.date()
+use_model_date = '2024-07-01'
 
 #%%
 
 # Load the saved model from file
-loaded_model = load_model(os.path.join(STORM_folder, f'wide/model_wide_{use_model_date}.keras'))
-# loaded_model = joblib.load(os.path.join(STORM_folder, f'RF/model_RF_{use_model_date}.pkl'))
+# loaded_model = load_model(os.path.join(STORM_folder, f'wide/model_wide_{use_model_date}.keras'))
+loaded_model = joblib.load(os.path.join(STORM_folder, f'RF/model_RF_{use_model_date}.pkl'))
 
 #%% Function to apply a median filter
 
@@ -253,4 +253,4 @@ def create_autolabels(files, chosen_model, rescaling = True, reshaping = False):
 
 #%%
 
-create_autolabels(all_position, loaded_model, rescaling = True, reshaping = True) # Lets analyze!
+create_autolabels(all_position, loaded_model, rescaling = True, reshaping = False) # Lets analyze!

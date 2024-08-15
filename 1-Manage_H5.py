@@ -28,14 +28,14 @@ from scipy import signal
 #%%
 
 # State your path:
-path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'TeNOR'
+path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
+experiment = r'2024-06_Tg-9m'
 
 folder = os.path.join(path, experiment)
 
 groups  = ["Hab", "TR1", "TR2", "TS"]
 
-tolerance = 0.99 # State the likelihood limit under which the coordenate will be erased
+tolerance = 0.95 # State the likelihood limit under which the coordenate will be erased
 
 obj_dist = 14 # State the distance between objects in the video
 
@@ -43,7 +43,7 @@ video_fps = 25 # State the frames per second
 
 #%%
 
-h5_files = [file for file in os.listdir(folder) if file.endswith('.h5') and 'TS' in file]
+h5_files = [file for file in os.listdir(folder) if file.endswith('.h5') and 'TS' in file] 
 
 if not h5_files:
     print("No files found")
@@ -83,6 +83,9 @@ example_nose = example_data[nose_columns]
 # Erase the low likelihood points
 example_filtered = example_nose.copy()
 example_filtered.loc[example_filtered['nose_likelihood'] < tolerance, ['nose_x', 'nose_y']] = np.nan
+
+example_filtered[['nose_x', 'nose_y']] = example_filtered[['nose_x', 'nose_y']].ffill()
+example_filtered[['nose_x', 'nose_y']] = example_filtered[['nose_x', 'nose_y']].bfill()
 
 #%%
 
@@ -260,7 +263,10 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.5, window = 3
             difference = max_x - min_x
             
             scale = (distance*2.5 / difference) # lets assume that the max width of the nose range is 2.5 times the distance between objects
-
+            
+            if scale < 0.025 or scale >0.075:
+                scale = 0.053
+            
             # Apply the transformation to current_data
             current_data = current_data * scale
             

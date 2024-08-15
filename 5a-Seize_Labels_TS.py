@@ -72,14 +72,14 @@ class Vector:
 #%%
 
 # State your path:
-path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'viruta'
+path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
+experiment = r'2022-01_TORM-2m-3h'
 
 # Since we are going to analyze only one session of the experiment, we need to access its folder (eg: TS)
 stage_folder = os.path.join(path, experiment, 'TS')
 
 # State which labels you want to use
-label_type = 'geolabels'
+label_type = 'autolabels'
 
 time_limit = None
 video_fps = 25
@@ -364,8 +364,8 @@ def plot_all(path, name_start, time_limit = None, fps=25):
             
 #%%
 
-for group in groups:
-    plot_all(final_path, group)
+# for group in groups:
+#     plot_all(final_path, group)
 
 #%%
 

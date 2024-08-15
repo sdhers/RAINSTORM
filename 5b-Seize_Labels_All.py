@@ -72,8 +72,8 @@ class Vector:
 #%%
 
 # State your path:
-path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'TeNOR'
+path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
+experiment = r'2024-06_Tg-9m'
 
 # Complete with the different stages of the experiment
 stages = ["TR1", "TR2", "TS"] # Tip: Put TS last, so that rename_labels can return the path to it's folder

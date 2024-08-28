@@ -73,7 +73,7 @@ class Vector:
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
-experiment = r'2024-06_Tg-9m'
+experiment = r'2024-05_TORM-Tg-3m'
 
 # Complete with the different stages of the experiment
 stages = ["TR1", "TR2", "TS"] # Tip: Put TS last, so that rename_labels can return the path to it's folder
@@ -205,7 +205,7 @@ def rename_labels(reference_path, stages, labels_folder):
             
                 print(f'Renamed and saved: {new_file_path}')
     
-    group_list = list(set(group_list))
+    group_list = sorted(list(set(group_list)))
         
     return renamed_path, group_list
 

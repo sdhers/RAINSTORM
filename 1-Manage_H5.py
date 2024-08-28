@@ -29,7 +29,7 @@ from scipy import signal
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
-experiment = r'2024-05_TORM-Tg-3m'
+experiment = r'2024-03_Tg-6m'
 
 folder = os.path.join(path, experiment)
 
@@ -41,7 +41,7 @@ obj_dist = 14 # State the distance between objects in the video
 
 video_fps = 25 # State the frames per second
 
-#%%
+#%%2023-12_Tg-3m_TR2_R09-I_C06_B_L_position
 
 h5_files = [file for file in os.listdir(folder) if file.endswith('.h5') and 'TS' in file] 
 
@@ -85,7 +85,7 @@ example_filtered = example_nose.copy()
 example_filtered.loc[example_filtered['nose_likelihood'] < tolerance, ['nose_x', 'nose_y']] = np.nan
 
 example_filtered[['nose_x', 'nose_y']] = example_filtered[['nose_x', 'nose_y']].ffill()
-example_filtered[['nose_x', 'nose_y']] = example_filtered[['nose_x', 'nose_y']].bfill()
+# example_filtered[['nose_x', 'nose_y']] = example_filtered[['nose_x', 'nose_y']].bfill()
 
 #%%
 
@@ -209,7 +209,7 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.5, window = 3
                 if position_df[key].notna().sum() > 1:
                     
                     position_df[key] = position_df[key].ffill()
-                    position_df[key] = position_df[key].bfill()
+                    # position_df[key] = position_df[key].bfill()
                     
                     # Interpolate the column with 'pchip' method
                     position_df[key] = position_df[key].interpolate(method='pchip')
@@ -268,7 +268,7 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.5, window = 3
             
             scale = (distance*2.5 / difference) # lets assume that the max width of the nose range is 2.5 times the distance between objects
             
-            if scale < 0.025 or scale >0.075:
+            if scale < 0.03 or scale >0.07:
                 scale = 0.053
             
             # Apply the transformation to current_data
@@ -356,3 +356,7 @@ for file in other_files:
     shutil.move(file_path, output_path)
 
 print("All .H5 files are stored away")
+
+#%%
+
+# The end

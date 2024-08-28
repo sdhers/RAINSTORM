@@ -88,7 +88,7 @@ def find_files(path_name, exp_name, group, folder):
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
-experiment = r'2024-05_TORM-Tg-3m'
+experiment = r'2024-03_Tg-6m'
 
 Hab_position = find_files(path, experiment, "Hab", "position")
 TR1_position = find_files(path, experiment, "TR1", "position")
@@ -286,3 +286,7 @@ def create_geolabels(files, maxDistance = 2.5, maxAngle = 45, nan_to_0 = False):
 #%%
 
 create_geolabels(all_position)
+
+#%%
+
+# The end

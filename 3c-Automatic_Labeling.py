@@ -47,7 +47,7 @@ STORM_folder = os.path.join(desktop, 'STORM/models')
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
-experiment = r'2024-05_TORM-Tg-3m'
+experiment = r'2024-03_Tg-6m'
 
 before = 2
 after = 2
@@ -254,3 +254,7 @@ def create_autolabels(files, chosen_model, rescaling = True, reshaping = False):
 #%%
 
 create_autolabels(all_position, loaded_model, rescaling = True, reshaping = False) # Lets analyze!
+
+#%%
+
+# The end

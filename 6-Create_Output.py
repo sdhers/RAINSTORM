@@ -21,10 +21,10 @@ import itertools
 
 # State your path:
 path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
-experiment = r'2023-11_Interferencia'
+experiment = r'2023-11_NORm'
 
-trials = ["TS"]
-labels = 'labels'
+trials = ["TR", "TS1", "TS2", "TS3"]
+labels = 'autolabels'
 
 time_limit = None
 fps = 25

@@ -220,7 +220,8 @@ plt.ylabel('Y Coordinate')
 plt.axhline(0, color='black', linewidth=0.5)
 plt.axvline(0, color='black', linewidth=0.5)
 plt.gca().set_aspect('equal', adjustable='box')
-plt.legend()
+# Place the legend outside the plot
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
 plt.grid(True)
 
 # Show the plot
@@ -238,7 +239,7 @@ total_median_positions = {part: (centered_df[f'{part}_x'].median(), centered_df[
 body_parts = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body', 'tail_1', 'tail_2', 'tail_3']
 
 # Number of splits
-n_splits = 10
+n_splits = 100
 
 # Calculate the number of rows per split
 rows_per_split = len(centered_df) // n_splits
@@ -294,7 +295,7 @@ from itertools import combinations
 # Load the centered coordinates CSV file
 df = pd.read_csv('C:/Users/dhers/Desktop/STORM/egocentric/centered_coordinates.csv')
 
-body_parts = ['nose', 'head', 'neck', 'body']
+body_parts = ['nose', 'head', 'neck', 'body','L_ear', 'R_ear']
 
 # Number of splits
 n_splits = 10

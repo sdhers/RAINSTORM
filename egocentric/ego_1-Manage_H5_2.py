@@ -37,7 +37,7 @@ groups  = ["Hab", "TR1", "TR2", "TS"]
 
 tolerance = 0.99 # State the likelihood limit under which the coordenate will be erased
 
-bodypart = 'body'
+bodypart = 'nose' # State which bodypart you'd like to plot
 
 ear_dist = 1.8 # State the distance between the ears
 
@@ -66,35 +66,33 @@ position_df = pd.read_hdf(example_path)[main_key]
 # Organize the data into a new dataframe
 example_data = pd.DataFrame()
 
-for key in position_df.columns:
-    # We tap into the likelihood of each coordenate
-    section, component = key[0], key[1]
-    likelihood_key = (section, 'likelihood')
-
 for key in position_df.keys():
     example_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key]
-            
-#%%
-
-# Selecting some columns to visualize
-bodypart_columns = [col for col in example_data.columns if col.rsplit('_', 1)[0] == f'{bodypart}']
-example_bodypart = example_data[bodypart_columns]
 
 #%%
 
-# Erase the low likelihood points
-example_filtered = example_bodypart.copy()
-example_filtered.loc[example_filtered[f'{bodypart}_likelihood'] < tolerance, [f'{bodypart}_x', f'{bodypart}_y']] = np.nan
+points = list(set(col.rsplit('_', 1)[0] for col in example_data.columns))
+print(points)
 
-example_filtered[[f'{bodypart}_x', f'{bodypart}_y']] = example_filtered[[f'{bodypart}_x', f'{bodypart}_y']].ffill()
-# example_filtered[[f'{bodypart}_x', f'{bodypart}_y']] = example_filtered[[f'{bodypart}_x', f'{bodypart}_y']].bfill()
+example_filtered = example_data.copy()
 
-#%%
-
-# Fill missing values using interpolation
-example_interpolated = example_filtered.interpolate(method='pchip')
-
-#%%
+for point in points:
+    
+    # Set x and y coordinates to NaN where the likelihood is below the tolerance
+    example_filtered.loc[example_filtered[f'{point}_likelihood'] < tolerance, [f'{point}_x', f'{point}_y']] = np.nan
+    
+    # Check if there are any non-NaN values left to interpolate
+    if example_filtered[f'{point}_x'].notna().sum() > 1 and example_filtered[f'{point}_y'].notna().sum() > 1:
+    
+        # Interpolate using the pchip method
+        example_filtered[[f'{point}_x', f'{point}_y']] = example_filtered[[f'{point}_x', f'{point}_y']].interpolate(method='pchip')
+        
+        # Forward fill the remaining NaN values
+        example_filtered[[f'{point}_x', f'{point}_y']] = example_filtered[[f'{point}_x', f'{point}_y']].ffill()
+    
+    else:
+        # Set the entire column to NaN if there are no points left to interpolate
+        example_filtered[[f'{point}_x', f'{point}_y']] = np.nan
 
 # Try different filtering parameters
 window = 3
@@ -111,10 +109,10 @@ example_median = pd.DataFrame()
 example_soft = pd.DataFrame()
 
 # Applying median filter and convolution
-for column in example_interpolated.columns:
-    if 'likelihood' not in column:
+for column in example_filtered.columns:
+    if 'likelihood' not in column and example_filtered[column].notna().sum() > 1:
         # Apply median filter
-        example_median[column] = signal.medfilt(example_interpolated[column], kernel_size=window)
+        example_median[column] = signal.medfilt(example_filtered[column], kernel_size=window)
         
         # Pad the median filtered data to mitigate edge effects
         pad_width = (len(kernel) - 1) // 2
@@ -134,15 +132,17 @@ fig, ax1 = plt.subplots()
 # Creating a secondary y-axis
 ax2 = ax1.twinx()
 
-for column in example_bodypart.columns:
-    if 'likelihood' not in column:
-        ax1.plot(example_bodypart.index, example_bodypart[column], label=f'raw {column}', marker='.', markersize=6)
-    else:
-        ax2.plot(example_bodypart.index, example_bodypart[column], label = f'{column}', color = 'black', alpha = 0.5, markersize=6)
+for column in example_data.columns:
+    if bodypart in column:
+        if 'likelihood' not in column:
+            ax1.plot(example_data.index, example_data[column], label=f'raw {column}', marker='.', markersize=6)
+        else:
+            ax2.plot(example_data.index, example_data[column], label = f'{column}', color = 'black', alpha = 0.5, markersize=6)
 
 for column in example_soft.columns:
-    if 'likelihood' not in column:
-        ax1.plot(example_soft.index, example_soft[column], label = f'new {column}', marker='x', markersize = 4)
+    if bodypart in column:
+        if 'likelihood' not in column:
+            ax1.plot(example_soft.index, example_soft[column], label = f'new {column}', marker='x', markersize = 4)
 
     
 # Adding labels and titles
@@ -168,67 +168,18 @@ plt.show()
 
 #%%
 
-# Parameters
-N = int(2 * n_sigmas * sigma + 1)
+example_soft.dropna(inplace=True)
 
-# Gaussian kernel
-kernel = signal.windows.gaussian(N, sigma)
-kernel = kernel / sum(kernel)
-
-
-current_data = pd.DataFrame()
-
-for key in position_df.columns:
-    # We tap into the likelihood of each coordinate
-    section, component = key[0], key[1]
-    likelihood_key = (section, 'likelihood') 
-    
-    if component in ('x', 'y'):
-        
-        # Set values to NaN where likelihood is less than the threshold
-        position_df.loc[position_df[likelihood_key] < 0.99, key] = np.nan
-        
-        position_df[key] = position_df[key].ffill()
-        # position_df[key] = position_df[key].bfill()
-        
-        # Interpolate the column with 'pchip' method
-        position_df[key] = position_df[key].interpolate(method='pchip')
-
-        # Apply median filter
-        median_filtered = signal.medfilt(position_df[key], kernel_size=3)
-        
-        # Pad the median filtered data to mitigate edge effects
-        pad_width = (len(kernel) - 1) // 2
-        padded_data = np.pad(median_filtered, pad_width, mode='edge')
-        
-        # Apply convolution
-        convolved_data = signal.convolve(padded_data, kernel, mode='valid')
-        
-        # Trim the padded edges to restore original length
-        soft_df = convolved_data[:len(median_filtered)]
-        
-        # Create DataFrame for soft_df
-        soft_df = pd.DataFrame({key: soft_df})
-
-        # Replace the positions of the objects in every frame by their medians across the video
-        if key[0] == "obj_1" or key[0] == "obj_2":
-            current_data[str(key[0]) + "_" + str(key[1])] = [soft_df[key].median()] * len(soft_df[key])
-        else:
-            current_data[str(key[0]) + "_" + str(key[1])] = soft_df[key]
-
-
-# Calculate the mean distance between ears
+# Calculate the distance between ears
 dist = np.sqrt(
-    (current_data['L_ear_x'] - current_data['R_ear_x'])**2 + 
-    (current_data['L_ear_y'] - current_data['R_ear_y'])**2)
-
-dist.dropna(inplace=True)
+    (example_soft['L_ear_x'] - example_soft['R_ear_x'])**2 + 
+    (example_soft['L_ear_y'] - example_soft['R_ear_y'])**2)
 
 # Calculate the mean and median
 mean_dist = np.mean(dist)
 median_dist = np.median(dist)
 
-scale = (1.8 / mean_dist)
+scale = (1.8 / median_dist)
 
 print(f'median distance is {median_dist}, mean distance is {mean_dist}. scale is {scale*100}')
 
@@ -249,7 +200,7 @@ plt.show()
 
 """
 This function turns _position.H5 files into _position.csv files
-It also scales the coordenates to be expressed in cm (by using the distance between objects)
+It also scales the coordenates to be expressed in cm (by using the distance between both ears)
 """
 
 def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.5, window = 3, sigma = 1, n_sigmas = 2):
@@ -266,60 +217,66 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.5, window = 3
     
     for h5_file in h5_files:
         
-        h5_file_path = os.path.join(path_name, h5_file)
-        
         # Read the HDF5 file
-        hdf_store = pd.read_hdf(h5_file_path)
+        hdf_store = pd.read_hdf(example_path)
         all_keys = hdf_store.keys()
         main_key = str(all_keys[0][0])
-        position_df = pd.read_hdf(h5_file_path)[main_key]
+        position_df = pd.read_hdf(example_path)[main_key]
 
+        # Organize the data into a new dataframe
         current_data = pd.DataFrame()
 
-        for key in position_df.columns:
-            # We tap into the likelihood of each coordinate
-            section, component = key[0], key[1]
-            likelihood_key = (section, 'likelihood') 
-            
-            if component in ('x', 'y'):
-                
-                # Set values to NaN where likelihood is less than the threshold
-                position_df.loc[position_df[likelihood_key] < llhd, key] = np.nan
-                
-                # Check if there are any non-NaN values left to interpolate
-                if position_df[key].notna().sum() > 1:
-                    
-                    position_df[key] = position_df[key].ffill()
-                    # position_df[key] = position_df[key].bfill()
-                    
-                    # Interpolate the column with 'pchip' method
-                    position_df[key] = position_df[key].interpolate(method='pchip')
-                
-                else:
-                    # Set the entire column to NaN if there are no points left to interpolate
-                    position_df[key] = np.nan
+        for key in position_df.keys():
+            current_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key]
 
+        points = list(set(col.rsplit('_', 1)[0] for col in current_data.columns))
+
+        filtered = current_data.copy()
+
+        for point in points:
+            
+            # Set x and y coordinates to NaN where the likelihood is below the tolerance
+            filtered.loc[filtered[f'{point}_likelihood'] < tolerance, [f'{point}_x', f'{point}_y']] = np.nan
+            
+            # Check if there are any non-NaN values left to interpolate
+            if filtered[f'{point}_x'].notna().sum() > 1 and filtered[f'{point}_y'].notna().sum() > 1:
+            
+                # Interpolate using the pchip method
+                filtered[[f'{point}_x', f'{point}_y']] = filtered[[f'{point}_x', f'{point}_y']].interpolate(method='pchip')
+                
+                # Forward fill the remaining NaN values
+                filtered[[f'{point}_x', f'{point}_y']] = filtered[[f'{point}_x', f'{point}_y']].ffill()
+            
+            else:
+                # Set the entire column to NaN if there are no points left to interpolate
+                filtered[[f'{point}_x', f'{point}_y']] = np.nan
+
+        # Example DataFrames
+        median = pd.DataFrame()
+        soft = pd.DataFrame()
+
+        # Applying median filter and convolution
+        for column in filtered.columns:
+            if 'likelihood' not in column and filtered[column].notna().sum() > 1:
+                
                 # Apply median filter
-                median_filtered = signal.medfilt(position_df[key], kernel_size=3)
+                median[column] = signal.medfilt(filtered[column], kernel_size=window)
                 
                 # Pad the median filtered data to mitigate edge effects
                 pad_width = (len(kernel) - 1) // 2
-                padded_data = np.pad(median_filtered, pad_width, mode='edge')
+                padded = np.pad(median[column], pad_width, mode='edge')
                 
                 # Apply convolution
-                convolved_data = signal.convolve(padded_data, kernel, mode='valid')
+                smoothed = signal.convolve(padded, kernel, mode='valid')
                 
                 # Trim the padded edges to restore original length
-                soft_df = convolved_data[:len(median_filtered)]
-                
-                # Create DataFrame for soft_df
-                soft_df = pd.DataFrame({key: soft_df})
+                soft[column] = smoothed[:len(median[column])]
 
                 # Replace the positions of the objects in every frame by their medians across the video
-                if key[0] == "obj_1" or key[0] == "obj_2":
-                    current_data[str(key[0]) + "_" + str(key[1])] = [soft_df[key].median()] * len(soft_df[key])
-                else:
-                    current_data[str(key[0]) + "_" + str(key[1])] = soft_df[key]
+                if 'obj' in column:
+                    soft[column] = soft[column].median() * len(soft[column])
+
+# Hasta aca llegue!
 
         
         # Calculate the mean distance between ears

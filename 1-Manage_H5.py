@@ -1,5 +1,5 @@
 """
-Created on Wed Oct 25 09:56:54 2023
+Created on Tue Aug 27 22:21:22 2024
 
 @author: Santiago D'hers
 
@@ -8,8 +8,8 @@ Use:
     - The positions are scaled from pixels to cm for better generalization
 
 Requirements:
-    - An "experiment" folder with files of extention .H5 (from DeepLabCut)
-    - Files have the position of two objects and the desired bodyparts
+    - A folder with files of extention .H5 (from DeepLabCut)
+    - H5 files must have the position of the desired bodyparts (and objects)
 """
 
 #%% Import libraries
@@ -24,24 +24,27 @@ import shutil
 import random
 
 from scipy import signal
+from collections import OrderedDict
 
 #%%
 
 # State your path:
-path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
-experiment = r'2024-03_Tg-6m'
+path = r'C:/Users/dhers/OneDrive - UBA/workshop'
+experiment = r'2023-05_TeNOR'
 
 folder = os.path.join(path, experiment)
 
 groups  = ["Hab", "TR1", "TR2", "TS"]
 
-tolerance = 0.95 # State the likelihood limit under which the coordenate will be erased
+tolerance = 0.99 # State the likelihood limit under which the coordenate will be erased
 
-obj_dist = 14 # State the distance between objects in the video
+bodypart = 'nose' # State which bodypart you'd like to plot
+
+ear_dist = 1.8 # State the distance between the ears
 
 video_fps = 25 # State the frames per second
 
-#%%2023-12_Tg-3m_TR2_R09-I_C06_B_L_position
+#%%
 
 h5_files = [file for file in os.listdir(folder) if file.endswith('.h5') and 'TS' in file] 
 
@@ -63,34 +66,13 @@ position_df = pd.read_hdf(example_path)[main_key]
 
 # Organize the data into a new dataframe
 example_data = pd.DataFrame()
-
-for key in position_df.columns:
-    # We tap into the likelihood of each coordenate
-    section, component = key[0], key[1]
-    likelihood_key = (section, 'likelihood')
+points = OrderedDict()
 
 for key in position_df.keys():
-    example_data[str( key[0] ) + "_" + str( key[1] )] = position_df[key]
-            
-#%%
-
-# Selecting some columns to visualize
-nose_columns = [col for col in example_data.columns if col.split('_')[0] == 'nose']
-example_nose = example_data[nose_columns]
-
-#%%
-
-# Erase the low likelihood points
-example_filtered = example_nose.copy()
-example_filtered.loc[example_filtered['nose_likelihood'] < tolerance, ['nose_x', 'nose_y']] = np.nan
-
-example_filtered[['nose_x', 'nose_y']] = example_filtered[['nose_x', 'nose_y']].ffill()
-# example_filtered[['nose_x', 'nose_y']] = example_filtered[['nose_x', 'nose_y']].bfill()
-
-#%%
-
-# Fill missing values using interpolation
-example_interpolated = example_filtered.interpolate(method='pchip')
+    points[key[0]] = None  # Value doesn't matter; we only care about keys
+    example_data[str(key[0]) + "_" + str(key[1])] = position_df[key]
+points = list(points.keys())  # Extract the keys to get the ordered list
+print(points)
 
 #%%
 
@@ -104,26 +86,50 @@ N = int(2 * n_sigmas * sigma + 1)
 kernel = signal.windows.gaussian(N, sigma)
 kernel = kernel / sum(kernel)
 
+pad_width = (len(kernel) - 1) // 2
+
+#%%
+
 # Example DataFrames
-example_median = pd.DataFrame()
-example_soft = pd.DataFrame()
+example_filtered = example_data.copy()
 
-# Applying median filter and convolution
-for column in example_interpolated.columns:
-    if 'likelihood' not in column:
-        # Apply median filter
-        example_median[column] = signal.medfilt(example_interpolated[column], kernel_size=window)
+for point in points:
+    
+    # Set x and y coordinates to NaN where the likelihood is below the tolerance
+    example_filtered.loc[example_filtered[f'{point}_likelihood'] < tolerance, [f'{point}_x', f'{point}_y']] = np.nan
+    
+    for axis in ['x','y']:
+        column = f'{point}_{axis}'
         
-        # Pad the median filtered data to mitigate edge effects
-        pad_width = (len(kernel) - 1) // 2
-        padded_data = np.pad(example_median[column], pad_width, mode='edge')
+        # Check if there are any non-NaN values left to interpolate
+        if example_filtered[column].notna().sum() > 1:
         
-        # Apply convolution
-        smoothed_data = signal.convolve(padded_data, kernel, mode='valid')
+            # Interpolate using the pchip method
+            example_filtered[column] = example_filtered[column].interpolate(method='pchip')
+            
+            # Forward fill the remaining NaN values
+            example_filtered[column] = example_filtered[column].ffill()
+            
+            # Apply median filter
+            example_filtered[column] = signal.medfilt(example_filtered[column], kernel_size=window)
+            
+            # Pad the median filtered data to mitigate edge effects
+            padded_example = np.pad(example_filtered[column], pad_width, mode='edge')
+            
+            # Apply convolution
+            smooth_example = signal.convolve(padded_example, kernel, mode='valid')
+            
+            # Trim the padded edges to restore original length
+            example_filtered[column] = smooth_example[:len(example_filtered[column])]
         
-        # Trim the padded edges to restore original length
-        example_soft[column] = smoothed_data[:len(example_median[column])]
-
+            if 'obj' in column:
+                example_filtered[column] = example_filtered[column].median()
+        
+        else:
+            # Set the entire column to NaN if there are no points left to interpolate
+            example_filtered[column] = np.nan
+            print(f'There is no {column} in the video')
+            
 #%%
 
 # Creating the plot
@@ -132,16 +138,17 @@ fig, ax1 = plt.subplots()
 # Creating a secondary y-axis
 ax2 = ax1.twinx()
 
-for column in example_nose.columns:
-    if 'likelihood' not in column:
-        ax1.plot(example_nose.index, example_nose[column], label=f'raw {column}', marker='.', markersize=6)
-    else:
-        ax2.plot(example_nose.index, example_nose[column], label = f'{column}', color = 'black', alpha = 0.5, markersize=6)
+for column in example_data.columns:
+    if bodypart in column:
+        if 'likelihood' not in column:
+            ax1.plot(example_data.index, example_data[column], label=f'raw {column}', marker='.', markersize=6)
+        else:
+            ax2.plot(example_data.index, example_data[column], label = f'{column}', color = 'black', alpha = 0.5, markersize=6)
 
-for column in example_interpolated.columns:
-    if 'likelihood' not in column:
-        ax1.plot(example_soft.index, example_soft[column], label = f'new {column}', marker='x', markersize = 4)
-
+for column in example_filtered.columns:
+    if bodypart in column:
+        if 'likelihood' not in column:
+            ax1.plot(example_filtered.index, example_filtered[column], label = f'new {column}', marker='x', markersize = 4)
     
 # Adding labels and titles
 ax1.set_xlabel('Video frame')
@@ -153,25 +160,49 @@ lines_1, labels_1 = ax1.get_legend_handles_labels()
 lines_2, labels_2 = ax2.get_legend_handles_labels()
 plt.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper left', fancybox=True, shadow=True, framealpha=1.0)
 
-plt.title('Nose position & likelihood')
+plt.title(f'{bodypart} position & likelihood')
 plt.grid(True)
 plt.axhline(y=tolerance, color='r', linestyle='-')
-
-# Zoom in on some frames
-# plt.xlim((2250, 2450))
-# plt.ylim((-0.02, 1.02))
 
 plt.tight_layout()
 plt.show()
 
 #%%
 
+example_filtered.dropna(inplace=True)
+
+# Calculate the distance between ears
+dist = np.sqrt(
+    (example_filtered['L_ear_x'] - example_filtered['R_ear_x'])**2 + 
+    (example_filtered['L_ear_y'] - example_filtered['R_ear_y'])**2)
+
+# Calculate the mean and median
+mean_dist = np.mean(dist)
+median_dist = np.median(dist)
+
+scale = (1.8 / median_dist)
+
+print(f'median distance is {median_dist}, mean distance is {mean_dist}. scale is {scale*100}')
+
+# Plot the distance for each row
+plt.figure(figsize=(10, 6))
+plt.plot(dist, label='Distance between L_ear and R_ear')
+plt.axhline(mean_dist, color='red', linestyle='--', label=f'Mean: {mean_dist:.2f}')
+plt.axhline(median_dist, color='black', linestyle='-', label=f'Median: {median_dist:.2f}')
+plt.xlabel('Row index')
+plt.ylabel('Distance')
+plt.title('Distance between Left Ear and Right Ear for Each Frame')
+plt.legend()
+plt.show()
+
+#%%
+
 """
 This function turns _position.H5 files into _position.csv files
-It also scales the coordenates to be expressed in cm (by using the distance between objects)
+It also scales the coordenates to be expressed in cm (by using the distance between both ears)
 """
 
-def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.5, window = 3, sigma = 1, n_sigmas = 2):
+def process_hdf5_file(path_name, distance = 1.8, fps = 25, llhd = 0.99, window = 3, sigma = 1, n_sigmas = 2):
     
     # Parameters
     N = int(2 * n_sigmas * sigma + 1)
@@ -193,87 +224,63 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.5, window = 3
         main_key = str(all_keys[0][0])
         position_df = pd.read_hdf(h5_file_path)[main_key]
 
-        current_data = pd.DataFrame()
+        # Organize the data into a new dataframe
+        df_raw = pd.DataFrame()
+        df_filtered = pd.DataFrame()
+        points = OrderedDict()
 
-        for key in position_df.columns:
-            # We tap into the likelihood of each coordinate
-            section, component = key[0], key[1]
-            likelihood_key = (section, 'likelihood') 
+        for key in position_df.keys():
+            points[key[0]] = None  # Value doesn't matter; we only care about keys
+            df_raw[str(key[0]) + "_" + str(key[1])] = position_df[key]
+        points = list(points.keys())  # Extract the keys to get the ordered list
+        
+        for point in points:
             
-            if component in ('x', 'y'):
-                
-                # Set values to NaN where likelihood is less than the threshold
-                position_df.loc[position_df[likelihood_key] < llhd, key] = np.nan
+            # Set x and y coordinates to NaN where the likelihood is below the tolerance
+            df_raw.loc[df_raw[f'{point}_likelihood'] < tolerance, [f'{point}_x', f'{point}_y']] = np.nan
+            
+            for axis in ['x','y']:
+                column = f'{point}_{axis}'
                 
                 # Check if there are any non-NaN values left to interpolate
-                if position_df[key].notna().sum() > 1:
+                if df_raw[column].notna().sum() > 1:
+                
+                    # Interpolate using the pchip method
+                    df_filtered[column] = df_raw[column].interpolate(method='pchip')
                     
-                    position_df[key] = position_df[key].ffill()
-                    # position_df[key] = position_df[key].bfill()
+                    # Forward fill the remaining NaN values
+                    df_filtered[column] = df_filtered[column].ffill()
                     
-                    # Interpolate the column with 'pchip' method
-                    position_df[key] = position_df[key].interpolate(method='pchip')
+                    # Apply median filter
+                    df_filtered[column] = signal.medfilt(df_filtered[column], kernel_size=window)
+                    
+                    # Pad the median filtered data to mitigate edge effects
+                    padded_df = np.pad(df_filtered[column], pad_width, mode='edge')
+                    
+                    # Apply convolution
+                    smooth_df = signal.convolve(padded_df, kernel, mode='valid')
+                    
+                    # Trim the padded edges to restore original length
+                    df_filtered[column] = smooth_df[:len(df_filtered[column])]
+                
+                    if 'obj' in column:
+                        df_filtered[column] = df_filtered[column].median()
+                
                 else:
                     # Set the entire column to NaN if there are no points left to interpolate
-                    position_df[key] = np.nan
-
-                # Apply median filter
-                median_filtered = signal.medfilt(position_df[key], kernel_size=3)
-                
-                # Pad the median filtered data to mitigate edge effects
-                pad_width = (len(kernel) - 1) // 2
-                padded_data = np.pad(median_filtered, pad_width, mode='edge')
-                
-                # Apply convolution
-                convolved_data = signal.convolve(padded_data, kernel, mode='valid')
-                
-                # Trim the padded edges to restore original length
-                soft_df = convolved_data[:len(median_filtered)]
-                
-                # Create DataFrame for soft_df
-                soft_df = pd.DataFrame({key: soft_df})
-
-                # Replace the positions of the objects in every frame by their medians across the video
-                if key[0] == "obj_1" or key[0] == "obj_2":
-                    current_data[str(key[0]) + "_" + str(key[1])] = [soft_df[key].median()] * len(soft_df[key])
-                else:
-                    current_data[str(key[0]) + "_" + str(key[1])] = soft_df[key]
+                    df_filtered[column] = np.nan
+                    print(f'There is no {column} in the video')
 
         
-        if "Hab" not in h5_file_path:
-            
-            # Calculate the medians
-            obj_1_x = current_data['obj_1_x'].median()
-            obj_2_x = current_data['obj_2_x'].median()
-            
-            """
-            As the distance between objects is a constant that can be measured in real life,
-            we can use it to scale different sized videos into the same size.
-            """
-            # Calculate the difference
-            difference = obj_2_x - obj_1_x
-            
-            scale = (distance / difference)
-            
-            current_data = current_data * scale
+        # Calculate the mean distance between ears
+        dist = np.sqrt(
+            (df_filtered['L_ear_x'] - df_filtered['R_ear_x'])**2 + 
+            (df_filtered['L_ear_y'] - df_filtered['R_ear_y'])**2)
+        median_dist = dist.median()
 
-        else: # We need to modify the script when there is no objects on the arena
-            
-            # Calculate the max and min point the nose can reach
-            max_x = current_data['nose_x'].max()
-            min_x = current_data['nose_x'].min()
-            
-            # Calculate the difference
-            difference = max_x - min_x
-            
-            scale = (distance*2.5 / difference) # lets assume that the max width of the nose range is 2.5 times the distance between objects
-            
-            if scale < 0.03 or scale >0.07:
-                scale = 0.053
-            
-            # Apply the transformation to current_data
-            current_data = current_data * scale
-            
+        # As the distance between ears is a constant that can be measured in real life, we can use it to scale different sized videos into the same size.
+        scale = (distance / median_dist)
+        df_filtered = df_filtered * scale            
         
         # Determine the output file path in the same directory as the input file
         # Split the path and filename
@@ -286,11 +293,12 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.5, window = 3
         output_csv_path = os.path.join(input_dir, filename_without_extension + '.csv')
     
         # Save the processed data as a CSV file
-        current_data.to_csv(output_csv_path, index=False)
+        df_filtered.to_csv(output_csv_path, index=False)
         
         # Calculate the moment when the mouse enters the video
-        mouse_enters = current_data.iloc[:, 4:].dropna().index[0] / fps # I dont use the first 4 columns because they belong to the object's position
-               
+        mouse_only = df_filtered.loc[:, ~df_filtered.columns.str.contains('obj')]
+        mouse_enters = mouse_only.dropna().index[0] / fps # I dont use the obj columns
+
         print(f"{input_filename}. The mouse took {mouse_enters:.2f} sec. scale is {scale*100:.2f}.")
 
 #%%
@@ -299,7 +307,7 @@ def process_hdf5_file(path_name, distance = 14, fps = 25, llhd = 0.5, window = 3
 Lets make the .csv files for our experiment folder
 """
 
-process_hdf5_file(folder, distance = obj_dist, fps = video_fps, llhd = tolerance, window = 3, sigma = 1, n_sigmas = 2)
+process_hdf5_file(folder, distance = ear_dist, fps = video_fps, llhd = tolerance)
 
 #%%
 

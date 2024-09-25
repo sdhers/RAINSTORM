@@ -110,7 +110,7 @@ class Chopper(QtWidgets.QWidget):
             video_izq_rotado = video_izq.rotate(90)
             
             # Guardamos los videos rotados
-            video_izq_rotado.write_videofile(video_izq_path, fps = 25, audio = False)
+            video_izq_rotado.write_videofile(video_izq_path, fps = 30, audio = False)
         
         # Defino inicio y fin de los videos del lado derecho
         start = start + shift
@@ -136,7 +136,7 @@ class Chopper(QtWidgets.QWidget):
             video_der_rotado = video_der.rotate(-90)
             
             # Guardamos los videos rotados
-            video_der_rotado.write_videofile(video_der_path, fps = 25, audio = False)
+            video_der_rotado.write_videofile(video_der_path, fps = 30, audio = False)
 
 
 if __name__ == '__main__':

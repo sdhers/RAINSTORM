@@ -29,12 +29,12 @@ from collections import OrderedDict
 #%%
 
 # State your path:
-path = r'C:/Users/dhers/OneDrive - UBA/workshop'
-experiment = r'2023-05_TeNOR'
+path = r'C:/Users/dhers/Desktop/TBNSS'
+experiment = r'2024-09_NOR-Tg-6m'
 
 folder = os.path.join(path, experiment)
 
-groups  = ["Hab", "TR1", "TR2", "TS"]
+groups  = ["Hab", "TR", "TS"]
 
 tolerance = 0.99 # State the likelihood limit under which the coordenate will be erased
 
@@ -56,6 +56,13 @@ else:
     example = random.choice(h5_files)
     example_path = os.path.join(folder, example)
     
+#%%
+df = pd.read_hdf(example_path)
+scorer = df.columns.levels[0][0]
+bodyparts = df.columns.levels[1]
+df = df.droplevel(0, axis=1)
+
+df.loc[:, (bodyparts[:2], ['x', 'y'])]
 #%%
 
 # Read the HDF5 file

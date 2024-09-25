@@ -46,19 +46,19 @@ desktop = 'C:/Users/dhers/Desktop'
 STORM_folder = os.path.join(desktop, 'STORM/models')
 
 # State your path:
-path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
-experiment = r'2024-03_Tg-6m'
+path = r'C:/Users/dhers/Desktop/TBNSS'
+experiment = r'2024-09_NOR-Tg-6m'
 
 before = 2
 after = 2
 
 frames = before + after + 1
 
-TR1_position = find_files(path, experiment, "TR1", "position")
-TR2_position = find_files(path, experiment, "TR2", "position")
+TR1_position = find_files(path, experiment, "TR", "position")
+#TR2_position = find_files(path, experiment, "TR2", "position")
 TS_position = find_files(path, experiment, "TS", "position")
 
-all_position = TR1_position + TR2_position + TS_position
+all_position = TR1_position + TS_position
 
 today = datetime.datetime.now()
 # use_model_date = today.date()

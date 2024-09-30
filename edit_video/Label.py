@@ -61,10 +61,10 @@ def process_frame(video_name, frame, frame_number, total_frames, L, R, left_sum,
 
     # Add frame number to the frame
     draw_text(frame, f"Frame: {frame_number + 1}/{total_frames}", 
-              pos = (int(frame.shape[0]*0.01), int(frame.shape[1]*0.83)), 
+              pos = (int(frame.shape[0]*0.01), int(frame.shape[1]*0.62)), 
               text_color = (0, 255, 0))
     draw_text(frame, f"Video: {video_name}", 
-              pos = (int(frame.shape[0]*0.01), int(frame.shape[1]*0.86)), 
+              pos = (int(frame.shape[0]*0.01), int(frame.shape[1]*0.65)), 
               text_color = (0, 255, 0),
               font_scale = 1)
     

@@ -1,6 +1,5 @@
 """
 This app cuts videos vertically in half (when you record two mice at once)
-The resulting videos are set to have 30 fps. This can be modified at will.
 """
 
 import os
@@ -25,7 +24,7 @@ class Chopper(QtWidgets.QWidget):
         self.start_label = QtWidgets.QLabel('Enter start time:')
         self.start_edit = QtWidgets.QTimeEdit()
         self.start_edit.setDisplayFormat("mm:ss")
-        default_start = QtCore.QTime(0, 0, 1) # Set the default start time at 2 s
+        default_start = QtCore.QTime(0, 0, 2) # Set the default start time at 2 s
         self.start_edit.setTime(default_start)
         self.start = self.start_edit.time()
         self.start_edit.timeChanged.connect(lambda time: setattr(self, "start", time))
@@ -33,7 +32,7 @@ class Chopper(QtWidgets.QWidget):
         self.end_label = QtWidgets.QLabel('Enter end time:')
         self.end_edit = QtWidgets.QTimeEdit()
         self.end_edit.setDisplayFormat("mm:ss")
-        default_end = QtCore.QTime(0, 5, 1) # Set the default end time to 5 minutes after the start
+        default_end = QtCore.QTime(0, 5, 2) # Set the default end time to 5 minutes after the start
         self.end_edit.setTime(default_end)
         self.end = self.end_edit.time()
         self.end_edit.timeChanged.connect(lambda time: setattr(self, "end", time))
@@ -41,22 +40,31 @@ class Chopper(QtWidgets.QWidget):
         self.shift_label = QtWidgets.QLabel('Enter phase shift:')
         self.shift_edit = QtWidgets.QTimeEdit()
         self.shift_edit.setDisplayFormat("mm:ss")
-        default_shift = QtCore.QTime(0, 0, 4)
+        default_shift = QtCore.QTime(0, 0, 5)
         self.shift_edit.setTime(default_shift)
         self.shift = self.shift_edit.time()
         self.shift_edit.timeChanged.connect(lambda time: setattr(self, "shift", time))
         
-        
+        self.fps_label = QtWidgets.QLabel('Enter video FPS:')
+        self.fps_spinbox = QtWidgets.QSpinBox()
+        self.fps_spinbox.setRange(1, 120)  # Set FPS range from 1 to 120
+        self.fps_spinbox.setValue(30)  # Set default FPS to 30
+        self.fps = self.fps_spinbox.value()
+        self.fps_spinbox.valueChanged.connect(lambda fps: setattr(self, "fps", fps))
+
+        # Set up layout
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.folder_label)
         layout.addWidget(self.folder_button)
-        layout.addWidget(self.run_button)
         layout.addWidget(self.start_label)
         layout.addWidget(self.start_edit)
         layout.addWidget(self.end_label)
         layout.addWidget(self.end_edit)
         layout.addWidget(self.shift_label)
         layout.addWidget(self.shift_edit)
+        layout.addWidget(self.fps_label)
+        layout.addWidget(self.fps_spinbox)
+        layout.addWidget(self.run_button)
 
         self.setLayout(layout)
         self.show()
@@ -74,9 +82,9 @@ class Chopper(QtWidgets.QWidget):
             return
 
         # Create the 'Chopped videos' folder if it does not exist
-        cortados_path = os.path.join(self.folder_path, 'Chopped videos')
-        if not os.path.exists(cortados_path):
-            os.makedirs(cortados_path)
+        chopped_path = os.path.join(self.folder_path, 'Chopped videos')
+        if not os.path.exists(chopped_path):
+            os.makedirs(chopped_path)
 
         # Get the list of video files in the folder
         filenames = os.listdir(self.folder_path)
@@ -98,22 +106,20 @@ class Chopper(QtWidgets.QWidget):
             
             # Create the output video writers
             video_name = os.path.splitext(video_filename)[0]
-            video_izq_path = os.path.join(cortados_path, video_name + '_L.mp4')
+            video_left_path = os.path.join(chopped_path, video_name + '_L.mp4')
             
             # Cut the video in half
-            video_izq = video.crop(x1 = 0, y1 = 0, x2 = self.frame_width//2, y2 = self.frame_height)
-            video_der = video.crop(x1 = self.frame_width//2, y1 = 0, x2 = self.frame_width, y2 = self.frame_height)
+            video_left = video.crop(x1 = 0, y1 = 0, x2 = self.frame_width//2, y2 = self.frame_height)
             
             # Turn the video 90 degrees anticlockwise
-            video_izq_rotado = video_izq.rotate(90)
+            video_left_rotated = video_left.rotate(90)
             
-            """
             # Check if the file already exists and save the rotated videos
-            if not os.path.exists(video_izq_path):
-                video_izq_rotado.write_videofile(video_izq_path, fps = 30, audio = False)
+            if not os.path.exists(video_left_path):
+                video_left_rotated.write_videofile(video_left_path, fps = self.fps, audio = False)
             else:
-                print(f"The file {video_izq_path} already exists. Skipping video creation.")
-            """
+                print(f"The file {video_left_path} already exists. Skipping video creation.")
+
         # Set beginning and end of videos for the left side
         start = start + shift
         end = end + shift
@@ -129,19 +135,19 @@ class Chopper(QtWidgets.QWidget):
             
             # Create the output video writers
             video_name = os.path.splitext(video_filename)[0]
-            video_der_path = os.path.join(cortados_path, video_name + '_R.mp4')
+            video_right_path = os.path.join(chopped_path, video_name + '_R.mp4')
             
             # Cut the video in half
-            video_der = video.crop(x1 = self.frame_width//2, y1 = 0, x2 = self.frame_width, y2 = self.frame_height)
+            video_right = video.crop(x1 = self.frame_width//2, y1 = 0, x2 = self.frame_width, y2 = self.frame_height)
             
             # Turn the video 90 degrees clockwise
-            video_der_rotado = video_der.rotate(-90)
+            video_right_rotated = video_right.rotate(-90)
             
             # Check if the file already exists and save the rotated videos
-            if not os.path.exists(video_der_path):
-                video_der_rotado.write_videofile(video_der_path, fps = 30, audio = False)
+            if not os.path.exists(video_right_path):
+                video_right_rotated.write_videofile(video_right_path, fps = self.fps, audio = False)
             else:
-                print(f"The file {video_der_path} already exists. Skipping video creation.")
+                print(f"The file {video_right_path} already exists. Skipping video creation.")
 
 
 if __name__ == '__main__':

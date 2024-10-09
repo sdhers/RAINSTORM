@@ -107,12 +107,13 @@ class Chopper(QtWidgets.QWidget):
             # Turn the video 90 degrees anticlockwise
             video_izq_rotado = video_izq.rotate(90)
             
+            """
             # Check if the file already exists and save the rotated videos
             if not os.path.exists(video_izq_path):
                 video_izq_rotado.write_videofile(video_izq_path, fps = 30, audio = False)
             else:
                 print(f"The file {video_izq_path} already exists. Skipping video creation.")
-        
+            """
         # Set beginning and end of videos for the left side
         start = start + shift
         end = end + shift

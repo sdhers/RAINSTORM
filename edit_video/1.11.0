@@ -1,0 +1,5 @@
+Collecting wrapt
+  Using cached wrapt-1.16.0-cp310-cp310-win_amd64.whl.metadata (6.8 kB)
+Using cached wrapt-1.16.0-cp310-cp310-win_amd64.whl (37 kB)
+Installing collected packages: wrapt
+Successfully installed wrapt-1.16.0

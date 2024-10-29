@@ -8,14 +8,14 @@
 
 ### Features
 
-- post-DeepLabCut data processing to avoid dissapearing bodyparts and glitching
+- Post-DeepLabCut data processing to avoid dissapearing bodyparts and glitching
 - Geometric labeling through distance and angle of aproach
 - Automatic labeling using a trained AI model able to detect of temporal sequences of behaviour
 - Comparing labels in a visual and simple way
 
 ### Future steps
 
-- Learn to apply further DeepLabCut analysis:
+- Applying further DeepLabCut analysis:
   - Multianimal tracking for social memories
   - Apply detection of moving objects for dinamic maze designs
 
@@ -25,10 +25,10 @@
 
 ## Manage_H5
 
-- It is important to filter from the file the frames where the mouse is not in the video
-- Points that have a low likelihood assigned by DLC are filtered and data is processed by filters
+- It is important to filter from the position file the frames where the mouse is not in the video
+- Points that have a low likelihood assigned by DLC are filtered and data is smoothed
 - Also, it is convenient to scale the video from pixels to cm
-- Return: We obtain .csv files with the scaled positions of the mice
+- Return: We obtain .csv files with the correct, scaled positions of the mice
 
 ![Example Manage_H5](images/1-Manage_H5.png)
 
@@ -46,12 +46,12 @@
 
 ![Example Autolabels](images/3a-Create_Models.png)
 
-Using TensorFlow, we were able to train a simple model that is able to clasify a mouse's position into exploration
+Using TensorFlow, we were able to train models that are able to clasify a mouse's position into exploration
 
 ![Example Autolabels_2](images/3a-Create_Models_simple.png)
 
-We also trained a more complex LSTM network that is aware of frame sequences, and performs better as exploration is time dependant
-It trains based on our own manual labeling, so it acquires the criteria of the user.
+Among the models, we trained a more complex LSTM network that is aware of frame sequences, and performs better as exploration is time dependant.
+It trains based on our own manual labeling, so it acquires the criteria of the users.
 
 ## Compare_Labels
 
@@ -68,7 +68,7 @@ Using a polar graph, we can see for each position the angle of approach and dist
 
 ![Example compare_2](images/4-Compare_Labels_polar_all.png)
 
-#### Since the automatic method learns to detect exploration unrestricted by the angle and distance to the object, it tends to be more accurate (Although, let's face it... I chose the best numbers I've ever gotten for the picture)
+#### Since the automatic method learns to detect exploration unrestricted by the angle and distance to the object, it tends to be more accurate (Although, let's be honest... I chose to show you the best numbers I've ever gotten).
 
 ![Example compare_3](images/4-Compare_Labels_result.png)
 
@@ -83,8 +83,9 @@ Using a polar graph, we can see for each position the angle of approach and dist
 ![Example seize_2](images/5-Seize_Labels_experiment.png)
 
 # In conclusion
-- This project, although already in use, is a work in progress that could someday improve the way we analyze object exploration videos.
+- This project, although already in use, is a work in progress that could significantly improve the way we analyze object exploration videos.
 - If you wish to contact us, please do so: simple.torm@gmail.com
+- This project is licensed under the CC BY 4.0.
 
 #### Thanks for exploring us!
 

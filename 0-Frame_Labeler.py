@@ -1,28 +1,49 @@
-"""
-@author: Santiago D'hers
-Use: This notebook lets you label video frames with behaviors
+""" @author: Santiago D'hers
+Use: STORM Labeler - Lets you label videos frame by frame with multiple behaviours
 """
 
-# Imports
 import os
 import pandas as pd
 import numpy as np
 
 import csv
 import cv2
-from moviepy.editor import VideoFileClip
 
 import keyboard
 from tkinter import Tk, simpledialog, messagebox, filedialog
-from tkinter import messagebox
 
-# Define the needed functions
+def get_screen_width() -> int:
+    """Workaround to get the width of the current screen in a multi-screen setup.
 
-def resize_frame(img):
+    Returns:
+        width (int): The width of the monitor screen in pixels.
+    """
+    root = Tk()
+    root.update_idletasks()
+    root.attributes('-fullscreen', True)
+    root.state('iconic')
+    geometry = root.winfo_geometry()
+    root.destroy()
+    
+    # Extract width from geometry string
+    width = int(geometry.split('x')[0])
+
+    return width
+
+def resize_frame(img: np.uint8, screen_width: int) -> np.uint8:
+    """Resize frame for better visualization 
+
+    Args:
+        img (np.uint8): Original image
+        screen_width (int): The width of the fullscreen in pixels
+
+    Returns:
+        new_img (np.uint8): Resized image
+    """
     # Get original dimensions
     height, width = img.shape[:2]
-
-    scale_factor = 720 / width
+    scale_factor = screen_width / width
+    
     new_width = int(width * scale_factor)
     new_height = int(height * scale_factor)
         
@@ -31,8 +52,16 @@ def resize_frame(img):
     
     return new_img
 
-def add_margin(img, m):
+def add_margin(img: np.uint8, m: int) -> np.uint8:
+    """Add a margin to the frame, to write on it later
 
+    Args:
+        img (np.uint8): Original image
+        m (int): Width of the margin
+
+    Returns:
+        new_img (np.uint8): Image with black margin
+    """
     height, width, _ = img.shape
     full_width = int(width + m)
     
@@ -41,13 +70,26 @@ def add_margin(img, m):
 
     return new_img
     
-def draw_text(img, text,
+def draw_text(img: np.uint8, 
+              text: str,
               font=cv2.FONT_HERSHEY_PLAIN,
               pos=(0, 0),
               font_scale=1,
               font_thickness=1,
               text_color=(0, 255, 0),
               text_color_bg=(0, 0, 0)):
+    """Generate text on an image
+
+    Args:
+        img (np.uint8): Original image
+        text (str): Text to be drawn
+        font (optional): Text font. Defaults to cv2.FONT_HERSHEY_PLAIN.
+        pos (tuple, optional): Text position. Defaults to (0, 0).
+        font_scale (int, optional): Text size. Defaults to 1.
+        font_thickness (int, optional): Text thickness. Defaults to 1.
+        text_color (tuple, optional): Text color. Defaults to (0, 255, 0).
+        text_color_bg (tuple, optional): Text background color. Defaults to (0, 0, 0).
+    """
 
     x, y = pos
     text_size, _ = cv2.getTextSize(text, font, font_scale, font_thickness)
@@ -55,59 +97,70 @@ def draw_text(img, text,
     cv2.rectangle(img, pos, (x + text_w, y + text_h), text_color_bg, -1)
     cv2.putText(img, text, (x, y + text_h + font_scale - 1), font, font_scale, text_color, font_thickness)
 
-    return text_size
+def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames: int, behaviour_info: dict, screen_width: int) -> tuple:
+    """Process a frame for labeling
 
-def process_frame(video_name, frame, frame_number, total_frames, behaviour_info):
+    Args:
+        video_name (str): Video name
+        frame (np.uint8): Frame to be labeled
+        frame_number (int): Current frame number
+        total_frames (int): Total number of frames
+        behaviour_info (dict): Behaviour information
+        screen_width (int): Screen width
+
+    Returns:
+        tuple: Updates behaviour and move variables
+    """
 
     move = False
     
     # Create a list initialized with the current behaviour status for each behaviour
     behaviours = [info['current_behaviour'] for info in behaviour_info.values()]
     
-    # Ensure the image array is writable
-    frame = frame.copy()
-    frame = resize_frame(frame)
-    margin = 500
-    frame = add_margin(frame, margin)
+    frame = frame.copy() # Ensure the image array is writable
+    frame = add_margin(frame, frame.shape[1]//2) # Make the margin half the size of the full image
+    frame = resize_frame(frame, screen_width) # Resize the frame
 
-    gap = 12
-    k = 36
+    width = frame.shape[1]
+    margin = width//3
+    gap = width//80
+    k = width//40
     txt = 2
 
     right_border = int(frame.shape[1] - margin + gap)
 
     # Add frame number and video name to the frame
-    draw_text(frame, "STORM Labeler", 
+    draw_text(frame, "S.T.O.R.M. Labeler", 
               pos=(right_border, gap),
               font_scale = txt, font_thickness= txt,
               text_color=(255, 255, 255))
-    
+    draw_text(frame, "https://github.com/simple-torm/STORM",
+              pos=(right_border, gap + k),
+              text_color=(255, 255, 255))
     draw_text(frame, f"{video_name}", 
-              pos=(right_border, k + gap))
+              pos=(right_border, gap + 2*k))
     draw_text(frame, f"Frame: {frame_number + 1}/{total_frames}", 
-              pos=(right_border, 2*k))
-    
-    draw_text(frame, "next (5), previous (2), ffw (8), exit (q)", 
-              pos=(right_border, 3*k - gap))
+              pos=(right_border, gap + 3*k))
+    draw_text(frame, "next (5), previous (2), ffw (8)", 
+              pos=(right_border, gap + 4*k))
+    draw_text(frame, "exit (q), zoom in (+), zoom out (-)", 
+              pos=(right_border, gap + 5*k))
     
     draw_text(frame, "Behaviours", 
-              pos=(right_border, 4*k))
+              pos=(right_border, 2*gap + 6*k))
 
     # Display each object, its corresponding key, and sum on the frame
     for i, (j, info) in enumerate(behaviour_info.items()):
         draw_text(frame, f"{j} ({info['key']}): {info['sum']}",
-                  pos=(right_border, 5*k + i*k),
+                  pos=(right_border, 2*gap + 7*k + i*k),
                   font_scale = txt, font_thickness = 1 + behaviours[i],
-                  text_color =(0, 250 - behaviours[i]*255, 0 + behaviours[i]*255))
+                  text_color =(0, 250 - behaviours[i]*255, 0 + (behaviours[i]*255)))
         
     draw_text(frame, "none / delete (0)", 
-              pos=(right_border, 6*k + i*k))
-
-    # Convert the frame from BGR to RGB
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+              pos=(right_border, 3*gap + 8*k + i*k))
     
     # Display the frame
-    cv2.imshow("Frame", rgb_frame)
+    cv2.imshow("Frame", frame)
     
     # Wait for a keystroke
     key = cv2.waitKey(0)
@@ -117,12 +170,14 @@ def process_frame(video_name, frame, frame_number, total_frames, behaviour_info)
         if key == ord(info['key']):
             behaviours = [0] * len(behaviour_info)
             behaviours[i] = 1  # Mark this behaviour
+            move = 1
     
     # Handling additional actions
     if key == ord('0'):  # No behaviour
         behaviours = [0] * len(behaviour_info)  # Reset all to 0
-    if key == ord('5'):  # Skip current frame
-        pass
+        move = 1
+    if key == ord('5'):  # Go to the next frame
+        move = 1
     if key == ord('2'):  # Go back one frame
         move = -1
     if key == ord('8'):  # Skip three frames forward
@@ -130,15 +185,28 @@ def process_frame(video_name, frame, frame_number, total_frames, behaviour_info)
 
     return behaviours, move
 
-def find_checkpoint(df, behaviours):
+def find_checkpoint(df:pd.DataFrame, behaviours:list) -> int:
+    """Find the checkpoint for the current frame
+
+    Args:
+        df (pd.DataFrame): Labelled dataframe
+        behaviours (list): List of behaviours to check for
+
+    Returns:
+        int: Frame number of the last labeled frame
+    """
+
     for checkpoint, row in df[::-1].iterrows():  # Iterate in reverse order
         if any(str(row[j]).isdigit() for j in behaviours):
             # Return the frame number (1-based index)
             return checkpoint + 1  # +1 to convert from 0-based to 1-based indexing
+        
     # If no frames are labeled, return 0
     return 0
 
-def converter(value): 
+def converter(value):
+    """Turns a variable into an integer if possible, otherwise returns the original value.
+    """
     try:
         # Try to convert the value to an integer
         return int(value)
@@ -146,8 +214,18 @@ def converter(value):
         # If it's not possible, return the original value
         return value
 
-def load_labels(csv_path, frame_list, behaviours):
-    """Load or initialize frame labels for each behaviour."""
+def load_labels(csv_path: str, frame_list: list, behaviours: list) -> tuple:
+    """Load or initialize frame labels for each behaviour.
+
+    Args:
+        csv_path (str): Path to the CSV file
+        frame_list (list): List of frames
+        behaviours (list): List of behaviours
+
+    Returns:
+        tuple: Frame labels and current frame number
+    """
+
     if csv_path:
         # Load the CSV file
         labels = pd.read_csv(csv_path, converters={j: converter for j in behaviours})
@@ -169,8 +247,16 @@ def load_labels(csv_path, frame_list, behaviours):
     
     return frame_labels, current_frame
 
-def calculate_behaviour_sums(frame_labels, behaviours):
-    """Calculate the sum of behaviour for each behaviour."""
+def calculate_behaviour_sums(frame_labels: dict, behaviours: list) -> list:
+    """Calculate the sum for each behaviour
+
+    Args:
+        frame_labels (dict): Labels for each frame
+        behaviours (list): List of behaviours
+
+    Returns:
+        list: Sum for each behaviour
+    """
     behaviour_sums = []
     for j in behaviours:
         numeric_values = [x for x in frame_labels[j] if isinstance(x, (int, float))]
@@ -178,8 +264,19 @@ def calculate_behaviour_sums(frame_labels, behaviours):
     
     return behaviour_sums
 
-def build_behaviour_info(behaviours, keys, behaviour_sums, current_behaviour):
-    """Build the behaviour_info dictionary with key mappings, sums, and current behaviour status."""
+def build_behaviour_info(behaviours: list, keys: list, behaviour_sums: list, current_behaviour: list) -> dict:
+    """Build the behaviour_info dictionary with key mappings, sums, and current behaviour status.
+
+    Args:
+        behaviours (list): List of behaviours
+        keys (list): List of keys
+        behaviour_sums (list): Sum for each behaviour
+        current_behaviour (list): Current behaviour status for each behaviour
+
+    Returns:
+        dict: Behaviour information
+    """
+    
     behaviour_info = {
         j: {
             'key': keys[i],  # Assign the corresponding key
@@ -190,8 +287,15 @@ def build_behaviour_info(behaviours, keys, behaviour_sums, current_behaviour):
     }
     return behaviour_info
 
-def save_labels_to_csv(video_path, frame_labels, behaviours):
-    """Saves the frame labels for each behaviour to a CSV file."""
+def save_labels_to_csv(video_path: str, frame_labels: dict, behaviours: list) -> None:
+    """Saves the frame labels for each behaviour to a CSV file.
+
+    Args:
+        video_path (str): Path to the video file
+        frame_labels (dict): Labels for each frame
+        behaviours (list): List of behaviours
+    """
+    
     output_csv = video_path.rsplit('.', 1)[0] + '_labels.csv'
     
     # Convert frame_labels dictionary to DataFrame
@@ -222,8 +326,16 @@ def save_labels_to_csv(video_path, frame_labels, behaviours):
 
     print(f"Labels saved to {output_csv}")
 
-def ask_behaviours(preset_behaviours=['left','right','freezing','grooming']):
-    """Ask the user for behaviour names via Tkinter dialogs, with optional presets."""
+def ask_behaviours(preset_behaviours: list = ['explore_left','explore_right','freezing','grooming']) -> list:
+    """Ask the user for behaviour names via Tkinter dialogs, with optional presets.
+
+    Args:
+        preset_behaviours (list, optional): List of preset behaviours. Defaults to ['explore_left','explore_right','freezing','grooming'].
+
+    Returns:
+        list: List of behaviours
+    """
+    
     root = Tk()
     root.withdraw()  # Hide the root window
 
@@ -244,8 +356,17 @@ def ask_behaviours(preset_behaviours=['left','right','freezing','grooming']):
 
     return behaviours
 
-def ask_keys(behaviours, preset_keys=['4','6','f','g']):
-    """Ask the user for  keys via Tkinter dialogs, with optional presets."""
+def ask_keys(behaviours: list, preset_keys: list = ['4','6','f','g']) -> list:
+    """Ask the user for  keys via Tkinter dialogs, with optional presets.
+
+    Args:
+        behaviours (list): List of behaviours
+        preset_keys (list, optional): List of preset keys. Defaults to ['4','6','f','g'].
+
+    Returns:
+        list: List of keys
+    """
+
     root = Tk()
     root.withdraw()  # Hide the root window
 
@@ -269,10 +390,24 @@ def ask_keys(behaviours, preset_keys=['4','6','f','g']):
 
     return keys
 
-# Main function to handle frame labeling for multiple behaviours
+def frame_generator(video_path):
+    """Yield frames from the video one by one."""
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise IOError("Error opening video file.")
+    
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        yield frame
+    
+    cap.release()
 
+# Main function to handle frame labeling for multiple behaviours
 def main():
-    """Main function to handle frame labeling for multiple behaviours."""
+    """Handle frame labeling for multiple behaviours.
+    """
 
     # Create a Tkinter window
     root = Tk()
@@ -284,10 +419,6 @@ def main():
     if not video_path:
         # print("No video file selected.")
         return
-
-    # Open the video file
-    video = VideoFileClip(video_path)
-    video_name = os.path.basename(video_path)
     
     # Create another Tkinter window
     root = Tk()
@@ -318,13 +449,17 @@ def main():
             return  # Exit if no behaviours are entered
 
     keys = ask_keys(behaviours)
-    
-    frame_generator = video.iter_frames()
-    frame_list = list(frame_generator) # This takes a while
+
+    # Open the video file
+    frame_list = list(frame_generator(video_path)) # This takes a while
+    video_name = os.path.basename(video_path)
 
     # Load or initialize frame labels
     frame_labels, current_frame = load_labels(csv_path, frame_list, behaviours)
     total_frames = len(frame_list)
+
+    # Get fullscreen size
+    screen_width = get_screen_width()
     
     while current_frame < total_frames:
 
@@ -345,7 +480,7 @@ def main():
         behaviour_info = build_behaviour_info(behaviours, keys, behaviour_sums, current_behaviour)
         
         # Call the labeling function
-        behaviour_list, move = process_frame(video_name, frame, current_frame, total_frames, behaviour_info)
+        behaviour_list, move = process_frame(video_name, frame, current_frame, total_frames, behaviour_info, screen_width)
 
         # Break the loop if the user presses 'q'
         if keyboard.is_pressed('q'):
@@ -358,26 +493,32 @@ def main():
                     save = False
                 break
         
-        # Store the results back into frame_labels
-        for i, j in enumerate(behaviours):
-            frame_labels[j][current_frame] = behaviour_list[i]
-
-        # Adjust the current frame based on user input (move)
-        current_frame += move if move else 1  # Default move is to the next frame
-
-        if current_frame >= len(frame_list):
-            # Ask the user if they want to exit
-            response = messagebox.askquestion("Exit", "Do you want to exit the labeler?")
-            if response == 'yes':
-                response = messagebox.askquestion("Exit", "Do you want to save changes?")
-                if response == 'yes':
-                    save = True
-                else:
-                    save = False
-                continue
-            else:
-                current_frame = len(frame_list) - 1
+        elif keyboard.is_pressed('-'):
+            screen_width = int(screen_width*0.95)
+        elif keyboard.is_pressed('+'):
+            screen_width = int(screen_width*1.05)
         
+        else:
+            # Store the results back into frame_labels
+            for i, j in enumerate(behaviours):
+                frame_labels[j][current_frame] = behaviour_list[i]
+
+            # Adjust the current frame based on user input (move)
+            current_frame += move if move else 0
+
+            if current_frame >= len(frame_list):
+                # Ask the user if they want to exit
+                response = messagebox.askquestion("Exit", "Do you want to exit the labeler?")
+                if response == 'yes':
+                    response = messagebox.askquestion("Exit", "Do you want to save changes?")
+                    if response == 'yes':
+                        save = True
+                    else:
+                        save = False
+                    continue
+                else:
+                    current_frame = len(frame_list) - 1
+            
         current_frame = max(0, current_frame)
 
     # Write the frame labels to a CSV file
@@ -387,8 +528,5 @@ def main():
     # Close the OpenCV windows
     cv2.destroyAllWindows()
 
-# %%
 # Call the main function
 main()
-
-

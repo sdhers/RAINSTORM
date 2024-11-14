@@ -1,0 +1,20 @@
+# STORM_env.yaml
+
+# Authors: Santiago D'hers. 
+# © 2024. This work is openly licensed via CC BY 4.0.
+# https://github.com/simple-torm/STORM
+
+# install: conda env create -f STORM_env.yaml
+
+name: STORM_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pandas
+  - numpy
+  - pip:
+    - opencv-python
+    - keyboard

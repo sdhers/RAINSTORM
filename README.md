@@ -85,7 +85,7 @@ Using a polar graph, we can see for each position the angle of approach and dist
 # In conclusion
 - This project, although already in use, is a work in progress that could significantly improve the way we analyze object exploration videos.
 - If you wish to contact us, please do so: simple.torm@gmail.com
-- © 2024. This work is openly licensed via CC BY 4.0.
+- © 2024. This project is openly licensed under the MIT License.
 
 #### Thanks for exploring us!
 

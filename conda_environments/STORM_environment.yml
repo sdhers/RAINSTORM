@@ -1,12 +1,11 @@
-# STORM_env.yaml
-
+# STORM - Simple Tracker for Object Recognition Memory
 # Authors: Santiago D'hers. 
-# © 2024. This work is openly licensed via CC BY 4.0.
+# © 2024. This project is openly licensed under the MIT License.
 # https://github.com/simple-torm/STORM
 
-# install: conda env create -f STORM_env.yaml
+# install: conda env create -f STORM_environment.yml
 
-name: STORM_env
+name: STORM
 channels:
   - conda-forge
   - defaults

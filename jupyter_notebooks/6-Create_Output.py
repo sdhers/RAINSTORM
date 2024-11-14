@@ -20,14 +20,14 @@ import itertools
 #%%
 
 # State your path:
-path = r'C:/Users/dhers/OneDrive - UBA/Seguimiento'
-experiment = r'2023-11_NORm'
+path = r'C:/Users/dhers/OneDrive - UBA/workshop'
+experiment = r'2024-11_TORM-Tg-9m'
 
-trials = ["TR", "TS1", "TS2", "TS3"]
+trials = ['TS']
 labels = 'autolabels'
 
 time_limit = None
-fps = 25
+fps = 30
 
 #%%
 
@@ -51,7 +51,7 @@ def process_csv_file(file_path, time_limit = None, fps = 25):
         labels = [row for row in reader if not any(cell == '' for cell in row)]
         
         if time_limit is None:
-            limited_reader = itertools.islice(labels, 7500)
+            limited_reader = itertools.islice(labels, 8000)
         else:
             limited_reader = itertools.islice(labels, time_limit*fps)
         
@@ -113,7 +113,7 @@ def process_label_files(folder_path, time_limit = None, fps = 25):
         file_path = os.path.join(folder_path, label_file)
         sum_col2, sum_col3, num_transitions_col2, num_transitions_col3, consecutive_ones_col2, consecutive_ones_col3 = process_csv_file(file_path, time_limit, fps)
         
-        distance_path = file_path.replace(labels, "distances")
+        distance_path = file_path.replace(labels, "movement")
         nose_dist, body_dist = process_dist_file(distance_path, time_limit, fps)
         results.append((label_file, sum_col2, sum_col3, num_transitions_col2, num_transitions_col3, consecutive_ones_col2[1:], consecutive_ones_col3[1:], nose_dist, body_dist))
                         

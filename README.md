@@ -1,6 +1,6 @@
 # STORM - Simple Tracker for Object Recognition Memory
 
-![STORM Logo](images/0-storm_logo.jpg)
+![STORM Logo](docs/images/0-storm_logo.jpg)
 
 **STORM** is a tool for tracking object recognition memory in mice 🐭. It allows users to track and analyze memory performance through the exploration of objects.
 

@@ -1,3 +1,7 @@
 venv/
 models/example/plot_img.png
 __pycache__/
+STORM.egg-info/
+simple-torm.egg-info/
+build/
+dist/

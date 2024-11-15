@@ -9,7 +9,7 @@ with open("README.md", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="STORM",
+    name="simple-torm",
     version="0.1.0",
     author="Santiago D'hers",
     author_email="simple.torm@gmail.com",

@@ -1,0 +1,10 @@
+LICENSE
+README.md
+setup.py
+simple-torm/__init__.py
+simple-torm/labeler.py
+simple_torm.egg-info/PKG-INFO
+simple_torm.egg-info/SOURCES.txt
+simple_torm.egg-info/dependency_links.txt
+simple_torm.egg-info/requires.txt
+simple_torm.egg-info/top_level.txt

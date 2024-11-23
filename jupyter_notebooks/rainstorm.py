@@ -1,6 +1,5 @@
 
 import os
-from glob import glob
 import pandas as pd
 import numpy as np
 
@@ -345,7 +344,7 @@ def filter_and_move_files(folder: str, subfolders: list):
 
     print("All .H5 files are stored away")
 
-# %% Functions for 2-Geometric_labeling.ipynb
+# %% Functions for 2-Geometric_analysis.ipynb
 
 class Point:
     def __init__(self, df, table):
@@ -483,7 +482,7 @@ def plot_position(file: str, objects: list, maxDistance: float = 2.5, maxAngle: 
     # Show plot
     fig.show()
 
- def plot_freezing(file: str, fps: int = 30, threshold: float = 0.01) -> None:
+def plot_freezing(file: str, fps: int = 30, threshold: float = 0.01) -> None:
     """Plots freezing events in a video.
 
     Args:
@@ -661,3 +660,7 @@ def create_movement_and_geolabels(files: list, objects: list, maxDistance: float
         movement.to_csv(output_path_distances, index=False)
             
         print(f"Saved movement to {output_filename_movement}")
+
+# %% Functions for 3a-Create_models.ipynb
+
+# %%

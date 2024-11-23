@@ -1,5 +1,5 @@
-""" @author: Santiago D'hers
-Use: STORM Labeler - Lets you label videos frame by frame with multiple behaviours
+""" RAINSTORM - @author: Santiago D'hers
+Use: RAINSTORM Labeler - Lets you label videos frame by frame with multiple behaviours
 """
 
 import os

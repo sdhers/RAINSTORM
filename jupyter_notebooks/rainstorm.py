@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 
 import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 
 import shutil
 import random
@@ -662,5 +663,388 @@ def create_movement_and_geolabels(files: list, objects: list, maxDistance: float
         print(f"Saved movement to {output_filename_movement}")
 
 # %% Functions for 3a-Create_models.ipynb
+
+import h5py
+import tensorflow as tf
+from sklearn.metrics import classification_report
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from tensorflow.keras.layers import LSTM, Dense, Input, Bidirectional, Dropout, LayerNormalization, BatchNormalization, GlobalMaxPooling1D
+from tensorflow.keras.models import Model
+
+def broaden(past: int, future: int, broad: int = 1) -> list:
+    """Build the frame window for LSTM training
+
+    Args:
+        past (int): How many frames into the past
+        future (int): How many frames into the future
+        broad (int, optional): If you want to extend the reach of your window without increasing the length of the list. Defaults to 1.
+
+    Returns:
+        list: List of frame index that will be used for training
+    """
+    frames = list(range(-past, future + 1))
+    broad_frames = [-int(abs(x) ** broad) if x < 0 else int(x ** broad) for x in frames]
+    
+    return broad_frames
+
+def prepare_data(path: str, labeler_names: list) -> pd.DataFrame:
+    """Read the positions and labels into a DataFrame
+
+    Args:
+        path (str): Path to the colabels file
+        labeler_names (list): List of labelers
+
+    Returns:
+        pd.DataFrame: Data ready to use
+    """
+
+    colabels = pd.read_csv(path)
+
+    # We extract the position as all the columns that end in _x and _y, except for the tail
+    position = colabels.filter(regex='_x|_y').filter(regex='^(?!.*tail)').copy()
+    
+    # Dynamically create labeler DataFrames based on the provided names
+    labelers = {name: colabels.filter(regex=name).copy() for name in labeler_names}
+
+    # Concatenate the dataframes along the columns axis (axis=1) and calculate the mean of each row
+    combined_df = pd.concat(labelers, axis=1)
+    avrg = pd.DataFrame(combined_df.mean(axis=1), columns=['mean'])
+
+    # Apply median filter
+    avrg['med_filt'] = signal.medfilt(avrg['mean'], kernel_size = 3)
+
+    # Gaussian kernel
+    gauss_kernel = signal.windows.gaussian(3, 0.6)
+    gauss_kernel = gauss_kernel / sum(gauss_kernel)
+
+    # Pad the median filtered data to mitigate edge effects
+    pad_width = (len(gauss_kernel) - 1) // 2
+    padded = np.pad(avrg['med_filt'], pad_width, mode='edge')
+
+    # Apply convolution
+    smooth = signal.convolve(padded, gauss_kernel, mode='valid')
+
+    # Trim the padded edges to restore original length
+    avrg['smooth'] = smooth[:len(avrg['mean'])]
+
+    # Apply sigmoid function to keep values between 0 and 1
+    avrg['labels'] = round(1 / (1 + np.exp(-12*(avrg['smooth']-0.5))), 2)
+
+    ready_data = pd.concat([position, avrg['labels']], axis = 1)
+
+    return ready_data
+
+def focus(df: pd.DataFrame, filter_by: str = 'labels', distance: int = 25):
+
+    # Extract the column of interest
+    column = df.loc[:, filter_by]
+
+    print(f'Starting with {len(column)} rows')
+
+    # Find the indices of the non-zero rows in the column
+    non_zero_indices = column[column > 0.05].index
+
+    # Create a boolean mask to keep rows that are within 'distance' rows of a non-zero row
+    mask = pd.Series(False, index=df.index)
+
+    for idx in non_zero_indices:
+        # Mark rows within 'distance' rows before and after the non-zero row
+        lower_bound = max(0, idx - distance)
+        upper_bound = min(len(df) - 1, idx + distance)
+        mask[lower_bound:upper_bound + 1] = True
+
+    # Filter the dataframe using the mask
+    df_filtered = df[mask]
+
+    # Optional: Reset index if you want a clean dataframe without gaps in the indices
+    df_filtered.reset_index(drop=True, inplace=True)
+    
+    print(f"Reduced to {len(df_filtered)} rows. Number of exploration rows: {len(non_zero_indices)}")
+
+    return df_filtered
+
+def recenter(df: pd.DataFrame, point: str, bodyparts: list) -> pd.DataFrame:
+    """Recenters a DataFrame around a specified point.
+
+    Args:
+        df (pd.DataFrame): DataFrame to be recentered.
+        point (str): Name of the point to be used as the center.
+        bodyparts (list): List of bodyparts to be recentered.
+
+    Returns:
+        pd.DataFrame: Recentered DataFrame.
+    """
+    # Create a copy of the original dataframe
+    df_copy = df.copy()
+    bodypart_columns = []
+    
+    for bodypart in bodyparts:
+        # Subtract point_x from columns ending in _x
+        x_cols = [col for col in df_copy.columns if col.endswith(f'{bodypart}_x')]
+        df_copy[x_cols] = df_copy[x_cols].apply(lambda col: col - df_copy[f'{point}_x'])
+        
+        # Subtract point_y from columns ending in _y
+        y_cols = [col for col in df_copy.columns if col.endswith(f'{bodypart}_y')]
+        df_copy[y_cols] = df_copy[y_cols].apply(lambda col: col - df_copy[f'{point}_y'])
+        
+        # Collect bodypart columns
+        bodypart_columns.extend(x_cols)
+        bodypart_columns.extend(y_cols)
+        
+    return df_copy[bodypart_columns]
+
+def reshape(df: pd.DataFrame, past: int = 3, future: int = 3, broaden: float = 1.7) -> np.ndarray:
+    """Reshapes a DataFrame into a 3D NumPy array.
+
+    Args:
+        df (pd.DataFrame): DataFrame to reshape.
+        past (int, optional): Number of past frames to include. Defaults to 3.
+        future (int, optional): Number of future frames to include. Defaults to 3.
+        broaden (float, optional): Factor to broaden the range of frames. Defaults to 1.7.
+
+    Returns:
+        np.ndarray: 3D NumPy array with shape (past + future + 1, past + future + 1, 2).
+    """
+
+    reshaped_df = []
+    
+    frames = list(range(-past, future + 1))
+
+    if broaden > 1:
+        frames = [-int(abs(x) ** broaden) if x < 0 else int(x ** broaden) for x in frames]
+
+    # Iterate over each row index in the DataFrame
+    for i in range(len(df)):
+        # Determine which indices to include for reshaping
+        indices_to_include = sorted([
+            max(0, i - frame) if frame > 0 else min(len(df) - 1, i - frame)
+            for frame in frames
+        ])
+        
+        # Append the rows using the calculated indices
+        reshaped_df.append(df.iloc[indices_to_include].to_numpy())
+    
+    # Convert the list to a 3D NumPy array
+    reshaped_array = np.array(reshaped_df)
+    
+    return reshaped_array
+
+def load_split(saved_data):
+    # Load arrays
+    with h5py.File(saved_data, 'r') as hf:
+
+        X_tr_wide = hf['X_tr_wide'][:]
+        X_tr = hf['X_tr'][:]
+        y_tr = hf['y_tr'][:]
+        X_ts_wide = hf['X_ts_wide'][:]
+        X_ts = hf['X_ts'][:]
+        y_ts = hf['y_ts'][:]
+        X_val_wide = hf['X_val_wide'][:]
+        X_val = hf['X_val'][:]
+        y_val = hf['y_val'][:]
+        
+    print("Data is ready to train")
+    
+    return X_tr_wide, X_tr, y_tr, X_ts_wide, X_ts, y_ts, X_val_wide, X_val, y_val
+
+def save_split(models_folder, time, X_tr_wide, X_tr, y_tr, X_ts_wide, X_ts, y_ts, X_val_wide, X_val, y_val):
+    # Save arrays
+    with h5py.File(os.path.join(models_folder, f'training_data/training_data_{time.date()}.h5'), 'w') as hf:
+        hf.create_dataset('X_test', data=X_ts)
+        hf.create_dataset('y_test', data=y_ts)
+        hf.create_dataset('X_val', data=X_val)
+        hf.create_dataset('y_val', data=y_val)
+        hf.create_dataset('X_train', data=X_tr)
+        hf.create_dataset('y_train', data=y_tr)
+        hf.create_dataset('X_test_wide', data=X_ts_wide)
+        hf.create_dataset('X_val_wide', data=X_val_wide)
+        hf.create_dataset('X_train_wide', data=X_tr_wide)
+        
+        print(f'Saved data to training_data_{time.date()}.h5')
+
+def split_tr_ts_val(df: pd.DataFrame, objects: list = ['obj'], bodyparts: list = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'], y_col: str = 'labels'):
+    
+    # Group the DataFrame by the place of the first object
+    # Since each video will have a different place for the object, we will separate all the videos
+    groups = df.groupby(df[f'{objects[0]}_x'])
+    
+    # Split the DataFrame into multiple DataFrames and labels
+    final_dataframes = {}
+    wide_dataframes = {}
+    
+    for category, group in groups:
+
+        recentered_data = pd.concat([recenter(group, obj, bodyparts) for obj in objects], ignore_index=True)
+
+        labels = group[f'{y_col}']
+
+        final_dataframes[category] = {'position': recentered_data, 'labels': labels}
+
+        reshaped_data = reshape(recentered_data)
+        wide_dataframes[category] = {'position': reshaped_data, 'labels': labels}
+        
+    # Get a list of the keys (categories)
+    keys = list(wide_dataframes.keys())
+    
+    # Shuffle the keys
+    np.random.shuffle(keys)
+    
+    # Calculate the lengths for each part
+    len_val = len(keys) * 15 // 100
+    len_test = len(keys) * 15 // 100
+    
+    # Use slicing to divide the list
+    val_keys = keys[:len_val]
+    test_keys = keys[len_val:(len_val + len_test)]
+    train_keys = keys[(len_val + len_test):]
+    
+    # Initialize empty lists to collect dataframes
+    X_train_wide = []
+    X_test_wide = []
+    X_val_wide = []
+
+    X_train = []
+    X_test = []
+    X_val = []
+
+    y_train = []
+    y_test = []
+    y_val = []
+    
+    # first the simple data 
+    for key in train_keys:
+        X_train_wide.append(wide_dataframes[key]['position'])
+        X_train.append(final_dataframes[key]['position'])
+        y_train.append(final_dataframes[key]['labels'])
+    for key in test_keys:
+        X_test_wide.append(wide_dataframes[key]['position'])
+        X_test.append(final_dataframes[key]['position'])
+        y_test.append(final_dataframes[key]['labels'])
+    for key in val_keys:
+        X_val_wide.append(wide_dataframes[key]['position'])
+        X_val.append(final_dataframes[key]['position'])
+        y_val.append(final_dataframes[key]['labels'])
+    
+    X_train_wide = np.concatenate(X_train_wide, axis=0)
+    X_test_wide = np.concatenate(X_test_wide, axis=0)
+    X_val_wide = np.concatenate(X_val_wide, axis=0)
+
+    X_train = np.concatenate(X_train, axis=0)
+    X_test = np.concatenate(X_test, axis=0)
+    X_val = np.concatenate(X_val, axis=0)
+        
+    y_train = np.concatenate(y_train, axis=0)
+    y_test = np.concatenate(y_test, axis=0)
+    y_val = np.concatenate(y_val, axis=0)
+    
+    return X_train_wide, X_train, y_train, X_test_wide, X_test, y_test, X_val_wide, X_val, y_val
+
+def plot_example_data(X, y):
+
+    # Select data to plot
+    position = np.sqrt(X[:,0]**2 + X[:,1]**2).copy()
+    exploration = y.copy()
+
+    # Plotting position
+    plt.plot(position, label='position', color='blue')
+
+    # Shading exploration regions
+    plt.fill_between(range(len(exploration)), -30, 30, where = exploration > 0.5, label = 'exploration', color='red', alpha=0.3)
+
+    # Adding labels
+    plt.xlabel('Frames')
+    plt.ylabel('distance (cm)')
+    plt.legend(loc='upper right', fancybox=True, shadow=True, framealpha=1.0)
+    plt.title('Nose distance to object')
+    plt.axhline(y=0, color='black', linestyle='--')
+
+    # Zoom in on some frames
+    # plt.xlim((1000, 2500))
+    plt.ylim((-2, 25))
+
+    plt.show()
+
+def lr_schedule(epoch, lr):
+    decay_factor = 0.9  # Learning rate decay factor
+    decay_epochs = 6    # Number of epochs after which to decay the learning rate
+
+    return lr * (decay_factor ** (epoch // decay_epochs))
+
+def plot_history(model, model_name):
+    
+    plt.figure(figsize=(10, 6))
+    
+    plt.plot(model.history['loss'], label='Training loss')
+    plt.plot(model.history['val_loss'], label='Validation loss')
+    plt.plot(model.history['accuracy'], label='Training accuracy')
+    plt.plot(model.history['val_accuracy'], label='Validation accuracy')
+    
+    plt.title(f'Training of model {model_name}')
+    plt.xlabel('Epochs')
+    plt.ylabel('%')
+    plt.legend()
+    plt.show()
+
+def evaluate(X, y, model):
+    # Evaluate the model on the testing set
+    y_pred = model.predict(X)
+    y_pred_binary = (y_pred > 0.5).astype(int)  # Convert probabilities to binary predictions
+    
+    if isinstance(y, tf.Tensor):
+        y = y.numpy()
+    y_binary = (y > 0.5).astype(int) # Convert average labels to binary labels
+    
+    accuracy = accuracy_score(y_binary, y_pred_binary)
+    precision = precision_score(y_binary, y_pred_binary, average = 'weighted')
+    recall = recall_score(y_binary, y_pred_binary, average = 'weighted')
+    f1 = f1_score(y_binary, y_pred_binary, average = 'weighted')
+    
+    print(classification_report(y_binary, y_pred_binary))
+    
+    return accuracy, precision, recall, f1
+
+def evaluate_continuous(X, y, model):
+    # Ensure X and y are on the same device
+    if isinstance(X, tf.Tensor):
+        if '/GPU:' in X.device:
+            y = tf.convert_to_tensor(y)
+            y = tf.identity(y)
+
+    # Evaluate the model on the testing set
+    y_pred = model.predict(X)
+
+    # Convert y and y_pred to numpy arrays if they are tensors
+    if isinstance(y_pred, tf.Tensor):
+        y_pred = y_pred.numpy()
+    
+    if isinstance(y, tf.Tensor):
+        y = y.numpy()
+    
+    mse = mean_squared_error(y, y_pred)
+    mae = mean_absolute_error(y, y_pred)
+    r2 = r2_score(y, y_pred)
+    
+    return mse, mae, r2
+
+def build_LSTM_model(input_shape, units):
+    inputs = Input(shape=input_shape)
+
+    # Stacked Bidirectional LSTMs
+    x = inputs
+    for unit in units:
+        x = Bidirectional(LSTM(unit, return_sequences=True))(x)
+        x = BatchNormalization()(x)
+        x = LayerNormalization()(x)
+        x = Dropout(0.2)(x)
+
+    x = GlobalMaxPooling1D()(x)
+
+    # Dense Output
+    output = Dense(1, activation='sigmoid')(x)
+
+    model = Model(inputs, output)
+    return model
+
 
 # %%

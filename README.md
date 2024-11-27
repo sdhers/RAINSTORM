@@ -1,8 +1,8 @@
-# STORM - Simple Tracker for Object Recognition Memory
+# RAINSTORM - Simple Tracker for Object Recognition Memory
 
-![STORM Logo](docs/images/0-storm_logo.jpg)
+![RAINSTORM Logo](docs/images/logo.png)
 
-**STORM** is a tool for tracking object recognition memory in mice 🐭. It allows users to track and analyze memory performance through the exploration of objects.
+**RAINSTORM** is a tool for tracking object recognition memory in mice 🐭. It allows users to track and analyze memory performance through the exploration of objects.
 
 </div>
 

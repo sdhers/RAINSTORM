@@ -1,23 +1,32 @@
-# RAINSTORM - Simple Tracker for Object Recognition Memory
+<div align="center">
+  
+# RAINSTORM
+### Real & Artificial Intelligence Networks – Simple Tracker for Object Recognition Memory
 
 ![RAINSTORM Logo](docs/images/logo.png)
 
-**RAINSTORM** is a tool for tracking object recognition memory in mice 🐭. It allows users to track and analyze memory performance through the exploration of objects.
-
 </div>
+
+**RAINSTORM** is a tool for scoring object recognition memory in mice 🐭. It allows users to automate the analysis of recognition memory performance through training of artificial neural networks.
 
 ### Features
 
+- Manual Frame by Frame behavioral labeling tool
 - Post-DeepLabCut data processing to avoid dissapearing bodyparts and glitching
 - Geometric labeling through distance and angle of aproach
-- Automatic labeling using a trained AI model able to detect of temporal sequences of behaviour
+- Automatic labeling using a trained AI model able to detect temporal sequences of behaviour
 - Comparing labels in a visual and simple way
 
 ### Future steps
 
-- Applying further DeepLabCut analysis:
-  - Multianimal tracking for social memories
-  - Apply detection of moving objects for dinamic maze designs
+- Multianimal labeling for social memories
+- Apply detection of moving objects for dinamic maze designs
+
+# Installation
+
+- Download Anaconda
+- Download RAINSTORM repository
+- In your terminal, navigate to where the repository was stored and run: conda env create -f conda_environments/rainstorm.yml
 
 # Pipeline
 

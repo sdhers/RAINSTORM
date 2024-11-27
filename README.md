@@ -1,7 +1,7 @@
 <div align="center">
   
 # RAINSTORM
-## Real & Artificial Intelligence Networks – Simple Tracker for Object Recognition Memory
+### Real & Artificial Intelligence Networks – Simple Tracker for Object Recognition Memory
 
 ![RAINSTORM Logo](docs/images/logo.png)
 

@@ -669,16 +669,16 @@ import tensorflow as tf
 from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from tensorflow.keras.layers import LSTM, Dense, Input, Bidirectional, Dropout, LayerNormalization, BatchNormalization, GlobalMaxPooling1D
+from tensorflow.keras.layers import LSTM, Dense, Input, Bidirectional, Dropout, Lambda, BatchNormalization, GlobalAveragePooling1D
 from tensorflow.keras.models import Model
 
-def broaden(past: int, future: int, broad: int = 1) -> list:
+def broaden(past: int = 3, future: int = 3, broad: float = 1.7) -> list:
     """Build the frame window for LSTM training
 
     Args:
-        past (int): How many frames into the past
-        future (int): How many frames into the future
-        broad (int, optional): If you want to extend the reach of your window without increasing the length of the list. Defaults to 1.
+        past (int, optional): How many frames into the past. Defaults to 3.
+        future (int, optional): How many frames into the future. Defaults to 3.
+        broad (float, optional): If you want to extend the reach of your window without increasing the length of the list. Defaults to 1.7.
 
     Returns:
         list: List of frame index that will be used for training
@@ -794,14 +794,14 @@ def recenter(df: pd.DataFrame, point: str, bodyparts: list) -> pd.DataFrame:
         
     return df_copy[bodypart_columns]
 
-def reshape(df: pd.DataFrame, past: int = 3, future: int = 3, broaden: float = 1.7) -> np.ndarray:
+def reshape(df: pd.DataFrame, past: int = 3, future: int = 3, broad: float = 1.7) -> np.ndarray:
     """Reshapes a DataFrame into a 3D NumPy array.
 
     Args:
         df (pd.DataFrame): DataFrame to reshape.
         past (int, optional): Number of past frames to include. Defaults to 3.
         future (int, optional): Number of future frames to include. Defaults to 3.
-        broaden (float, optional): Factor to broaden the range of frames. Defaults to 1.7.
+        broad (float, optional): Factor to broaden the range of frames. Defaults to 1.7.
 
     Returns:
         np.ndarray: 3D NumPy array with shape (past + future + 1, past + future + 1, 2).
@@ -811,8 +811,8 @@ def reshape(df: pd.DataFrame, past: int = 3, future: int = 3, broaden: float = 1
     
     frames = list(range(-past, future + 1))
 
-    if broaden > 1:
-        frames = [-int(abs(x) ** broaden) if x < 0 else int(x ** broaden) for x in frames]
+    if broad > 1:
+        frames = broaden(past, future, broad)
 
     # Iterate over each row index in the DataFrame
     for i in range(len(df)):
@@ -850,7 +850,7 @@ def load_split(saved_data):
 
 def save_split(models_folder, time, X_tr_wide, X_tr, y_tr, X_ts_wide, X_ts, y_ts, X_val_wide, X_val, y_val):
     # Save arrays
-    with h5py.File(os.path.join(models_folder, f'training_data/training_data_{time.date()}.h5'), 'w') as hf:
+    with h5py.File(os.path.join(models_folder, f'training_data/split_{time.date()}_{X_tr_wide.shape[1]}w.h5'), 'w') as hf:
         hf.create_dataset('X_test', data=X_ts)
         hf.create_dataset('y_test', data=y_ts)
         hf.create_dataset('X_val', data=X_val)
@@ -861,9 +861,12 @@ def save_split(models_folder, time, X_tr_wide, X_tr, y_tr, X_ts_wide, X_ts, y_ts
         hf.create_dataset('X_val_wide', data=X_val_wide)
         hf.create_dataset('X_train_wide', data=X_tr_wide)
         
-        print(f'Saved data to training_data_{time.date()}.h5')
+        print(f'Saved data to split_{time.date()}_{X_tr_wide.shape[1]}w.h5')
 
-def split_tr_ts_val(df: pd.DataFrame, objects: list = ['obj'], bodyparts: list = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'], y_col: str = 'labels'):
+def split_tr_ts_val(df: pd.DataFrame, 
+                    objects: list = ['obj'], 
+                    bodyparts: list = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'], 
+                    past: int = 3, future: int = 3, broad: float = 1.7):
     
     # Group the DataFrame by the place of the first object
     # Since each video will have a different place for the object, we will separate all the videos
@@ -877,11 +880,11 @@ def split_tr_ts_val(df: pd.DataFrame, objects: list = ['obj'], bodyparts: list =
 
         recentered_data = pd.concat([recenter(group, obj, bodyparts) for obj in objects], ignore_index=True)
 
-        labels = group[f'{y_col}']
+        labels = group['labels']
 
         final_dataframes[category] = {'position': recentered_data, 'labels': labels}
 
-        reshaped_data = reshape(recentered_data)
+        reshaped_data = reshape(recentered_data, past, future, broad)
         wide_dataframes[category] = {'position': reshaped_data, 'labels': labels}
         
     # Get a list of the keys (categories)
@@ -960,16 +963,10 @@ def plot_example_data(X, y):
     plt.axhline(y=0, color='black', linestyle='--')
 
     # Zoom in on some frames
-    # plt.xlim((1000, 2500))
+    plt.xlim((1000, 2500))
     plt.ylim((-2, 25))
 
     plt.show()
-
-def lr_schedule(epoch, lr):
-    decay_factor = 0.9  # Learning rate decay factor
-    decay_epochs = 6    # Number of epochs after which to decay the learning rate
-
-    return lr * (decay_factor ** (epoch // decay_epochs))
 
 def plot_history(model, model_name):
     
@@ -1030,15 +1027,21 @@ def evaluate_continuous(X, y, model):
 def build_LSTM_model(input_shape, units):
     inputs = Input(shape=input_shape)
 
-    # Stacked Bidirectional LSTMs
+    # Stacked Bidirectional LSTMs with conditional slicing
     x = inputs
+    current_timesteps = input_shape[0]  # Initialize with the number of timesteps
+
     for unit in units:
         x = Bidirectional(LSTM(unit, return_sequences=True))(x)
         x = BatchNormalization()(x)
-        x = LayerNormalization()(x)
         x = Dropout(0.2)(x)
 
-    x = GlobalMaxPooling1D()(x)
+        # Conditional slicing: Apply slicing only if timesteps > 1
+        if current_timesteps > 2:
+            x = Lambda(lambda t: t[:, 1:-1, :])(x)  # Remove first and last timesteps
+            current_timesteps -= 2
+
+    x = GlobalAveragePooling1D()(x)
 
     # Dense Output
     output = Dense(1, activation='sigmoid')(x)
@@ -1046,5 +1049,4 @@ def build_LSTM_model(input_shape, units):
     model = Model(inputs, output)
     return model
 
-
-# %%
+# %% Functions for 3b-Evaluate_models.ipynb

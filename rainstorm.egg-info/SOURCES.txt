@@ -1,8 +1,0 @@
-LICENSE
-README.md
-setup.py
-rainstorm.egg-info/PKG-INFO
-rainstorm.egg-info/SOURCES.txt
-rainstorm.egg-info/dependency_links.txt
-rainstorm.egg-info/requires.txt
-rainstorm.egg-info/top_level.txt

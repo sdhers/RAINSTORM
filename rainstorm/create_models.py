@@ -7,21 +7,18 @@ import os
 import pandas as pd
 import numpy as np
 
-import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 
 from scipy import signal
 import h5py
 
-from sklearn.metrics import classification_report
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.metrics import classification_report, accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, mean_absolute_error, r2_score
 
 import tensorflow as tf
 from tensorflow.keras.layers import LSTM, Dense, Input, Bidirectional, Dropout, Lambda, BatchNormalization, GlobalAveragePooling1D
 from tensorflow.keras.models import Model
 
-print(f"RAINSTORM successfully imported. GPU devices detected: {tf.config.list_physical_devices('GPU')}")
+print(f"rainstorm.create_models successfully imported. GPU devices detected: {tf.config.list_physical_devices('GPU')}")
 
 # %% Functions
 

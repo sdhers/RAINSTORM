@@ -18,19 +18,25 @@ from .utils import broaden, recenter, reshape, evaluate
 
 # %% functions
 
-def create_chimera_and_loo_mean(df: pd.DataFrame) -> tuple:
+def create_chimera_and_loo_mean(df: pd.DataFrame, seed: int = None) -> tuple:
     """Creates a chimera DataFrame by randomly selecting columns for each row.
 
     Args:
         df (pd.DataFrame): DataFrame to create chimera from.
+        seed (int, optional): Seed for reproducibility. Defaults to None.
 
     Returns:
         tuple: A tuple containing the chimera DataFrame and the loo_mean DataFrame.
     """
+    if seed is not None:
+        np.random.seed(seed)
+
+    if df.empty or df.shape[1] < 2:
+        raise ValueError("Input DataFrame must have at least two columns.")
 
     n_cols = df.shape[1]
 
-    # Randomly select a column index (0 to cols_to_use-1) for each row
+    # Randomly select a column index (0 to n_cols) for each row
     chosen_indices = np.random.randint(0, n_cols, size=len(df))
 
     # Use numpy to get the values of the randomly chosen columns

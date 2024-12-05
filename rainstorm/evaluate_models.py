@@ -127,9 +127,9 @@ def use_model(position, model, objects = ['obj_1', 'obj_2'], bodyparts = ['nose'
 def calculate_cosine_sim(data, show_plot = True):
 
     # Combine all columns into a single DataFrame
-    all_labelers_matrix = pd.DataFrame({name: df.iloc[:, 0] for name, df in data.items()})
+    matrix = pd.DataFrame({name: df.iloc[:, 0] for name, df in data.items()})
 
-    cosine_sim = pd.DataFrame(cosine_similarity(all_labelers_matrix.T), index=all_labelers_matrix.columns, columns=all_labelers_matrix.columns)
+    cosine_sim = pd.DataFrame(cosine_similarity(matrix.T), index=matrix.columns, columns=matrix.columns)
     if show_plot:
         plt.figure()
         sns.heatmap(cosine_sim.astype(float), annot=True, cmap="coolwarm", fmt=".2f")
@@ -144,18 +144,18 @@ import matplotlib.pyplot as plt
 def plot_PCA(data, make_discrete = False):
     
     # Combine all columns into a single DataFrame
-    all_labelers_matrix = pd.DataFrame({name: df.iloc[:, 0] for name, df in data.items()})
+    matrix = pd.DataFrame({name: df.iloc[:, 0] for name, df in data.items()})
 
     if make_discrete:
-            all_labelers_matrix = (all_labelers_matrix > 0.5).astype(int)
+            matrix = (matrix > 0.5).astype(int)
 
     # Perform PCA
     pca = PCA(n_components=2)
-    reduced_data = pca.fit_transform(all_labelers_matrix.T)
+    reduced_data = pca.fit_transform(matrix.T)
 
     # Plot
     plt.figure()
-    for i, label in enumerate(all_labelers.keys()):
+    for i, label in enumerate(data.keys()):
         plt.scatter(reduced_data[i, 0], reduced_data[i, 1], label=label)
         plt.text(reduced_data[i, 0] + 0.1, reduced_data[i, 1] + 0.1, label, fontsize=10)
 

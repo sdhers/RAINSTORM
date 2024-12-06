@@ -3,7 +3,7 @@
 # RAINSTORM
 ### Real & Artificial Intelligence Networks – Simple Tracker for Object Recognition Memory
 
-![RAINSTORM Logo](docs/images/logo.png)
+![RAINSTORM Logo](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/logo.png)
 
 </div>
 

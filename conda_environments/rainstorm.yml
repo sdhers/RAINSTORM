@@ -3,17 +3,18 @@
 # © 2024. This project is openly licensed under the MIT License.
 # https://github.com/sdhers/RAINSTORM
 
-# install: conda env create -f conda_environments/rainstorm.yml
+# install: On your terminal navigate to the downloaded repository and run "conda env create -f conda_environments/rainstorm.yml"
 
 name: rainstorm
 channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.10
+  - python=3.9
   - pip
   - pandas
   - numpy
   - pip:
+    - rainstorm
     - opencv-python
     - keyboard

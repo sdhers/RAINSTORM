@@ -6,3 +6,4 @@ simple-torm.egg-info/
 build/
 dist/
 docs/examples/position_files_copy
+package/

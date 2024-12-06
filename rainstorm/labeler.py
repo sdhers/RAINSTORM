@@ -130,11 +130,11 @@ def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_fra
     right_border = int(frame.shape[1] - margin + gap)
 
     # Add frame number and video name to the frame
-    draw_text(frame, "S.T.O.R.M. Labeler", 
+    draw_text(frame, "R.A.I.N.S.T.O.R.M. Labeler", 
               pos=(right_border, gap),
               font_scale = txt, font_thickness= txt,
               text_color=(255, 255, 255))
-    draw_text(frame, "https://github.com/simple-torm/STORM",
+    draw_text(frame, "https://github.com/sdhers/RAINSTORM",
               pos=(right_border, gap + k),
               text_color=(255, 255, 255))
     draw_text(frame, f"{video_name}", 

@@ -1,0 +1,16 @@
+# RAINSTORM: Real & Artificial Intelligence Networks – Simple Tracker for Object Recognition Memory
+# Authors: Santiago D'hers. 
+# © 2024. This project is openly licensed under the MIT License.
+# https://github.com/sdhers/RAINSTORM
+
+# install: On your terminal navigate to the downloaded repository and run "conda env create -f rainstorm_venv.yml"
+
+name: rainstorm
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+    - rainstorm

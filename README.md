@@ -1,6 +1,6 @@
 <div align="center">
   
-# RAINSTORM
+# **RAINSTORM**
 ### Real & Artificial Intelligence Networks – Simple Tracker for Object Recognition Memory
 
 ![RAINSTORM Logo](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/logo.png)
@@ -9,27 +9,73 @@
 
 **RAINSTORM** is a tool for scoring object recognition memory in mice 🐭. It allows users to automate the analysis of recognition memory performance through training of artificial neural networks.
 
-### Features
+---
 
-- A Frame by Frame behavioral labeling tool that can be used both to score manually and train an artificial neural network
-- Post-DeepLabCut data processing to avoid dissapearing bodyparts and glitching
-- Geometric labeling of exploration through distance and angle of aproach
-- Geometric labeling of freezing through immobility detection
-- Automatic labeling of exploration using a trained AI model able to detect temporal sequences of behaviour
-- Comparing labels in a visual and simple way
+## **Features**  
+
+- **Frame-by-Frame Behavioral Labeling**  
+   Use this versatile tool for manual scoring or to train an artificial neural network to recognize behaviors.  
+
+- **Post-DeepLabCut Data Processing**  
+   Clean up tracking glitches like disappearing body parts and ensure smooth, reliable data.  
+
+- **Geometric Analysis for Exploration**  
+   Leverage distance and angle metrics to identify exploration behavior with precision.  
+
+- **Immobility Detection for Freezing Analysis**  
+   Automatically label freezing behavior based on motionlessness, a key indicator of memory performance.  
+
+- **AI-Powered Automatic Labeling**  
+   Train and utilize artificial neural networks to detect temporal sequences of exploration behavior.  
+
+- **Visual Label Comparison**  
+   Easily compare manual, geometric, and AI-generated labels using intuitive visualizations.  
+
+---
 
 ### Future steps
 
 - Multianimal labeling for social memories
 - Apply detection of moving objects for dinamic maze designs
 
-# Installation
+## **Installation**  
 
-- Download Anaconda
-- Download RAINSTORM repository
-- In your terminal, navigate to where the repository was stored and run: conda env create -f conda_environments/rainstorm.yml
+1. **Install Miniconda or Anaconda**  
+   Download Miniconda or Anaconda from the [official installation guide](https://docs.anaconda.com/miniconda/install/).  
 
-# Pipeline
+2. **Clone the Repository**  
+   Download or clone the **RAINSTORM** repository to your local machine:  
+   ```bash
+   git clone https://github.com/sdhers/RAINSTORM.git
+   cd rainstorm
+
+3. **Set Up the Conda Environment**  
+   Create a dedicated Conda environment for RAINSTORM:  
+   ```bash
+   conda env create -f rainstorm_venv.yml
+
+4. **Activate the Environment**  
+   Activate the newly created environment to start using RAINSTORM:
+   ```bash
+   conda activate rainstorm
+5. **Run the Jupyter Notebooks**
+  Launch Jupyter Notebook and start exploring the project’s capabilities.
+
+## **Pipeline**
+The repository contains a series of Jupyter notebooks that guide you through the pipeline:
+```0-First_steps.ipynb```: Learn the basics and set up your data.
+```1-Prepare_positions.ipynb```: Process and clean body-part position data.
+```2-Geometric_analysis.ipynb```: Perform geometric labeling of exploration and freezing.
+```3-Create_Models.ipynb```: Train AI models for automatic behavioral labeling.
+```4-Evaluate_Models.ipynb```: Assess and improve your trained models.
+```5-Automatic_Labeling.ipynb```: Automate labeling with your AI model.
+```6-Compare_Labels.ipynb```: Compare manual, geometric, and AI-generated labels.
+```7-Seize_Labels.ipynb```: Extract and summarize your labeled data.
+
+---
+---
+---
+older readme
 
 - DeepLabCut analyzes video files and returns a .H5 file with the position of the mouse's bodyparts (along with two objects, in the case of object exploration). What we do next is up to us!
 

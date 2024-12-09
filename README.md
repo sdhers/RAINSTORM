@@ -25,9 +25,10 @@
 
 # Installation
 
-- Download Anaconda
-- Download RAINSTORM repository
-- In your terminal, navigate to where the repository was stored and run: conda env create -f conda_environments/rainstorm.yml
+- Download & Install Miniconda (or Anaconda) - https://docs.anaconda.com/miniconda/install/
+- Download or clone this RAINSTORM repository into your computer
+- In the Miniconda Prompt, navigate to where the repository was stored and run: conda env create -f rainstorm_venv.yml
+- - This will create a conda environment where the rainstorm package is installed, and we will use it to run the jupyter notebooks
 
 # Pipeline
 

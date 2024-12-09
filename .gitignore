@@ -1,9 +1,4 @@
-venv/
-models/example/plot_img.png
-__pycache__/
-STORM.egg-info/
-simple-torm.egg-info/
-build/
-dist/
-docs/examples/position_files_copy
 package/
+rainstorm/__pycache__
+docs/examples/colabeled_video/plot_img.png
+docs/examples/NOR_example_copy/

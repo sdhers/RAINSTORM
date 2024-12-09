@@ -23,12 +23,16 @@
 - Multianimal labeling for social memories
 - Apply detection of moving objects for dinamic maze designs
 
-# Installation
+## **Installation**  
 
-- Download & Install Miniconda (or Anaconda) - https://docs.anaconda.com/miniconda/install/
-- Download or clone this RAINSTORM repository into your computer
-- In the Miniconda Prompt, navigate to where the repository was stored and run: conda env create -f rainstorm_venv.yml
-- - This will create a conda environment where the rainstorm package is installed, and we will use it to run the jupyter notebooks
+1. **Install Miniconda or Anaconda**  
+   Download Miniconda or Anaconda from the [official installation guide](https://docs.anaconda.com/miniconda/install/).  
+
+2. **Clone the Repository**  
+   Download or clone the **RAINSTORM** repository to your local machine:  
+   ```bash
+   git clone https://github.com/sdhers/RAINSTORM.git
+   cd rainstorm
 
 # Pipeline
 

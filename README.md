@@ -40,8 +40,8 @@
 
 ## **Installation**  
 
-1. **Install Miniconda or Anaconda**  
-   Download Miniconda or Anaconda from the [official installation guide](https://docs.anaconda.com/miniconda/install/).  
+1. **Install Anaconda (or Miniconda)**  
+   Download from the [official installation site](https://docs.anaconda.com/miniconda/install/).  
 
 2. **Clone the Repository**  
    Download or clone the **RAINSTORM** repository to your local machine:  
@@ -63,13 +63,21 @@
 
 ## **Pipeline**
 The repository contains a series of Jupyter notebooks that guide you through the pipeline:
+
 ```0-First_steps.ipynb```: Learn the basics and set up your data.
+
 ```1-Prepare_positions.ipynb```: Process and clean body-part position data.
+
 ```2-Geometric_analysis.ipynb```: Perform geometric labeling of exploration and freezing.
+
 ```3-Create_Models.ipynb```: Train AI models for automatic behavioral labeling.
+
 ```4-Evaluate_Models.ipynb```: Assess and improve your trained models.
+
 ```5-Automatic_Labeling.ipynb```: Automate labeling with your AI model.
+
 ```6-Compare_Labels.ipynb```: Compare manual, geometric, and AI-generated labels.
+
 ```7-Seize_Labels.ipynb```: Extract and summarize your labeled data.
 
 ---

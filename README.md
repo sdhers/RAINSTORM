@@ -36,7 +36,6 @@
 ---
 
 ## **Installation**
-  Follow these steps to install RAINSTORM and launch your first notebook:
 
 1. **Install Miniconda (or Anaconda)**
 

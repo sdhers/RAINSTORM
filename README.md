@@ -39,52 +39,70 @@
   Follow these steps to install RAINSTORM and launch your first notebook:
 
 1. **Install Miniconda (or Anaconda)**
-  Download and install Miniconda or Anaconda from the [official installation site](https://docs.anaconda.com/miniconda/install/).
 
-2. **Install Visual Studio Code**
-  Download and install Visual Studio Code from the [official installation site](https://code.visualstudio.com/Download)
-  During installation, ensure you add VS Code to your PATH (check the box if prompted).
+Download and install Miniconda or Anaconda from the [official installation site](https://docs.anaconda.com/miniconda/install/).
 
-3. **Clone the RAINSTORM Repository**
-  Open a terminal (e.g. Miniconda Prompt).
-  Navigate to your Desktop:
-  ```bash
-  cd ~/Desktop
-  ```
+3. **Install Visual Studio Code**
+
+Download and install Visual Studio Code from the [official installation site](https://code.visualstudio.com/Download)
   
-  Clone the repository:
-  ```bash
-  git clone https://github.com/your-username/rainstorm.git
-  ```
-  This will create a folder named RAINSTORM on your Desktop.
+During installation, ensure you add VS Code to your PATH (check the box if prompted).
+
+5. **Clone the RAINSTORM Repository**
+
+Open a terminal (e.g. Miniconda Prompt).
+
+Navigate to your Desktop:
+
+```bash
+cd ~/Desktop
+```
+  
+Clone the repository (This step will create a folder named RAINSTORM on your Desktop):
+
+```bash
+git clone https://github.com/your-username/rainstorm.git
+```
 
 4. **Set Up the Conda Environment**
-  Navigate to the rainstorm directory:
-  ```bash
-  cd rainstorm
-  ```
-  Create the Conda environment:
-  ```bash
-  conda env create -f rainstorm_venv.yml
-  ```
-  Activate the environment:
-  ```bash
-  conda activate rainstorm
-  ```
+
+Navigate to the rainstorm directory:
+
+```bash
+cd rainstorm
+```
+  
+Create the Conda environment:
+  
+```bash
+conda env create -f rainstorm_venv.yml
+```
+
+Activate the environment:
+
+```bash
+conda activate rainstorm
+```
+
 5. **Open VS Code**
-  Launch VS Code from the terminal:
-  ```bash
-  code .
-  ```
-  In VS Code, ensure the Python extension is installed:
+
+Launch VS Code from the terminal:
+
+```bash
+code .
+```
+  
+In VS Code, ensure the Python extension is installed:
   - Go to the Extensions view (```Ctrl+Shift+X``` or ```Cmd+Shift+X``` on macOS).
   - Search for "Python" and install the extension provided by Microsoft.
-  Open the ```0-First_steps.ipynb``` notebook.
+
+Open the ```0-First_steps.ipynb``` notebook.
   - When prompted to select a kernel, choose the ```rainstorm``` Conda environment among the ```Python Environments```.
 
 6. **Start Exploring RAINSTORM**
   - Run the cells in 0-First_steps.ipynb to get started.
   - From now on, you can launch any of the notebooks from the RAINSTORM repository just by clicking on them in VS Code.
+
 The setup is complete!
 
 ---

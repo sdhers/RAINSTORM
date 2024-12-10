@@ -10,7 +10,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="rainstorm",
-    version="0.0.4",
+    version="0.0.5",
     url="https://github.com/sdhers/RAINSTORM",
     author="Santiago D'hers",
     author_email="dhers.santiago@gmail.com",

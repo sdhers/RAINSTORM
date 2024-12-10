@@ -10,6 +10,7 @@
 **RAINSTORM** is a tool for scoring object recognition memory in mice 🐭. It allows users to automate the analysis of recognition memory performance through training of artificial neural networks. DeepLabCut analyzes video files and returns the position of the mouse's bodyparts... What we do next is up to us!
 
 ---
+---
 
 ## **Features**  
 
@@ -31,6 +32,7 @@
 - **Visual Label Comparison**  
    Easily compare manual, geometric, and AI-generated labels using intuitive visualizations.
 
+---
 ---
 
 ## **Installation**
@@ -86,11 +88,14 @@
 The setup is complete!
 
 ---
+---
 
 ## **Pipeline**
-The repository contains a series of Jupyter notebooks that guide you through the pipeline:
+The repository contains a series of Jupyter notebooks to go from raw pose estimation data to the visualization of your results:
 
 ```0-First_steps.ipynb```: Learn the basics and set up your data.
+
+---
 
 ```1-Prepare_positions.ipynb```: Process and clean bodypart position data.
 - Filter out the frames where the mouse is not in the video.
@@ -100,6 +105,8 @@ The repository contains a series of Jupyter notebooks that guide you through the
 
 ![1-Prepare_positions](docs/images/1-Prepare_positions.png)
 
+---
+
 ```2-Geometric_analysis.ipynb```: Perform geometric labeling of exploration and freezing.
 
 - One way of finding out when the mouse is exploring an object is to use a geometric criteria:
@@ -108,41 +115,52 @@ The repository contains a series of Jupyter notebooks that guide you through the
 
 ![2-Geometric_analysis](docs/images/2-Geometric_analysis.png)
 
+---
+
 ```3-Create_Models.ipynb```: Train AI models for automatic behavioral labeling.
 
 - Another way of finding out when the mouse is exploring is to train an artificial neural network with manually labeled data:
 
-![3-Create_Models](docs/images/3-Create_Models.png)
+![3-Create_Models](docs/images/3-Create_models.png)
 
 - Using TensorFlow, we were able to train models that are able to clasify a mouse's position into exploration.
 - Among the models, we train a more complex LSTM network that is aware of frame sequences, and performs better as exploration is time dependant.
 - The training learns from our own manual labeling, so it acquires the criteria of the users.
 
+---
+
 ```4-Evaluate_Models.ipynb```: Assess and improve your trained models.
 
-![4-Evaluate_Models](docs/images/4-Evaluate_Models.png)
+![4-Evaluate_Models](docs/images/4-Evaluate_models.png)
+
+---
 
 ```5-Automatic_analysis.ipynb```: Automate labeling with your AI model.
 
 ![5-Automatic_analysis](docs/images/5-Automatic_analysis.png)
+
+---
 
 ```6-Compare_Labels.ipynb```: Compare manual, geometric, and AI-generated labels.
 
 - Once we have the manual, geometric and automatic labels, we can compare the performance of each on an example video
 - Using a polar graph, we can see for each position the angle of approach and distance in which the mice is exploring the objects
 
-![6-Compare_Labels](docs/images/6-Compare_Labels.png)
+![6-Compare_Labels](docs/images/6-Compare_labels.png)
+
+---
 
 ```7-Seize_Labels.ipynb```: Extract and summarize your labeled data.
 
 - We can use the best labels to evauate the memory performance of a single mouse:
 
-![7-Seize_Labels_a](docs/images/7-Seize_Labels_a.png)
+![7-Seize_Labels_a](docs/images/7-Seize_labels_a.png)
 
 - And finally, we can find differences in the exploration of objects for a group of trained mice (which was the obective all along):
 
-![7-Seize_Labels_b](docs/images/7-Seize_Labels_b.png)
+![7-Seize_Labels_b](docs/images/7-Seize_labels_b.png)
 
+---
 ---
 
 ## **Conclusions**

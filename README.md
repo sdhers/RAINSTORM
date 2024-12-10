@@ -42,13 +42,11 @@
 
 Download and install Miniconda or Anaconda from the [official installation site](https://docs.anaconda.com/miniconda/install/).
 
-3. **Install Visual Studio Code**
+2. **Install Visual Studio Code**
 
-Download and install Visual Studio Code from the [official installation site](https://code.visualstudio.com/Download)
-  
-During installation, ensure you add VS Code to your PATH (check the box if prompted).
+Download and install Visual Studio Code from the [official installation site](https://code.visualstudio.com/Download). During installation, ensure you add VS Code to your PATH (check the box if prompted).
 
-5. **Clone the RAINSTORM Repository**
+3. **Clone the RAINSTORM Repository**
 
 Open a terminal (e.g. Miniconda Prompt).
 

@@ -7,7 +7,9 @@
 
 </div>
 
-**RAINSTORM** is a tool for scoring object recognition memory in mice 🐭. It allows users to automate the analysis of recognition memory performance through training of artificial neural networks. DeepLabCut analyzes video files and returns the position of the mouse's bodyparts... What we do next is up to us!
+**RAINSTORM** is a tool for scoring object recognition memory in mice 🐭. It allows users to automate the analysis of recognition memory performance through training of artificial neural networks.
+
+DeepLabCut analyzes video files and returns the position of the mouse's bodyparts... What we do next is up to us!
 
 ---
 ---
@@ -36,7 +38,6 @@
 ---
 
 ## **Installation**
-  Follow these steps to install RAINSTORM and launch your first notebook:
 
 1. **Install Miniconda (or Anaconda)**
 
@@ -53,7 +54,7 @@ Open a terminal (e.g. Miniconda Prompt).
 Navigate to your Desktop:
 
 ```bash
-cd ~/Desktop
+cd Desktop
 ```
   
 Clone the repository (This step will create a folder named RAINSTORM on your Desktop):
@@ -99,9 +100,56 @@ Open the ```0-First_steps.ipynb``` notebook.
 
 6. **Start Exploring RAINSTORM**
   - Run the cells in 0-First_steps.ipynb to get started.
-  - From now on, you can launch any of the notebooks from the RAINSTORM repository just by clicking on them in VS Code.
 
-The setup is complete!
+From now on, you can launch any of the notebooks from the RAINSTORM repository just by clicking on them in VS Code. The setup is complete!
+
+---
+---
+
+## **Manual Labeling Tool**
+
+Before getting to the automated part of the project, let me introduce you to the **RAINSTORM labeler** tool.
+
+This simple python tool will let you label a video frame by frame, and get a precise register of what is happening (what behaviours are being displayed) on every moment of the recording.
+
+As we already have our rainstorm environment created, all we need to do is open the terminal and:
+
+1. **Activate the conda environment**
+
+```bash
+conda activate rainstorm
+```
+
+2. **Run the labeler**
+
+```bash
+python -m rainstorm.labeler
+```
+
+- A pop up window will appear, where we need to:
+
+3. **Navigate to the video we want to label and select it**
+
+- If you dont have a video available on your computer, you can find a demo inside the RAINSTORM repository on ```docs/examples/colabeled_video/Example_video.mp4```.
+- You can also pick a labeled csv file if you already started labeling and want to pick up where you left off.
+
+4. **Type the behaviors you would like to label**
+
+- As we label the exploration of two objects, the presets are ```explore_left```, ```explore_right```, ```freezing``` and ```grooming```.
+
+5. **Type the keyboard keys you'd like to use**
+
+- One for each behaviour, the presets are ```4```, ```6```, ```f``` and ```g```.
+
+6. **Start labeling**
+
+- After a few seconds the labeler will open and the first frame will be displayed.
+- Follow the instrucitons on the screen to navivate through the video and label each behavior as it happens.
+
+Once you are done, exit and save the results, and a labeled csv file will be created on the selected video directory.
+
+> [!TIP]
+> The heavier the video, the longer it will take the program to process it. If it is too demanding for your computer, try compressing the video.
 
 ---
 ---
@@ -110,6 +158,9 @@ The setup is complete!
 The repository contains a series of Jupyter notebooks to go from raw pose estimation data to the visualization of your results:
 
 ```0-First_steps.ipynb```: Learn the basics and set up your data.
+
+- This is the first notebook of the RAINSTORM project. Here you'll find the initial steps to prepare the data for analysis.
+- If you dont have your pose estimation files yet (or you just want to try out the workflow), RAINSTORM comes with an example folder with pose estimation files from mice on a Novel Object Recognition (NOR) task.
 
 ---
 

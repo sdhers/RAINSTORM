@@ -3,155 +3,153 @@
 # **RAINSTORM**
 ### Real & Artificial Intelligence Networks – Simple Tracker for Object Recognition Memory
 
-![RAINSTORM Logo](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/logo.png)
+![RAINSTORM Logo](docs/images/logo.png)
 
 </div>
 
-**RAINSTORM** is a tool for scoring object recognition memory in mice 🐭. It allows users to automate the analysis of recognition memory performance through training of artificial neural networks.
+**RAINSTORM** is a tool for scoring object recognition memory in mice 🐭. It allows users to automate the analysis of recognition memory performance through training of artificial neural networks. DeepLabCut analyzes video files and returns the position of the mouse's bodyparts... What we do next is up to us!
 
 ---
 
 ## **Features**  
 
 - **Frame-by-Frame Behavioral Labeling**  
-   Use this versatile tool for manual scoring or to train an artificial neural network to recognize behaviors.  
+   Use this versatile tool for accurate manual scoring. On top of that, prepare your data to train an artificial neural network to recognize behaviors.  
 
 - **Post-DeepLabCut Data Processing**  
-   Clean up tracking glitches like disappearing body parts and ensure smooth, reliable data.  
+   Clean up tracking glitches like disappearing body parts and ensure smooth, reliable data. 
 
 - **Geometric Analysis for Exploration**  
    Leverage distance and angle metrics to identify exploration behavior with precision.  
 
 - **Immobility Detection for Freezing Analysis**  
-   Automatically label freezing behavior based on motionlessness, a key indicator of memory performance.  
+   Automatically label freezing behavior based on motion, a key indicator of memory performance.  
 
 - **AI-Powered Automatic Labeling**  
    Train and utilize artificial neural networks to detect temporal sequences of exploration behavior.  
 
 - **Visual Label Comparison**  
-   Easily compare manual, geometric, and AI-generated labels using intuitive visualizations.  
+   Easily compare manual, geometric, and AI-generated labels using intuitive visualizations.
 
 ---
 
-### Future steps
+## **Installation**
+  Follow these steps to install RAINSTORM and launch your first notebook:
 
-- Multianimal labeling for social memories
-- Apply detection of moving objects for dinamic maze designs
+1. **Install Miniconda (or Anaconda)**
+  Download and install Miniconda or Anaconda from the [official installation site](https://docs.anaconda.com/miniconda/install/).
 
-## **Installation**  
+2. **Install Visual Studio Code**
+  Download and install Visual Studio Code from the [official installation site](https://code.visualstudio.com/Download)
+  During installation, ensure you add VS Code to your PATH (check the box if prompted).
 
-1. **Install Anaconda (or Miniconda)**  
-   Download from the [official installation site](https://docs.anaconda.com/miniconda/install/).  
+3. **Clone the RAINSTORM Repository**
+  Open a terminal (e.g. Miniconda Prompt).
+  Navigate to your Desktop:
+  ```bash
+  cd ~/Desktop
+  ```
+  
+  Clone the repository:
+  ```bash
+  git clone https://github.com/your-username/rainstorm.git
+  ```
+  This will create a folder named RAINSTORM on your Desktop.
 
-2. **Clone the Repository**  
-   Download or clone the **RAINSTORM** repository to your local machine:  
-   ```bash
-   git clone https://github.com/sdhers/RAINSTORM.git
-   cd rainstorm
+4. **Set Up the Conda Environment**
+  Navigate to the rainstorm directory:
+  ```bash
+  cd rainstorm
+  ```
+  Create the Conda environment:
+  ```bash
+  conda env create -f rainstorm_venv.yml
+  ```
+  Activate the environment:
+  ```bash
+  conda activate rainstorm
+  ```
+5. **Open VS Code**
+  Launch VS Code from the terminal:
+  ```bash
+  code .
+  ```
+  In VS Code, ensure the Python extension is installed:
+  - Go to the Extensions view (```Ctrl+Shift+X``` or ```Cmd+Shift+X``` on macOS).
+  - Search for "Python" and install the extension provided by Microsoft.
+  Open the ```0-First_steps.ipynb``` notebook.
+  - When prompted to select a kernel, choose the ```rainstorm``` Conda environment among the ```Python Environments```.
 
-3. **Set Up the Conda Environment**  
-   Create a dedicated Conda environment for RAINSTORM:  
-   ```bash
-   conda env create -f rainstorm_venv.yml
+6. **Start Exploring RAINSTORM**
+  - Run the cells in 0-First_steps.ipynb to get started.
+  - From now on, you can launch any of the notebooks from the RAINSTORM repository just by clicking on them in VS Code.
+The setup is complete!
 
-4. **Activate the Environment**  
-   Activate the newly created environment to start using RAINSTORM:
-   ```bash
-   conda activate rainstorm
-5. **Run the Jupyter Notebooks**
-  Launch Jupyter Notebook and start exploring the project’s capabilities.
+---
 
 ## **Pipeline**
 The repository contains a series of Jupyter notebooks that guide you through the pipeline:
 
 ```0-First_steps.ipynb```: Learn the basics and set up your data.
 
-```1-Prepare_positions.ipynb```: Process and clean body-part position data.
-- Filter out the frames where the mouse is not in the video
-- Points that have a low likelihood assigned by DLC are filtered and data is smoothed
-- Also, it is convenient to scale the video from pixels to cm
-- Return: We obtain .csv files with the correct, scaled positions of the mice
+```1-Prepare_positions.ipynb```: Process and clean bodypart position data.
+- Filter out the frames where the mouse is not in the video.
+- Points that have a low likelihood assigned by DLC are also filtered out, and data is interpolated and smoothed.
+- Conveniently scale the video from pixels to cm.
+- Return: We obtain .csv files with the correct, scaled positions of the mice.
 
-![Example Manage_H5](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/1-Manage_H5.png)
+![1-Prepare_positions](docs/images/1-Prepare_positions.png)
 
 ```2-Geometric_analysis.ipynb```: Perform geometric labeling of exploration and freezing.
 
-```3-Create_Models.ipynb```: Train AI models for automatic behavioral labeling.
-
-```4-Evaluate_Models.ipynb```: Assess and improve your trained models.
-
-```5-Automatic_Labeling.ipynb```: Automate labeling with your AI model.
-
-```6-Compare_Labels.ipynb```: Compare manual, geometric, and AI-generated labels.
-
-```7-Seize_Labels.ipynb```: Extract and summarize your labeled data.
-
----
----
----
-older readme
-
-- DeepLabCut analyzes video files and returns a .H5 file with the position of the mouse's bodyparts (along with two objects, in the case of object exploration). What we do next is up to us!
-
-## Manage_H5
-
-
-
-## Geometric_Labeling
-
 - One way of finding out when the mouse is exploring an object is to use a geometric criteria:
-  - If the mouse is close to the object (distance < 2.5 cm)
-  - If the mouse is oriented towards the object (angle < 45°)
+  - If the mouse is close to the object (distance < 2.5 cm).
+  - If the mouse is oriented towards the object (angle < 45°).
 
-![Example Geolabels](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/2-Geometric_Labeling.png)
+![2-Geometric_analysis](docs/images/2-Geometric_analysis.png)
 
-## Automatic_Labeling
+```3-Create_Models.ipynb```: Train AI models for automatic behavioral labeling.
 
 - Another way of finding out when the mouse is exploring is to train an artificial neural network with manually labeled data:
 
-![Example Autolabels](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/3a-Create_Models.png)
+![3-Create_Models](docs/images/3-Create_Models.png)
 
-Using TensorFlow, we were able to train models that are able to clasify a mouse's position into exploration
+- Using TensorFlow, we were able to train models that are able to clasify a mouse's position into exploration.
+- Among the models, we train a more complex LSTM network that is aware of frame sequences, and performs better as exploration is time dependant.
+- The training learns from our own manual labeling, so it acquires the criteria of the users.
 
-![Example Autolabels_2](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/3a-Create_Models_simple.png)
+```4-Evaluate_Models.ipynb```: Assess and improve your trained models.
 
-Among the models, we trained a more complex LSTM network that is aware of frame sequences, and performs better as exploration is time dependant.
-It trains based on our own manual labeling, so it acquires the criteria of the users.
+![4-Evaluate_Models](docs/images/4-Evaluate_Models.png)
 
-## Compare_Labels
+```5-Automatic_analysis.ipynb```: Automate labeling with your AI model.
 
-- Once we have the manual, geometric and automatic labels, we can compare the performance of each on an example video:
+![5-Automatic_analysis](docs/images/5-Automatic_analysis.png)
 
-![Example compare_1](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/4-Compare_Labels_line.png)
+```6-Compare_Labels.ipynb```: Compare manual, geometric, and AI-generated labels.
 
-Using a polar graph, we can see for each position the angle of approach and distance in which the mice is exploring the objects
-- For a single video:
+- Once we have the manual, geometric and automatic labels, we can compare the performance of each on an example video
+- Using a polar graph, we can see for each position the angle of approach and distance in which the mice is exploring the objects
 
-![Example compare_1](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/4-Compare_Labels_polar.png)
+![6-Compare_Labels](docs/images/6-Compare_Labels.png)
 
-- Or for many videos together:
+```7-Seize_Labels.ipynb```: Extract and summarize your labeled data.
 
-![Example compare_2](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/4-Compare_Labels_polar_all.png)
+- We can use the best labels to evauate the memory performance of a single mouse:
 
-#### Since the automatic method learns to detect exploration unrestricted by the angle and distance to the object, it tends to be more accurate (Although, let's be honest... I chose to show you the best numbers I've ever gotten).
-
-![Example compare_3](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/4-Compare_Labels_result.png)
-
-## Seize_Labels
-
-- We can use the best labels to evauate the performance of a mouse during the different sessions:
-
-![Example seize_1](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/5-Seize_Labels_example.png)
+![7-Seize_Labels_a](docs/images/7-Seize_Labels_a.png)
 
 - And finally, we can find differences in the exploration of objects for a group of trained mice (which was the obective all along):
 
-![Example seize_2](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/5-Seize_Labels_experiment.png)
+![7-Seize_Labels_b](docs/images/7-Seize_Labels_b.png)
 
-# In conclusion
+---
+
+## **Conclusions**
 - This project, although already in use, is a work in progress that could significantly improve the way we analyze object exploration videos.
-- If you wish to contact us, please do so: dhers.santiago@gmail.com
+- If you wish to contact us, please do so: simple.torm@gmail.com
 - © 2024. This project is openly licensed under the MIT License.
 
 #### Thanks for exploring us!
 
-![Final_gif](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/mouse_exploring.gif)
+![mouse_exploring](docs/images/mouse_exploring.gif)

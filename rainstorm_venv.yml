@@ -5,7 +5,7 @@
 
 # install: On your terminal navigate to the downloaded repository and run "conda env create -f rainstorm_venv.yml"
 
-name: rainstorm
+name: rainstorm_2
 channels:
   - conda-forge
   - defaults

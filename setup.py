@@ -17,7 +17,8 @@ setup(
     description="Real & Artificial Intelligence Networks – Simple Tracker for Object Recognition Memory",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    packages=find_packages(),   
+    packages=find_packages(),
+    include_package_data=True,
     install_requires=[
         "ipykernel>=6.29.5",
         "opencv-python>=4.10",

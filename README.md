@@ -7,7 +7,9 @@
 
 </div>
 
-**RAINSTORM** is a tool for scoring object recognition memory in mice 🐭. It allows users to automate the analysis of recognition memory performance through training of artificial neural networks. DeepLabCut analyzes video files and returns the position of the mouse's bodyparts... What we do next is up to us!
+**RAINSTORM** is a tool for scoring object recognition memory in mice 🐭. It allows users to automate the analysis of recognition memory performance through training of artificial neural networks.
+
+DeepLabCut analyzes video files and returns the position of the mouse's bodyparts... What we do next is up to us!
 
 ---
 ---
@@ -52,7 +54,7 @@ Open a terminal (e.g. Miniconda Prompt).
 Navigate to your Desktop:
 
 ```bash
-cd ~/Desktop
+cd Desktop
 ```
   
 Clone the repository (This step will create a folder named RAINSTORM on your Desktop):

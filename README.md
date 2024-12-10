@@ -67,6 +67,12 @@ The repository contains a series of Jupyter notebooks that guide you through the
 ```0-First_steps.ipynb```: Learn the basics and set up your data.
 
 ```1-Prepare_positions.ipynb```: Process and clean body-part position data.
+- Filter out the frames where the mouse is not in the video
+- Points that have a low likelihood assigned by DLC are filtered and data is smoothed
+- Also, it is convenient to scale the video from pixels to cm
+- Return: We obtain .csv files with the correct, scaled positions of the mice
+
+![Example Manage_H5](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/1-Manage_H5.png)
 
 ```2-Geometric_analysis.ipynb```: Perform geometric labeling of exploration and freezing.
 
@@ -89,12 +95,7 @@ older readme
 
 ## Manage_H5
 
-- It is important to filter from the position file the frames where the mouse is not in the video
-- Points that have a low likelihood assigned by DLC are filtered and data is smoothed
-- Also, it is convenient to scale the video from pixels to cm
-- Return: We obtain .csv files with the correct, scaled positions of the mice
 
-![Example Manage_H5](https://github.com/sdhers/RAINSTORM/blob/main/docs/images/1-Manage_H5.png)
 
 ## Geometric_Labeling
 

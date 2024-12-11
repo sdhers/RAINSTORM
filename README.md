@@ -39,15 +39,15 @@ DeepLabCut analyzes video files and returns the position of the mouse's bodypart
 
 ## **Installation**
 
-1. **Install Miniconda (or Anaconda)**
+### 1. **Install Miniconda (or Anaconda)**
 
 Download and install Miniconda or Anaconda from the [official installation site](https://docs.anaconda.com/miniconda/install/).
 
-2. **Install Visual Studio Code**
+### 2. **Install Visual Studio Code**
 
 Download and install Visual Studio Code from the [official installation site](https://code.visualstudio.com/Download). During installation, ensure you add VS Code to your PATH (check the box if prompted).
 
-3. **Clone the RAINSTORM Repository**
+### 3. **Clone the RAINSTORM Repository**
 
 Open a terminal (e.g. Miniconda Prompt).
 
@@ -63,7 +63,7 @@ Clone the repository (This step will create a folder named RAINSTORM on your Des
 git clone https://github.com/sdhers/rainstorm.git
 ```
 
-4. **Set Up the Conda Environment**
+### 4. **Set Up the Conda Environment**
 
 Navigate to the rainstorm directory:
 
@@ -83,7 +83,7 @@ Activate the environment:
 conda activate rainstorm
 ```
 
-5. **Open VS Code**
+### 5. **Open VS Code**
 
 Launch VS Code from the terminal:
 
@@ -98,7 +98,7 @@ In VS Code, ensure the Python extension is installed:
 Open the ```0-First_steps.ipynb``` notebook.
   - When prompted to select a kernel, choose the ```rainstorm``` Conda environment among the ```Python Environments```.
 
-6. **Start Exploring RAINSTORM**
+### 6. **Start Exploring RAINSTORM**
   - Run the cells in 0-First_steps.ipynb to get started.
 
 From now on, you can launch any of the notebooks from the RAINSTORM repository just by clicking on them in VS Code. The setup is complete!
@@ -114,13 +114,13 @@ This simple python tool will let you label a video frame by frame, and get a pre
 
 As we already have our rainstorm environment created, all we need to do is open the terminal and:
 
-1. **Activate the conda environment**
+### 1. **Activate the conda environment**
 
 ```bash
 conda activate rainstorm
 ```
 
-2. **Run the labeler**
+### 2. **Run the labeler**
 
 ```bash
 python -m rainstorm.labeler
@@ -128,20 +128,20 @@ python -m rainstorm.labeler
 
 - A pop up window will appear, where we need to:
 
-3. **Navigate to the video we want to label and select it**
+### 3. **Navigate to the video we want to label and select it**
 
 - If you dont have a video available on your computer, you can find a demo inside the RAINSTORM repository on ```docs/examples/colabeled_video/Example_video.mp4```.
 - You can also pick a labeled csv file if you already started labeling and want to pick up where you left off.
 
-4. **Type the behaviors you would like to label**
+### 4. **Type the behaviors you would like to label**
 
 - As we label the exploration of two objects, the presets are ```explore_left```, ```explore_right```, ```freezing``` and ```grooming```.
 
-5. **Type the keyboard keys you'd like to use**
+### 5. **Type the keyboard keys you'd like to use**
 
 - One for each behaviour, the presets are ```4```, ```6```, ```f``` and ```g```.
 
-6. **Start labeling**
+### 6. **Start labeling**
 
 - After a few seconds the labeler will open and the first frame will be displayed.
 - Follow the instrucitons on the screen to navivate through the video and label each behavior as it happens.
@@ -157,14 +157,14 @@ Once you are done, exit and save the results, and a labeled csv file will be cre
 ## **Pipeline**
 The repository contains a series of Jupyter notebooks to go from raw pose estimation data to the visualization of your results:
 
-```0-First_steps.ipynb```: Learn the basics and set up your data.
+### ```0-First_steps.ipynb```: Learn the basics and set up your data.
 
 - This is the first notebook of the RAINSTORM project. Here you'll find the initial steps to prepare the data for analysis.
 - If you dont have your pose estimation files yet (or you just want to try out the workflow), RAINSTORM comes with an example folder with pose estimation files from mice on a Novel Object Recognition (NOR) task.
 
 ---
 
-```1-Prepare_positions.ipynb```: Process and clean bodypart position data.
+### ```1-Prepare_positions.ipynb```: Process and clean bodypart position data.
 - Filter out the frames where the mouse is not in the video.
 - Points that have a low likelihood assigned by DLC are also filtered out, and data is interpolated and smoothed.
 - Conveniently scale the video from pixels to cm.
@@ -174,7 +174,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ---
 
-```2-Geometric_analysis.ipynb```: Perform geometric labeling of exploration and freezing.
+### ```2-Geometric_analysis.ipynb```: Perform geometric labeling of exploration and freezing.
 
 - One way of finding out when the mouse is exploring an object is to use a geometric criteria:
   - If the mouse is close to the object (distance < 2.5 cm).
@@ -184,7 +184,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ---
 
-```3-Create_Models.ipynb```: Train AI models for automatic behavioral labeling.
+### ```3-Create_Models.ipynb```: Train AI models for automatic behavioral labeling.
 
 - Another way of finding out when the mouse is exploring is to train an artificial neural network with manually labeled data:
 
@@ -196,19 +196,19 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ---
 
-```4-Evaluate_Models.ipynb```: Assess and improve your trained models.
+### ```4-Evaluate_Models.ipynb```: Assess and improve your trained models.
 
 ![4-Evaluate_Models](docs/images/4-Evaluate_models.png)
 
 ---
 
-```5-Automatic_analysis.ipynb```: Automate labeling with your AI model.
+### ```5-Automatic_analysis.ipynb```: Automate labeling with your AI model.
 
 ![5-Automatic_analysis](docs/images/5-Automatic_analysis.png)
 
 ---
 
-```6-Compare_Labels.ipynb```: Compare manual, geometric, and AI-generated labels.
+### ```6-Compare_Labels.ipynb```: Compare manual, geometric, and AI-generated labels.
 
 - Once we have the manual, geometric and automatic labels, we can compare the performance of each on an example video
 - Using a polar graph, we can see for each position the angle of approach and distance in which the mice is exploring the objects
@@ -217,7 +217,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ---
 
-```7-Seize_Labels.ipynb```: Extract and summarize your labeled data.
+### ```7-Seize_Labels.ipynb```: Extract and summarize your labeled data.
 
 - We can use the best labels to evauate the memory performance of a single mouse:
 
@@ -235,6 +235,6 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 - If you wish to contact us, please do so: simple.torm@gmail.com
 - © 2024. This project is openly licensed under the MIT License.
 
-#### Thanks for exploring us!
+### Thanks for exploring us!
 
 ![mouse_exploring](docs/images/mouse_exploring.gif)

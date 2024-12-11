@@ -27,7 +27,7 @@ setup(
         "matplotlib>=3.9.3",
         "scipy>=1.13.1",
         "tables>=3.9.2",
-        "numpy>=1.25.2",
+        "numpy>=1.25.2,<2.0",
         "pandas>=2.0.3",
         "nbformat>=5.10.4",
         "h5py>=3.12.1",

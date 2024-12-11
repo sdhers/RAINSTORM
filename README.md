@@ -60,7 +60,7 @@ cd Desktop
 Clone the repository (This step will create a folder named RAINSTORM on your Desktop):
 
 ```bash
-git clone https://github.com/your-username/rainstorm.git
+git clone https://github.com/sdhers/rainstorm.git
 ```
 
 4. **Set Up the Conda Environment**

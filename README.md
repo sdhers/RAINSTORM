@@ -198,13 +198,20 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ### ```4-Evaluate_Models.ipynb```: Assess and improve your trained models.
 
-![4-Evaluate_Models](docs/images/4-Evaluate_models.png)
+- Models can now be used to label all the data that was manually labeled, and the results can be compared in terms of accuracy.
+- To evaluate the similarity of the models to the mean human labeler, we can also run a Principal Components Analysis:
+
+![4-Evaluate_models_a](docs/images/4-Evaluate_models_a.png)
+
+- Finally, we can plot the dynamic labeling of models against labelers in an example video timelime:
+
+![4-Evaluate_models_b](docs/images/4-Evaluate_models_b.png)
 
 ---
 
 ### ```5-Automatic_analysis.ipynb```: Automate labeling with your AI model.
 
-![5-Automatic_analysis](docs/images/5-Automatic_analysis.png)
+- Having chosen our favorite model, it is time to analyze and label our own position files.
 
 ---
 
@@ -219,13 +226,18 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ### ```7-Seize_Labels.ipynb```: Extract and summarize your labeled data.
 
-- We can use the best labels to evauate the memory performance of a single mouse:
+- Use the best labels to find differences in the exploration of familiar and novel objects for groups of trained mice (which was the obective all along):
 
-![7-Seize_Labels_a](docs/images/7-Seize_labels_a.png)
+![7-Seize_Labels_ts](docs/images/7-Seize_labels_ts.png)
 
-- And finally, we can find differences in the exploration of objects for a group of trained mice (which was the obective all along):
+- We can visually compare these two groups of trained mice, and see that those who were tested 24 hours after training have a higher Discrimination Index (they spend more time exploring the novel object)
+- Lets also plot the training session, to make sure there are no differences between groups there:
 
-![7-Seize_Labels_b](docs/images/7-Seize_labels_b.png)
+![7-Seize_Labels_tr](docs/images/7-Seize_labels_tr.png)
+
+- And why not? lets see how they behaved during their initial habituation to the arena:
+
+![7-Seize_Labels_hab](docs/images/7-Seize_labels_hab.png)
 
 ---
 ---

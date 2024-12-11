@@ -57,7 +57,7 @@ Navigate to your Desktop:
 cd Desktop
 ```
   
-Clone the repository (This step will create a folder named RAINSTORM on your Desktop):
+Clone the repository (This step will create a folder named **rainstorm** on your Desktop):
 
 ```bash
 git clone https://github.com/sdhers/rainstorm.git

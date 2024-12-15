@@ -244,7 +244,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ## **Conclusions**
 - This project, although already in use, is a work in progress that could significantly improve the way we analyze object exploration videos.
-- If you wish to contact us, please do so: simple.torm@gmail.com
+- If you wish to contact us, please do so: real.ai.networks@gmail.com
 - © 2024. This project is openly licensed under the MIT License.
 
 ### Thanks for exploring us!

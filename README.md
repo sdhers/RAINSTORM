@@ -112,9 +112,9 @@ Before getting to the automated part of the project, let me introduce you to the
 
 This simple python tool will let you label a video frame by frame, and get a precise register of what is happening (what behaviours are being displayed) on every moment of the recording.
 
-As we already have our rainstorm environment created, all we need to do is open the terminal and:
+As we already have our rainstorm environment created, all we need to do is open the Miniconda (or Anaconda) Command Prompt and:
 
-### 1. **Activate the conda environment**
+### 1. **Activate the RAINSTORM conda environment**
 
 ```bash
 conda activate rainstorm
@@ -131,19 +131,23 @@ python -m rainstorm.labeler
 ### 3. **Navigate to the video we want to label and select it**
 
 - If you dont have a video available on your computer, you can find a demo inside the RAINSTORM repository on ```docs/examples/colabeled_video/Example_video.mp4```.
-- You can also pick a labeled csv file if you already started labeling and want to pick up where you left off.
 
-### 4. **Type the behaviors you would like to label**
+### 4. **(Optional) Pick a labeled csv file.**
 
-- As we label the exploration of two objects, the presets are ```explore_left```, ```explore_right```, ```freezing``` and ```grooming```.
+- If you already started labeling, you can pick up where you left off.
 
-### 5. **Type the keyboard keys you'd like to use**
+### 5. **Type the behaviors you would like to label.**
 
-- One for each behaviour, the presets are ```4```, ```6```, ```f``` and ```g```.
+- As we label the exploration of two objects, the presets are ```obj_1```, ```obj_2```, ```freezing``` and ```grooming```.
+- You may add as many behaviors as you want.
 
-### 6. **Start labeling**
+### 6. **Type the keyboard keys you'd like to use**
 
-- After a few seconds the labeler will open and the first frame will be displayed.
+- One for each behavior, the presets are ```4```, ```6```, ```f``` and ```g```.
+
+### 7. **Start labeling**
+
+- After a few seconds (or minutes, if the video is too long or heavy) the labeler will open and the first frame will be displayed.
 - Follow the instrucitons on the screen to navivate through the video and label each behavior as it happens.
 
 Once you are done, exit and save the results, and a labeled csv file will be created on the selected video directory.

@@ -326,11 +326,11 @@ def save_labels_to_csv(video_path: str, frame_labels: dict, behaviours: list) ->
 
     print(f"Labels saved to {output_csv}")
 
-def ask_behaviours(preset_behaviours: list = ['explore_left','explore_right','freezing','grooming']) -> list:
+def ask_behaviours(preset_behaviours: list = ['obj_1','obj_2','freezing','grooming']) -> list:
     """Ask the user for behaviour names via Tkinter dialogs, with optional presets.
 
     Args:
-        preset_behaviours (list, optional): List of preset behaviours. Defaults to ['explore_left','explore_right','freezing','grooming'].
+        preset_behaviours (list, optional): List of preset behaviours. Defaults to ['obj_1','obj_2','freezing','grooming'].
 
     Returns:
         list: List of behaviours

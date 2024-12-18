@@ -13,7 +13,7 @@ def cropper():
     root.withdraw()
 
     # Open a file dialog to select the video file
-    video_path = filedialog.askopenfilename(filetypes=[("Video files", "*.mp4")])
+    video_path = filedialog.askopenfilename(filetypes=[("Video files", "*.mp4 *.avi")])
     if not video_path:
         print("No video file selected.")
         return
@@ -141,7 +141,10 @@ def cropper():
             print(f"Error: Cannot open {input_path}.")
             return
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out = cv2.VideoWriter(output_path, fourcc, cap.get(cv2.CAP_PROP_FPS), (x_max - x_min, y_max - y_min))
+        out = cv2.VideoWriter(output_path, fourcc, 15.0, (x_max - x_min, y_max - y_min))
+
+        # cap.get(cv2.CAP_PROP_FPS)
+
         while True:
             ret, frame = cap.read()
             if not ret:
@@ -156,7 +159,7 @@ def cropper():
     if apply_to_all:
         print("Cropping all videos in folder...")
         for file in os.listdir(video_folder):
-            if file.endswith(".mp4"):
+            if file.endswith(".mp4") or file.endswith(".avi"):
                 input_path = os.path.join(video_folder, file)
                 output_path = os.path.join(output_folder, f"cropped_{file}")
                 crop_video(input_path, output_path)

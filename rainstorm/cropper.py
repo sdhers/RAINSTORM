@@ -141,9 +141,7 @@ def cropper():
             print(f"Error: Cannot open {input_path}.")
             return
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out = cv2.VideoWriter(output_path, fourcc, 15.0, (x_max - x_min, y_max - y_min))
-
-        # cap.get(cv2.CAP_PROP_FPS)
+        out = cv2.VideoWriter(output_path, fourcc, cap.get(cv2.CAP_PROP_FPS), (x_max - x_min, y_max - y_min))
 
         while True:
             ret, frame = cap.read()

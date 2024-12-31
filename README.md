@@ -1,7 +1,7 @@
 <div align="center">
   
 # **RAINSTORM**
-### Real & Artificial Intelligence Networks – Simple Tracker for Object Recognition Memory
+### Real & Artificial Intelligence in Neuroscience – Simple Tracker for Object Recognition Memory
 
 ![RAINSTORM Logo](docs/images/logo.png)
 
@@ -39,31 +39,24 @@ DeepLabCut analyzes video files and returns the position of the mouse's bodypart
 
 ## **Installation**
 
-### 1. **Install Miniconda (or Anaconda)**
+### 1. Install **Miniconda** (or Anaconda), **Visual Studio Code** and **Git**
 
-Download and install Miniconda or Anaconda from the [official installation site](https://docs.anaconda.com/miniconda/install/).
+Download and install from the official installation site: [Miniconda](https://docs.anaconda.com/miniconda/install/), [VS Code](https://code.visualstudio.com/Download) & [Git](https://git-scm.com/downloads).
+Once finished, it is best to reboot your computer (this way we make sure everything is set up and running).
 
-### 2. **Install Visual Studio Code**
-
-Download and install Visual Studio Code from the [official installation site](https://code.visualstudio.com/Download). During installation, ensure you add VS Code to your PATH (check the box if prompted).
-
-### 3. **Clone the RAINSTORM Repository**
+### 2. **Clone the RAINSTORM Repository**
 
 Open a terminal (e.g. Miniconda Prompt).
 
-Navigate to your Desktop:
+We can see the current working directory path displayed after the environment name (e.g., ```(base) C:\Users\YourUsername>``` ).
 
-```bash
-cd Desktop
-```
-  
-Clone the repository (This step will create a folder named **rainstorm** on your Desktop):
+To clone the repository, we will run the following command (This step will create a folder named **rainstorm** on your working directory):
 
 ```bash
 git clone https://github.com/sdhers/rainstorm.git
 ```
 
-### 4. **Set Up the Conda Environment**
+### 3. **Set Up the Conda Environment**
 
 Navigate to the rainstorm directory:
 
@@ -77,13 +70,9 @@ Create the Conda environment:
 conda env create -f rainstorm_venv.yml
 ```
 
-Activate the environment:
+Once the environment is ready, you can activate it by running ```conda activate rainstorm```.
 
-```bash
-conda activate rainstorm
-```
-
-### 5. **Open VS Code**
+### 4. **Open VS Code**
 
 Launch VS Code from the terminal:
 
@@ -98,10 +87,12 @@ In VS Code, ensure the Python extension is installed:
 Open the ```0-First_steps.ipynb``` notebook.
   - When prompted to select a kernel, choose the ```rainstorm``` Conda environment among the ```Python Environments```.
 
-### 6. **Start Exploring RAINSTORM**
+### 5. **Start Exploring RAINSTORM**
   - Run the cells in 0-First_steps.ipynb to get started.
 
-From now on, you can launch any of the notebooks from the RAINSTORM repository just by clicking on them in VS Code. The setup is complete!
+You can also launch any of the RAINSTORM notebooks without opening the Prompt.
+
+The setup is complete!
 
 ---
 ---

@@ -1,5 +1,5 @@
 """ RAINSTORM - @author: Santiago D'hers
-Use: RAINSTORM Labeler - Lets you label videos frame by frame with multiple behaviours
+Use: RAINSTORM Tagger - Lets you label videos frame by frame with multiple behaviours
 """
 
 import os
@@ -130,7 +130,7 @@ def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_fra
     right_border = int(frame.shape[1] - margin + gap)
 
     # Add frame number and video name to the frame
-    draw_text(frame, "R.A.I.N.S.T.O.R.M. Labeler", 
+    draw_text(frame, "R.A.I.N.S.T.O.R.M. Tagger",
               pos=(right_border, gap),
               font_scale = txt, font_thickness= txt,
               text_color=(255, 255, 255))
@@ -326,11 +326,11 @@ def save_labels_to_csv(video_path: str, frame_labels: dict, behaviours: list) ->
 
     print(f"Labels saved to {output_csv}")
 
-def ask_behaviours(preset_behaviours: list = ['obj_1','obj_2','freezing','grooming']) -> list:
+def ask_behaviours(preset_behaviours: list = ['obj_1', 'obj_2', 'freezing', 'front_grooming', 'back_grooming', 'rearing', 'head_dipping', 'protected_hd']) -> list:
     """Ask the user for behaviour names via Tkinter dialogs, with optional presets.
 
     Args:
-        preset_behaviours (list, optional): List of preset behaviours. Defaults to ['obj_1','obj_2','freezing','grooming'].
+        preset_behaviours (list, optional): List of preset behaviours.
 
     Returns:
         list: List of behaviours
@@ -356,12 +356,12 @@ def ask_behaviours(preset_behaviours: list = ['obj_1','obj_2','freezing','groomi
 
     return behaviours
 
-def ask_keys(behaviours: list, preset_keys: list = ['4','6','f','g']) -> list:
+def ask_keys(behaviours: list, preset_keys: list = ['4','6','f','g','b','r','h','p']) -> list:
     """Ask the user for  keys via Tkinter dialogs, with optional presets.
 
     Args:
         behaviours (list): List of behaviours
-        preset_keys (list, optional): List of preset keys. Defaults to ['4','6','f','g'].
+        preset_keys (list, optional): List of preset keys.
 
     Returns:
         list: List of keys

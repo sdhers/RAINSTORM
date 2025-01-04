@@ -14,36 +14,51 @@ import shutil
 
 from scipy import signal
 
+from .utils import choose_example
+
 # %% functions
 
-def choose_example(files: list, filter_word: str = 'TS') -> str:
-    """Picks an example file from a list of files.
-
-    Args:
-        files (list): List of files to choose from.
-        filter_word (str, optional): Word to filter files by. Defaults to 'TS'.
-
-    Returns:
-        str: Name of the chosen file.
-
-    Raises:
-        ValueError: If the files list is empty.
+def backup_folder(folder_path, suffix="_backup"):
     """
-    if not files:
-        raise ValueError("The list of files is empty. Please provide a non-empty list.")
+    Makes a backup copy of a folder.
 
-    filtered_files = [file for file in files if filter_word in file]
+    Parameters:
+    folder_path (str): Path to the original folder.
+    suffix (str): Suffix to add to the copied folder's name. Default is "_backup".
+    """
+    if not os.path.isdir(folder_path):
+        raise ValueError(f"The path '{folder_path}' does not exist or is not a directory.")
 
-    if not filtered_files:
-        print("No files found with the specified word")
-        example = random.choice(files)
-        print(f"Plotting coordinates from {os.path.basename(example)}")
+    # Get the parent directory and the original folder name
+    parent_dir, original_folder_name = os.path.split(folder_path.rstrip("/\\"))
+
+    # Define the new folder name with the suffix
+    copied_folder_name = f"{original_folder_name}{suffix}"
+    copied_folder_path = os.path.join(parent_dir, copied_folder_name)
+
+    # Check if the folder already exists
+    if os.path.exists(copied_folder_path):
+        print(f"The folder '{copied_folder_path}' already exists.")
     else:
-        # Choose one file at random to use as example
-        example = random.choice(filtered_files)
-        print(f"Plotting coordinates from {os.path.basename(example)}")
+        # Copy the folder
+        shutil.copytree(folder_path, copied_folder_path)
+        print(f"Copied files to '{copied_folder_path}'.")
 
-    return example
+def rename_files(folder, before, after):
+    # Get a list of all files in the specified folder
+    files = os.listdir(folder)
+    
+    for file_name in files:
+        # Check if 'before' is in the file name
+        if before in file_name:
+            # Construct the new file name
+            new_name = file_name.replace(before, after)
+            # Construct full file paths
+            old_file = os.path.join(folder, file_name)
+            new_file = os.path.join(folder, new_name)
+            # Rename the file
+            os.rename(old_file, new_file)
+            print(f'Renamed: {old_file} to {new_file}')
 
 def open_h5_file(path: str, print_data: bool = False, num_sd: float = 2) -> pd.DataFrame:
     """Opens an h5 file and returns the data as a pandas dataframe.

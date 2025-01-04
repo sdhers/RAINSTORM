@@ -6,9 +6,41 @@
 import numpy as np
 import pandas as pd
 
+import os
+import random
+
 from sklearn.metrics import classification_report, accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, mean_absolute_error, r2_score
 
 # %% Functions
+
+def choose_example(files: list, filter_word: str = 'TS') -> str:
+    """Picks an example file from a list of files.
+
+    Args:
+        files (list): List of files to choose from.
+        filter_word (str, optional): Word to filter files by. Defaults to 'TS'.
+
+    Returns:
+        str: Name of the chosen file.
+
+    Raises:
+        ValueError: If the files list is empty.
+    """
+    if not files:
+        raise ValueError("The list of files is empty. Please provide a non-empty list.")
+
+    filtered_files = [file for file in files if filter_word in file]
+
+    if not filtered_files:
+        print("No files found with the specified word")
+        example = random.choice(files)
+        print(f"Plotting coordinates from {os.path.basename(example)}")
+    else:
+        # Choose one file at random to use as example
+        example = random.choice(filtered_files)
+        print(f"Plotting coordinates from {os.path.basename(example)}")
+
+    return example
 
 def broaden(past: int = 3, future: int = 3, broad: float = 1.7) -> list:
     """Build the frame window for LSTM training

@@ -70,7 +70,7 @@ def prepare_data(path: str, labeler_names: list) -> pd.DataFrame:
     avrg['smooth'] = smooth[:len(avrg['mean'])]
 
     # Apply sigmoid function to keep values between 0 and 1
-    avrg['labels'] = round(1 / (1 + np.exp(-12*(avrg['smooth']-0.5))), 2)
+    avrg['labels'] = round(1 / (1 + np.exp(-18*(avrg['smooth']-0.6))), 2)
 
     ready_data = pd.concat([position, avrg['labels']], axis = 1)
 

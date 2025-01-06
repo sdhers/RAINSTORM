@@ -31,7 +31,7 @@ setup(
         "pandas==2.0.3",
         "nbformat==5.10.4",
         "h5py==3.12.1",
-        "scikit-learn==1.5.2",
+        "scikit-learn==1.6.0",
         "seaborn==0.13.2",
         "tensorflow>=2.10,<2.11",
     ],

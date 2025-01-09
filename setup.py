@@ -10,11 +10,11 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="rainstorm",
-    version="0.0.8",
+    version="0.0.9",
     url="https://github.com/sdhers/RAINSTORM",
     author="Santiago D'hers",
     author_email="dhers.santiago@gmail.com",
-    description="Real & Artificial Intelligence Networks – Simple Tracker for Object Recognition Memory",
+    description="Real & Artificial Intelligence in Neuroscience – Simple Tracker for Object Recognition Memory",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=find_packages(),

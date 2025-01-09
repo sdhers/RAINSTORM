@@ -204,11 +204,22 @@ def plot_multiple_analyses(path: str, data: dict, groups, trial, plots: list, fp
     plt.suptitle(f"{os.path.basename(path)} - Multiple Analyses\nGroups: {', '.join(groups)}; Trial: {trial}")
     plt.tight_layout()  # Adjust spacing to fit titles
 
+    # Create 'plots' folder inside the specified path
+    plots_folder = os.path.join(path, "plots")
+    os.makedirs(plots_folder, exist_ok=True)
+
+    # Save the figure in the 'plots' folder
+    save_path = os.path.join(plots_folder, f"{trial}_multiple_analyses.png")
+    plt.savefig(save_path, dpi=300)
+    print(f"Plot saved at: {save_path}")
+
     # Optionally show the plot
     if show:
         plt.show()
+    else:
+        plt.close(fig)
 
-# %% individual plots
+# %% modular plotting functions
 
 def plot_exploration_time(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
     """
@@ -407,6 +418,65 @@ def plot_exploration_histogram(path: str, group: str, trial: str, novelty: list,
     ax.set_xlim([0, None])
 
 
+def plot_exploration_scatterplot(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+    """
+    Plot a scatter plot of exploration time for each object at the end of the session
+
+    Args:
+        path (str): Path to the main folder.
+        group (str): Group name.
+        trial (str): Trial name.
+        novelty (list): Novelty condition for DI calculation.
+        fps (int): Frames per second of the video.
+        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
+
+    Returns:
+        None
+    """
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    A = novelty[0]
+    B = novelty[1]
+
+    exp_A = []
+    exp_B = []
+    folder = os.path.join(path, 'summary', group, trial)
+
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"Folder {folder} does not exist.")
+    
+    for file_path in glob(os.path.join(folder, "*summary.csv")):
+        df = pd.read_csv(file_path)
+        df = calculate_DI(df, novelty, fps)
+
+        exp_A.append(df.loc[df.index[-1], f'{A}_cumsum'])
+        exp_B.append(df.loc[df.index[-1], f'{B}_cumsum'])
+    
+    exp_A = np.array(exp_A)
+    exp_B = np.array(exp_B)
+
+    # Define a list of colors (you can expand this as needed)
+    scatter_color = color_A_list[aux_glob]
+    
+    # Scatter plot of exploration
+    ax.scatter(exp_B, exp_A, color=scatter_color)
+    ax.set_title('Scatter Plot')
+    ax.set_xlabel(f'time exploring the {B} object (s)')
+    ax.set_ylabel(f'time exploring the {A} object (s)')
+    ax.set_aspect('equal', adjustable='box')
+    
+    # Calculate the slope with the intercept fixed at 0
+    slope = np.sum(exp_B * exp_A) / np.sum(exp_B**2)
+
+    # Create the trendline that passes through (0, 0)
+    trendline_y = slope * exp_B
+    ax.plot(exp_B, trendline_y, color=scatter_color, linestyle='--', label=f'{A}/{B} - {group}')
+
+    ax.legend(loc='best', fancybox=True, shadow=True)
+    ax.grid(True)
+
+
 def plot_DI(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
     """
     Plot the Discrimination Index (DI) for a single trial on a given axis.
@@ -535,6 +605,7 @@ def plot_distance(path: str, group: str, trial: str, novelty: list, fps: int = 3
 
 
 def plot_freezing(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+
     """
     Plot the time the mouse spent freezing.
 
@@ -591,3 +662,287 @@ def plot_freezing(path: str, group: str, trial: str, novelty: list, fps: int = 3
     ax.set_ylabel('Time freezing (s)')
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
+
+
+def plot_freezing_boxplot(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+    """
+    Plot a boxplot of freezing time at the end of the session
+
+    Args:
+        path (str): Path to the main folder.
+        group (str): Group name.
+        trial (str): Trial name.
+        novelty (list): Novelty condition for DI calculation.
+        fps (int): Frames per second of the video.
+        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
+
+    Returns:
+        None
+    """
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    A = 'freezing'
+    
+    bxplt = []
+    folder = os.path.join(path, 'summary', group, trial)
+
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"Folder {folder} does not exist.")
+    
+    for file_path in glob(os.path.join(folder, "*summary.csv")):
+        df = pd.read_csv(file_path)
+        df["freezing_cumsum"] = df["freezing"].cumsum() / fps
+
+        bxplt.append([df.loc[df.index[-1], f'freezing_cumsum']])
+    
+    bxplt = pd.DataFrame(bxplt, columns = [A])
+
+    # Dynamically calculate x-axis positions using a global auxiliary variable
+    group_positions = [aux_glob]
+
+    # Define a list of colors (you can expand this as needed)
+    color_A = color_A_list[aux_glob]
+
+    # Boxplot
+    ax.boxplot(bxplt[A], positions=[group_positions[0]], tick_labels=[f'{A}\n{group}'])
+    
+    # Replace boxplots with scatter plots with jitter
+    jitter = 0.05  # Adjust the jitter amount as needed
+    ax.scatter([group_positions[0] + np.random.uniform(-jitter, jitter) for _ in range(len(bxplt[A]))], bxplt[A], color=color_A, alpha=0.7)
+    
+    # Add mean lines
+    mean_a = np.mean(bxplt[A])
+    ax.axhline(mean_a, color=color_A, linestyle='--', label=f'{group} {A}')
+    ax.set_ylabel('Freezing Time (s)')
+    ax.set_title('Total freezing time at the end of TS')
+    ax.legend(loc='best', fancybox=True, shadow=True)
+    ax.grid(True)
+
+
+def plot_freezing_histogram(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+
+    """
+    Plot an histogram of the durations of each freezing event.
+
+    Args:
+        path (str): Path to the main folder.
+        group (str): Group name.
+        trial (str): Trial name.
+        novelty (list): Novelty condition for DI calculation.
+        fps (int): Frames per second of the video.
+        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
+
+    Returns:
+        None
+    """
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    A = 'freezing'
+
+    dfs = []
+    folder = os.path.join(path, 'summary', group, trial)
+
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"Folder {folder} does not exist.")
+
+    for file_path in glob(os.path.join(folder, "*summary.csv")):
+        df = pd.read_csv(file_path)
+        dfs.append(df)
+
+    if not dfs:
+        raise ValueError("No valid data files were found.")
+    
+    n = len(dfs)
+    se = np.sqrt(n) if n > 1 else 1
+
+    min_length = min([len(df) for df in dfs])
+    trunc_dfs = [df.iloc[:min_length].copy() for df in dfs]
+
+    all_dfs = pd.concat(trunc_dfs, ignore_index=True)
+
+    df = all_dfs.groupby('Frame').agg(['mean', 'std']).reset_index()
+    df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
+
+    # Define a list of colors (you can expand this as needed)
+    color_A = color_A_list[aux_glob]
+
+    # Histogram of exploration event durations
+    A_durations = []
+    B_durations = []
+    for df in trunc_dfs:
+        A_durations.extend(calculate_durations(df[A], fps=fps))
+    # n_bins = int((np.sqrt(len(A_durations))) + np.sqrt(len(B_durations))) // 2
+    n_bins = 20
+    
+    ax.hist(A_durations, bins=n_bins, alpha=0.5, color=color_A, label = f'{group} {A}')
+    ax.set_xlabel('Duration (s)')
+    ax.set_ylabel('Events')
+    ax.legend(loc='best', fancybox=True, shadow=True)
+    ax.set_title('Histogram of Freezing Event Durations')
+    ax.set_xlim([0, None])
+
+
+# %% Individual plotting
+
+class Point:
+    def __init__(self, df, table):
+
+        x = df[table + '_x']
+        y = df[table + '_y']
+
+        self.positions = np.dstack((x, y))[0]
+
+    @staticmethod
+    def dist(p1, p2):
+        return np.linalg.norm(p1.positions - p2.positions, axis=1)
+
+class Vector:
+    def __init__(self, p1, p2, normalize=True):
+
+        self.positions = p2.positions - p1.positions
+
+        self.norm = np.linalg.norm(self.positions, axis=1)
+
+        if normalize:
+            self.positions = self.positions / np.repeat(np.expand_dims(self.norm,axis=1), 2, axis=1)
+
+    @staticmethod
+    def angle(v1, v2):
+        
+        length = len(v1.positions)
+        angle = np.zeros(length)
+
+        for i in range(length):
+            angle[i] = np.rad2deg(np.arccos(np.dot(v1.positions[i], v2.positions[i])))
+
+        return angle
+
+def Extract_positions(position, maxAngle = 45, maxDist = 2.5):
+
+    # Extract positions of both objects and bodyparts
+    obj1 = Point(position, 'obj_1')
+    obj2 = Point(position, 'obj_2')
+    nose = Point(position, 'nose')
+    head = Point(position, 'head')
+    
+    # We now filter the frames where the mouse's nose is close to each object
+    # Find distance from the nose to each object
+    dist1 = Point.dist(nose, obj1)
+    dist2 = Point.dist(nose, obj2)
+    
+    # Next, we filter the points where the mouse is looking at each object    
+    # Compute normalized head-nose and head-object vectors
+    head_nose = Vector(head, nose, normalize = True)
+    head_obj1 = Vector(head, obj1, normalize = True)
+    head_obj2 = Vector(head, obj2, normalize = True)
+    
+    # Find the angles between the head-nose and head-object vectors
+    angle1 = Vector.angle(head_nose, head_obj1) # deg
+    angle2 = Vector.angle(head_nose, head_obj2) # deg
+    
+    # Find points where the mouse is looking at the objects
+    # Im asking the nose be closer to the aimed object to filter distant sighting
+    towards1 = nose.positions[(angle1 < maxAngle) & (dist1 < maxDist * 3)]
+    towards2 = nose.positions[(angle2 < maxAngle) & (dist2 < maxDist * 3)]
+    
+    return nose, towards1, towards2, obj1, obj2
+
+def plot_all(path: str, data: dict, groups: list, trials: list, fps: int = 30, show = False):
+
+    for group in groups:
+        for trial in trials:
+
+            folder = os.path.join(path, 'summary', group, trial)
+
+            if not os.path.exists(folder):
+                raise FileNotFoundError(f"Folder {folder} does not exist.")
+            
+            novelty = data[group][trial]
+            
+            for file in glob(os.path.join(folder, '*')):
+                df = pd.read_csv(file)
+                df = calculate_DI(df, novelty, fps)
+                df['nose_dist_cumsum'] = df['nose_dist'].cumsum() / fps
+                df['body_dist_cumsum'] = df['body_dist'].cumsum() / fps
+
+                position_file = file.replace(f'summary\\{group}\\{trial}', f'{trial}\\position').replace('_summary', f'_position')
+                position = pd.read_csv(position_file)
+
+                # Extract positions
+                nose, towards1, towards2, obj1, obj2 = Extract_positions(position)
+
+                # Prepare the figure
+                fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+
+                # Plot each subplot
+                _plot_distance_covered(df, axes[0, 0])
+                _plot_object_exploration(df, novelty, axes[0, 1])
+                _plot_discrimination_index(df, axes[1, 0])
+                _plot_positions(nose, towards1, towards2, obj1, obj2, axes[1, 1])
+
+                # Set the overall title
+                file_name = os.path.basename(file)
+                plt.suptitle(f"Analysis of {file_name}: Group {group}, Trial {trial}", y=0.98)
+                plt.tight_layout()
+
+                # Create 'plots' folder inside the specified path
+                plots_folder = os.path.join(path, 'plots', 'individual')
+                os.makedirs(plots_folder, exist_ok=True)
+
+                # Save the figure in the 'plots' folder
+                save_path = os.path.join(plots_folder, f"{file_name.replace('_summary.csv', '')}.png")
+                plt.savefig(save_path, dpi=300)
+                print(f"Plot saved at: {save_path}")
+
+                # Optionally show the plot
+                if show:
+                    plt.show()
+                else:
+                    plt.close(fig)
+
+# Helper functions for modularity
+def _plot_distance_covered(file, ax):
+    ax.plot(file['Time'], file['nose_dist_cumsum'], label='Nose Distance')
+    ax.plot(file['Time'], file['body_dist_cumsum'], label='Body Distance')
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('Distance Traveled (m)')
+    ax.set_title('Distance Covered')
+    ax.legend(loc='upper left', fancybox=True, shadow=True)
+    ax.grid(True)
+
+def _plot_object_exploration(file, novelty, ax):
+    A = novelty[0]
+    B = novelty[1]
+    ax.plot(file['Time'], file[f'{A}_cumsum'], label=f'{A}', marker='_')
+    ax.plot(file['Time'], file[f'{B}_cumsum'], label=f'{B}', marker='_')
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('Exploration Time (s)')
+    ax.set_title('Object Exploration')
+    ax.legend(loc='upper left', fancybox=True, shadow=True)
+    ax.grid(True)
+
+def _plot_discrimination_index(file, ax):
+    ax.plot(file['Time'], file['DI'], label='Discrimination Index', color='green', linestyle='--', linewidth=3)
+    ax.axhline(y=0, color='black', linestyle=':', linewidth=3)
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('DI (%)')
+    ax.set_title('Discrimination Index')
+    ax.legend(loc='upper left', fancybox=True, shadow=True)
+    ax.grid(True)
+
+def _plot_positions(nose, towards1, towards2, obj1, obj2, ax):
+    ax.plot(*nose.positions.T, ".", color="grey", alpha=0.15, label="Nose Positions")
+    ax.plot(*towards1.T, ".", color="brown", alpha=0.3)
+    ax.plot(*towards2.T, ".", color="teal", alpha=0.3)
+    ax.plot(*obj1.positions[0], "s", lw=20, color="blue", markersize=9, markeredgecolor="blue")
+    ax.plot(*obj2.positions[0], "o", lw=20, color="red", markersize=10, markeredgecolor="darkred")
+    ax.add_artist(Circle(obj1.positions[0], 2.5, color="orange", alpha=0.3))
+    ax.add_artist(Circle(obj2.positions[0], 2.5, color="orange", alpha=0.3))
+    ax.axis('equal')
+    ax.set_xlabel("Horizontal position (cm)")
+    ax.set_ylabel("Vertical position (cm)")
+    ax.legend(loc='upper left', ncol=2, fancybox=True, shadow=True)
+    ax.grid(True)
+

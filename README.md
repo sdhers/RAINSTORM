@@ -152,14 +152,11 @@ Once you are done, exit and save the results, and a labeled csv file will be cre
 ## **Pipeline**
 The repository contains a series of Jupyter notebooks to go from raw pose estimation data to the visualization of your results:
 
-### ```0-First_steps.ipynb```: Learn the basics and set up your data.
-
-- This is the first notebook of the RAINSTORM project. Here you'll find the initial steps to prepare the data for analysis.
-- If you dont have your pose estimation files yet (or you just want to try out the workflow), RAINSTORM comes with an example folder with pose estimation files from mice on a Novel Object Recognition (NOR) task.
-
 ---
 
 ### ```1-Prepare_positions.ipynb```: Process and clean bodypart position data.
+- This is the first notebook of the RAINSTORM project. Here you'll find the initial steps to prepare the data for analysis.
+- If you dont have your pose estimation files yet (or you just want to try out the workflow), RAINSTORM comes with an example folder with pose estimation files from mice on a Novel Object Recognition (NOR) task.
 - Filter out the frames where the mouse is not in the video.
 - Points that have a low likelihood assigned by DLC are also filtered out, and data is interpolated and smoothed.
 - Conveniently scale the video from pixels to cm.
@@ -188,11 +185,6 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 - Using TensorFlow, we were able to train models that are able to clasify a mouse's position into exploration.
 - Among the models, we train a more complex LSTM network that is aware of frame sequences, and performs better as exploration is time dependant.
 - The training learns from our own manual labeling, so it acquires the criteria of the users.
-
----
-
-### ```4-Evaluate_Models.ipynb```: Assess and improve your trained models.
-
 - Models can now be used to label all the data that was manually labeled, and the results can be compared in terms of accuracy.
 - To evaluate the similarity of the models to the mean human labeler, we can also run a Principal Components Analysis:
 
@@ -204,14 +196,9 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ---
 
-### ```5-Automatic_analysis.ipynb```: Automate labeling with your AI model.
+### ```4-Automatic_analysis.ipynb```: Automate labeling with your AI model.
 
 - Having chosen our favorite model, it is time to analyze and label our own position files.
-
----
-
-### ```6-Compare_Labels.ipynb```: Compare manual, geometric, and AI-generated labels.
-
 - Once we have the manual, geometric and automatic labels, we can compare the performance of each on an example video
 - Using a polar graph, we can see for each position the angle of approach and distance in which the mice is exploring the objects
 
@@ -219,7 +206,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ---
 
-### ```7-Seize_Labels.ipynb```: Extract and summarize your labeled data.
+### ```5-Seize_Labels.ipynb```: Extract and summarize your labeled data.
 
 - Use the best labels to find differences in the exploration of familiar and novel objects for groups of trained mice (which was the obective all along):
 

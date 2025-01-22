@@ -414,7 +414,7 @@ def main():
     root.withdraw()
 
     # Open a file dialog to select the video file
-    video_path = filedialog.askopenfilename(filetypes=[("Video files", "*.mp4")])
+    video_path = filedialog.askopenfilename(filetypes=[("Video files", "*.mp4;*.avi;*.mov")])
     
     if not video_path:
         # print("No video file selected.")

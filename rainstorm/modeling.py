@@ -272,7 +272,7 @@ def plot_example_data(X, y):
     plt.axhline(y=0, color='black', linestyle='--')
 
     # Zoom in on some frames
-    plt.xlim((1000, 2500))
+    # plt.xlim((1000, 2500))
     plt.ylim((-2, 25))
 
     plt.show()
@@ -331,28 +331,36 @@ def create_chimera_and_loo_mean(df: pd.DataFrame, seed: int = None) -> tuple:
     """
     if seed is not None:
         np.random.seed(seed)
-
-    if df.empty or df.shape[1] < 2:
-        raise ValueError("Input DataFrame must have at least two columns.")
-
+    
+    if df.empty:
+        raise ValueError("Input DataFrame must not be empty.")
+    
+    if df.shape[1] == 1:
+        # If only one column, chimera and loo_mean are the same as the input
+        chimera = df.copy()
+        chimera.columns = ['chimera']
+        loo_mean = df.copy()
+        loo_mean.columns = ['loo_mean']
+        return chimera, loo_mean
+    
     n_cols = df.shape[1]
-
+    
     # Randomly select a column index (0 to n_cols) for each row
     chosen_indices = np.random.randint(0, n_cols, size=len(df))
-
+    
     # Use numpy to get the values of the randomly chosen columns
     chimera_values = df.values[np.arange(len(df)), chosen_indices]
-
-    # Calculate the sum of the first `cols_to_use` columns for each row
-    row_sums = df.iloc[:, :n_cols].sum(axis=1)
-
-    # Subtract the chosen values from the row sums and divide by (cols_to_use - 1) to get the mean
+    
+    # Calculate the sum of all columns for each row
+    row_sums = df.sum(axis=1)
+    
+    # Subtract the chosen values from the row sums and divide by (n_cols - 1) to get the mean
     remaining_means = (row_sums - chimera_values) / (n_cols - 1)
-
+    
     # Assign the new columns to the DataFrame
     chimera = pd.DataFrame(chimera_values, columns=['chimera'])
     loo_mean = pd.DataFrame(remaining_means, columns=['loo_mean'])
-
+    
     return chimera, loo_mean
 
 

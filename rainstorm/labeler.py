@@ -1,5 +1,5 @@
 """ RAINSTORM - @author: Santiago D'hers
-Use: RAINSTORM Tagger - Lets you label videos frame by frame with multiple behaviours
+Use: Rainstorm Behavioral Labeler - Lets you label videos frame by frame with multiple behaviours
 """
 
 import os
@@ -405,7 +405,7 @@ def frame_generator(video_path):
     cap.release()
 
 # Main function to handle frame labeling for multiple behaviours
-def main():
+def behavioral_labeler():
     """Handle frame labeling for multiple behaviours.
     """
 
@@ -529,4 +529,4 @@ def main():
     cv2.destroyAllWindows()
 
 # Call the main function
-main()
+behavioral_labeler()

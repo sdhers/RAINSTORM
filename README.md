@@ -1,7 +1,7 @@
 <div align="center">
   
 # **RAINSTORM**
-### Real & Artificial Intelligence in Neuroscience – Simple Tracker for Object Recognition Memory
+### Real & Artificial Intelligence for Neuroscience – Simple Tracker for Object Recognition Memory
 
 ![RAINSTORM Logo](docs/images/logo.png)
 

@@ -638,7 +638,7 @@ def apply_transformations(video_dict: dict, trim = False, crop=False, align=Fals
         output_size = (crop_width, crop_height) if crop else (width, height)
 
         # Setup output video
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for MP4
         output_path = os.path.join(output_folder, os.path.basename(video_path))
         out = cv2.VideoWriter(output_path, fourcc, fps, output_size)
 

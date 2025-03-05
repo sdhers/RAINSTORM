@@ -6,6 +6,8 @@
 import os
 import pandas as pd
 import numpy as np
+import h5py
+import json
 
 import plotly.graph_objects as go
 
@@ -60,31 +62,67 @@ def rename_files(folder, before, after):
             os.rename(old_file, new_file)
             print(f'Renamed: {old_file} to {new_file}')
 
-def open_h5_file(path: str, print_data: bool = False, num_sd: float = 2) -> pd.DataFrame:
+def open_h5_file(path, software: str = "DLC", print_data: bool = False, num_sd: float = 2) -> pd.DataFrame:
     """Opens an h5 file and returns the data as a pandas dataframe.
 
     Args:
         path (str): Path to the h5 file.
+        software (str, optional): Software used to generate the h5 file. Defaults to "DLC".
         print_data (bool, optional): Whether to print the data. Defaults to False.
         num_sd (float, optional): Number of std_dev away from the mean. Defaults to 2.
-
+        
     Returns:
-        pd.DataFrame: The dataframe contained in.
+        DataFrame with columns [x, y, likelihood] for each body part
     """
+
+    if software == "DLC":
+        df = pd.read_hdf(path)
+        scorer = df.columns.levels[0][0]
+        bodyparts = df.columns.levels[1].to_list()
+        df = df[scorer]
+
+        df_raw = pd.DataFrame()
+
+        for key in df.keys():
+            df_raw[str(key[0]) + "_" + str(key[1])] = df[key]
+
+    elif software == "SLEAP":
+        with h5py.File(path, "r") as f:
+            scorer = "SLEAP"
+            locations = f["tracks"][:].T
+            bodyparts = [n.decode() for n in f["node_names"][:]]
+
+        # Remove singleton dimension and reshape
+        squeezed_data = np.squeeze(locations, axis=-1)
+        flattened_data = squeezed_data.reshape(squeezed_data.shape[0], -1)
+
+        # Create base DataFrame with x/y columns
+        base_columns = [f"{name}_{coord}" for name in bodyparts for coord in ["x", "y"]]
+        df = pd.DataFrame(flattened_data, columns=base_columns)
+
+        # Add likelihood columns
+        for name in bodyparts:
+            x_col = f"{name}_x"
+            y_col = f"{name}_y"
+            likelihood_col = f"{name}_likelihood"
+            
+            # Calculate likelihood (0 if any coordinate is NaN, else 1)
+            df[likelihood_col] = (~df[x_col].isna() & ~df[y_col].isna()).astype(int)
+
+        # Reorder columns to include likelihood after coordinates
+        ordered_columns = []
+        for name in bodyparts:
+            ordered_columns.extend([f"{name}_x", f"{name}_y", f"{name}_likelihood"])
+            
+        df_raw = df[ordered_columns]
+
+    else:
+        raise ValueError(f"Invalid software: {software}")
     
-    df = pd.read_hdf(path)
-    scorer = df.columns.levels[0][0]
-    bodyparts = df.columns.levels[1].to_list()
-    df = df[scorer]
-
-    df_raw = pd.DataFrame()
-
-    for key in df.keys():
-        df_raw[str(key[0]) + "_" + str(key[1])] = df[key]
-
     if print_data:
-        print(f"Positions obtained by model: {scorer}")
+        print(f"Positions obtained by: {scorer}")
         print(f"Points in df: {bodyparts}")
+        print(f"Frame count: {df_raw.shape[0]}")
         for point in bodyparts:
             median = df_raw[f'{point}_likelihood'].median()
             mean = df_raw[f'{point}_likelihood'].mean()
@@ -93,13 +131,13 @@ def open_h5_file(path: str, print_data: bool = False, num_sd: float = 2) -> pd.D
 
     return df_raw
 
-def filter_and_smooth_df(data: pd.DataFrame, bodyparts: list, objects: list, med_filt_window: int = 3, drop_below: float = 0.5, num_sd: float = 2) -> pd.DataFrame:
+def filter_and_smooth_df(data: pd.DataFrame, bodyparts: list = [], targets: list = [], med_filt_window: int = 3, drop_below: float = 0.5, num_sd: float = 2) -> pd.DataFrame:
     """Filters and smooths a DataFrame of coordinates.
 
     Args:
         data (pd.DataFrame): DataFrame of coordinates.
-        bodyparts (list): List of bodyparts to filter.
-        objects (list): List of objects to filter.
+        bodyparts (list): List of bodyparts to filter. Defaults to [] (empty list means include all).
+        objects (list): List of objects to filter. Defaults to [].
         med_filt_window (int, optional): Window size for median filtering. Defaults to 3.
         drop_below (float, optional): Minimum likelihood to keep a bodypart. Defaults to 0.1.
         num_sd (float, optional): Number of standard deviations to use as the threshold. Defaults to 2.
@@ -109,6 +147,13 @@ def filter_and_smooth_df(data: pd.DataFrame, bodyparts: list, objects: list, med
     """
     df = data.copy()
 
+    if not bodyparts:
+        # Remove suffixes (_x, _y, _likelihood) and get unique body parts
+        columns = set(col.rsplit('_', 1)[0] for col in df.columns)
+        
+        # Filter out body parts that are in the objects list
+        bodyparts = [bp for bp in columns if bp not in targets]
+    
     # Try different filtering parameters
     sigma, n_sigmas = 0.6, 2
     N = int(2 * n_sigmas * sigma + 1)
@@ -150,7 +195,7 @@ def filter_and_smooth_df(data: pd.DataFrame, bodyparts: list, objects: list, med
             # Trim the padded edges to restore original length
             df[column] = smooth[:len(df[column])]
 
-    for obj in objects:
+    for obj in targets:
 
         median = df[f'{obj}_likelihood'].median()
         mean = df[f'{obj}_likelihood'].mean()
@@ -223,6 +268,37 @@ def plot_raw_vs_smoothed(df_raw, df_smooth, bodypart = 'nose', num_sd = 2):
     # Show plot
     fig.show()
 
+def add_stationary_targets(df: pd.DataFrame, json_file_path: str, targets: list):
+    """Add stationary target columns to the DataFrame based on ROIs.json.
+    
+    Args:
+        df: Input DataFrame with tracking data.
+        json_file_path: Path to the ROIs.json file.
+        targets: List of target names to include.
+        
+    Returns:
+        DataFrame with added stationary target columns
+    """
+    # Load the JSON file
+    with open(json_file_path, 'r') as f:
+        rois_data = json.load(f)
+    
+    # Extract ROIs
+    rois = rois_data.get('rois', [])
+    
+    # Filter ROIs based on the targets list
+    for roi in rois:
+        if roi['name'] in targets:  # Check if the ROI name is in the targets list
+            name = roi['name']
+            center_x, center_y = roi['center']
+            
+            # Add columns for x and y coordinates
+            df[f"{name}_x"] = center_x
+            df[f"{name}_y"] = center_y
+            df[f"{name}_likelihood"] = 1
+    
+    return df
+
 def find_scale_factor(df: pd.DataFrame, measured_dist: float, measured_points: list, print_results: bool = False) -> float:
     """Plots the distance between ears and the mean and median distances.
 
@@ -285,7 +361,7 @@ def find_scale_factor(df: pd.DataFrame, measured_dist: float, measured_points: l
     
     return scale
 
-def process_position_files(files: list, bodyparts: list, objects: list, measured_dist: float = 1.8, measured_points: list = ['L_ear', 'R_ear'], scale: bool = True, fps: int = 30, med_filt_window: int = 3, drop_below: float = 0.5, num_sd: float = 2):
+def process_position_files(files: list, software = "DLC", bodyparts: list = [], targets: list = [], json_file_path: str = None, measured_dist: float = 1.8, measured_points: list = ['L_ear', 'R_ear'], scale: bool = True, fps: int = 30, med_filt_window: int = 3, drop_below: float = 0.5, num_sd: float = 2):
     """Processes a list of HDF5 files and saves the smoothed data as a CSV file.
 
     Args:
@@ -302,9 +378,12 @@ def process_position_files(files: list, bodyparts: list, objects: list, measured
     
     for h5_file in files:
 
-        df_raw = open_h5_file(h5_file)
+        df_raw = open_h5_file(h5_file, software=software)
 
-        df_smooth = filter_and_smooth_df(df_raw, bodyparts, objects, med_filt_window, drop_below, num_sd)
+        if json_file_path is not None:
+            df_raw = add_stationary_targets(df=df_raw, json_file_path=json_file_path, targets=targets)
+
+        df_smooth = filter_and_smooth_df(df_raw, bodyparts, targets, med_filt_window, drop_below, num_sd)
 
         # Drop the likelihood columns
         df_smooth = df_smooth.drop(columns=df_smooth.filter(like='likelihood').columns)

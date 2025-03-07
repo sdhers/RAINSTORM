@@ -1,0 +1,129 @@
+# Rainstorm Parameters file
+
+# Path to the folder containing the pose estimation files
+path: D:\sdhers\NOR full videos\3xTg_B2 (TORM)\2025_02-Y_Maze_12_m\modified\Y_Maze
+
+# List of the pose estimation filenames
+filenames:
+- 2025_03-Y_Maze-R01_C1i
+- 2025_03-Y_Maze-R02_C1d
+- 2025_03-Y_Maze-R03_C1a
+- 2025_03-Y_Maze-R04_C2i
+- 2025_03-Y_Maze-R05_C2d
+- 2025_03-Y_Maze-R06_C2a
+- 2025_03-Y_Maze-R07_C3i
+- 2025_03-Y_Maze-R08_C3d
+- 2025_03-Y_Maze-R09_C3n
+- 2025_03-Y_Maze-R10_C4i
+- 2025_03-Y_Maze-R11_C4d
+- 2025_03-Y_Maze-R12_C5i
+- 2025_03-Y_Maze-R14_C5a
+- 2025_03-Y_Maze-R16_C6i
+- 2025_03-Y_Maze-R17_C6d
+- 2025_03-Y_Maze-R18_C6a
+
+# Software used to generate the pose estimation files
+software: DLC
+
+# List of the tracked bodyparts
+bodyparts:
+- nose
+- left_ear
+- right_ear
+- head
+- neck
+- body
+- tail_base
+- tail_mid
+- tail_end
+- left_hip
+- left_midside
+- left_shoulder
+- right_hip
+- right_midside
+- right_shoulder
+
+# List of the exploration targets.
+targets:
+- 
+
+# If your experiment has multiple trials, specify the trial names here.
+trials:
+- Y_Maze
+
+# Parameters for processing positions
+filtering & smoothing:
+  confidence: 1
+  tolerance: 0.5
+  median_filter: 3
+
+# List two points (or a ROI side) that will be used to scale the positions to cm
+scaling:
+  measured_points:
+  - arm_end
+  - center
+  measured_dist: 45
+
+# Video settings
+video_fps: 30
+
+# Regions of Interest (ROIs) and key points from JSON
+roi_data:
+
+  # Shape of the video frames
+  frame_shape:
+    width: 564
+    height: 474
+
+  # Defined ROIs (areas) in the frame
+  areas:
+  - name: Arm_1
+    center:
+    - 266
+    - 360
+    width: 80
+    height: 220
+
+  # Maximum head-target orientation angle to consider exploration.
+    angle: 0
+  - name: Arm_2
+    center:
+    - 120
+    - 100
+    width: 80
+    height: 220
+
+  # Maximum head-target orientation angle to consider exploration.
+    angle: -60
+  - name: Arm_3
+    center:
+    - 429
+    - 105
+    width: 80
+    height: 220
+
+  # Maximum head-target orientation angle to consider exploration.
+    angle: 60
+
+  # Key points within the frame
+  points:
+  - name: arm_end
+    center:
+    - 64
+    - 55
+  - name: center
+    center:
+    - 270
+    - 180
+
+# Parameters for defining exploration and freezing behavior
+geometric analysis:
+
+  # Maximum nose-target distance to consider exploration.
+  distance: 2.5
+
+  # Maximum head-target orientation angle to consider exploration.
+  angle: 45.0
+
+  # Movement threshold for freezing, computed as mean std of all body parts over 1 second.
+  freezing_threshold: 0.01

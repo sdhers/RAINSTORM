@@ -1,0 +1,74 @@
+{
+    "frame_shape": {
+        "width": 960,
+        "height": 640
+    },
+    "areas": [
+        {
+            "name": "center",
+            "center": [
+                485,
+                453
+            ],
+            "width": 311,
+            "height": 273,
+            "angle": 0
+        },
+        {
+            "name": "blue_chamber",
+            "center": [
+                173,
+                179
+            ],
+            "width": 311,
+            "height": 273,
+            "angle": 0
+        },
+        {
+            "name": "red_chamber",
+            "center": [
+                798,
+                180
+            ],
+            "width": 311,
+            "height": 273,
+            "angle": 0
+        },
+        {
+            "name": "blue_corner",
+            "center": [
+                172,
+                454
+            ],
+            "width": 311,
+            "height": 273,
+            "angle": 0
+        },
+        {
+            "name": "red_corner",
+            "center": [
+                799,
+                455
+            ],
+            "width": 311,
+            "height": 273,
+            "angle": 0
+        }
+    ],
+    "points": [
+        {
+            "name": "blue",
+            "center": [
+                138,
+                111
+            ]
+        },
+        {
+            "name": "red",
+            "center": [
+                840,
+                111
+            ]
+        }
+    ]
+}

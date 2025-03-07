@@ -1,0 +1,197 @@
+# Rainstorm Parameters file
+
+# Path to the folder containing the pose estimation files
+path: C:\Users\dhers\Desktop\Rainstorm\docs\examples\SP_example
+
+# List of the pose estimation filenames
+filenames:
+- social_R01_Hab_position.h5
+- social_R01_TR1_position.h5
+- social_R01_TR2_position.h5
+- social_R02_Hab_position.h5
+- social_R02_TR1_position.h5
+- social_R02_TR2_position.h5
+- social_R02_TR3_position.h5
+- social_R03_Hab_position.h5
+- social_R03_TR1_position.h5
+- social_R03_TR2_position.h5
+- social_R03_TR3_position.h5
+- social_R04_Hab_position.h5
+- social_R04_TR1_position.h5
+- social_R04_TR2_position.h5
+- social_R05_Hab_position.h5
+- social_R05_TR1_position.h5
+- social_R05_TR2_position.h5
+- social_R05_TR3_position.h5
+- social_R06_Hab_position.h5
+- social_R06_TR1_position.h5
+- social_R06_TR2_position.h5
+- social_R06_TR3_position.h5
+- social_R07_Hab_position.h5
+- social_R07_TR1_position.h5
+- social_R07_TR2_position.h5
+- social_R08_Hab_position.h5
+- social_R08_TR1_position.h5
+- social_R08_TR2_position.h5
+- social_R08_TR3_position.h5
+- social_R09_Hab_position.h5
+- social_R09_TR1_position.h5
+- social_R09_TR2_position.h5
+- social_R09_TR3_position.h5
+- social_R10_Hab_position.h5
+- social_R10_TR1_position.h5
+- social_R10_TR2_position.h5
+- social_R11_Hab_position.h5
+- social_R11_TR1_position.h5
+- social_R11_TR2_position.h5
+- social_R11_TR3_position.h5
+- social_R12_Hab_position.h5
+- social_R12_TR1_position.h5
+- social_R12_TR2_position.h5
+- social_R13_Hab_position.h5
+- social_R13_TR1_position.h5
+- social_R13_TR2_position.h5
+- social_R13_TR3_position.h5
+- social_R14_Hab_position.h5
+- social_R14_TR1_position.h5
+- social_R14_TR2_position.h5
+- social_R14_TR3_position.h5
+- social_R15_Hab_position.h5
+- social_R15_TR1_position.h5
+- social_R15_TR2_position.h5
+- social_R15_TR3_position.h5
+- social_R16_Hab_position.h5
+- social_R16_TR1_position.h5
+- social_R16_TR2_position.h5
+- social_R17_Hab_position.h5
+- social_R17_TR1_position.h5
+- social_R17_TR2_position.h5
+- social_R17_TR3_position.h5
+- social_R18_Hab_position.h5
+- social_R18_TR1_position.h5
+- social_R18_TR2_position.h5
+- social_R18_TR3_position.h5
+- social_R19_Hab_position.h5
+- social_R19_TR1_position.h5
+- social_R19_TR2_position.h5
+- social_R19_TR3_position.h5
+- social_R20_Hab_position.h5
+- social_R20_TR1_position.h5
+- social_R20_TR2_position.h5
+- social_R20_TR3_position.h5
+- social_R21_Hab_position.h5
+- social_R21_TR1_position.h5
+- social_R21_TR2_position.h5
+- social_R22_Hab_position.h5
+- social_R22_TR1_position.h5
+- social_R22_TR2_position.h5
+- social_R23_Hab_position.h5
+- social_R23_TR1_position.h5
+- social_R23_TR2_position.h5
+- social_R23_TR3_position.h5
+
+# Software used to generate the pose estimation files
+software: DLC
+
+# List of the tracked bodyparts
+bodyparts:
+- nose
+- left_ear
+- right_ear
+- head
+- neck
+- body
+- tail_base
+- tail_mid
+- tail_end
+- left_hip
+- left_midside
+- left_shoulder
+- right_hip
+- right_midside
+- right_shoulder
+
+# List of the exploration targets.
+targets:
+- blue
+- red
+
+# If your experiment has multiple trials, specify the trial names here.
+trials:
+- Hab
+- TR1
+- TR2
+- TR3
+
+# Parameters for processing positions
+filtering & smoothing:
+  confidence: 2
+  tolerance: 0.5
+  median_filter: 3
+
+# List two points (or a ROI side) that will be used to scale the positions to cm
+scaling:
+  measured_points:
+  - blue
+  - red
+  measured_dist: 50
+
+# Video settings
+video_fps: 15
+
+# Regions of Interest (ROIs) and key points from JSON
+roi_data:
+
+  # Shape of the video frames
+  frame_shape:
+    width: 960
+    height: 640
+
+  # Defined ROIs (areas) in the frame
+  areas:
+  - name: center
+    center:
+    - 485
+    - 453
+    width: 311
+    height: 273
+    angle: 0
+  - name: blue_chamber
+    center:
+    - 173
+    - 179
+    width: 311
+    height: 273
+    angle: 0
+  - name: red_chamber
+    center:
+    - 798
+    - 180
+    width: 311
+    height: 273
+    angle: 0
+  - name: blue_corner
+    center:
+    - 172
+    - 454
+    width: 311
+    height: 273
+    angle: 0
+  - name: red_corner
+    center:
+    - 799
+    - 455
+    width: 311
+    height: 273
+    angle: 0
+
+  # Key points within the frame
+  points:
+  - name: blue
+    center:
+    - 138
+    - 111
+  - name: red
+    center:
+    - 840
+    - 111

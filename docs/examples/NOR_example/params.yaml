@@ -1,0 +1,188 @@
+# Rainstorm Parameters file
+
+# Path to the folder containing the pose estimation files
+path: C:\Users\dhers\Desktop\Rainstorm\docs\examples\NOR_example
+
+# List of the pose estimation filenames
+filenames:
+- NOR_Hab_C1_A_position
+- NOR_Hab_C1_B_position
+- NOR_Hab_C1_C_position
+- NOR_Hab_C1_D_position
+- NOR_Hab_C2_A_position
+- NOR_Hab_C2_B_position
+- NOR_Hab_C2_C_position
+- NOR_Hab_C2_D_position
+- NOR_Hab_C3_A_position
+- NOR_Hab_C3_B_position
+- NOR_Hab_C3_C_position
+- NOR_Hab_C3_D_position
+- NOR_Hab_C4_A_position
+- NOR_Hab_C4_B_position
+- NOR_Hab_C4_C_position
+- NOR_Hab_C4_D_position
+- NOR_Hab_C5_A_position
+- NOR_Hab_C5_B_position
+- NOR_Hab_C5_C_position
+- NOR_Hab_C5_D_position
+- NOR_TR_C1_A_position
+- NOR_TR_C1_B_position
+- NOR_TR_C1_C_position
+- NOR_TR_C1_D_position
+- NOR_TR_C2_A_position
+- NOR_TR_C2_B_position
+- NOR_TR_C2_C_position
+- NOR_TR_C2_D_position
+- NOR_TR_C3_A_position
+- NOR_TR_C3_B_position
+- NOR_TR_C3_C_position
+- NOR_TR_C3_D_position
+- NOR_TR_C4_A_position
+- NOR_TR_C4_B_position
+- NOR_TR_C4_C_position
+- NOR_TR_C4_D_position
+- NOR_TR_C5_A_position
+- NOR_TR_C5_B_position
+- NOR_TR_C5_C_position
+- NOR_TR_C5_D_position
+- NOR_TS_C1_A_position
+- NOR_TS_C1_B_position
+- NOR_TS_C1_C_position
+- NOR_TS_C1_D_position
+- NOR_TS_C2_A_position
+- NOR_TS_C2_B_position
+- NOR_TS_C2_C_position
+- NOR_TS_C2_D_position
+- NOR_TS_C3_A_position
+- NOR_TS_C3_B_position
+- NOR_TS_C3_C_position
+- NOR_TS_C3_D_position
+- NOR_TS_C4_A_position
+- NOR_TS_C4_B_position
+- NOR_TS_C4_C_position
+- NOR_TS_C4_D_position
+- NOR_TS_C5_A_position
+- NOR_TS_C5_B_position
+- NOR_TS_C5_C_position
+- NOR_TS_C5_D_position
+
+# Software used to generate the pose estimation files
+software: DLC
+
+# List of the tracked bodyparts
+bodyparts:
+- nose
+- L_ear
+- R_ear
+- head
+- neck
+- body
+- tail_1
+- tail_2
+- tail_3
+
+# List of the exploration targets.
+targets:
+- obj_1
+- obj_2
+
+# If your experiment has multiple trials, specify the trial names here.
+trials:
+- Hab
+- TR
+- TS
+
+# Parameters for processing positions
+filtering & smoothing:
+  confidence: 2
+  tolerance: 0.8
+  median_filter: 3
+
+# List two points (or a ROI side) that will be used to scale the positions to cm
+scaling:
+  measured_points:
+  - L_ear
+  - R_ear
+  measured_dist: 1.8
+
+# Video settings
+video_fps: 25
+
+# Regions of Interest (ROIs) and key points from JSON
+roi_data:
+
+  # Shape of the video frames
+  frame_shape:
+    width: 960
+    height: 640
+
+  # Defined ROIs (areas) in the frame
+  areas:
+  - name: center
+    center:
+    - 485
+    - 453
+    width: 311
+    height: 273
+
+  # Maximum head-object orientation angle to consider exploration.
+    angle: 0
+  - name: blue_chamber
+    center:
+    - 173
+    - 179
+    width: 311
+    height: 273
+
+  # Maximum head-object orientation angle to consider exploration.
+    angle: 0
+  - name: red_chamber
+    center:
+    - 798
+    - 180
+    width: 311
+    height: 273
+
+  # Maximum head-object orientation angle to consider exploration.
+    angle: 0
+  - name: blue_corner
+    center:
+    - 172
+    - 454
+    width: 311
+    height: 273
+
+  # Maximum head-object orientation angle to consider exploration.
+    angle: 0
+  - name: red_corner
+    center:
+    - 799
+    - 455
+    width: 311
+    height: 273
+
+  # Maximum head-object orientation angle to consider exploration.
+    angle: 0
+
+  # Key points within the frame
+  points:
+  - name: blue
+    center:
+    - 138
+    - 111
+  - name: red
+    center:
+    - 840
+    - 111
+
+# Parameters for defining exploration and freezing behavior
+geometric analysis:
+
+  # Maximum nose-object distance to consider exploration.
+  distance: 2.5
+
+  # Maximum head-object orientation angle to consider exploration.
+  angle: 45.0
+
+  # Movement threshold for freezing, computed as mean std of all body parts over 1 second.
+  freezing_threshold: 0.01

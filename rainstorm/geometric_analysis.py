@@ -6,6 +6,8 @@
 import os
 import pandas as pd
 import numpy as np
+import yaml
+from glob import glob
 
 import plotly.graph_objects as go
 
@@ -48,15 +50,26 @@ class Vector:
 
         return angle
 
-def plot_position(file: str, objects: list, maxDistance: float = 2.5, maxAngle: float = 45) -> None:
-    """Plot mouse exploration around multiple objects.
+def load_yaml(params_path: str) -> dict:
+    """Loads a YAML file."""
+    with open(params_path, "r") as file:
+        return yaml.safe_load(file)
+
+def plot_position(params_path:str, file: str) -> None:
+    """Plot mouse exploration around multiple targets.
 
     Args:
+        params_path (str): Path to the YAML parameters file.
         file (str): Path to the .csv file containing the data.
-        objects (list): List of objects to explore.
-        maxDistance (float, optional): Maximum distance from the nose to the object. Defaults to 2.5.
-        maxAngle (float, optional): Maximum angle between the head-nose and head-object vectors. Defaults to 45.
     """
+    # Load parameters
+    params = load_yaml(params_path)
+    targets = params.get("targets", [])
+
+    # Load geometric analysis parameters
+    geometric_params = params.get("geometric analysis", {})
+    max_distance = geometric_params.get("distance", 2.5)
+    max_angle = geometric_params.get("angle", 45)
 
     color_list = ['blue', 'red', 'green', 'orange', 'purple', 'yellow', 'black', 'grey']
     symbol_list = ['square', 'circle', 'diamond', 'cross', 'x', 'triangle-up', 'triangle-down', 'star']
@@ -80,59 +93,59 @@ def plot_position(file: str, objects: list, maxDistance: float = 2.5, maxAngle: 
     # Store all traces
     traces = [nose_trace]
 
-    # Loop over each object in the list of object names
-    for idx, obj in enumerate(objects):
+    # Loop over each target in the list of target names
+    for idx, tgt in enumerate(targets):
 
-        # Create a Point object for the object
-        obj_coords = Point(df, obj)
+        # Create a Point target for the target
+        tgt_coords = Point(df, tgt)
 
-        # Find distance from the nose to the object
-        dist = Point.dist(nose, obj_coords)
+        # Find distance from the nose to the target
+        dist = Point.dist(nose, tgt_coords)
         
-        # Compute the normalized head-object vector
+        # Compute the normalized head-target vector
         head_nose = Vector(head, nose, normalize=True)
-        head_obj = Vector(head, obj_coords, normalize=True)
+        head_tgt = Vector(head, tgt_coords, normalize=True)
         
-        # Find the angle between the head-nose and head-object vectors
-        angle = Vector.angle(head_nose, head_obj)  # in degrees
+        # Find the angle between the head-nose and head-target vectors
+        angle = Vector.angle(head_nose, head_tgt)  # in degrees
         
-        # Filter nose positions oriented towards the object
-        towards_obj = nose.positions[(angle < maxAngle) & (dist < maxDistance**2)]
+        # Filter nose positions oriented towards the target
+        towards_tgt = nose.positions[(angle < max_angle) & (dist < max_distance**2)]
         
-        # Create trace for filtered points oriented towards the object
+        # Create trace for filtered points oriented towards the target
         towards_trace = go.Scatter(
-            x=towards_obj[:, 0],
-            y=towards_obj[:, 1],
+            x=towards_tgt[:, 0],
+            y=towards_tgt[:, 1],
             mode='markers',
             marker=dict(opacity=0.4),
-            name=f'Towards {obj}'
+            name=f'Towards {tgt}'
         )
 
         # Assign colors and symbols dynamically based on index
-        object_color = color_list[idx]
-        object_symbol = symbol_list[idx]
+        target_color = color_list[idx]
+        target_symbol = symbol_list[idx]
 
-        # Create trace for the object
-        obj_trace = go.Scatter(
-            x=[obj_coords.positions[0][0]],
-            y=[obj_coords.positions[0][1]],
+        # Create trace for the target
+        tgt_trace = go.Scatter(
+            x=[tgt_coords.positions[0][0]],
+            y=[tgt_coords.positions[0][1]],
             mode='markers',
-            marker=dict(symbol=object_symbol, size=20, color=object_color),
-            name=f'{obj}'
+            marker=dict(symbol=target_symbol, size=20, color=target_color),
+            name=f'{tgt}'
         )
 
-        # Create circle around the object
+        # Create circle around the target
         circle_trace = go.Scatter(
-            x=obj_coords.positions[0][0] + maxDistance * np.cos(np.linspace(0, 2 * np.pi, 100)),
-            y=obj_coords.positions[0][1] + maxDistance * np.sin(np.linspace(0, 2 * np.pi, 100)),
+            x=tgt_coords.positions[0][0] + max_distance * np.cos(np.linspace(0, 2 * np.pi, 100)),
+            y=tgt_coords.positions[0][1] + max_distance * np.sin(np.linspace(0, 2 * np.pi, 100)),
             mode='lines',
             line=dict(color='green', dash='dash'),
-            name=f'{obj} radius'
+            name=f'{tgt} radius'
         )
 
-        # Append object-specific traces
+        # Append target-specific traces
         traces.append(towards_trace)
-        traces.append(obj_trace)
+        traces.append(tgt_trace)
         traces.append(circle_trace)
 
     # Extract the filename without extension
@@ -140,7 +153,7 @@ def plot_position(file: str, objects: list, maxDistance: float = 2.5, maxAngle: 
 
     # Create layout
     layout = go.Layout(
-        title=f'Object exploration in {filename}', 
+        title=f'Target exploration in {filename}', 
         xaxis=dict(title='Horizontal position (cm)', scaleanchor='y'),  # Lock aspect ratio to the y-axis
         yaxis=dict(title='Vertical position (cm)'),
     )
@@ -151,14 +164,20 @@ def plot_position(file: str, objects: list, maxDistance: float = 2.5, maxAngle: 
     # Show plot
     fig.show()
 
-def plot_freezing(file: str, fps: int = 30, threshold: float = 0.01) -> None:
+def plot_freezing(params_path:str, file: str) -> None:
     """Plots freezing events in a video.
 
     Args:
-        file (str): Path to the video file.
-        fps (int, optional): Frames per second of the video. Defaults to 30.
-        threshold (float, optional): Threshold for freezing events. Defaults to 0.01.
+        params_path (str): Path to the YAML parameters file.
+        file (str): Path to the .csv file containing the data.
     """
+    # Load parameters
+    params = load_yaml(params_path)
+    fps = params.get("video_fps", 30)
+
+    # Load geometric analysis parameters
+    geometric_params = params.get("geometric analysis", {})
+    threshold = geometric_params.get("freezing_threshold", 0.01)
     
     # Load the CSV
     df = pd.read_csv(file)
@@ -222,20 +241,25 @@ def plot_freezing(file: str, fps: int = 30, threshold: float = 0.01) -> None:
     # Show the plot
     fig.show()
 
-def create_movement_and_geolabels(files: list, objects: list, maxDistance: float = 2.5, maxAngle: float = 45, fps: int = 30, freezing_thr: float = 0.01, darting_thr: float = 0.8) -> None:
+def create_movement_and_geolabels(params_path:str) -> None:
     """Analyzes the position data of a list of files and saves the results to a CSV file.
 
     Args:
-        files (list): List of files to analyze.
-        objects (list): List of objects to analyze.
-        maxDistance (float, optional): Maximum distance between the mouse and the object. Defaults to 2.5.
-        maxAngle (float, optional): Maximum angle between the mouse and the object. Defaults to 45.
-        fps (int, optional): Frames per second of the video. Defaults to 30.
-        freezing_thr (float, optional): Threshold for freezing. Defaults to 0.01.
-        darting_thr (float, optional): Threshold for darting. Defaults to 0.8.
+        params_path (str): Path to the YAML parameters file.
     """
+    params = load_yaml(params_path)
+    path = params.get("path")
+    filenames = glob(os.path.join(path,"*/position/*position.csv")) # There should be a more specific way of doing this, using filenames = params.get("filenames", [])
+    targets = params.get("targets", [])
+    fps = params.get("fps", 30)
 
-    for file in files:
+    # Load geometric analysis parameters
+    geometric_params = params.get("geometric analysis", {})
+    max_distance = geometric_params.get("distance", 2.5)
+    max_angle = geometric_params.get("angle", 45)
+    freezing_threshold = geometric_params.get("freezing_threshold", 0.01)
+
+    for file in filenames:
         
         # Determine the output file path
         input_dir, input_filename = os.path.split(file)
@@ -244,42 +268,42 @@ def create_movement_and_geolabels(files: list, objects: list, maxDistance: float
         # Read the file
         position = pd.read_csv(file)
 
-        if len(objects) != 0:
+        if len(targets) != 0:
 
-            # Initialize geolabels dataframe with columns for each object
-            geolabels = pd.DataFrame(np.zeros((position.shape[0], len(objects))), columns=objects) 
+            # Initialize geolabels dataframe with columns for each target
+            geolabels = pd.DataFrame(np.zeros((position.shape[0], len(targets))), columns=targets) 
 
             # Extract body parts
             nose = Point(position, 'nose')
             head = Point(position, 'head')
 
-            # Check if all required object columns exist
-            missing_objects = []
+            # Check if all required target columns exist
+            missing_targets = []
 
-            for obj in objects:
+            for obj in targets:
                 if f'{obj}_x' not in position.columns or f'{obj}_y' not in position.columns:
-                    missing_objects.append(obj)
+                    missing_targets.append(obj)
                     continue
 
                 else:
-                    # Extract the object's coordinates from the DataFrame
+                    # Extract the target's coordinates from the DataFrame
                     obj_coords = Point(position, obj)
                     
-                    # Calculate the distance and angle between nose and the object
+                    # Calculate the distance and angle between nose and the target
                     dist = Point.dist(nose, obj_coords)
                     head_nose = Vector(head, nose, normalize=True)
                     head_obj = Vector(head, obj_coords, normalize=True)
                     angle = Vector.angle(head_nose, head_obj)
 
-                    # Loop over each frame and assign the geolabel if the mouse is exploring the object
+                    # Loop over each frame and assign the geolabel if the mouse is exploring the target
                     for i in range(position.shape[0]):
-                        if dist[i] < maxDistance and angle[i] < maxAngle:
-                            geolabels.loc[i, obj] = 1  # Assign 1 if exploring the object                
+                        if dist[i] < max_distance and angle[i] < max_angle:
+                            geolabels.loc[i, obj] = 1  # Assign 1 if exploring the target                
             
-            if len(missing_objects) != 0: # if true, there are no objects to analyze
-                print(f"{input_filename} is missing objects: {', '.join(missing_objects)}")
+            if len(missing_targets) != 0: # if true, there are no targets to analyze
+                print(f"{input_filename} is missing targets: {', '.join(missing_targets)}")
 
-            if len(objects) != len(missing_objects):
+            if len(targets) != len(missing_targets):
                 # Convert geolabels to integer type (0 or 1)
                 geolabels = geolabels.astype(int)
 
@@ -306,15 +330,14 @@ def create_movement_and_geolabels(files: list, objects: list, maxDistance: float
         moving_window = tail_less.diff().rolling(window=int(fps), center=True).std().mean(axis=1)
 
         # Create the distances dataframe
-        movement = pd.DataFrame(np.zeros((position.shape[0], 4)), columns=["nose_dist", "body_dist", "freezing", "darting"])
+        movement = pd.DataFrame(np.zeros((position.shape[0], 3)), columns=["nose_dist", "body_dist", "freezing"])
         
         # Calculate the Euclidean distance between consecutive nose positions
         movement['nose_dist'] = (((position['nose_x'].diff())**2 + (position['nose_y'].diff())**2)**0.5) / 100
         movement['body_dist'] = (((position['body_x'].diff())**2 + (position['body_y'].diff())**2)**0.5) / 100
-        movement['freezing'] = pd.DataFrame(np.where(moving_window < freezing_thr, 1, 0))
-        movement['darting'] = pd.DataFrame(np.where(moving_window > darting_thr, 1, 0))
+        movement['freezing'] = pd.DataFrame(np.where(moving_window < freezing_threshold, 1, 0))
 
-        movement.loc[:2*fps,:] = 0 # the first two seconds, as the mouse just entered, we dont quantify the movement
+        movement.loc[:2*fps,:] = 0 # the first two seconds, as the mouse just entered the arena, we dont quantify the movement
         
         # Insert a new column with the frame number at the beginning of the DataFrame
         movement.insert(0, "Frame", movement.index + 1)

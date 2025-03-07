@@ -7,7 +7,9 @@ import os
 import pandas as pd
 import numpy as np
 import h5py
+import yaml
 import json
+from glob import glob
 
 import plotly.graph_objects as go
 
@@ -62,21 +64,132 @@ def rename_files(folder, before, after):
             os.rename(old_file, new_file)
             print(f'Renamed: {old_file} to {new_file}')
 
-def open_h5_file(path, software: str = "DLC", print_data: bool = False, num_sd: float = 2) -> pd.DataFrame:
+
+def create_params(folder_path:str, ROIs_path = None):
+
+    """Creates a params.yaml file with structured data and comments."""
+
+    params_path = os.path.join(folder_path, 'params.yaml')
+
+    if os.path.exists(params_path):
+        print(f"params.yaml already exists in {folder_path}. Skipping creation.")
+        return params_path
+
+    if ROIs_path is not None:
+        if os.path.exists(ROIs_path):  # Check if file exists
+            try:
+                with open(ROIs_path, "r") as json_file:
+                    roi_data = json.load(json_file)
+            except Exception as e:
+                print(f"Error loading ROI data: {e}")
+                roi_data = None
+        else:
+            print(f"ROIs_path '{ROIs_path}' does not exist.")
+            roi_data = None
+    else:
+        roi_data = None
+    
+    all_h5_files = glob(os.path.join(folder_path,"*position.h5"))
+    filenames = [os.path.basename(file).replace('_position.h5', '') for file in all_h5_files]
+    
+    # Define configuration with a nested dictionary
+    parameters = {
+        "path": folder_path,
+        "filenames": filenames,
+        "software": "DLC",
+        "bodyparts": ["nose", "L_ear", "R_ear", "head", "neck", "body", "tail_1", "tail_2", "tail_3"],
+        "targets": ["obj_1", "obj_2"],
+        "trials": ['Hab', 'TR', 'TS'],
+        "filtering & smoothing": {  # Grouped under a dictionary
+            "confidence": 2,
+            "tolerance": 0.8,
+            "median_filter": 3
+        },
+        "scaling": {  # Grouped under a dictionary
+            "measured_points": ["L_ear", "R_ear"],
+            "measured_dist": 1.8,
+        },
+        "video_fps": 25,
+        "roi_data": roi_data,  # Add the JSON content here
+        "geometric analysis": {
+            "distance": 2.5,
+            "angle": 45.0,
+            "freezing_threshold": 0.01
+        },
+    }
+
+    # Ensure directory exists
+    os.makedirs(folder_path, exist_ok=True)
+
+    # Write YAML data to a temporary file
+    temp_filepath = params_path + ".tmp"
+    with open(temp_filepath, "w") as file:
+        yaml.dump(parameters, file, default_flow_style=False, sort_keys=False)
+
+    # Read the generated YAML and insert comments
+    with open(temp_filepath, "r") as file:
+        yaml_lines = file.readlines()
+
+    # Define comments to insert
+    comments = {
+        "path": "# Path to the folder containing the pose estimation files",
+        "filenames": "# List of the pose estimation filenames",
+        "software": "# Software used to generate the pose estimation files",
+        "bodyparts": "# List of the tracked bodyparts",
+        "targets": "# List of the exploration targets.",
+        "trials": "# If your experiment has multiple trials, specify the trial names here.",
+        "filtering & smoothing": "# Parameters for processing positions",
+        "scaling": "# List two points (or a ROI side) that will be used to scale the positions to cm",
+        "video_fps": "# Video settings",
+        "roi_data": "# Regions of Interest (ROIs) and key points from JSON",
+        "frame_shape": "  # Shape of the video frames",
+        "areas": "  # Defined ROIs (areas) in the frame",
+        "points": "  # Key points within the frame",
+        "geometric analysis": "# Parameters for defining exploration and freezing behavior",
+        "distance": "  # Maximum nose-target distance to consider exploration.",
+        "angle": "  # Maximum head-target orientation angle to consider exploration.",
+        "freezing_threshold": "  # Movement threshold for freezing, computed as mean std of all body parts over 1 second.",
+    }
+
+    # Insert comments before corresponding keys
+    with open(params_path, "w") as file:
+        file.write("# Rainstorm Parameters file\n")
+        for line in yaml_lines:
+            stripped_line = line.lstrip()
+            key = stripped_line.split(":")[0].strip()  # Extract key (ignores indentation)
+            if key in comments and not stripped_line.startswith("-"):  # Avoid adding before list items
+                file.write("\n" + comments[key] + "\n")  # Insert comment
+            file.write(line)  # Write the original line
+
+    # Remove temporary file
+    os.remove(temp_filepath)
+
+    print(f"Parameters saved to {params_path}")
+    return params_path
+
+def load_yaml(params_path: str) -> dict:
+    """Loads a YAML file."""
+    with open(params_path, "r") as file:
+        return yaml.safe_load(file)
+
+def open_h5_file(params_path: str, filepath, print_data: bool = False) -> pd.DataFrame:
     """Opens an h5 file and returns the data as a pandas dataframe.
 
     Args:
-        path (str): Path to the h5 file.
-        software (str, optional): Software used to generate the h5 file. Defaults to "DLC".
-        print_data (bool, optional): Whether to print the data. Defaults to False.
-        num_sd (float, optional): Number of std_dev away from the mean. Defaults to 2.
+        params_path (str): Path to the YAML parameters file.
+        filepath (str): Path to the h5 file.
         
     Returns:
         DataFrame with columns [x, y, likelihood] for each body part
     """
 
+    # Load parameters
+    params = load_yaml(params_path)
+    software = params.get("software", "DLC")
+    num_sd = params.get("num_sd", 2)
+
     if software == "DLC":
-        df = pd.read_hdf(path)
+        df = pd.read_hdf(filepath)
         scorer = df.columns.levels[0][0]
         bodyparts = df.columns.levels[1].to_list()
         df = df[scorer]
@@ -87,7 +200,7 @@ def open_h5_file(path, software: str = "DLC", print_data: bool = False, num_sd: 
             df_raw[str(key[0]) + "_" + str(key[1])] = df[key]
 
     elif software == "SLEAP":
-        with h5py.File(path, "r") as f:
+        with h5py.File(filepath, "r") as f:
             scorer = "SLEAP"
             locations = f["tracks"][:].T
             bodyparts = [n.decode() for n in f["node_names"][:]]
@@ -131,27 +244,67 @@ def open_h5_file(path, software: str = "DLC", print_data: bool = False, num_sd: 
 
     return df_raw
 
-def filter_and_smooth_df(data: pd.DataFrame, bodyparts: list = [], targets: list = [], med_filt_window: int = 3, drop_below: float = 0.5, num_sd: float = 2) -> pd.DataFrame:
+def add_targets(params_path: str, df: pd.DataFrame):
+    """Add target columns to the DataFrame based on ROIs.json.
+    
+    Args:
+        params_path (str): Path to the YAML parameters file.
+        df (pd.DataFrame): Input DataFrame with tracking data.
+        
+    Returns:
+        DataFrame with added target columns
+    """
+    # Load parameters
+    params = load_yaml(params_path)
+    targets = params.get("targets", [])
+
+    # Load ROI and key points from YAML
+    roi_data = params.get("roi_data", {})
+    # frame_shape = roi_data.get("frame_shape", {})
+    # areas = roi_data.get("areas", [])
+    points = roi_data.get("points", [])
+    
+    # Filter ROIs based on the targets list
+    for point in points:
+        if point['name'] in targets:  # Check if the ROI name is in the targets list
+            name = point['name']
+            center_x, center_y = point['center']
+            
+            # Add columns for x and y coordinates
+            df[f"{name}_x"] = center_x
+            df[f"{name}_y"] = center_y
+            df[f"{name}_likelihood"] = 1
+    
+    return df
+
+def filter_and_smooth_df(params_path: str, df_raw: pd.DataFrame) -> pd.DataFrame:
     """Filters and smooths a DataFrame of coordinates.
 
     Args:
-        data (pd.DataFrame): DataFrame of coordinates.
-        bodyparts (list): List of bodyparts to filter. Defaults to [] (empty list means include all).
-        objects (list): List of objects to filter. Defaults to [].
-        med_filt_window (int, optional): Window size for median filtering. Defaults to 3.
-        drop_below (float, optional): Minimum likelihood to keep a bodypart. Defaults to 0.1.
-        num_sd (float, optional): Number of standard deviations to use as the threshold. Defaults to 2.
+        params_path (str): Path to the YAML parameters file.
+        df_raw (pd.DataFrame): Input DataFrame with tracking data.
 
     Returns:
         pd.DataFrame: Filtered and smoothed DataFrame of coordinates.
     """
-    df = data.copy()
+    df = df_raw.copy()
+
+    # Load parameters
+    params = load_yaml(params_path)
+    bodyparts = params.get("bodyparts", [])
+    targets = params.get("targets", [])
+
+    # Load filter_params from YAML
+    filter_params = params.get("filtering & smoothing", {})
+    num_sd = filter_params.get("confidence", 2)
+    drop_below = filter_params.get("tolerance", 0.5)
+    med_filt_window = filter_params.get("median_filter", 3)
 
     if not bodyparts:
         # Remove suffixes (_x, _y, _likelihood) and get unique body parts
         columns = set(col.rsplit('_', 1)[0] for col in df.columns)
         
-        # Filter out body parts that are in the objects list
+        # Filter out body parts that are in the targets list
         bodyparts = [bp for bp in columns if bp not in targets]
     
     # Try different filtering parameters
@@ -195,29 +348,44 @@ def filter_and_smooth_df(data: pd.DataFrame, bodyparts: list = [], targets: list
             # Trim the padded edges to restore original length
             df[column] = smooth[:len(df[column])]
 
-    for obj in targets:
+    for tgt in targets:
+        if tgt is not None:
 
-        median = df[f'{obj}_likelihood'].median()
-        mean = df[f'{obj}_likelihood'].mean()
-        std_dev = df[f'{obj}_likelihood'].std()
+            median = df[f'{tgt}_likelihood'].median()
+            mean = df[f'{tgt}_likelihood'].mean()
+            std_dev = df[f'{tgt}_likelihood'].std()
+                
+            limit = mean - num_sd*std_dev
             
-        limit = mean - num_sd*std_dev
-        
-        if median < drop_below:
-            # If the likelihood of an object is too low, probably the object is not there. Lets drop those columns
-            df.drop([f'{obj}_x', f'{obj}_y', f'{obj}_likelihood'], axis=1, inplace=True)
-        
-        else:
-            # Set x and y coordinates to NaN where the likelihood is below the tolerance limit
-            df.loc[df[f'{obj}_likelihood'] < limit, [f'{obj}_x', f'{obj}_y']] = np.nan
+            if median < drop_below:
+                # If the likelihood of an tgtect is too low, probably the tgtect is not there. Lets drop those columns
+                df.drop([f'{tgt}_x', f'{tgt}_y', f'{tgt}_likelihood'], axis=1, inplace=True)
             
-            for axis in ['x','y']:
-                column = f'{obj}_{axis}'
-                df[column] = df[column].median()
+            else:
+                # Set x and y coordinates to NaN where the likelihood is below the tolerance limit
+                df.loc[df[f'{tgt}_likelihood'] < limit, [f'{tgt}_x', f'{tgt}_y']] = np.nan
+                
+                for axis in ['x','y']:
+                    column = f'{tgt}_{axis}'
+                    df[column] = df[column].median()
 
     return df
 
-def plot_raw_vs_smoothed(df_raw, df_smooth, bodypart = 'nose', num_sd = 2):
+def plot_raw_vs_smooth(params_path: str, df_raw, df_smooth, bodypart = 'nose'):
+    """Plots the raw and smoothed DataFrames side by side.
+    
+    Args:
+        params_path (str): Path to the YAML parameters file.
+        df_raw (pd.DataFrame): Raw DataFrame of coordinates.
+        df_smooth (pd.DataFrame): Smoothed DataFrame of coordinates.
+        bodypart (str, optional): Bodypart to plot. Defaults to 'nose'.
+    """
+    # Load parameters
+    params = load_yaml(params_path)
+
+    # Load filter_params from YAML
+    filter_params = params.get("filtering & smoothing", {})
+    num_sd = filter_params.get("confidence", 2)
 
     # Create figure
     fig = go.Figure()
@@ -268,167 +436,179 @@ def plot_raw_vs_smoothed(df_raw, df_smooth, bodypart = 'nose', num_sd = 2):
     # Show plot
     fig.show()
 
-def add_stationary_targets(df: pd.DataFrame, json_file_path: str, targets: list):
-    """Add stationary target columns to the DataFrame based on ROIs.json.
-    
-    Args:
-        df: Input DataFrame with tracking data.
-        json_file_path: Path to the ROIs.json file.
-        targets: List of target names to include.
-        
-    Returns:
-        DataFrame with added stationary target columns
-    """
-    # Load the JSON file
-    with open(json_file_path, 'r') as f:
-        rois_data = json.load(f)
-    
-    # Extract ROIs
-    rois = rois_data.get('rois', [])
-    
-    # Filter ROIs based on the targets list
-    for roi in rois:
-        if roi['name'] in targets:  # Check if the ROI name is in the targets list
-            name = roi['name']
-            center_x, center_y = roi['center']
-            
-            # Add columns for x and y coordinates
-            df[f"{name}_x"] = center_x
-            df[f"{name}_y"] = center_y
-            df[f"{name}_likelihood"] = 1
-    
-    return df
+def get_point_coordinates(point_name: str, points_list: list):
+    """Find the coordinates of a point given its name in the points list."""
+    for point in points_list:
+        if point["name"] == point_name:
+            return point["center"]  # Returns [x, y]
+    return None  # If not found
 
-def find_scale_factor(df: pd.DataFrame, measured_dist: float, measured_points: list, print_results: bool = False) -> float:
-    """Plots the distance between ears and the mean and median distances.
+def find_scale_factor(params_path: str, df: pd.DataFrame, print_results: bool = False, plot_results: bool = False) -> float:
+    """Calculates the scale factor using the distance between two key points.
 
     Args:
-        df (pd.DataFrame): DataFrame containing the coordinates of the points.
-        measured_dist (float): Measured distance between points.
-        measured_points (list): List of strings containing the names of the points.
+        params_path (str): Path to the YAML parameters file.
+        df (pd.DataFrame): Input DataFrame with tracking data.
         print_results (bool, optional): Whether to print the results. Defaults to False.
+        plot_results (bool, optional): Whether to plot the results. Defaults to False.
 
     Returns:
-        scale (float): The scale factor to convert the measured distance to the actual distance.
+        float: The scale factor (real-world distance per pixel).
     """
+    # Load parameters
+    params = load_yaml(params_path)
 
-    df.dropna(inplace=True)
+    # Load scaling parameters from YAML
+    scaling_params = params.get("scaling", {})
+    measured_points = scaling_params.get("measured_points", [])
+    measured_dist = scaling_params.get("measured_dist", None)
 
-    A = measured_points[0]
-    B = measured_points[1]
+    roi_data = params.get("roi_data", {})
+    points_list = roi_data.get("points", [])
 
-    # Calculate the distance between the two points
-    dist = np.sqrt(
-        (df[f'{A}_x'] - df[f'{B}_x'])**2 + 
-        (df[f'{A}_y'] - df[f'{B}_y'])**2)
+    if not measured_points or measured_dist is None:
+        raise ValueError("Invalid scaling parameters in YAML file.")
 
-    dist.dropna(inplace=True)
+    A, B = measured_points
 
-    # Calculate the mean and median
-    mean_dist = np.mean(dist)
-    median_dist = np.median(dist)
+    # First, try to get the points from roi_data['points']
+    A_coords = get_point_coordinates(A, points_list)
+    B_coords = get_point_coordinates(B, points_list)
 
-    scale = (measured_dist / median_dist)
+    if A_coords and B_coords:
+        # If both points are found in roi_data['points'], use them
+        A_x, A_y = A_coords
+        B_x, B_y = B_coords
+        dist = np.sqrt((A_x - B_x) ** 2 + (A_y - B_y) ** 2)
+    elif f"{A}_x" in df.columns and f"{B}_x" in df.columns:
+        # If not found in roi_data, check in df
+        df.dropna(inplace=True)
+        dist = np.sqrt((df[f"{A}_x"] - df[f"{B}_x"])**2 + (df[f"{A}_y"] - df[f"{B}_y"])**2)
+    else:
+        raise ValueError(f"Points {A}, {B} not found in roi_data['points'] or df.")
+
+    if isinstance(dist, pd.Series):
+        dist.dropna(inplace=True)
+        median_dist = np.median(dist)
+        mean_dist = np.mean(dist)
+        plot_results = True  # Plot results if dist is a series
+    else:
+        median_dist = mean_dist = dist  # If dist is a single value, use it directly
+        plot_results = False  # Don't plot results if dist is a single value
+
+    scale = measured_dist / median_dist
 
     if print_results:
 
         print(f'median distance is {median_dist}, mean distance is {mean_dist}. Scale factor is {scale:.4f} (1 cm = {1/scale:.2f} px).')
 
-        # Create the plot
-        fig = go.Figure()
+        if plot_results:
 
-        # Add the distance trace
-        fig.add_trace(go.Scatter(y=dist, mode='lines', name='Distance between ears'))
+            # Create the plot
+            fig = go.Figure()
 
-        # Add mean and median lines
-        fig.add_trace(go.Scatter(y=[mean_dist]*len(dist), mode='lines', name=f'Mean: {mean_dist:.2f}', line=dict(color='red', dash='dash')))
-        fig.add_trace(go.Scatter(y=[median_dist]*len(dist), mode='lines', name=f'Median: {median_dist:.2f}', line=dict(color='black')))
+            # Add the distance trace
+            fig.add_trace(go.Scatter(y=dist, mode='lines', name='Distance between ears'))
 
-        # Update layout
-        fig.update_layout(
-            title=f'Distance between {A} and {B}',
-            xaxis_title='Frame',
-            yaxis_title='Distance (pixels)',
-            legend=dict(yanchor="bottom",
-                        y=1,
-                        xanchor="center",
-                        x=0.5,
-                        orientation="h"),
-        )
+            # Add mean and median lines
+            fig.add_trace(go.Scatter(y=[mean_dist]*len(dist), mode='lines', name=f'Mean: {mean_dist:.2f}', line=dict(color='red', dash='dash')))
+            fig.add_trace(go.Scatter(y=[median_dist]*len(dist), mode='lines', name=f'Median: {median_dist:.2f}', line=dict(color='black')))
 
-        # Show the plot
-        fig.show()
+            # Update layout
+            fig.update_layout(
+                title=f'Distance between {A} and {B}',
+                xaxis_title='Frame',
+                yaxis_title='Distance (pixels)',
+                legend=dict(yanchor="bottom",
+                            y=1,
+                            xanchor="center",
+                            x=0.5,
+                            orientation="h"),
+            )
+
+            # Show the plot
+            fig.show()
+    
+        else:
+            print("Distance between points is a single value. Skipping plot.")
     
     return scale
 
-def process_position_files(files: list, software = "DLC", bodyparts: list = [], targets: list = [], json_file_path: str = None, measured_dist: float = 1.8, measured_points: list = ['L_ear', 'R_ear'], scale: bool = True, fps: int = 30, med_filt_window: int = 3, drop_below: float = 0.5, num_sd: float = 2):
+def process_position_files(params_path: str, scale: bool = True):
     """Processes a list of HDF5 files and saves the smoothed data as a CSV file.
 
     Args:
-        files (list): List of HDF5 files to process.
-        bodyparts (list): List of objects to process.
-        objects (list): List of objects to process.
-        measured_dist (float): Measured distance between points in cm.
-        measured_points (list): List of reference points for the distance calculation.
+        params_path (str): Path to the YAML parameters file.
         scale (bool): Whether to scale the data.
-        fps (int): Frames per second of the video.
-        drop_below (float): Drop values if the median likelihood is below this threshold.
-        num_sd (float): Number of standard deviations to consider.
     """
+    params = load_yaml(params_path)
+    path = params.get("path")
+    filenames = params.get("filenames", [])
+    fps = params.get("fps", 30)
     
-    for h5_file in files:
+    for file in filenames:
 
-        df_raw = open_h5_file(h5_file, software=software)
+        file = os.path.join(path, file + '_position.h5')
 
-        if json_file_path is not None:
-            df_raw = add_stationary_targets(df=df_raw, json_file_path=json_file_path, targets=targets)
+        df_raw = open_h5_file(params_path, file)
 
-        df_smooth = filter_and_smooth_df(df_raw, bodyparts, targets, med_filt_window, drop_below, num_sd)
+        df_raw = add_targets(params_path, df_raw)
+
+        df_smooth = filter_and_smooth_df(params_path, df_raw)
 
         # Drop the likelihood columns
         df_smooth = df_smooth.drop(columns=df_smooth.filter(like='likelihood').columns)
 
-        # Drop the frames when the mouse is not in the video
+        # Drop frames where the mouse is not in the video
         df_smooth.dropna(inplace=True)
         
-        if scale:
-            # Use a constant that can be measured in real life to scale different sized videos from px to cm
-            scale = find_scale_factor(df_smooth, measured_dist, measured_points)
-            df_smooth = df_smooth * scale
+        if df_smooth.empty:
+            print(f"Warning: {os.path.basename(file)} has no valid data after processing. Skipping.")
+            continue  # Skip saving and move to the next file
 
-        # Determine the output file path in the same directory as the input file
-        # Split the path and filename
-        input_dir, input_filename = os.path.split(h5_file)
-        
-        # Remove the original extension
+        if scale:
+            scale_factor = find_scale_factor(params_path, df_smooth)
+            df_smooth *= scale_factor
+        else:
+            scale_factor = 1.0  # No scaling applied
+
+        # Determine output CSV path
+        input_dir, input_filename = os.path.split(file)
         filename_without_extension = os.path.splitext(input_filename)[0]
-        
-        # Add the new extension '.csv'
         output_csv_path = os.path.join(input_dir, filename_without_extension + '.csv')
-    
-        # Save the processed data as a CSV file
+
+        # Save processed data
         df_smooth.to_csv(output_csv_path, index=False)
         
         # Calculate the moment when the mouse enters the video
         mouse_enters = (len(df_raw) - len(df_smooth)) / fps
 
-        print(f"{input_filename} has {df_smooth.shape[1]} columns. The mouse took {mouse_enters:.2f} sec to enter. Scale factor is {scale:.4f} (1 cm = {1/scale:.2f} px).")
+        print(f"{input_filename} has {df_smooth.shape[1]} columns. "
+              f"Mouse entered after {mouse_enters:.2f} sec. "
+              f"Scale factor: {scale_factor:.4f} (1 cm = {1/scale_factor:.2f} px). ")
 
-def filter_and_move_files(folder: str, subfolders: list):
+def filter_and_move_files(params_path: str):
     """Filters and moves files to a subfolder.
+
+    Args:
+        params_path (str): Path to the YAML parameters file.
     """
-    for subfolder in subfolders:
+    params = load_yaml(params_path)
+    folder_path = params.get("path")
+    trials = params.get("trials", [])
+
+    for trial in trials:
         # Create a new subfolder
-        output_folder = os.path.join(folder, subfolder, "position")
+        output_folder = os.path.join(folder_path, trial, "position")
         os.makedirs(output_folder, exist_ok=True)
 
         # Get a list of all files in the input folder
-        files = [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f))]
+        files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
 
         # Iterate through files, move those without the word "position" to the "extra" subfolder
         for file in files:
-            if subfolder in file and ".csv" in file and "filtered" not in file:
-                file_path = os.path.join(folder, file)
+            if trial in file and ".csv" in file:
+                file_path = os.path.join(folder_path, file)
                 output_path = os.path.join(output_folder, file)
 
                 # Move the file to the "extra" subfolder
@@ -439,15 +619,16 @@ def filter_and_move_files(folder: str, subfolders: list):
     """
     It also cleans all other files in the folder into a subfolder
     """
-    subfolder = os.path.join(folder, "h5 files & others")
-    os.makedirs(subfolder, exist_ok=True)
-        
+
     # Get a list of all files in the input folder
-    other_files = [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f))]
+    other_files = [f for f in os.listdir(folder_path) if ".h5" in f]
+
+    subfolder = os.path.join(folder_path, "h5 files")
+    os.makedirs(subfolder, exist_ok=True)
 
     # Iterate through files, move those without the word "position" to the "extra" subfolder
     for file in other_files:
-        file_path = os.path.join(folder, file)
+        file_path = os.path.join(folder_path, file)
         output_path = os.path.join(subfolder, file)
         
         # Move the file to the "extra" subfolder

@@ -13,12 +13,12 @@ from sklearn.metrics import classification_report, accuracy_score, precision_sco
 
 # %% Functions
 
-def choose_example(files: list, filter_word: str = 'TS') -> str:
+def choose_example(files: list, look_for: str = 'TS') -> str:
     """Picks an example file from a list of files.
 
     Args:
         files (list): List of files to choose from.
-        filter_word (str, optional): Word to filter files by. Defaults to 'TS'.
+        look_for (str, optional): Word to filter files by. Defaults to 'TS'.
 
     Returns:
         str: Name of the chosen file.
@@ -29,7 +29,7 @@ def choose_example(files: list, filter_word: str = 'TS') -> str:
     if not files:
         raise ValueError("The list of files is empty. Please provide a non-empty list.")
 
-    filtered_files = [file for file in files if filter_word in file]
+    filtered_files = [file for file in files if look_for in file]
 
     if not filtered_files:
         print("No files found with the specified word")

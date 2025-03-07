@@ -1,7 +1,7 @@
 # Rainstorm Parameters file
 
 # Path to the folder containing the pose estimation files
-path: D:\sdhers\NOR full videos\3xTg_B2 (TORM)\2025_02-Y_Maze_12_m\modified\Y_Maze
+path: C:\Users\dhers\Desktop\Rainstorm\docs\examples\Y_Maze
 
 # List of the pose estimation filenames
 filenames:
@@ -83,8 +83,6 @@ roi_data:
     - 360
     width: 80
     height: 220
-
-  # Maximum head-target orientation angle to consider exploration.
     angle: 0
   - name: Arm_2
     center:
@@ -92,8 +90,6 @@ roi_data:
     - 100
     width: 80
     height: 220
-
-  # Maximum head-target orientation angle to consider exploration.
     angle: -60
   - name: Arm_3
     center:
@@ -101,8 +97,6 @@ roi_data:
     - 105
     width: 80
     height: 220
-
-  # Maximum head-target orientation angle to consider exploration.
     angle: 60
 
   # Key points within the frame
@@ -123,7 +117,7 @@ geometric analysis:
   distance: 2.5
 
   # Maximum head-target orientation angle to consider exploration.
-  angle: 45.0
+  orientation: 45.0
 
   # Movement threshold for freezing, computed as mean std of all body parts over 1 second.
   freezing_threshold: 0.01

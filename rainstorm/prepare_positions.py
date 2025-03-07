@@ -113,7 +113,7 @@ def create_params(folder_path:str, ROIs_path = None):
         "roi_data": roi_data,  # Add the JSON content here
         "geometric analysis": {
             "distance": 2.5,
-            "angle": 45.0,
+            "orientation": 45.0,
             "freezing_threshold": 0.01
         },
     }
@@ -147,7 +147,7 @@ def create_params(folder_path:str, ROIs_path = None):
         "points": "  # Key points within the frame",
         "geometric analysis": "# Parameters for defining exploration and freezing behavior",
         "distance": "  # Maximum nose-target distance to consider exploration.",
-        "angle": "  # Maximum head-target orientation angle to consider exploration.",
+        "orientation": "  # Maximum head-target orientation angle to consider exploration.",
         "freezing_threshold": "  # Movement threshold for freezing, computed as mean std of all body parts over 1 second.",
     }
 

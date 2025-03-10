@@ -2,9 +2,354 @@ import os
 import numpy as np
 import cv2
 import json
-from tkinter import Tk, filedialog, messagebox, Label, Entry, Button, Toplevel
+from tkinter import Tk, filedialog, simpledialog, messagebox, Label, Entry, Button, Toplevel
 
-# Basic
+# Draw ROIs
+
+def merge_frames(video_files: list) -> np.ndarray:
+    """
+    Merge frames into a single image.
+
+    Args:
+        video_files (list): List of video files.
+    
+    Returns:
+        np.ndarray: Merged image.
+    """
+    frames = []
+    
+    if len(video_files) > 1:
+        # Read first valid frame from each video
+        for file in video_files:
+            cap = cv2.VideoCapture(file)
+            success, frame = cap.read()
+            cap.release()
+            if success:
+                frames.append(frame)
+    else:
+        # Extract first, middle, and last frame from a single video
+        cap = cv2.VideoCapture(video_files[0])
+        if not cap.isOpened():
+            raise ValueError(f"Could not open video file: {video_files[0]}")
+
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        selected_indices = np.linspace(0, total_frames - 1, num=3, dtype=int)
+
+        for frame_idx in selected_indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            success, frame = cap.read()
+            if success:
+                frames.append(frame)
+            else:
+                print(f"Warning: Could not read frame {frame_idx} from {video_files[0]}")
+
+        cap.release()
+
+    if not frames:
+        raise ValueError("No valid frames extracted.")
+
+    # Merge frames by computing the mean
+    merged_image = np.mean(frames, axis=0).astype(np.uint8)
+
+    return merged_image
+
+def zoom_in_display(frame, x, y, zoom_scale = 5, zoom_window_size = 25):
+    # Create zoomed-in display
+    x1 = max(0, x - zoom_window_size)
+    x2 = min(frame.shape[1], x + zoom_window_size)
+    y1 = max(0, y - zoom_window_size)
+    y2 = min(frame.shape[0], y + zoom_window_size)
+
+    zoomed_area = frame[y1:y2, x1:x2]
+    
+    # Resize zoomed-in area
+    zoomed_area_resized = cv2.resize(zoomed_area, None, fx=zoom_scale, fy=zoom_scale, interpolation=cv2.INTER_LINEAR)
+
+    # Add crosshair to the center
+    center_x = zoomed_area_resized.shape[1] // 2
+    center_y = zoomed_area_resized.shape[0] // 2
+    color = (0, 255, 0)  # Black crosshair
+    thickness = 2
+    line_length = 20  # Length of crosshair lines
+
+    # Draw vertical line
+    cv2.line(zoomed_area_resized, (center_x, center_y - line_length), (center_x, center_y + line_length), color, thickness)
+    # Draw horizontal line
+    cv2.line(zoomed_area_resized, (center_x - line_length, center_y), (center_x + line_length, center_y), color, thickness)
+
+    if x2 > (frame.shape[1] - zoomed_area_resized.shape[1] - 10) and y1 < (10 + zoomed_area_resized.shape[0]):
+        # Overlay zoomed-in area in the top-left corner of the frame
+        overlay_x1 = 10
+        overlay_x2 = 10 + zoomed_area_resized.shape[1]
+        overlay_y1 = 10
+        overlay_y2 = 10 + zoomed_area_resized.shape[0]
+    
+    else:
+        # Overlay zoomed-in area in the top-right corner of the frame
+        overlay_x1 = frame.shape[1] - zoomed_area_resized.shape[1] - 10
+        overlay_x2 = frame.shape[1] - 10
+        overlay_y1 = 10
+        overlay_y2 = 10 + zoomed_area_resized.shape[0]
+
+    placement = (overlay_x1, overlay_x2, overlay_y1, overlay_y2)
+
+    return zoomed_area_resized, placement
+
+def draw_text_on_frame_bottom(image, text):
+            # Display text at the bottom of the frame
+            font_scale = 0.5
+            font_thickness = 1
+            text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness)[0]
+            text_x = 10
+            text_y = image.shape[0] - 10
+            cv2.rectangle(image, (text_x - 5, text_y - text_size[1] - 5), 
+                        (text_x + text_size[0] + 5, text_y + 5), (0, 0, 0), -1)  # Background for text
+            cv2.putText(image, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 
+                        font_scale, (255, 255, 255), font_thickness)
+            
+def define_rectangle(x1, y1, x2, y2):
+    """Define a rectangle based on two points."""
+    width, height = int(abs(x2 - x1)), int(abs(y2 - y1))
+    center = [int((x1 + x2) // 2), int((y1 + y2) // 2)]
+    return center, width, height
+
+def draw_rectangle(image, center, width, height, rotation=0, color=(0, 255, 0), thickness=2):
+    """Draws a rotated rectangle on an image."""
+    box = cv2.boxPoints((center, (width, height), rotation))
+    cv2.drawContours(image, [np.int0(box)], 0, color, thickness)
+    cv2.circle(image, center, radius=2, color=color, thickness=-1)
+
+def draw_rois():
+    print("Instructions:")
+    print("1. Left-click once to mark a point.")
+    print("2. Left-click and drag to draw a rectangle.")
+    print("3. Right-click and drag to move the ROI.")
+    print("4. Scroll to resize, Ctrl+Scroll to rotate.")
+    print("5. Alt+Left-click and drag to draw a scale line.")
+    print("6. Press 'S' to save selection or scale.")
+    print("7. Press 'Q' to quit and save all data.")
+
+    # Initialize Tkinter and hide the root window
+    root = Tk()
+    root.withdraw()
+    
+    # Open file dialog to select video files
+    video_files = filedialog.askopenfilenames(
+        title="Select Video Files",
+        filetypes=[("Video Files", "*.mp4 *.avi *.mkv *.mov")]
+    )
+    if not video_files:
+        raise ValueError("No video files selected.")
+    
+    print(f"Selected {len(video_files)} videos.")
+
+    # Merge frames from the selected videos
+    image = merge_frames(video_files)
+    
+    # Create metadata dictionary
+    video_metadata = {
+        "frame_shape": {"width": image.shape[1], "height": image.shape[0]},
+        "scale": None,
+        "areas": [],
+        "points": []
+    }
+    
+    # Initialize variables
+    clone = image.copy()
+    corners = []  # Current ROI 
+    dragging = False  # For moving ROI
+    drag_start = None
+    current_angle = 0  # Current angle for rotation
+    rotate_factor = 1  # Amount of change per scroll
+    resize_factor = 2  # Amount of change per scroll
+    scale_line = None  # For scaling
+    square = False
+
+    # Mouse callback function
+    def handle_mouse(event, x, y, flags, param):
+        nonlocal video_metadata, clone, corners, dragging, drag_start, current_angle, rotate_factor, resize_factor, scale_line, square
+        
+        clone = image.copy()
+
+        # Start drawing the rectangle
+        if event == cv2.EVENT_LBUTTONDOWN:
+            # current_angle = 0 # Reset angle
+            dragging = True
+            corners = [(x, y)]  # Start new ROI at the clicked position
+
+        # Update rectangle during drawing
+        elif event == cv2.EVENT_MOUSEMOVE and dragging and len(corners) == 1:
+
+            if flags & cv2.EVENT_FLAG_CTRLKEY:
+                square = True
+            elif flags & cv2.EVENT_FLAG_ALTKEY:  # Alt key pressed
+                scale_line = corners[0], (x, y)
+            else:
+                scale_line = None
+                square = False
+            
+        # Finish drawing the rectangle
+        elif event == cv2.EVENT_LBUTTONUP:
+            dragging = False
+            x1, y1 = corners[0]
+            x2, y2 = x, y  # End point
+            if square:
+                side = max(abs(x2 - x1), abs(y2 - y1))
+                x2 = x1 + side if x2 > x1 else x1 - side
+                y2 = y1 + side if y2 > y1 else y1 - side
+            corners.append((x2, y2))  # End point
+
+        # Start moving the rectangle
+        elif event == cv2.EVENT_RBUTTONDOWN and len(corners) == 2:
+            dragging = True
+            drag_start = (x, y)
+
+        # Move the rectangle
+        elif event == cv2.EVENT_MOUSEMOVE and dragging and len(corners) == 2:
+            dx = x - drag_start[0]
+            dy = y - drag_start[1]
+            drag_start = (x, y)
+            corners[0] = (corners[0][0] + dx, corners[0][1] + dy)
+            corners[1] = (corners[1][0] + dx, corners[1][1] + dy)
+
+        # Stop moving the rectangle
+        elif event == cv2.EVENT_RBUTTONUP and len(corners) == 2:
+            dragging = False
+
+        # Resize or rotate the ROI using scroll wheel
+        elif event == cv2.EVENT_MOUSEWHEEL and len(corners) == 2:
+            if flags & cv2.EVENT_FLAG_CTRLKEY:  # Rotate with Ctrl key pressed
+                if flags > 0:  # Scroll up
+                    current_angle -= rotate_factor
+                else:  # Scroll down
+                    current_angle += rotate_factor
+            else:  # Resize without modifier key
+                x1, y1 = corners[0]
+                x2, y2 = corners[1]
+                width = max(abs(x2 - x1), 1)
+                height = max(abs(y2 - y1), 1)
+                ratio = width/height
+                if flags > 0:  # Scroll up
+                    x1 -= resize_factor*ratio
+                    y1 -= resize_factor
+                    x2 += resize_factor*ratio
+                    y2 += resize_factor
+                else:  # Scroll down
+                    x1 += resize_factor*ratio
+                    y1 += resize_factor
+                    x2 -= resize_factor*ratio
+                    y2 -= resize_factor
+                corners = [(x1, y1), (x2, y2)]
+        
+        # Draw the updated ROI and display text
+        text = f"{x}, {y}"
+        if scale_line is not None:
+                cv2.line(clone, scale_line[0], scale_line[1], (255, 0, 0), 2)
+                length = np.sqrt((scale_line[0][0] - scale_line[1][0])**2 + (scale_line[0][1] - scale_line[1][1])**2)
+                text = f"Start: {scale_line[0]}, End: {scale_line[1]}, Length: {length:.2f} px"
+        elif len(corners) > 0:
+            x1, y1 = corners[0]
+            if len(corners) > 1:
+                x2, y2 = corners[1]
+            else:
+                x2, y2 = x, y
+            if square:
+                    side = max(abs(x2 - x1), abs(y2 - y1))
+                    x2 = x1 + side if x2 > x1 else x1 - side
+                    y2 = y1 + side if y2 > y1 else y1 - side
+            center, width, height = define_rectangle(x1, y1, x2, y2)
+            draw_rectangle(clone, center, width, height, current_angle, (0, 255, 255), 2)
+
+            if width > 0 and height > 0:
+                text = f"Center: {center}, W: {width}, H: {height}, A: {current_angle}"
+            else:
+                text = f"Point: {center}"
+
+        draw_text_on_frame_bottom(clone, text)
+        
+        # Draw the confirmed ROIs
+        for r in video_metadata["areas"]:
+            draw_rectangle(clone, r["center"], r["width"], r["height"], r["angle"])
+        for r in video_metadata["points"]:
+            draw_rectangle(clone, r["center"], 2, 2, 0)
+
+        # Display the zoomed-in area
+        zoomed_area_resized, placement = zoom_in_display(clone, x, y)
+        overlay_x1, overlay_x2, overlay_y1, overlay_y2 = placement
+        clone[overlay_y1:overlay_y2, overlay_x1:overlay_x2] = zoomed_area_resized
+
+    # Set up the window and mouse callback
+    cv2.namedWindow("Select ROIs")
+    cv2.setMouseCallback("Select ROIs", handle_mouse)
+
+    while True:
+        cv2.imshow("Select ROIs", clone)
+        key = cv2.waitKey(1) & 0xFF
+            
+        if key == ord('s'):
+            if scale_line is not None:
+                real_length = simpledialog.askfloat("Input", "Enter the length of the selected line in cm:")
+                if not real_length:
+                    print(f"Scale not saved.")
+                else:
+                    scale_factor = np.sqrt((scale_line[0][0] - scale_line[1][0])**2 + (scale_line[0][1] - scale_line[1][1])**2) / real_length
+                    video_metadata["scale"] = scale_factor
+                    corners = []
+            if len(corners) == 2:  # Save the ROI
+                name = simpledialog.askstring("Input", "Enter a name for the ROI:")
+                if not name:
+                    print(f"ROI not saved.")
+                else:
+                    x1, y1 = corners[0]
+                    x2, y2 = corners[1]
+                    center, width, height = define_rectangle(x1, y1, x2, y2)
+                    if width > 0 and height > 0:
+                        saved_roi = {
+                            "name": name,
+                            "center": center,
+                            "width": width,
+                            "height": height,
+                            "angle": current_angle
+                        }
+                        video_metadata["areas"].append(saved_roi)
+                    else:
+                        saved_roi = {
+                            "name": name,
+                            "center": center,
+                        }
+                        video_metadata["points"].append(saved_roi)
+                    print(f"Saved ROI: {saved_roi}")
+            
+            clone = image.copy()
+            for r in video_metadata["areas"]:
+                draw_rectangle(clone, r["center"], r["width"], r["height"], r["angle"])
+            for r in video_metadata["points"]:
+                draw_rectangle(clone, r["center"], 2, 2, 0)
+
+        elif key == ord('q'):  # Quit and save
+            response = messagebox.askquestion("Exit", "Do you want to exit the ROI selector?")
+            if response == 'yes':
+                response = messagebox.askquestion("Exit", "Do you want to save ROIs?")
+                if response == 'yes':
+                    save = True
+                else:
+                    save = False
+                break
+
+    cv2.destroyAllWindows()
+
+    # Save the ROIs to a CSV file
+    if save:
+        output_json = os.path.join(os.path.dirname(video_files[0]), 'ROIs.json')
+        with open(output_json, 'w') as file:
+            json.dump(video_metadata, file, indent=4)
+
+        print(f"ROIs saved to {output_json}")
+    
+    else:
+        print("No ROIs saved.")
+
+# Create video dictionary
 
 def save_video_dict(video_dict, file_path):
     """Save video_dict as a JSON file."""
@@ -119,111 +464,6 @@ def select_trimming(video_dict):
 
 # Alignment
 
-def merge_frames(video_files: list) -> np.ndarray:
-    """
-    Merge the first frame of each video file into a single image.
-
-    Args:
-        video_files (list): List of video files.
-    
-    Returns:
-        np.ndarray: Merged image.
-    """
-    merged_image = None
-    
-    if len(video_files) > 1:
-        for video_file in video_files:
-            cap = cv2.VideoCapture(video_file)
-            success, frame = cap.read()
-            cap.release()
-            
-            if not success:
-                print(f"Could not read first frame of {video_file}")
-                continue
-            
-            # Calculate transparency
-            transparency = round(1 / len(video_files), 4)
-            transparent_frame = (frame * transparency).astype(np.uint8)
-            
-            if merged_image is None:
-                # Initialize merged image
-                merged_image = np.zeros_like(transparent_frame)
-            
-            # Add transparent frame to the merged image
-            merged_image = cv2.add(merged_image, transparent_frame)
-    
-    else:
-        video_file = video_files[0]
-        cap = cv2.VideoCapture(video_file)
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        
-        selected_frame_indices = [1, total_frames//2, total_frames-1] # merge the first, middle, and last frames
-
-        for frame_idx in selected_frame_indices:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-            success, frame = cap.read()
-
-            if not success:
-                print(f"Could not read frame {frame_idx} from {video_file}")
-                continue
-
-            # Calculate transparency
-            transparency = 1/3 # set transparency to 1/3 for each of the three frames
-            transparent_frame = (frame * transparency).astype(np.uint8)
-            
-            if merged_image is None:
-                # Initialize merged image
-                merged_image = np.zeros_like(transparent_frame)
-            
-            # Add transparent frame to the merged image
-            merged_image = cv2.add(merged_image, transparent_frame)
-        
-        cap.release()
-        
-    return merged_image
-
-def zoom_in_display(frame, x, y, zoom_scale = 5, zoom_window_size = 25):
-    # Create zoomed-in display
-    x1 = max(0, x - zoom_window_size)
-    x2 = min(frame.shape[1], x + zoom_window_size)
-    y1 = max(0, y - zoom_window_size)
-    y2 = min(frame.shape[0], y + zoom_window_size)
-
-    zoomed_area = frame[y1:y2, x1:x2]
-    
-    # Resize zoomed-in area
-    zoomed_area_resized = cv2.resize(zoomed_area, None, fx=zoom_scale, fy=zoom_scale, interpolation=cv2.INTER_LINEAR)
-
-    # Add crosshair to the center
-    center_x = zoomed_area_resized.shape[1] // 2
-    center_y = zoomed_area_resized.shape[0] // 2
-    color = (0, 255, 0)  # Black crosshair
-    thickness = 2
-    line_length = 20  # Length of crosshair lines
-
-    # Draw vertical line
-    cv2.line(zoomed_area_resized, (center_x, center_y - line_length), (center_x, center_y + line_length), color, thickness)
-    # Draw horizontal line
-    cv2.line(zoomed_area_resized, (center_x - line_length, center_y), (center_x + line_length, center_y), color, thickness)
-
-    if x2 > (frame.shape[1] - zoomed_area_resized.shape[1] - 10) and y1 < (10 + zoomed_area_resized.shape[0]):
-        # Overlay zoomed-in area in the top-left corner of the frame
-        overlay_x1 = 10
-        overlay_x2 = 10 + zoomed_area_resized.shape[1]
-        overlay_y1 = 10
-        overlay_y2 = 10 + zoomed_area_resized.shape[0]
-    
-    else:
-        # Overlay zoomed-in area in the top-right corner of the frame
-        overlay_x1 = frame.shape[1] - zoomed_area_resized.shape[1] - 10
-        overlay_x2 = frame.shape[1] - 10
-        overlay_y1 = 10
-        overlay_y2 = 10 + zoomed_area_resized.shape[0]
-
-    placement = (overlay_x1, overlay_x2, overlay_y1, overlay_y2)
-
-    return zoomed_area_resized, placement
-
 def select_alignment(video_dict: dict):
     """Select two alignment points for each video and update the video_dict.
 
@@ -313,22 +553,6 @@ def select_alignment(video_dict: dict):
     cv2.destroyAllWindows()
 
 # Cropping
-
-def define_rectangle(x1, y1, x2, y2):
-    """Define a rectangle based on two points.
-    """
-    width = int(round(abs(x2 - x1)))
-    height = int(round(abs(y2 - y1)))
-    center = (int(round((x1+x2)//2)), int(round((y1+y2)//2))) # Round to integer
-    return center, width, height
-
-def draw_rectangle(image, center, width, height, angle = 0, color = (0, 255, 0), thickness = 2):
-    """Draw a rectangle on an image.
-    """
-    box = cv2.boxPoints(((center[0], center[1]), (width, height), angle))
-    box = np.intp(box)  # Convert to integer
-    cv2.drawContours(image, [box], 0, color, thickness)
-    cv2.circle(image, (int(round(center[0])), int(round(center[1]))), radius=2, color=color, thickness=-1)
 
 def select_cropping(video_dict):
 
@@ -552,7 +776,7 @@ def calculate_mean_points(video_dict: dict, horizontal=False):
     print(f"Mean points: {mean_points}")
     return mean_points
 
-def get_alignment_matrices(video_data, align, mean_point_1, mean_length, mean_angle, width, height, horizontal):
+def get_alignment_matrices(video_data, align, mean_point_1, mean_length, mean_angle, width, height):
     """Compute the rotation and translation matrices for alignment."""
     if not align or "align" not in video_data:
         return None, None
@@ -563,9 +787,7 @@ def get_alignment_matrices(video_data, align, mean_point_1, mean_length, mean_an
     angle = np.arctan2(vector[1], vector[0])
 
     scale = mean_length / length if length != 0 else 1
-    rotation_angle = np.degrees(mean_angle - angle)
-    if horizontal: # Im not sure why, but if the points are asked to be on the same horizontal line, the rotation needs to be inverted
-        rotation_angle = rotation_angle*(-1)
+    rotation_angle = np.degrees(mean_angle + angle)
     center = (width // 2, height // 2)
     rotate_matrix = cv2.getRotationMatrix2D(center, rotation_angle, scale)
 
@@ -627,7 +849,7 @@ def apply_transformations(video_dict: dict, trim = False, crop=False, align=Fals
         cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
 
         # Compute alignment transformation if needed
-        rotate_matrix, translate_matrix = get_alignment_matrices(video_data, align, mean_point_1, mean_length, mean_angle, width, height, horizontal)
+        rotate_matrix, translate_matrix = get_alignment_matrices(video_data, align, mean_point_1, mean_length, mean_angle, width, height)
 
         # Compute cropping parameters
         crop_params = video_data.get("crop", {})

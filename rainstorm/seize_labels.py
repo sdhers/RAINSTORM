@@ -7,6 +7,7 @@ import os
 from glob import glob
 import pandas as pd
 import numpy as np
+import yaml
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
@@ -15,11 +16,21 @@ import csv
 
 # %% functions
 
+def load_yaml(params_path: str) -> dict:
+    """Loads a YAML file."""
+    with open(params_path, "r") as file:
+        return yaml.safe_load(file)
+
 # Define the color pairs for plotting
 global color_A_list; color_A_list = ['dodgerblue',    'green',    'orangered',    'indigo',   'sienna']
 global color_B_list; color_B_list = ['darkorange',    'orchid',   'turquoise',    'gray',     'limegreen']
 
-def create_reference_file(folder, trials, objects):
+def create_reference_file(params_path:str):
+    
+    params = load_yaml(params_path)
+    folder = params.get("path")
+    trials = params.get("trials", [])
+    targets = params.get("targets", [])
     
     reference_path = os.path.join(folder, 'reference.csv')
     
@@ -39,7 +50,7 @@ def create_reference_file(folder, trials, objects):
     # Create a new CSV file with a header 'Videos'
     with open(reference_path, 'w', newline='') as output_file:
         csv_writer = csv.writer(output_file)
-        col_list = ['Video', 'Group'] + objects
+        col_list = ['Video', 'Group'] + targets
         csv_writer.writerow(col_list)
 
         # Write each position file name in the 'Videos' column
@@ -53,7 +64,18 @@ def create_reference_file(folder, trials, objects):
     return reference_path
 
 
-def create_summary(reference_path, label_type, trials, objects, fps = 30):
+def create_summary(params_path:str):
+    
+    params = load_yaml(params_path)
+    folder = params.get("path")
+    reference_path = os.path.join(folder, 'reference.csv')
+
+    trials = params.get("trials", [])
+    targets = params.get("targets", [])
+    fps = params.get("video_fps", 30)
+
+    experiment_metadata = params.get("experiment metadata", {})
+    label_type = experiment_metadata.get("label_type", "geolabels")
     
     parent_dir = os.path.dirname(reference_path)
     reference = pd.read_csv(reference_path)
@@ -92,9 +114,9 @@ def create_summary(reference_path, label_type, trials, objects, fps = 30):
                     df_label = pd.read_csv(label_path)
 
                     # Rename the columns based on the 'Left' and 'Right' values
-                    for i in range(len(objects)):
-                        obj = row[objects[i]]
-                        df_label = df_label.rename(columns={objects[i]: obj})
+                    for i in range(len(targets)):
+                        tgt = row[targets[i]]
+                        df_label = df_label.rename(columns={targets[i]: tgt})
 
                     df = pd.merge(df_movement, df_label, on='Frame')
 
@@ -118,7 +140,7 @@ def create_summary(reference_path, label_type, trials, objects, fps = 30):
 
 def calculate_DI(df: pd.DataFrame, novelty: list, fps: float = 30) -> pd.DataFrame:
     """
-    Calculates the discrimination index (DI) between two exlpored objects.
+    Calculates the discrimination index (DI) between two exlpored targets.
 
     Args:
         df (pd.DataFrame): DataFrame containing the exploration times.
@@ -156,14 +178,14 @@ def calculate_durations(series, fps):
 
 # %% plots
 
-def plot_multiple_analyses(path: str, data: dict, groups, trial, plots: list, fps: int = 30, show: bool = True) -> None:
+def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = True) -> None:
     """
     Plot multiple analyses for a single trial side by side as subplots.
 
     Args:
         path (str): Path to the main folder.
         data (dict): Group names with their trials and object novelty pair.
-        groups (list): Groups to plot
+        groups (list): Groups to plot.
         trial (str): Trial name.
         plots (list): List of functions to apply for plotting.
         fps (int): Frames per second of the video.
@@ -172,6 +194,14 @@ def plot_multiple_analyses(path: str, data: dict, groups, trial, plots: list, fp
     Returns:
         None: Displays the plots and optionally saves them.
     """
+    params = load_yaml(params_path)
+    path = params.get("path")
+    fps = params.get("video_fps", 30)
+
+    experiment_metadata = params.get("experiment metadata", {})
+    groups = experiment_metadata.get("groups", [])
+    data = experiment_metadata.get("target roles", {})
+    print(data) 
 
     # Number of plots to create
     num_plots = len(plots)
@@ -190,7 +220,7 @@ def plot_multiple_analyses(path: str, data: dict, groups, trial, plots: list, fp
         for group in groups:
             try:
                 # Call the plotting function for each group on the current subplot axis
-                plot_func(path, group, trial, data[group][trial], fps, ax=ax)
+                plot_func(path, group, trial, data[trial], fps, ax=ax)
                 aux_glob += 1
             except Exception as e:
                 print(f"Error plotting {plot_func.__name__} for group {group} and trial {trial}: {e}")

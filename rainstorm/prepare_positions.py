@@ -105,10 +105,6 @@ def create_params(folder_path:str, ROIs_path = None):
             "tolerance": 0.8,
             "median_filter": 3
         },
-        "scaling": {  # Grouped under a dictionary
-            "measured_points": ["L_ear", "R_ear"],
-            "measured_dist": 1.8,
-        },
         "video_fps": 25,
         "roi_data": roi_data,  # Add the JSON content here
         "geometric analysis": {
@@ -116,6 +112,15 @@ def create_params(folder_path:str, ROIs_path = None):
             "orientation": 45.0,
             "freezing_threshold": 0.01
         },
+        "experiment metadata": {
+            "groups": ["Group_1", "Group_2"],
+            "target roles": {
+                "Hab": None,
+                "TR": ["Left", "Right"],
+                "TS": ["Novel", "Known"]
+            },
+            "label_type": "geolabels",
+        }
     }
 
     # Ensure directory exists
@@ -139,16 +144,20 @@ def create_params(folder_path:str, ROIs_path = None):
         "targets": "# List of the exploration targets.",
         "trials": "# If your experiment has multiple trials, specify the trial names here.",
         "filtering & smoothing": "# Parameters for processing positions",
-        "scaling": "# List two points (or a ROI side) that will be used to scale the positions to cm",
         "video_fps": "# Video settings",
         "roi_data": "# Regions of Interest (ROIs) and key points from JSON",
         "frame_shape": "  # Shape of the video frames",
+        "scale": "  # Scale factor (in px/cm)",
         "areas": "  # Defined ROIs (areas) in the frame",
         "points": "  # Key points within the frame",
         "geometric analysis": "# Parameters for defining exploration and freezing behavior",
         "distance": "  # Maximum nose-target distance to consider exploration.",
         "orientation": "  # Maximum head-target orientation angle to consider exploration.",
         "freezing_threshold": "  # Movement threshold for freezing, computed as mean std of all body parts over 1 second.",
+        "experiment metadata": "# Parameters for the analysis of the experiment",
+        "groups": "  # List of the groups in the experiment",
+        "target roles": "  # Role/novelty of each target in the experiment",
+        "label_type": "  # Type of labels used to measure exploration (geolabels, autolabels, etc.)",
     }
 
     # Insert comments before corresponding keys
@@ -534,12 +543,11 @@ def find_scale_factor(params_path: str, df: pd.DataFrame, print_results: bool = 
     
     return scale
 
-def process_position_files(params_path: str, scale: bool = True):
+def process_position_files(params_path: str):
     """Processes a list of HDF5 files and saves the smoothed data as a CSV file.
 
     Args:
         params_path (str): Path to the YAML parameters file.
-        scale (bool): Whether to scale the data.
     """
     params = load_yaml(params_path)
     path = params.get("path")
@@ -566,12 +574,6 @@ def process_position_files(params_path: str, scale: bool = True):
             print(f"Warning: {os.path.basename(file)} has no valid data after processing. Skipping.")
             continue  # Skip saving and move to the next file
 
-        if scale:
-            scale_factor = find_scale_factor(params_path, df_smooth)
-            df_smooth *= scale_factor
-        else:
-            scale_factor = 1.0  # No scaling applied
-
         # Determine output CSV path
         input_dir, input_filename = os.path.split(file)
         filename_without_extension = os.path.splitext(input_filename)[0]
@@ -583,9 +585,7 @@ def process_position_files(params_path: str, scale: bool = True):
         # Calculate the moment when the mouse enters the video
         mouse_enters = (len(df_raw) - len(df_smooth)) / fps
 
-        print(f"{input_filename} has {df_smooth.shape[1]} columns. "
-              f"Mouse entered after {mouse_enters:.2f} sec. "
-              f"Scale factor: {scale_factor:.4f} (1 cm = {1/scale_factor:.2f} px). ")
+        print(f"{input_filename} has {df_smooth.shape[1]} columns. Mouse entered after {mouse_enters:.2f} sec.")
 
 def filter_and_move_files(params_path: str):
     """Filters and moves files to a subfolder.

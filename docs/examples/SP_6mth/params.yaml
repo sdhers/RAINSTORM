@@ -1,0 +1,225 @@
+# Rainstorm Parameters file
+
+# Path to the folder containing the pose estimation files
+path: C:\Users\dhers\Desktop\SP_6mth
+
+# List of the pose estimation filenames
+filenames:
+- 2025_02-R01-Social_Hab
+- 2025_02-R01-Social_TR1
+- 2025_02-R01-Social_TR2
+- 2025_02-R02-Social_Hab
+- 2025_02-R02-Social_TR1
+- 2025_02-R02-Social_TR2
+- 2025_02-R02-Social_TR3
+- 2025_02-R03-Social_Hab
+- 2025_02-R03-Social_TR1
+- 2025_02-R03-Social_TR2
+- 2025_02-R03-Social_TR3
+- 2025_02-R04-Social_Hab
+- 2025_02-R04-Social_TR1
+- 2025_02-R04-Social_TR2
+- 2025_02-R05-Social_Hab
+- 2025_02-R05-Social_TR1
+- 2025_02-R05-Social_TR2
+- 2025_02-R05-Social_TR3
+- 2025_02-R06-Social_Hab
+- 2025_02-R06-Social_TR1
+- 2025_02-R06-Social_TR2
+- 2025_02-R06-Social_TR3
+- 2025_02-R07-Social_Hab
+- 2025_02-R07-Social_TR1
+- 2025_02-R07-Social_TR2
+- 2025_02-R08-Social_Hab
+- 2025_02-R08-Social_TR1
+- 2025_02-R08-Social_TR2
+- 2025_02-R08-Social_TR3
+- 2025_02-R09-Social_Hab
+- 2025_02-R09-Social_TR1
+- 2025_02-R09-Social_TR2
+- 2025_02-R09-Social_TR3
+- 2025_02-R10-Social_Hab
+- 2025_02-R10-Social_TR2
+- 2025_02-R11-Social_Hab
+- 2025_02-R11-Social_TR1
+- 2025_02-R11-Social_TR2
+- 2025_02-R11-Social_TR3
+- 2025_02-R12-Social_Hab
+- 2025_02-R12-Social_TR1
+- 2025_02-R12-Social_TR2
+- 2025_02-R13-Social_Hab
+- 2025_02-R13-Social_TR1
+- 2025_02-R13-Social_TR2
+- 2025_02-R13-Social_TR3
+- 2025_02-R14-Social_Hab
+- 2025_02-R14-Social_TR1
+- 2025_02-R14-Social_TR2
+- 2025_02-R14-Social_TR3
+- 2025_02-R15-Social_Hab
+- 2025_02-R15-Social_TR1
+- 2025_02-R15-Social_TR2
+- 2025_02-R15-Social_TR3
+- 2025_02-R16-Social_Hab
+- 2025_02-R16-Social_TR1
+- 2025_02-R16-Social_TR2
+- 2025_02-R17-Social_Hab
+- 2025_02-R17-Social_TR1
+- 2025_02-R17-Social_TR2
+- 2025_02-R17-Social_TR3
+- 2025_02-R18-Social_Hab
+- 2025_02-R18-Social_TR1
+- 2025_02-R18-Social_TR2
+- 2025_02-R18-Social_TR3
+- 2025_02-R19-Social_Hab
+- 2025_02-R19-Social_TR1
+- 2025_02-R19-Social_TR2
+- 2025_02-R19-Social_TR3
+- 2025_02-R20-Social_Hab
+- 2025_02-R20-Social_TR1
+- 2025_02-R20-Social_TR2
+- 2025_02-R20-Social_TR3
+- 2025_02-R21-Social_Hab
+- 2025_02-R21-Social_TR1
+- 2025_02-R21-Social_TR2
+- 2025_02-R22-Social_Hab
+- 2025_02-R22-Social_TR1
+- 2025_02-R22-Social_TR2
+- 2025_02-R23-Social_Hab
+- 2025_02-R23-Social_TR1
+- 2025_02-R23-Social_TR2
+- 2025_02-R23-Social_TR3
+
+# Software used to generate the pose estimation files
+software: DLC
+
+# List of the tracked bodyparts
+bodyparts:
+- nose
+- left_ear
+- right_ear
+- head
+- neck
+- body
+- tail_base
+- tail_mid
+- tail_end
+- left_hip
+- left_midside
+- left_shoulder
+- right_hip
+- right_midside
+- right_shoulder
+
+# List of the exploration targets.
+targets:
+- blue
+- red
+
+# If your experiment has multiple trials, specify the trial names here.
+trials:
+- Hab
+- TR1
+- TR2
+- TR3
+
+# Parameters for processing positions
+filtering & smoothing:
+  confidence: 2
+  tolerance: 0.5
+  median_filter: 3
+
+# Video settings
+video_fps: 30
+
+# Regions of Interest (ROIs) and key points from JSON
+roi_data:
+
+  # Shape of the video frames
+  frame_shape:
+    width: 914
+    height: 626
+
+  # Scale factor (in px/cm)
+  scale: 11.55
+
+  # Defined ROIs (areas) in the frame
+  areas:
+  - name: center
+    center:
+    - 460
+    - 451
+    width: 270
+    height: 270
+    angle: 0
+  - name: blue_corner
+    center:
+    - 190
+    - 451
+    width: 270
+    height: 270
+    angle: 0
+  - name: blue_chamber
+    center:
+    - 190
+    - 181
+    width: 270
+    height: 270
+    angle: 0
+  - name: red_corner
+    center:
+    - 730
+    - 451
+    width: 270
+    height: 270
+    angle: 0
+  - name: red_chamber
+    center:
+    - 730
+    - 181
+    width: 270
+    height: 270
+    angle: 0
+
+  # Key points within the frame
+  points:
+  - name: blue
+    center:
+    - 118
+    - 103
+  - name: red
+    center:
+    - 799
+    - 103
+
+# Parameters for defining exploration and freezing behavior
+geometric analysis:
+
+  # Maximum nose-target distance to consider exploration.
+  distance: 10
+
+  # Maximum head-target orientation angle to consider exploration.
+  orientation: 45.0
+
+  # Movement threshold for freezing, computed as mean std of all body parts over 1 second.
+  freezing_threshold: 0.01
+
+# Parameters for the analysis of the experiment
+experiment metadata:
+
+  # List of the groups in the experiment
+  groups:
+  - Group_1
+  - Group_2
+
+  # Role/novelty of each target in the experiment
+  target roles:
+    Hab: null
+    TR:
+    - Left
+    - Right
+    TS:
+    - Novel
+    - Known
+
+  # Type of labels used to measure exploration (geolabels, autolabels, etc.)
+  label_type: geolabels

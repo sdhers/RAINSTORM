@@ -66,6 +66,10 @@ def plot_position(params_path:str, file: str) -> None:
     params = load_yaml(params_path)
     targets = params.get("targets", [])
 
+    # Load scaling parameters
+    roi_data = params.get("roi_data", {})
+    scale = roi_data.get("scale", 1)
+
     # Load geometric analysis parameters
     geometric_params = params.get("geometric analysis", {})
     max_distance = geometric_params.get("distance", 2.5)
@@ -76,6 +80,9 @@ def plot_position(params_path:str, file: str) -> None:
     
     # Read the .csv
     df = pd.read_csv(file)
+
+    # Scale the data
+    df *= 1/scale
 
     # Extract body parts
     nose = Point(df, 'nose')
@@ -175,12 +182,19 @@ def plot_freezing(params_path:str, file: str) -> None:
     params = load_yaml(params_path)
     fps = params.get("video_fps", 30)
 
+    # Load scaling parameters
+    roi_data = params.get("roi_data", {})
+    scale = roi_data.get("scale", 1)
+
     # Load geometric analysis parameters
     geometric_params = params.get("geometric analysis", {})
     threshold = geometric_params.get("freezing_threshold", 0.01)
     
     # Load the CSV
     df = pd.read_csv(file)
+
+    # Scale the data
+    df *= 1/scale
 
     # Filter the position columns and exclude 'tail'
     position = df.filter(regex='_x|_y').filter(regex='^(?!.*tail_2)').filter(regex='^(?!.*tail_3)').copy()
@@ -253,6 +267,10 @@ def create_movement_and_geolabels(params_path:str) -> None:
     targets = params.get("targets", [])
     fps = params.get("fps", 30)
 
+    # Load scaling parameters
+    roi_data = params.get("roi_data", {})
+    scale = roi_data.get("scale", 1)
+
     # Load geometric analysis parameters
     geometric_params = params.get("geometric analysis", {})
     max_distance = geometric_params.get("distance", 2.5)
@@ -267,6 +285,9 @@ def create_movement_and_geolabels(params_path:str) -> None:
         
         # Read the file
         position = pd.read_csv(file)
+
+        # Scale the data
+        position *= 1/scale
 
         if len(targets) != 0:
 

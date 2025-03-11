@@ -5,66 +5,66 @@ path: C:\Users\dhers\Desktop\Rainstorm\docs\examples\NOR_example
 
 # List of the pose estimation filenames
 filenames:
-- NOR_Hab_C1_A_position
-- NOR_Hab_C1_B_position
-- NOR_Hab_C1_C_position
-- NOR_Hab_C1_D_position
-- NOR_Hab_C2_A_position
-- NOR_Hab_C2_B_position
-- NOR_Hab_C2_C_position
-- NOR_Hab_C2_D_position
-- NOR_Hab_C3_A_position
-- NOR_Hab_C3_B_position
-- NOR_Hab_C3_C_position
-- NOR_Hab_C3_D_position
-- NOR_Hab_C4_A_position
-- NOR_Hab_C4_B_position
-- NOR_Hab_C4_C_position
-- NOR_Hab_C4_D_position
-- NOR_Hab_C5_A_position
-- NOR_Hab_C5_B_position
-- NOR_Hab_C5_C_position
-- NOR_Hab_C5_D_position
-- NOR_TR_C1_A_position
-- NOR_TR_C1_B_position
-- NOR_TR_C1_C_position
-- NOR_TR_C1_D_position
-- NOR_TR_C2_A_position
-- NOR_TR_C2_B_position
-- NOR_TR_C2_C_position
-- NOR_TR_C2_D_position
-- NOR_TR_C3_A_position
-- NOR_TR_C3_B_position
-- NOR_TR_C3_C_position
-- NOR_TR_C3_D_position
-- NOR_TR_C4_A_position
-- NOR_TR_C4_B_position
-- NOR_TR_C4_C_position
-- NOR_TR_C4_D_position
-- NOR_TR_C5_A_position
-- NOR_TR_C5_B_position
-- NOR_TR_C5_C_position
-- NOR_TR_C5_D_position
-- NOR_TS_C1_A_position
-- NOR_TS_C1_B_position
-- NOR_TS_C1_C_position
-- NOR_TS_C1_D_position
-- NOR_TS_C2_A_position
-- NOR_TS_C2_B_position
-- NOR_TS_C2_C_position
-- NOR_TS_C2_D_position
-- NOR_TS_C3_A_position
-- NOR_TS_C3_B_position
-- NOR_TS_C3_C_position
-- NOR_TS_C3_D_position
-- NOR_TS_C4_A_position
-- NOR_TS_C4_B_position
-- NOR_TS_C4_C_position
-- NOR_TS_C4_D_position
-- NOR_TS_C5_A_position
-- NOR_TS_C5_B_position
-- NOR_TS_C5_C_position
-- NOR_TS_C5_D_position
+- NOR_Hab_C1_A
+- NOR_Hab_C1_B
+- NOR_Hab_C1_C
+- NOR_Hab_C1_D
+- NOR_Hab_C2_A
+- NOR_Hab_C2_B
+- NOR_Hab_C2_C
+- NOR_Hab_C2_D
+- NOR_Hab_C3_A
+- NOR_Hab_C3_B
+- NOR_Hab_C3_C
+- NOR_Hab_C3_D
+- NOR_Hab_C4_A
+- NOR_Hab_C4_B
+- NOR_Hab_C4_C
+- NOR_Hab_C4_D
+- NOR_Hab_C5_A
+- NOR_Hab_C5_B
+- NOR_Hab_C5_C
+- NOR_Hab_C5_D
+- NOR_TR_C1_A
+- NOR_TR_C1_B
+- NOR_TR_C1_C
+- NOR_TR_C1_D
+- NOR_TR_C2_A
+- NOR_TR_C2_B
+- NOR_TR_C2_C
+- NOR_TR_C2_D
+- NOR_TR_C3_A
+- NOR_TR_C3_B
+- NOR_TR_C3_C
+- NOR_TR_C3_D
+- NOR_TR_C4_A
+- NOR_TR_C4_B
+- NOR_TR_C4_C
+- NOR_TR_C4_D
+- NOR_TR_C5_A
+- NOR_TR_C5_B
+- NOR_TR_C5_C
+- NOR_TR_C5_D
+- NOR_TS_C1_A
+- NOR_TS_C1_B
+- NOR_TS_C1_C
+- NOR_TS_C1_D
+- NOR_TS_C2_A
+- NOR_TS_C2_B
+- NOR_TS_C2_C
+- NOR_TS_C2_D
+- NOR_TS_C3_A
+- NOR_TS_C3_B
+- NOR_TS_C3_C
+- NOR_TS_C3_D
+- NOR_TS_C4_A
+- NOR_TS_C4_B
+- NOR_TS_C4_C
+- NOR_TS_C4_D
+- NOR_TS_C5_A
+- NOR_TS_C5_B
+- NOR_TS_C5_C
+- NOR_TS_C5_D
 
 # Software used to generate the pose estimation files
 software: DLC
@@ -98,13 +98,6 @@ filtering & smoothing:
   tolerance: 0.8
   median_filter: 3
 
-# List two points (or a ROI side) that will be used to scale the positions to cm
-scaling:
-  measured_points:
-  - L_ear
-  - R_ear
-  measured_dist: 1.8
-
 # Video settings
 video_fps: 25
 
@@ -113,76 +106,87 @@ roi_data:
 
   # Shape of the video frames
   frame_shape:
-    width: 960
-    height: 640
+    width: 680
+    height: 500
+
+  # Scale factor (in px/cm)
+  scale: 20
 
   # Defined ROIs (areas) in the frame
-  areas:
-  - name: center
+  areas: 
+  - name: centre
     center:
-    - 485
-    - 453
-    width: 311
-    height: 273
-
-  # Maximum head-object orientation angle to consider exploration.
-    angle: 0
-  - name: blue_chamber
-    center:
-    - 173
-    - 179
-    width: 311
-    height: 273
-
-  # Maximum head-object orientation angle to consider exploration.
-    angle: 0
-  - name: red_chamber
-    center:
-    - 798
-    - 180
-    width: 311
-    height: 273
-
-  # Maximum head-object orientation angle to consider exploration.
-    angle: 0
-  - name: blue_corner
-    center:
-    - 172
-    - 454
-    width: 311
-    height: 273
-
-  # Maximum head-object orientation angle to consider exploration.
-    angle: 0
-  - name: red_corner
-    center:
-    - 799
-    - 455
-    width: 311
-    height: 273
-
-  # Maximum head-object orientation angle to consider exploration.
-    angle: 0
+    - 340
+    - 250
+    width: 270
+    height: 270
+    angle: 30
 
   # Key points within the frame
-  points:
-  - name: blue
-    center:
-    - 138
-    - 111
-  - name: red
-    center:
-    - 840
-    - 111
+  points: null
 
 # Parameters for defining exploration and freezing behavior
 geometric analysis:
 
-  # Maximum nose-object distance to consider exploration.
+  # Maximum nose-target distance to consider exploration.
   distance: 2.5
 
-  # Maximum head-object orientation angle to consider exploration.
-  angle: 45.0
+  # Maximum head-target orientation angle to consider exploration.
+  orientation: 45.0
 
   # Movement threshold for freezing, computed as mean std of all body parts over 1 second.
-  freezing_threshold: 0.01
+  freezing threshold: 0.01
+
+# Parameters for automatic analysis of the experiment
+automatic analysis:
+
+  # Model name (simple, wide, RF, etc.)
+  model: wide
+
+  # Training date of the model
+  model date: example
+
+  # List of bodyparts used to train the model
+  model bodyparts:
+  - nose
+  - L_ear
+  - R_ear
+  - head
+  - neck
+  - body
+
+  # Whether to rescale the data
+  rescaling: True
+
+  # Whether to reshape the data (set to True for LSTM models)
+  reshaping: True
+
+  # Number of frames to use for past frames
+  past: 3
+
+  # Number of frames to use for future frames
+  future: 3
+
+  # Window size for the moving average filter
+  broad: 1.7
+
+# Parameters for the analysis of the experiment
+experiment metadata:
+
+  # List of the groups in the experiment
+  groups:
+  - 24 hs
+  - 1 week
+
+  # Role/novelty of each target in the experiment
+  target roles:
+    Hab: null
+    TR:
+    - Left
+    - Right
+    TS:
+    - Novel
+    - Known
+
+  # Type of labels used to measure exploration (geolabels, autolabels, etc.)
+  label type: autolabels

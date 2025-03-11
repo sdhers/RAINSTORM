@@ -18,8 +18,6 @@ import shutil
 
 from scipy import signal
 
-from .utils import choose_example
-
 # %% functions
 
 def backup_folder(folder_path, suffix="_backup"):
@@ -72,23 +70,29 @@ def create_params(folder_path:str, ROIs_path = None):
     params_path = os.path.join(folder_path, 'params.yaml')
 
     if os.path.exists(params_path):
-        print(f"params.yaml already exists in {folder_path}. Skipping creation.")
+        print(f"params.yaml already exists in '{folder_path}'.\nSkipping creation.")
         return params_path
+    
+    roi_data = {
+            "frame_shape": {
+                "width": None,
+                "height": None
+            },
+            "scale": 1,
+            "areas": None,
+            "points": None
+            }
 
     if ROIs_path is not None:
         if os.path.exists(ROIs_path):  # Check if file exists
             try:
                 with open(ROIs_path, "r") as json_file:
-                    roi_data = json.load(json_file)
+                    roi_data = json.load(json_file) # Overwrite null roi_data
             except Exception as e:
-                print(f"Error loading ROI data: {e}")
-                roi_data = None
+                print(f"Error loading ROI data: {e}.\nEdit the params.yaml file manually to add ROIs.")
         else:
-            print(f"ROIs_path '{ROIs_path}' does not exist.")
-            roi_data = None
-    else:
-        roi_data = None
-    
+            print(f"Error loading ROI data: ROIs_path '{ROIs_path}' does not exist.\nEdit the params.yaml file manually to add ROIs.")
+        
     all_h5_files = glob(os.path.join(folder_path,"*position.h5"))
     filenames = [os.path.basename(file).replace('_position.h5', '') for file in all_h5_files]
     
@@ -103,14 +107,24 @@ def create_params(folder_path:str, ROIs_path = None):
         "filtering & smoothing": {  # Grouped under a dictionary
             "confidence": 2,
             "tolerance": 0.8,
-            "median_filter": 3
+            "median filter": 3
         },
-        "video_fps": 25,
-        "roi_data": roi_data,  # Add the JSON content here
+        "video fps": 25,
+        "roi data": roi_data,  # Add the JSON content here
         "geometric analysis": {
             "distance": 2.5,
             "orientation": 45.0,
-            "freezing_threshold": 0.01
+            "freezing threshold": 0.01
+        },
+        "automatic analysis": {
+            "model": "wide",
+            "model date": "example",
+            "model bodyparts": ["nose", "L_ear", "R_ear", "head", "neck", "body"],
+            "rescaling": True,
+            "reshaping": False,
+            "past": 3,
+            "future": 3,
+            "broad": 1.7
         },
         "experiment metadata": {
             "groups": ["Group_1", "Group_2"],
@@ -119,7 +133,7 @@ def create_params(folder_path:str, ROIs_path = None):
                 "TR": ["Left", "Right"],
                 "TS": ["Novel", "Known"]
             },
-            "label_type": "geolabels",
+            "label type": "geolabels",
         }
     }
 
@@ -144,20 +158,32 @@ def create_params(folder_path:str, ROIs_path = None):
         "targets": "# List of the exploration targets.",
         "trials": "# If your experiment has multiple trials, specify the trial names here.",
         "filtering & smoothing": "# Parameters for processing positions",
-        "video_fps": "# Video settings",
-        "roi_data": "# Regions of Interest (ROIs) and key points from JSON",
-        "frame_shape": "  # Shape of the video frames",
+        "confidence": "# Confidence threshold for filtering",
+        "tolerance": "# Tolerance threshold for filtering",
+        "median filter": "# Median filter window size",
+        "video fps": "# Video settings",
+        "roi data": "# Regions of Interest (ROIs) and key points from JSON",
+        "frame shape": "  # Shape of the video frames",
         "scale": "  # Scale factor (in px/cm)",
         "areas": "  # Defined ROIs (areas) in the frame",
         "points": "  # Key points within the frame",
-        "geometric analysis": "# Parameters for defining exploration and freezing behavior",
+        "geometric analysis": "# Parameters for geometric analysis",
         "distance": "  # Maximum nose-target distance to consider exploration.",
         "orientation": "  # Maximum head-target orientation angle to consider exploration.",
-        "freezing_threshold": "  # Movement threshold for freezing, computed as mean std of all body parts over 1 second.",
+        "freezing threshold": "  # Movement threshold for freezing, computed as mean std of all body parts over 1 second.",
+        "automatic analysis": "# Parameters for automatic analysis",
+        "model": "  # Model name (simple, wide, RF, etc.)",
+        "model date": "  # Training date of the model",
+        "model bodyparts": "  # List of bodyparts used to train the model",
+        "rescaling": "  # Whether to rescale the data",
+        "reshaping": "  # Whether to reshape the data (set to True for LSTM models))",
+        "past": "  # Number of past frames to include",
+        "future": "  # Number of future frames to include",
+        "broad": "  # Broaden the window by skipping some frames as we stray further from the present.",
         "experiment metadata": "# Parameters for the analysis of the experiment",
         "groups": "  # List of the groups in the experiment",
         "target roles": "  # Role/novelty of each target in the experiment",
-        "label_type": "  # Type of labels used to measure exploration (geolabels, autolabels, etc.)",
+        "label type": "  # Type of labels used to measure exploration (geolabels, autolabels, etc.)",
     }
 
     # Insert comments before corresponding keys
@@ -180,6 +206,40 @@ def load_yaml(params_path: str) -> dict:
     """Loads a YAML file."""
     with open(params_path, "r") as file:
         return yaml.safe_load(file)
+    
+def choose_example_h5(params_path, look_for: str = 'TS') -> str:
+    """Picks an example file from a list of files.
+
+    Args:
+        files (list): List of files to choose from.
+        look_for (str, optional): Word to filter files by. Defaults to 'TS'.
+
+    Returns:
+        str: Name of the chosen file.
+
+    Raises:
+        ValueError: If the files list is empty.
+    """
+    params = load_yaml(params_path)
+    folder_path = params.get("path")
+    files = glob(os.path.join(folder_path,"*position.h5"))
+    
+    if not files:
+        raise ValueError("The list of files is empty. Please provide a non-empty list.")
+
+    filtered_files = [file for file in files if look_for in file]
+
+    if not filtered_files:
+        print("No files found with the specified word")
+        example = random.choice(files)
+        print(f"Plotting coordinates from {os.path.basename(example)}")
+    else:
+        # Choose one file at random to use as example
+        example = random.choice(filtered_files)
+        print(f"Plotting coordinates from {os.path.basename(example)}")
+
+    return example
+
 
 def open_h5_file(params_path: str, filepath, print_data: bool = False) -> pd.DataFrame:
     """Opens an h5 file and returns the data as a pandas dataframe.
@@ -634,4 +694,4 @@ def filter_and_move_files(params_path: str):
         # Move the file to the "extra" subfolder
         shutil.move(file_path, output_path)
 
-    print("All .H5 files are stored away")
+    print("All .H5 files are stored away.")

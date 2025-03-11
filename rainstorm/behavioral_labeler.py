@@ -95,7 +95,7 @@ def draw_text(img: np.uint8,
     cv2.rectangle(img, pos, (x + text_w, y + text_h), text_color_bg, -1)
     cv2.putText(img, text, (x, y + text_h + font_scale - 1), font, font_scale, text_color, font_thickness)
 
-def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames: int, behaviour_info: dict, screen_width: int) -> tuple:
+def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames: int, behavior_info: dict, screen_width: int) -> tuple:
     """Process a frame for labeling
 
     Args:
@@ -103,17 +103,17 @@ def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_fra
         frame (np.uint8): Frame to be labeled
         frame_number (int): Current frame number
         total_frames (int): Total number of frames
-        behaviour_info (dict): Behaviour information
+        behavior_info (dict): behavior information
         screen_width (int): Screen width
 
     Returns:
-        tuple: Updates behaviour and move variables
+        tuple: Updates behavior and move variables
     """
 
     move = False
     
-    # Create a list initialized with the current behaviour status for each behaviour
-    behaviours = [info['current_behaviour'] for info in behaviour_info.values()]
+    # Create a list initialized with the current behavior status for each behavior
+    behaviors = [info['current_behavior'] for info in behavior_info.values()]
     
     frame = frame.copy() # Ensure the image array is writable
     frame = add_margin(frame, frame.shape[1]//2) # Make the margin half the size of the full image
@@ -144,15 +144,15 @@ def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_fra
     draw_text(frame, "exit (q), zoom in (+), zoom out (-)", 
               pos=(right_border, gap + 5*k))
     
-    draw_text(frame, "Behaviours", 
+    draw_text(frame, "behaviors", 
               pos=(right_border, 2*gap + 6*k))
 
     # Display each object, its corresponding key, and sum on the frame
-    for i, (j, info) in enumerate(behaviour_info.items()):
+    for i, (j, info) in enumerate(behavior_info.items()):
         draw_text(frame, f"{j} ({info['key']}): {info['sum']}",
                   pos=(right_border, 2*gap + 7*k + i*k),
-                  font_scale = txt, font_thickness = 1 + behaviours[i],
-                  text_color =(0, 250 - behaviours[i]*255, 0 + (behaviours[i]*255)))
+                  font_scale = txt, font_thickness = 1 + behaviors[i],
+                  text_color =(0, 250 - behaviors[i]*255, 0 + (behaviors[i]*255)))
         
     draw_text(frame, "none / delete (0)", 
               pos=(right_border, 3*gap + 8*k + i*k))
@@ -163,16 +163,16 @@ def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_fra
     # Wait for a keystroke
     key = cv2.waitKey(0)
     
-    # Logic for selecting a behaviour based on custom key mapping
-    for i, (j, info) in enumerate(behaviour_info.items()):
+    # Logic for selecting a behavior based on custom key mapping
+    for i, (j, info) in enumerate(behavior_info.items()):
         if key == ord(info['key']):
-            behaviours = [0] * len(behaviour_info)
-            behaviours[i] = 1  # Mark this behaviour
+            behaviors = [0] * len(behavior_info)
+            behaviors[i] = 1  # Mark this behavior
             move = 1
     
     # Handling additional actions
-    if key == ord('0'):  # No behaviour
-        behaviours = [0] * len(behaviour_info)  # Reset all to 0
+    if key == ord('0'):  # No behavior
+        behaviors = [0] * len(behavior_info)  # Reset all to 0
         move = 1
     if key == ord('5'):  # Go to the next frame
         move = 1
@@ -181,21 +181,21 @@ def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_fra
     if key == ord('8'):  # Skip three frames forward
         move = 3
 
-    return behaviours, move
+    return behaviors, move
 
-def find_checkpoint(df:pd.DataFrame, behaviours:list) -> int:
+def find_checkpoint(df:pd.DataFrame, behaviors:list) -> int:
     """Find the checkpoint for the current frame
 
     Args:
         df (pd.DataFrame): Labelled dataframe
-        behaviours (list): List of behaviours to check for
+        behaviors (list): List of behaviors to check for
 
     Returns:
         int: Frame number of the last labeled frame
     """
 
     for checkpoint, row in df[::-1].iterrows():  # Iterate in reverse order
-        if any(str(row[j]).isdigit() for j in behaviours):
+        if any(str(row[j]).isdigit() for j in behaviors):
             # Return the frame number (1-based index)
             return checkpoint + 1  # +1 to convert from 0-based to 1-based indexing
         
@@ -212,13 +212,13 @@ def converter(value):
         # If it's not possible, return the original value
         return value
 
-def load_labels(csv_path: str, frame_list: list, behaviours: list) -> tuple:
-    """Load or initialize frame labels for each behaviour.
+def load_labels(csv_path: str, frame_list: list, behaviors: list) -> tuple:
+    """Load or initialize frame labels for each behavior.
 
     Args:
         csv_path (str): Path to the CSV file
         frame_list (list): List of frames
-        behaviours (list): List of behaviours
+        behaviors (list): List of behaviors
 
     Returns:
         tuple: Frame labels and current frame number
@@ -226,72 +226,72 @@ def load_labels(csv_path: str, frame_list: list, behaviours: list) -> tuple:
 
     if csv_path:
         # Load the CSV file
-        labels = pd.read_csv(csv_path, converters={j: converter for j in behaviours})
+        labels = pd.read_csv(csv_path, converters={j: converter for j in behaviors})
         
-        # The labels are read from the file for each behaviour in the list
-        frame_labels = {j: labels[j] for j in behaviours}
+        # The labels are read from the file for each behavior in the list
+        frame_labels = {j: labels[j] for j in behaviors}
         
         response = messagebox.askquestion("Load checkpoint", "Do you want to continue where you left off?")
         if response == 'yes':
-            checkpoint = find_checkpoint(labels, behaviours) - 1  # Start one frame before the last saved data
+            checkpoint = find_checkpoint(labels, behaviors) - 1  # Start one frame before the last saved data
         else:
             checkpoint = 0
 
         current_frame = max(0, checkpoint)  # Starting point of the video
     else:
-        # Initialize frame labels with '-' for each behaviour
-        frame_labels = {j: ['-'] * len(frame_list) for j in behaviours}
+        # Initialize frame labels with '-' for each behavior
+        frame_labels = {j: ['-'] * len(frame_list) for j in behaviors}
         current_frame = 0  # Starting point of the video
     
     return frame_labels, current_frame
 
-def calculate_behaviour_sums(frame_labels: dict, behaviours: list) -> list:
-    """Calculate the sum for each behaviour
+def calculate_behavior_sums(frame_labels: dict, behaviors: list) -> list:
+    """Calculate the sum for each behavior
 
     Args:
         frame_labels (dict): Labels for each frame
-        behaviours (list): List of behaviours
+        behaviors (list): List of behaviors
 
     Returns:
-        list: Sum for each behaviour
+        list: Sum for each behavior
     """
-    behaviour_sums = []
-    for j in behaviours:
+    behavior_sums = []
+    for j in behaviors:
         numeric_values = [x for x in frame_labels[j] if isinstance(x, (int, float))]
-        behaviour_sums.append(sum(numeric_values))
+        behavior_sums.append(sum(numeric_values))
     
-    return behaviour_sums
+    return behavior_sums
 
-def build_behaviour_info(behaviours: list, keys: list, behaviour_sums: list, current_behaviour: list) -> dict:
-    """Build the behaviour_info dictionary with key mappings, sums, and current behaviour status.
+def build_behavior_info(behaviors: list, keys: list, behavior_sums: list, current_behavior: list) -> dict:
+    """Build the behavior_info dictionary with key mappings, sums, and current behavior status.
 
     Args:
-        behaviours (list): List of behaviours
+        behaviors (list): List of behaviors
         keys (list): List of keys
-        behaviour_sums (list): Sum for each behaviour
-        current_behaviour (list): Current behaviour status for each behaviour
+        behavior_sums (list): Sum for each behavior
+        current_behavior (list): Current behavior status for each behavior
 
     Returns:
-        dict: Behaviour information
+        dict: behavior information
     """
     
-    behaviour_info = {
+    behavior_info = {
         j: {
             'key': keys[i],  # Assign the corresponding key
             'sum': j_sum,
-            'current_behaviour': current_behaviour[i]
+            'current_behavior': current_behavior[i]
         } 
-        for i, (j, j_sum) in enumerate(zip(behaviours, behaviour_sums))
+        for i, (j, j_sum) in enumerate(zip(behaviors, behavior_sums))
     }
-    return behaviour_info
+    return behavior_info
 
-def save_labels_to_csv(video_path: str, frame_labels: dict, behaviours: list) -> None:
-    """Saves the frame labels for each behaviour to a CSV file.
+def save_labels_to_csv(video_path: str, frame_labels: dict, behaviors: list) -> None:
+    """Saves the frame labels for each behavior to a CSV file.
 
     Args:
         video_path (str): Path to the video file
         frame_labels (dict): Labels for each frame
-        behaviours (list): List of behaviours
+        behaviors (list): List of behaviors
     """
     
     output_csv = video_path.rsplit('.', 1)[0] + '_labels.csv'
@@ -300,65 +300,65 @@ def save_labels_to_csv(video_path: str, frame_labels: dict, behaviours: list) ->
     df_labels = pd.DataFrame(frame_labels)
     
     # Find the last labeled frame (checkpoint)
-    last_frame = find_checkpoint(df_labels, behaviours)
+    last_frame = find_checkpoint(df_labels, behaviors)
     
     # Change all '-' to 0 before the checkpoint in the original frame_labels dictionary
     for i in range(last_frame):  # Iterate only up to the last labeled frame
-        for behaviour in behaviours:
-            if frame_labels[behaviour][i] == '-':
-                frame_labels[behaviour][i] = 0  # Change '-' to 0
+        for behavior in behaviors:
+            if frame_labels[behavior][i] == '-':
+                frame_labels[behavior][i] = 0  # Change '-' to 0
 
     # Write the modified labels to a CSV file
     with open(output_csv, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         
-        # Write the header row (Frame + behaviour names)
-        header = ['Frame'] + behaviours
+        # Write the header row (Frame + behavior names)
+        header = ['Frame'] + behaviors
         writer.writerow(header)
         
-        # Write each frame's labels for each behaviour
+        # Write each frame's labels for each behavior
         for i in range(len(next(iter(frame_labels.values())))):  # Iterate over the number of frames
             row = [i + 1]  # Frame number
-            row.extend(frame_labels[j][i] for j in behaviours)  # Add labels for each behaviour
+            row.extend(frame_labels[j][i] for j in behaviors)  # Add labels for each behavior
             writer.writerow(row)
 
     print(f"Labels saved to {output_csv}")
 
-def ask_behaviours(preset_behaviours: list) -> list:
-    """Ask the user for behaviour names via Tkinter dialogs, with optional presets.
+def ask_behaviors(preset_behaviors: list) -> list:
+    """Ask the user for behavior names via Tkinter dialogs, with optional presets.
 
     Args:
-        preset_behaviours (list, optional): List of preset behaviours.
+        preset_behaviors (list, optional): List of preset behaviors.
 
     Returns:
-        list: List of behaviours
+        list: List of behaviors
     """
     
     root = Tk()
     root.withdraw()  # Hide the root window
 
     # If no presets are provided, set to empty lists
-    if preset_behaviours is None:
-        preset_behaviours = []
+    if preset_behaviors is None:
+        preset_behaviors = []
 
     # Ask for behavior names
-    behaviour_input = simpledialog.askstring(
+    behavior_input = simpledialog.askstring(
         "Input", 
-        "Enter the behaviours (comma-separated):", 
-        initialvalue=', '.join(preset_behaviours)
+        "Enter the behaviors (comma-separated):", 
+        initialvalue=', '.join(preset_behaviors)
     )
-    if behaviour_input:
-        behaviours = [j.strip() for j in behaviour_input.split(',')]
+    if behavior_input:
+        behaviors = [j.strip() for j in behavior_input.split(',')]
     else:
         return None, None  # Return None if input is empty
 
-    return behaviours
+    return behaviors
 
-def ask_keys(behaviours: list, preset_keys: list) -> list:
+def ask_keys(behaviors: list, preset_keys: list) -> list:
     """Ask the user for  keys via Tkinter dialogs, with optional presets.
 
     Args:
-        behaviours (list): List of behaviours
+        behaviors (list): List of behaviors
         preset_keys (list, optional): List of preset keys.
 
     Returns:
@@ -375,13 +375,13 @@ def ask_keys(behaviours: list, preset_keys: list) -> list:
     # Ask for corresponding keys for each behavior
     key_input = simpledialog.askstring(
         "Input", 
-        f"Enter the keys for {', '.join(behaviours)} (comma-separated):", 
+        f"Enter the keys for {', '.join(behaviors)} (comma-separated):", 
         initialvalue=', '.join(preset_keys)
     )
     if key_input:
         keys = [k.strip() for k in key_input.split(',')]
-        if len(keys) != len(behaviours):
-            messagebox.showerror("Error", "The number of keys must match the number of behaviours.")
+        if len(keys) != len(behaviors):
+            messagebox.showerror("Error", "The number of keys must match the number of behaviors.")
             return None, None  # Return None if the counts don't match
     else:
         return None, None  # Return None if input is empty
@@ -404,9 +404,9 @@ def frame_generator(video_path):
 
 # Main function
 
-# Main function to handle frame labeling for multiple behaviours
-def labeler(behaviours: list = ['exp_1', 'exp_2', 'freezing', 'front_grooming', 'back_grooming', 'rearing', 'head_dipping', 'protected_hd'], keys: list = ['4','6','f','g','b','r','h','p']):
-    """Handle frame labeling for multiple behaviours.
+# Main function to handle frame labeling for multiple behaviors
+def labeler(behaviors: list = ['exp_1', 'exp_2', 'freezing', 'front_grooming', 'back_grooming', 'rearing', 'head_dipping', 'protected_hd'], keys: list = ['4','6','f','g','b','r','h','p']):
+    """Handle frame labeling for multiple behaviors.
     """
 
     # Create a Tkinter window
@@ -434,28 +434,28 @@ def labeler(behaviours: list = ['exp_1', 'exp_2', 'freezing', 'front_grooming', 
             messagebox.showerror("Error", "No CSV file selected.")
             return
 
-        # Load the behaviours from the CSV header
+        # Load the behaviors from the CSV header
         labels_df = pd.read_csv(csv_path)
-        behaviours = list(labels_df.columns)[1:]  # Skip the 'Frame' column
+        behaviors = list(labels_df.columns)[1:]  # Skip the 'Frame' column
         
     else:
         csv_path = None  # No CSV file to load
 
-        # Ask the user to input the list of behaviours for a new labeling session
-        behaviours = ask_behaviours(preset_behaviours=behaviours)
+        # Ask the user to input the list of behaviors for a new labeling session
+        behaviors = ask_behaviors(preset_behaviors=behaviors)
 
-        if not behaviours:
-            messagebox.showerror("Error", "No behaviours selected!")
-            return  # Exit if no behaviours are entered
+        if not behaviors:
+            messagebox.showerror("Error", "No behaviors selected!")
+            return  # Exit if no behaviors are entered
 
-    keys = ask_keys(behaviours, preset_keys=keys)
+    keys = ask_keys(behaviors, preset_keys=keys)
 
     # Open the video file
     frame_list = list(frame_generator(video_path)) # This takes a while
     video_name = os.path.basename(video_path)
 
     # Load or initialize frame labels
-    frame_labels, current_frame = load_labels(csv_path, frame_list, behaviours)
+    frame_labels, current_frame = load_labels(csv_path, frame_list, behaviors)
     total_frames = len(frame_list)
 
     # Get fullscreen size
@@ -465,22 +465,22 @@ def labeler(behaviours: list = ['exp_1', 'exp_2', 'freezing', 'front_grooming', 
 
         frame = frame_list[current_frame]  # The frame we are labeling
 
-        # Calculate the sum for each behaviour
-        behaviour_sums = calculate_behaviour_sums(frame_labels, behaviours)
+        # Calculate the sum for each behavior
+        behavior_sums = calculate_behavior_sums(frame_labels, behaviors)
         
-        # Initialize behaviour values for the current frame if available
-        current_behaviour = []
-        for j in behaviours:
+        # Initialize behavior values for the current frame if available
+        current_behavior = []
+        for j in behaviors:
             if frame_labels[j][current_frame] != '-':
-                current_behaviour.append(frame_labels[j][current_frame])            
+                current_behavior.append(frame_labels[j][current_frame])            
             else:
-                current_behaviour.append(0)
+                current_behavior.append(0)
 
-        # Build behaviour_info dynamically based on the behaviours and their sums
-        behaviour_info = build_behaviour_info(behaviours, keys, behaviour_sums, current_behaviour)
+        # Build behavior_info dynamically based on the behaviors and their sums
+        behavior_info = build_behavior_info(behaviors, keys, behavior_sums, current_behavior)
         
         # Call the labeling function
-        behaviour_list, move = process_frame(video_name, frame, current_frame, total_frames, behaviour_info, screen_width)
+        behavior_list, move = process_frame(video_name, frame, current_frame, total_frames, behavior_info, screen_width)
 
         # Break the loop if the user presses 'q'
         if keyboard.is_pressed('q'):
@@ -500,8 +500,8 @@ def labeler(behaviours: list = ['exp_1', 'exp_2', 'freezing', 'front_grooming', 
         
         else:
             # Store the results back into frame_labels
-            for i, j in enumerate(behaviours):
-                frame_labels[j][current_frame] = behaviour_list[i]
+            for i, j in enumerate(behaviors):
+                frame_labels[j][current_frame] = behavior_list[i]
 
             # Adjust the current frame based on user input (move)
             current_frame += move if move else 0
@@ -523,7 +523,7 @@ def labeler(behaviours: list = ['exp_1', 'exp_2', 'freezing', 'front_grooming', 
 
     # Write the frame labels to a CSV file
     if save:
-        save_labels_to_csv(video_path, frame_labels, behaviours)
+        save_labels_to_csv(video_path, frame_labels, behaviors)
 
     # Close the OpenCV windows
     cv2.destroyAllWindows()

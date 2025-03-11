@@ -6,6 +6,7 @@
 import os
 import pandas as pd
 import numpy as np
+import datetime
 
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
@@ -22,7 +23,7 @@ import seaborn as sns
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.decomposition import PCA
 
-from .utils import broaden, recenter, reshape, evaluate, choose_example
+from .utils import broaden, recenter, reshape, evaluate
 
 print(f"rainstorm.create_models successfully imported. GPU devices detected: {tf.config.list_physical_devices('GPU')}")
 
@@ -61,29 +62,108 @@ class Vector:
 
         return angle
 
+# %% Create modeling.yaml
+
+def create_modeling(folder_path:str):
+
+    """Creates a modeling.yaml file with structured data and comments."""
+
+    modeling_path = os.path.join(folder_path, 'modeling.yaml')
+
+    if os.path.exists(modeling_path):
+        print(f"modeling.yaml already exists in '{folder_path}'.\nSkipping creation.")
+        return modeling_path
+    
+    # Define configuration with a nested dictionary
+    parameters = {
+        "path": folder_path,
+        "colabels path": os.path.join(folder_path, 'colabels.csv'),
+        "labelers": ['Labeler_A', 'Labeler_B', 'Labeler_C', 'Labeler_D', 'Labeler_E'],
+        "target": 'tgt',
+        "focus distance": 25,
+        "bodyparts": ["nose", "L_ear", "R_ear", "head", "neck", "body"],
+        "split": {
+            "validation": 0.15,
+            "test": 0.15
+            },
+        "LSTM shape": {
+            "past": 3,
+            "future": 3,
+            "broad": 1.7
+            }
+        }
+
+    # Ensure directory exists
+    os.makedirs(folder_path, exist_ok=True)
+
+    # Write YAML data to a temporary file
+    temp_filepath = modeling_path + ".tmp"
+    with open(temp_filepath, "w") as file:
+        yaml.dump(parameters, file, default_flow_style=False, sort_keys=False)
+
+    # Read the generated YAML and insert comments
+    with open(temp_filepath, "r") as file:
+        yaml_lines = file.readlines()
+
+    # Define comments to insert
+    comments = {
+        "path": "# Path to the models folder",
+        "colabels path": "  # Path to the colabels file",
+        "labelers": "  # List of labelers on the colabels file (as found in the columns)",
+        "target": "  # Name of the target on the colabels file",
+        "focus distance": "  # Window of frames to consider around an exploration event",
+        "bodyparts": "  # List of bodyparts used to train the model",
+        "split": "# Prepare the data for training, testing, and validation",
+        "validation": "  # Percentage of the data to use for validation",
+        "test": "  # Percentage of the data to use for testing",
+        "LSTM shape": "# Define the shape of the LSTM model",
+        "past": "  # Number of past frames to include",
+        "future": "  # Number of future frames to include",
+        "broad": "  # Broaden the window by skipping some frames as we stray further from the present."
+        }
+
+    # Insert comments before corresponding keys
+    with open(modeling_path, "w") as file:
+        file.write("# Rainstorm Modeling file\n")
+        for line in yaml_lines:
+            stripped_line = line.lstrip()
+            key = stripped_line.split(":")[0].strip()  # Extract key (ignores indentation)
+            if key in comments and not stripped_line.startswith("-"):  # Avoid adding before list items
+                file.write("\n" + comments[key] + "\n")  # Insert comment
+            file.write(line)  # Write the original line
+
+    # Remove temporary file
+    os.remove(temp_filepath)
+
+    print(f"Modeling parameters saved to {modeling_path}")
+    return modeling_path
+
 # %% Create models
 
-def prepare_data(path: str, labeler_names: list) -> pd.DataFrame:
+def prepare_data(modeling_path) -> pd.DataFrame:
     """Read the positions and labels into a DataFrame
 
     Args:
-        path (str): Path to the colabels file
-        labeler_names (list): List of labelers
+        modeling_path (str): Path to the parameters file
 
     Returns:
         pd.DataFrame: Data ready to use
     """
+    # Load parameters
+    modeling = load_yaml(modeling_path)
+    colabels_path = modeling.get("colabels path")
+    labelers = modeling.get("labelers", [])
 
-    colabels = pd.read_csv(path)
+    colabels = pd.read_csv(colabels_path)
 
     # We extract the position as all the columns that end in _x and _y, except for the tail
     position = colabels.filter(regex='_x|_y').filter(regex='^(?!.*tail)').copy()
     
     # Dynamically create labeler DataFrames based on the provided names
-    labelers = {name: colabels.filter(regex=name).copy() for name in labeler_names}
+    all_labelers = {name: colabels.filter(regex=name).copy() for name in labelers}
 
     # Concatenate the dataframes along the columns axis (axis=1) and calculate the mean of each row
-    combined_df = pd.concat(labelers, axis=1)
+    combined_df = pd.concat(all_labelers, axis=1)
     avrg = pd.DataFrame(combined_df.mean(axis=1), columns=['mean'])
 
     # Apply median filter
@@ -110,7 +190,11 @@ def prepare_data(path: str, labeler_names: list) -> pd.DataFrame:
 
     return ready_data
 
-def focus(df: pd.DataFrame, filter_by: str = 'labels', distance: int = 25):
+def focus(modeling_path, df: pd.DataFrame, filter_by: str = 'labels'):
+
+    # Load parameters
+    modeling = load_yaml(modeling_path)
+    distance = modeling.get("focus distance", 25)
 
     # Extract the column of interest
     column = df.loc[:, filter_by]
@@ -152,44 +236,71 @@ def load_split(saved_data):
         X_val_wide = hf['X_val_wide'][:]
         X_val = hf['X_val'][:]
         y_val = hf['y_val'][:]
+    
+    model_dict = {
+        'X_tr_wide': X_tr_wide,
+        'X_tr': X_tr,
+        'y_tr': y_tr,
+        'X_ts_wide': X_ts_wide,
+        'X_ts': X_ts,
+        'y_ts': y_ts,
+        'X_val_wide': X_val_wide,
+        'X_val': X_val,
+        'y_val': y_val
+    }
         
     print("Data is ready to train")
     
-    return X_tr_wide, X_tr, y_tr, X_ts_wide, X_ts, y_ts, X_val_wide, X_val, y_val
+    return model_dict
 
-def save_split(models_folder, time, X_tr_wide, X_tr, y_tr, X_ts_wide, X_ts, y_ts, X_val_wide, X_val, y_val):
-    # Save arrays
-    with h5py.File(os.path.join(models_folder, f'splits/split_{time.date()}_{X_tr_wide.shape[1]}w.h5'), 'w') as hf:
-        hf.create_dataset('X_tr_wide', data=X_tr_wide)
-        hf.create_dataset('X_tr', data=X_tr)
-        hf.create_dataset('y_tr', data=y_tr)
-        hf.create_dataset('X_ts_wide', data=X_ts_wide)
-        hf.create_dataset('X_ts', data=X_ts)
-        hf.create_dataset('y_ts', data=y_ts)
-        hf.create_dataset('X_val_wide', data=X_val_wide)
-        hf.create_dataset('X_val', data=X_val)
-        hf.create_dataset('y_val', data=y_val)
-        
-        print(f'Saved data to split_{time.date()}_{X_tr_wide.shape[1]}w.h5')
-
-def split_tr_ts_val(df: pd.DataFrame, 
-                    objects: list = ['obj'], 
-                    bodyparts: list = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'], 
-                    past: int = 3, future: int = 3, broad: float = 1.7):
+def save_split(models_folder, model_dict):
     
-    # Group the DataFrame by the place of the first object
-    # Since each video will have a different place for the object, we will separate all the videos
-    groups = df.groupby(df[f'{objects[0]}_x'])
+    # Load the time
+    time = datetime.datetime.now()
+    filename = f'split_{time.date()}.h5'
+
+    # Save arrays
+    with h5py.File(os.path.join(models_folder, f'splits/{filename}'), 'w') as hf:
+        hf.create_dataset('X_tr_wide', data=model_dict['X_tr_wide'])
+        hf.create_dataset('X_tr', data=model_dict['X_tr'])
+        hf.create_dataset('y_tr', data=model_dict['y_tr'])
+        hf.create_dataset('X_ts_wide', data=model_dict['X_ts_wide'])
+        hf.create_dataset('X_ts', data=model_dict['X_ts'])
+        hf.create_dataset('y_ts', data=model_dict['y_ts'])
+        hf.create_dataset('X_val_wide', data=model_dict['X_val_wide'])
+        hf.create_dataset('X_val', data=model_dict['X_val'])
+        hf.create_dataset('y_val', data=model_dict['y_val'])
+        
+        print(f'Saved data to {filename}')
+
+def split_tr_ts_val(modeling_path, df: pd.DataFrame):
+    """Splits the data into training, testing, and validation sets:
+    """
+    # Load parameters
+    modeling = load_yaml(modeling_path)
+    target = modeling.get("target", 'tgt')
+    bodyparts = modeling.get("bodyparts", [])
+    split_params = modeling.get("split", {})
+    val_size = split_params.get("validation", 0.15)
+    ts_size = split_params.get("test", 0.15)
+    LSTM_params = modeling.get("LSTM shape", {})
+    past = LSTM_params.get("past", 3)
+    future = LSTM_params.get("future", 3)
+    broad = LSTM_params.get("broad", 1.7)
+    
+
+    # Since each mouse will have a different place for the target, we can use the target position to separate all the videos
+    mice = df.groupby(df[f'{target}_x'])
     
     # Split the DataFrame into multiple DataFrames and labels
     final_dataframes = {}
     wide_dataframes = {}
     
-    for category, group in groups:
+    for category, mouse in mice:
 
-        recentered_data = pd.concat([recenter(group, obj, bodyparts) for obj in objects], ignore_index=True)
+        recentered_data = recenter(mouse, target, bodyparts)
 
-        labels = group['labels']
+        labels = mouse['labels']
 
         final_dataframes[category] = {'position': recentered_data, 'labels': labels}
 
@@ -203,96 +314,165 @@ def split_tr_ts_val(df: pd.DataFrame,
     np.random.shuffle(keys)
     
     # Calculate the lengths for each part
-    len_val = len(keys) * 15 // 100
-    len_test = len(keys) * 15 // 100
+    len_val = int(len(keys) * val_size)
+    len_ts = int(len(keys) * ts_size)
     
     # Use slicing to divide the list
     val_keys = keys[:len_val]
-    test_keys = keys[len_val:(len_val + len_test)]
-    train_keys = keys[(len_val + len_test):]
+    ts_keys = keys[len_val:(len_val + len_ts)]
+    tr_keys = keys[(len_val + len_ts):]
     
     # Initialize empty lists to collect dataframes
-    X_train_wide = []
-    X_test_wide = []
+    X_tr_wide = []
+    X_ts_wide = []
     X_val_wide = []
 
-    X_train = []
-    X_test = []
+    X_tr = []
+    X_ts = []
     X_val = []
 
-    y_train = []
-    y_test = []
+    y_tr = []
+    y_ts = []
     y_val = []
     
     # first the simple data 
-    for key in train_keys:
-        X_train_wide.append(wide_dataframes[key]['position'])
-        X_train.append(final_dataframes[key]['position'])
-        y_train.append(final_dataframes[key]['labels'])
-    for key in test_keys:
-        X_test_wide.append(wide_dataframes[key]['position'])
-        X_test.append(final_dataframes[key]['position'])
-        y_test.append(final_dataframes[key]['labels'])
+    for key in tr_keys:
+        X_tr_wide.append(wide_dataframes[key]['position'])
+        X_tr.append(final_dataframes[key]['position'])
+        y_tr.append(final_dataframes[key]['labels'])
+    for key in ts_keys:
+        X_ts_wide.append(wide_dataframes[key]['position'])
+        X_ts.append(final_dataframes[key]['position'])
+        y_ts.append(final_dataframes[key]['labels'])
     for key in val_keys:
         X_val_wide.append(wide_dataframes[key]['position'])
         X_val.append(final_dataframes[key]['position'])
         y_val.append(final_dataframes[key]['labels'])
     
-    X_train_wide = np.concatenate(X_train_wide, axis=0)
-    X_test_wide = np.concatenate(X_test_wide, axis=0)
+    X_tr_wide = np.concatenate(X_tr_wide, axis=0)
+    X_ts_wide = np.concatenate(X_ts_wide, axis=0)
     X_val_wide = np.concatenate(X_val_wide, axis=0)
 
-    X_train = np.concatenate(X_train, axis=0)
-    X_test = np.concatenate(X_test, axis=0)
+    X_tr = np.concatenate(X_tr, axis=0)
+    X_ts = np.concatenate(X_ts, axis=0)
     X_val = np.concatenate(X_val, axis=0)
         
-    y_train = np.concatenate(y_train, axis=0)
-    y_test = np.concatenate(y_test, axis=0)
+    y_tr = np.concatenate(y_tr, axis=0)
+    y_ts = np.concatenate(y_ts, axis=0)
     y_val = np.concatenate(y_val, axis=0)
+
+    # Print the sizes of each set
+    print(f"Training set size: {len(X_tr)} samples")
+    print(f"Validation set size: {len(X_val)} samples")
+    print(f"Testing set size: {len(X_ts)} samples")
+    print(f"Total samples: {len(X_tr)+len(X_val)+len(X_ts)}")
+
+    model_dict = {
+        'X_tr_wide': X_tr_wide,
+        'X_tr': X_tr,
+        'y_tr': y_tr,
+        'X_ts_wide': X_ts_wide,
+        'X_ts': X_ts,
+        'y_ts': y_ts,
+        'X_val_wide': X_val_wide,
+        'X_val': X_val,
+        'y_val': y_val
+    }
     
-    return X_train_wide, X_train, y_train, X_test_wide, X_test, y_test, X_val_wide, X_val, y_val
+    return model_dict
 
 def plot_example_data(X, y):
 
     # Select data to plot
-    position = np.sqrt(X[:,0]**2 + X[:,1]**2).copy()
-    exploration = y.copy()
+    position = np.sqrt(X[:, 0]**2 + X[:, 1]**2).copy()
+    exploration = pd.DataFrame(y.astype(int), columns=['exploration'])
 
-    # Plotting position
-    plt.plot(position, label='position', color='blue')
+    # Create the plot using Plotly
+    fig = go.Figure()
 
-    # Shading exploration regions
-    plt.fill_between(range(len(exploration)), -30, 30, where = exploration > 0.5, label = 'exploration', color='red', alpha=0.3)
+    time = np.arange(len(position))
 
-    # Adding labels
-    plt.xlabel('Frames')
-    plt.ylabel('distance (cm)')
-    plt.legend(loc='upper right', fancybox=True, shadow=True, framealpha=1.0)
-    plt.title('Nose distance to object')
-    plt.axhline(y=0, color='black', linestyle='--')
+    # Add position trace
+    fig.add_trace(go.Scatter(
+        x=time,
+        y=position,
+        mode='lines',
+        name='Position',
+        line=dict(color='blue')
+    ))
 
-    # Zoom in on some frames
-    # plt.xlim((1000, 2500))
-    plt.ylim((-2, 25))
+    # Identify the start and end of exploration events
+    exploration['change'] = exploration['exploration'].diff()
+    exploration['event_id'] = (exploration['change'] == 1).cumsum()  # Create groups of consecutive 1's
 
-    plt.show()
+    # Filter for events where exploration is 1
+    events = exploration[exploration['exploration'] == 1]
+
+    # Iterate over each event and add shapes
+    for event_id, group in events.groupby('event_id'):
+        start_index = group.index[0]
+        end_index = group.index[-1]
+        # Add the rectangle from the start to the end of the event
+        fig.add_shape(
+            type='rect',
+            x0=time[start_index], x1=time[end_index + 1],  # Adjust x1 to include the last time point
+            y0=-2, y1=25,
+            fillcolor='rgba(255,0,0,0.5)',
+            line=dict(width=0.4),
+        )
+
+    # Add a horizontal line for the freezing threshold
+    fig.add_hline(y=0, line=dict(color='black', dash='dash'),
+              annotation_text='Target position', annotation_position='bottom left')
+
+    # Customize layout
+    fig.update_layout(
+        title='Exploration events',
+        xaxis_title='Frames',
+        yaxis_title='Nose distance to target (cm)',
+        yaxis=dict(range=[-2, 25]),  # Zoom in on y-axis
+        legend=dict(yanchor="bottom",
+                    y=1,
+                    xanchor="center",
+                    x=0.5,
+                    orientation="h", 
+                    bgcolor='rgba(255,255,255,0.5)'),
+        showlegend=True,
+    )
+
+    fig.show()
 
 def plot_history(model, model_name):
-    
-    plt.figure(figsize=(10, 6))
-    
-    plt.plot(model.history['loss'], label='Training loss')
-    plt.plot(model.history['val_loss'], label='Validation loss')
-    plt.plot(model.history['accuracy'], label='Training accuracy')
-    plt.plot(model.history['val_accuracy'], label='Validation accuracy')
-    
-    plt.title(f'Training of model {model_name}')
-    plt.xlabel('Epochs')
-    plt.ylabel('%')
-    plt.legend()
-    plt.show()
+
+    # Create a plotly figure
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter(y=model.history['loss'], 
+                             mode='lines', name='Training loss'))
+    fig.add_trace(go.Scatter(y=model.history['val_loss'], 
+                             mode='lines', name='Validation loss'))
+    fig.add_trace(go.Scatter(y=model.history['accuracy'], 
+                             mode='lines', name='Training accuracy'))
+    fig.add_trace(go.Scatter(y=model.history['val_accuracy'], 
+                             mode='lines', name='Validation accuracy'))
+
+    fig.update_layout(
+        title=f'Training of model {model_name}',
+        xaxis_title='Epochs',
+        yaxis_title='%',
+        template='plotly_white',  # Optional: makes the plot cleaner
+        legend=dict(yanchor="bottom",
+                    y=1,
+                    xanchor="center",
+                    x=0.5,
+                    orientation="h", 
+                    bgcolor='rgba(255,255,255,0.5)')
+        )
+
+    fig.show()
 
 def build_LSTM_model(input_shape, units):
+
     inputs = Input(shape=input_shape)
 
     # Stacked Bidirectional LSTMs with conditional slicing
@@ -550,20 +730,41 @@ def plot_performance_on_video(folder_path, models, labelers, plot_obj, frame_rat
     fig.show()
 
 # %% Use for file analysis
+from keras.models import load_model
+from glob import glob
+import yaml
 
-def create_autolabels(files: list, model: object, objects: list = ['obj_1', 'obj_2'], bodyparts: list = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'], rescaling: bool = True, reshaping = False, past: int = 3, future: int = 3, broad: float = 1.7):
-    """Creates autolabels for a list of files.
+def load_yaml(params_path: str) -> dict:
+    """Loads a YAML file."""
+    with open(params_path, "r") as file:
+        return yaml.safe_load(file)
+
+def create_autolabels(params_path):
+    """Analyzes the position data of a list of files.
 
     Args:
-        files (list): List of files to create autolabels for.
-        model (object): Model object to use for autolabeling.
-        objects (list, optional): List of objects to use for autolabeling. Defaults to ['obj_1', 'obj_2'].
-        bodyparts (list, optional): List of bodyparts to use for autolabeling. Defaults to ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'].
-        rescaling (bool, optional): Whether to rescale the data. Defaults to True.
-        reshaping (bool, optional): Whether to reshape the data. Defaults to False.
+        params_path (str): Path to the YAML parameters file.
     """
+    # Load parameters
+    params = load_yaml(params_path)
+    path = params.get("path")
+    filenames = glob(os.path.join(path,"*/position/*position.csv")) # There should be a more specific way of doing this, using filenames = params.get("filenames", [])
+    targets = params.get("targets", [])
+
+    # Load automatic analysis parameters
+    model_params = params.get("automatic analysis", {})
+    model_name = model_params.get("model")
+    model_date = model_params.get("model date")
+    model_path = os.path.join(os.path.dirname(os.path.dirname(path)), f'models/m_{model_name}/{model_name}_{model_date}.keras')
+    model = load_model(model_path)
+    bodyparts = model_params.get("model bodyparts", ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'])
+    rescaling = model_params.get("rescaling", True)
+    reshaping = model_params.get("reshaping", False)
+    past = model_params.get("past", 3)
+    future = model_params.get("future", 3)
+    broad = model_params.get("broad", 1.7)
     
-    for file in files:
+    for file in filenames:
         
         # Determine the output file path
         input_dir, input_filename = os.path.split(file)
@@ -571,22 +772,24 @@ def create_autolabels(files: list, model: object, objects: list = ['obj_1', 'obj
         
         # Read the file
         position = pd.read_csv(file)
+
+        if all(f'{target}_x' in position.columns for target in targets):
     
-        # lets analyze it!
-        autolabels = use_model(position, model, objects, bodyparts, rescaling, reshaping, past, future, broad)
+            # lets analyze it!
+            autolabels = use_model(position, model, targets, bodyparts, rescaling, reshaping, past, future, broad)
+            
+            # Set column names and add a new column "Frame" with row numbers
+            autolabels.insert(0, "Frame", autolabels.index + 1)
         
-        # Set column names and add a new column "Frame" with row numbers
-        autolabels.insert(0, "Frame", autolabels.index + 1)
-    
-        # Create a filename for the output CSV file
-        output_filename = input_filename.replace('_position.csv', '_autolabels.csv')
-        output_folder = os.path.join(parent_dir + '/autolabels')
-        os.makedirs(output_folder, exist_ok = True)
-        output_path = os.path.join(output_folder, output_filename)
-        
-        # Save autolabels to a CSV file
-        autolabels.to_csv(output_path, index=False)
-        print(f"Saved autolabels to {output_filename}")
+            # Create a filename for the output CSV file
+            output_filename = input_filename.replace('_position.csv', '_autolabels.csv')
+            output_folder = os.path.join(parent_dir + '/autolabels')
+            os.makedirs(output_folder, exist_ok = True)
+            output_path = os.path.join(output_folder, output_filename)
+            
+            # Save autolabels to a CSV file
+            autolabels.to_csv(output_path, index=False)
+            print(f"Saved autolabels to {output_filename}")
 
 # %% Compare labels
 

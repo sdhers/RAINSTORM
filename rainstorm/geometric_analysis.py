@@ -8,12 +8,10 @@ import pandas as pd
 import numpy as np
 import yaml
 from glob import glob
-
-import plotly.graph_objects as go
-
 import random
-
-from .utils import choose_example
+import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 # %% Functions
 
@@ -50,12 +48,45 @@ class Vector:
 
         return angle
 
+def choose_example_csv(params_path, look_for: str = 'TS') -> str:
+    """Picks an example file from a list of files.
+
+    Args:
+        files (list): List of files to choose from.
+        look_for (str, optional): Word to filter files by. Defaults to 'TS'.
+
+    Returns:
+        str: Name of the chosen file.
+
+    Raises:
+        ValueError: If the files list is empty.
+    """
+    params = load_yaml(params_path)
+    folder_path = params.get("path")
+    files = glob(os.path.join(folder_path,"*/position/*position.csv"))
+    
+    if not files:
+        raise ValueError("The list of files is empty. Please provide a non-empty list.")
+
+    filtered_files = [file for file in files if look_for in file]
+
+    if not filtered_files:
+        print("No files found with the specified word")
+        example = random.choice(files)
+        print(f"Plotting coordinates from {os.path.basename(example)}")
+    else:
+        # Choose one file at random to use as example
+        example = random.choice(filtered_files)
+        print(f"Plotting coordinates from {os.path.basename(example)}")
+
+    return example
+
 def load_yaml(params_path: str) -> dict:
     """Loads a YAML file."""
     with open(params_path, "r") as file:
         return yaml.safe_load(file)
 
-def plot_position(params_path:str, file: str) -> None:
+def plot_position(params_path:str, file: str, scale: bool = True) -> None:
     """Plot mouse exploration around multiple targets.
 
     Args:
@@ -67,7 +98,7 @@ def plot_position(params_path:str, file: str) -> None:
     targets = params.get("targets", [])
 
     # Load scaling parameters
-    roi_data = params.get("roi_data", {})
+    roi_data = params.get("roi data", {})
     scale = roi_data.get("scale", 1)
 
     # Load geometric analysis parameters
@@ -81,8 +112,9 @@ def plot_position(params_path:str, file: str) -> None:
     # Read the .csv
     df = pd.read_csv(file)
 
-    # Scale the data
-    df *= 1/scale
+    if scale:
+        # Scale the data
+        df *= 1/scale
 
     # Extract body parts
     nose = Point(df, 'nose')
@@ -162,7 +194,7 @@ def plot_position(params_path:str, file: str) -> None:
     layout = go.Layout(
         title=f'Target exploration in {filename}', 
         xaxis=dict(title='Horizontal position (cm)', scaleanchor='y'),  # Lock aspect ratio to the y-axis
-        yaxis=dict(title='Vertical position (cm)'),
+        yaxis=dict(title='Vertical position (cm)', autorange="reversed"),
     )
     
     # Create figure
@@ -170,6 +202,155 @@ def plot_position(params_path:str, file: str) -> None:
 
     # Show plot
     fig.show()
+
+
+
+def load_yaml(file_path):
+    """Load YAML file and return the data."""
+    with open(file_path, "r") as f:
+        return yaml.safe_load(f)
+
+def point_in_roi(x, y, center, width, height, angle):
+    """Check if a point (x, y) is inside a rotated rectangle."""
+    angle = np.radians(angle)
+    cos_a, sin_a = np.cos(angle), np.sin(angle)
+
+    # Translate point relative to the rectangle center
+    x_rel, y_rel = x - center[0], y - center[1]
+
+    # Rotate the point in the opposite direction
+    x_rot = x_rel * cos_a + y_rel * sin_a
+    y_rot = -x_rel * sin_a + y_rel * cos_a
+
+    # Check if the point falls within the unrotated rectangle's bounds
+    return (-width / 2 <= x_rot <= width / 2) and (-height / 2 <= y_rot <= height / 2)
+
+def detect_roi_activity(params_path, file, bodypart = 'body', plot_activity = False, verbose = True):
+
+    """Assigns an area to each body part for each frame."""
+    # Load parameters
+    params = load_yaml(params_path)
+    roi_data = params.get("roi data", {})
+    areas = roi_data.get("areas", [])
+    fps = roi_data.get("video fps", 30)
+    
+    if not areas:
+        if verbose:
+            print("No ROIs found in the parameters file. Skipping ROI activity analysis.")
+        return
+
+    # Read the .csv
+    df = pd.read_csv(file)
+
+    # Create a new DataFrame for results
+    roi_activity = pd.DataFrame(index=df.index)
+
+    area_col = []
+    for i, row in df.iterrows():
+        x, y = row[f"{bodypart}_x"], row[f"{bodypart}_y"]
+        assigned_area = 'other'
+        for area in areas:
+            if point_in_roi(x, y, area["center"], area["width"], area["height"], area["angle"]):
+                assigned_area = area["name"]
+                break
+        area_col.append(assigned_area)
+    
+    roi_activity[bodypart] = area_col  # Assign the area to the corresponding body part column
+
+    if plot_activity:
+
+        """
+        Plot the time spent in each area for a specific body part.
+        
+        Parameters:
+        - area_df: DataFrame containing the assigned areas for each body part.
+        - bodypart: The body part to analyze (column name).
+        - fps: Frames per second of the video (default: 30).
+        """
+        # Count occurrences of each area
+        time_spent = roi_activity[bodypart].value_counts().sort_index()
+
+        # Convert frame count to time (seconds)
+        time_spent_seconds = time_spent / fps
+
+        # Plot
+        plt.figure()
+        time_spent_seconds.plot(kind="bar", color="skyblue", edgecolor="black")
+        plt.xlabel("Area")
+        plt.ylabel("Time spent (s)")
+        plt.title(f"Time spent in each area - {bodypart}")
+        plt.xticks(rotation=45)
+        plt.grid(axis="y", linestyle="--", alpha=0.7)
+        plt.show()
+    
+    return roi_activity
+
+def plot_heatmap(params_path, file, bodypart = 'body', bins=50, cmap="coolwarm", alpha=0.75):
+    """
+    Plots a heatmap of body part positions overlaid with ROIs.
+
+    Parameters:
+    - params_path: Path to the parameters file.
+    - file: Path to the .csv file containing the positions.
+    - bodypart: The body part to analyze (e.g., "nose").
+    - bins: Number of bins for the heatmap (default: 50).
+    - cmap: Colormap for the heatmap (default: "Reds"). Other options: "inferno", "plasma", "cividis", "magma".
+    - alpha: Transparency level for the heatmap (default: 0.6).
+    """
+
+    # Load parameters
+    params = load_yaml(params_path)
+    roi_data = params.get("roi data", {})
+    areas = roi_data.get("areas", [])
+    frame_shape = roi_data.get("frame shape", {})
+    frame_width = frame_shape.get("width", 0)
+    frame_height = frame_shape.get("height", 0)
+
+    if not frame_width or not frame_height:
+        print("Frame shape not found in the parameters file. Skipping heatmap plot.")
+        return
+
+    # Read the .csv
+    df = pd.read_csv(file)
+
+    # Extract x and y positions of the body part
+    x_vals = df[f"{bodypart}_x"].dropna().values
+    y_vals = df[f"{bodypart}_y"].dropna().values
+
+    # Create a 2D histogram (heatmap)
+    heatmap, xedges, yedges = np.histogram2d(x_vals, y_vals, bins=bins, 
+                                             range=[[0, frame_width], [0, frame_height]])
+
+    # Transpose the heatmap for correct orientation
+    heatmap = heatmap.T
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=(frame_width / 100, frame_height / 100))  # Scale size
+    ax.set_xlim(0, frame_width)
+    ax.set_ylim(0, frame_height)
+    ax.invert_yaxis()  # Invert Y-axis to match video coordinates
+    ax.set_title(f"Heatmap of {bodypart} positions")
+    ax.axis("off")
+
+    # Plot heatmap
+    ax.imshow(heatmap, extent=[0, frame_width, 0, frame_height], origin="lower", cmap=cmap, alpha=alpha)
+
+    # Plot ROIs
+    for area in areas:
+        center_x, center_y = area["center"]
+        width, height = area["width"], area["height"]
+        angle = area["angle"]
+
+        # Create rotated rectangle
+        rect = patches.Rectangle(
+            (center_x - width / 2, center_y - height / 2), width, height,
+            angle=angle, rotation_point="center", edgecolor="black", facecolor="none", lw=2
+        )
+        ax.add_patch(rect)
+        ax.text(center_x, center_y, area["name"], fontsize=10, color="black", 
+                ha="center", va="center", bbox=dict(facecolor="white", alpha=0.6, edgecolor="none"))
+
+    plt.show()
 
 def plot_freezing(params_path:str, file: str) -> None:
     """Plots freezing events in a video.
@@ -180,15 +361,15 @@ def plot_freezing(params_path:str, file: str) -> None:
     """
     # Load parameters
     params = load_yaml(params_path)
-    fps = params.get("video_fps", 30)
+    fps = params.get("video fps", 30)
 
     # Load scaling parameters
-    roi_data = params.get("roi_data", {})
+    roi_data = params.get("roi data", {})
     scale = roi_data.get("scale", 1)
 
     # Load geometric analysis parameters
     geometric_params = params.get("geometric analysis", {})
-    threshold = geometric_params.get("freezing_threshold", 0.01)
+    threshold = geometric_params.get("freezing threshold", 0.01)
     
     # Load the CSV
     df = pd.read_csv(file)
@@ -200,7 +381,6 @@ def plot_freezing(params_path:str, file: str) -> None:
     position = df.filter(regex='_x|_y').filter(regex='^(?!.*tail_2)').filter(regex='^(?!.*tail_3)').copy()
 
     # Calculate movement based on the standard deviation of the difference in positions over a rolling window
-    video_fps = 30  # Adjust as necessary
     movement = position.diff().rolling(window=int(fps), center=True).std().mean(axis=1)
 
     # Create a DataFrame indicating freezing events (when movement is below 0.01)
@@ -255,27 +435,28 @@ def plot_freezing(params_path:str, file: str) -> None:
     # Show the plot
     fig.show()
 
-def create_movement_and_geolabels(params_path:str) -> None:
-    """Analyzes the position data of a list of files and saves the results to a CSV file.
+def create_movement_and_geolabels(params_path:str, wait: int = 2) -> None:
+    """Analyzes the position data of a list of files.
 
     Args:
         params_path (str): Path to the YAML parameters file.
+        wait (int, optional): Number of seconds to wait before starting to measure movement. Defaults to 2.
     """
     params = load_yaml(params_path)
     path = params.get("path")
     filenames = glob(os.path.join(path,"*/position/*position.csv")) # There should be a more specific way of doing this, using filenames = params.get("filenames", [])
     targets = params.get("targets", [])
-    fps = params.get("fps", 30)
+    fps = params.get("video fps", 30)
 
     # Load scaling parameters
-    roi_data = params.get("roi_data", {})
+    roi_data = params.get("roi data", {})
     scale = roi_data.get("scale", 1)
 
     # Load geometric analysis parameters
     geometric_params = params.get("geometric analysis", {})
     max_distance = geometric_params.get("distance", 2.5)
     max_angle = geometric_params.get("angle", 45)
-    freezing_threshold = geometric_params.get("freezing_threshold", 0.01)
+    freezing_threshold = geometric_params.get("freezing threshold", 0.01)
 
     for file in filenames:
         
@@ -352,13 +533,18 @@ def create_movement_and_geolabels(params_path:str) -> None:
 
         # Create the distances dataframe
         movement = pd.DataFrame(np.zeros((position.shape[0], 3)), columns=["nose_dist", "body_dist", "freezing"])
-        
+
         # Calculate the Euclidean distance between consecutive nose positions
         movement['nose_dist'] = (((position['nose_x'].diff())**2 + (position['nose_y'].diff())**2)**0.5) / 100
         movement['body_dist'] = (((position['body_x'].diff())**2 + (position['body_y'].diff())**2)**0.5) / 100
         movement['freezing'] = pd.DataFrame(np.where(moving_window < freezing_threshold, 1, 0))
 
-        movement.loc[:2*fps,:] = 0 # the first two seconds, as the mouse just entered the arena, we dont quantify the movement
+        movement.loc[:wait*fps,:] = 0 # the first two seconds, as the mouse just entered the arena, we dont quantify the movement
+
+        # Calculate ROI activity
+        roi_activity = detect_roi_activity(params_path, file, bodypart = 'body', plot_activity = False, verbose = False)
+
+        movement = pd.concat([movement, roi_activity], axis = 1)
         
         # Insert a new column with the frame number at the beginning of the DataFrame
         movement.insert(0, "Frame", movement.index + 1)

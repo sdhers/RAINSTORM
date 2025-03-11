@@ -1,0 +1,51 @@
+# Rainstorm Modeling file
+
+# Path to the experiment folder
+path: c:\Users\dhers\Desktop\Rainstorm\docs\models
+
+  # Path to the colabels file
+colabels path: c:\Users\dhers\Desktop\Rainstorm\docs\models\colabels.csv
+
+  # List of labelers on the colabels file (as found in the columns)
+labelers:
+- Labeler_A
+- Labeler_B
+- Labeler_C
+- Labeler_D
+- Labeler_E
+
+  # Name of the target on the colabels file
+target: tgt
+
+  # Window of frames to consider around an exploration event
+focus distance: 25
+
+  # List of bodyparts used to train the model
+bodyparts:
+- nose
+- L_ear
+- R_ear
+- head
+- neck
+- body
+
+  # Parameters for the split of the data
+split:
+
+  # Percentage of the data to use for validation
+  validation: 0.15
+
+  # Percentage of the data to use for testing
+  test: 0.15
+
+  # Parameters that define the shape of the LSTM model
+LSTM shape:
+
+  # Number of past frames to include
+  past: 3
+
+  # Number of future frames to include
+  future: 3
+
+  # Broaden the window by skipping some frames as we stray further from the present.
+  broad: 1.7

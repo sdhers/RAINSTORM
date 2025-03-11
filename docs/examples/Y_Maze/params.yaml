@@ -45,7 +45,7 @@ bodyparts:
 
 # List of the exploration targets.
 targets:
-- 
+-
 
 # If your experiment has multiple trials, specify the trial names here.
 trials:
@@ -53,27 +53,27 @@ trials:
 
 # Parameters for processing positions
 filtering & smoothing:
-  confidence: 1
-  tolerance: 0.5
-  median_filter: 3
 
-# List two points (or a ROI side) that will be used to scale the positions to cm
-scaling:
-  measured_points:
-  - arm_end
-  - center
-  measured_dist: 45
+# Confidence threshold for filtering
+  confidence: 2
+
+# Tolerance threshold for filtering
+  tolerance: 0.8
+
+# Median filter window size
+  median filter: 3
 
 # Video settings
-video_fps: 30
+video fps: 30
 
 # Regions of Interest (ROIs) and key points from JSON
-roi_data:
-
-  # Shape of the video frames
-  frame_shape:
+roi data:
+  frame shape:
     width: 564
     height: 474
+
+  # Scale factor (in px/cm)
+  scale: 20
 
   # Defined ROIs (areas) in the frame
   areas:
@@ -110,7 +110,7 @@ roi_data:
     - 270
     - 180
 
-# Parameters for defining exploration and freezing behavior
+# Parameters for geometric analysis
 geometric analysis:
 
   # Maximum nose-target distance to consider exploration.
@@ -120,4 +120,58 @@ geometric analysis:
   orientation: 45.0
 
   # Movement threshold for freezing, computed as mean std of all body parts over 1 second.
-  freezing_threshold: 0.01
+  freezing threshold: 0.01
+
+# Parameters for automatic analysis
+automatic analysis:
+
+  # Model name (simple, wide, RF, etc.)
+  model: wide
+
+  # Training date of the model
+  model date: example
+
+  # List of bodyparts used to train the model
+  model bodyparts:
+  - nose
+  - L_ear
+  - R_ear
+  - head
+  - neck
+  - body
+
+  # Whether to rescale the data
+  rescaling: true
+
+  # Whether to reshape the data (set to True for LSTM models))
+  reshaping: false
+
+  # Number of past frames to include
+  past: 3
+
+  # Number of future frames to include
+  future: 3
+
+  # Broaden the window by skipping some frames as we stray further from the present.
+  broad: 1.7
+
+# Parameters for the analysis of the experiment
+experiment metadata:
+
+  # List of the groups in the experiment
+  groups:
+  - Group_1
+  - Group_2
+
+  # Role/novelty of each target in the experiment
+  target roles:
+    Hab: null
+    TR:
+    - Left
+    - Right
+    TS:
+    - Novel
+    - Known
+
+  # Type of labels used to measure exploration (geolabels, autolabels, etc.)
+  label type: geolabels

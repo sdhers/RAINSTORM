@@ -18,6 +18,7 @@ import h5py
 import tensorflow as tf
 from tensorflow.keras.layers import LSTM, Dense, Input, Bidirectional, Dropout, Lambda, BatchNormalization, GlobalAveragePooling1D
 from tensorflow.keras.models import Model
+from tensorflow.keras.callbacks import EarlyStopping, LearningRateScheduler
 
 import seaborn as sns
 from sklearn.metrics.pairwise import cosine_similarity
@@ -25,7 +26,7 @@ from sklearn.decomposition import PCA
 
 from .utils import broaden, recenter, reshape, evaluate
 
-print(f"rainstorm.create_models successfully imported. GPU devices detected: {tf.config.list_physical_devices('GPU')}")
+print(f"rainstorm.modeling successfully imported. GPU devices detected: {tf.config.list_physical_devices('GPU')}")
 
 # %% Functions
 
@@ -77,19 +78,27 @@ def create_modeling(folder_path:str):
     # Define configuration with a nested dictionary
     parameters = {
         "path": folder_path,
-        "colabels path": os.path.join(folder_path, 'colabels.csv'),
-        "labelers": ['Labeler_A', 'Labeler_B', 'Labeler_C', 'Labeler_D', 'Labeler_E'],
-        "target": 'tgt',
-        "focus distance": 25,
+        "colabels": {
+            "colabels_path": os.path.join(folder_path, 'colabels.csv'),
+            "labelers": ['Labeler_A', 'Labeler_B', 'Labeler_C', 'Labeler_D', 'Labeler_E'],
+            "target": 'tgt',
+            },
+        "focus_distance": 25,
         "bodyparts": ["nose", "L_ear", "R_ear", "head", "neck", "body"],
         "split": {
             "validation": 0.15,
             "test": 0.15
             },
-        "LSTM shape": {
-            "past": 3,
-            "future": 3,
-            "broad": 1.7
+        "RNN": {
+            "width": {
+                "past": 3,
+                "future": 3,
+                "broad": 1.7
+                },
+            "units": [32, 24, 16, 8],
+            "batch_size": 64,
+            "lr": 0.0001,
+            "epochs": 60,
             }
         }
 
@@ -108,18 +117,24 @@ def create_modeling(folder_path:str):
     # Define comments to insert
     comments = {
         "path": "# Path to the models folder",
-        "colabels path": "  # Path to the colabels file",
+        "colabels": "# The colabels file is used to store and organize positions and labels for model training",
+        "colabels_path": "  # Path to the colabels file",
         "labelers": "  # List of labelers on the colabels file (as found in the columns)",
         "target": "  # Name of the target on the colabels file",
-        "focus distance": "  # Window of frames to consider around an exploration event",
-        "bodyparts": "  # List of bodyparts used to train the model",
-        "split": "# Prepare the data for training, testing, and validation",
+        "focus_distance": "# Window of frames to consider around an exploration event",
+        "bodyparts": "# List of bodyparts used to train the model",
+        "split": "# Parameters for splitting the data into training, validation, and testing sets",
         "validation": "  # Percentage of the data to use for validation",
         "test": "  # Percentage of the data to use for testing",
-        "LSTM shape": "# Define the shape of the LSTM model",
-        "past": "  # Number of past frames to include",
-        "future": "  # Number of future frames to include",
-        "broad": "  # Broaden the window by skipping some frames as we stray further from the present."
+        "RNN": "# Set up the Recurrent Neural Network",
+        "width": "  # Defines the temporal width of the RNN model",
+        "past": "    # Number of past frames to include",
+        "future": "    # Number of future frames to include",
+        "broad": "    # Broaden the window by skipping some frames as we stray further from the present.",
+        "units": "  # Number of neurons on each layer",
+        "batch_size": "  # Number of training samples the model processes before updating its weights",
+        "lr": "  # Learning rate",
+        "epochs": "  # Each epoch is a complete pass through the entire training dataset"
         }
 
     # Insert comments before corresponding keys
@@ -151,16 +166,17 @@ def prepare_data(modeling_path) -> pd.DataFrame:
     """
     # Load parameters
     modeling = load_yaml(modeling_path)
-    colabels_path = modeling.get("colabels path")
-    labelers = modeling.get("labelers", [])
+    colabels = modeling.get("colabels",{})
+    colabels_path = colabels.get("colabels_path")
+    labelers = colabels.get("labelers", [])
 
-    colabels = pd.read_csv(colabels_path)
+    df = pd.read_csv(colabels_path)
 
     # We extract the position as all the columns that end in _x and _y, except for the tail
-    position = colabels.filter(regex='_x|_y').filter(regex='^(?!.*tail)').copy()
+    position = df.filter(regex='_x|_y').filter(regex='^(?!.*tail)').copy()
     
     # Dynamically create labeler DataFrames based on the provided names
-    all_labelers = {name: colabels.filter(regex=name).copy() for name in labelers}
+    all_labelers = {name: df.filter(regex=name).copy() for name in labelers}
 
     # Concatenate the dataframes along the columns axis (axis=1) and calculate the mean of each row
     combined_df = pd.concat(all_labelers, axis=1)
@@ -194,7 +210,7 @@ def focus(modeling_path, df: pd.DataFrame, filter_by: str = 'labels'):
 
     # Load parameters
     modeling = load_yaml(modeling_path)
-    distance = modeling.get("focus distance", 25)
+    distance = modeling.get("focus_distance", 25)
 
     # Extract the column of interest
     column = df.loc[:, filter_by]
@@ -253,7 +269,11 @@ def load_split(saved_data):
     
     return model_dict
 
-def save_split(models_folder, model_dict):
+def save_split(modeling_path, model_dict):
+
+    # Load parameters
+    modeling = load_yaml(modeling_path)
+    models_folder = modeling.get("path")
     
     # Load the time
     time = datetime.datetime.now()
@@ -278,16 +298,21 @@ def split_tr_ts_val(modeling_path, df: pd.DataFrame):
     """
     # Load parameters
     modeling = load_yaml(modeling_path)
-    target = modeling.get("target", 'tgt')
+    colabels = modeling.get("colabels",{})
+    labelers = colabels.get("labelers", [])
+    target = colabels.get("target", 'tgt')
+
     bodyparts = modeling.get("bodyparts", [])
     split_params = modeling.get("split", {})
     val_size = split_params.get("validation", 0.15)
     ts_size = split_params.get("test", 0.15)
-    LSTM_params = modeling.get("LSTM shape", {})
-    past = LSTM_params.get("past", 3)
-    future = LSTM_params.get("future", 3)
-    broad = LSTM_params.get("broad", 1.7)
-    
+
+    # Recurrent Neural Network
+    RNN_params = modeling.get("RNN", {})
+    width = RNN_params.get("width", {})
+    past = width.get("past", 3)
+    future = width.get("future", 3)
+    broad = width.get("broad", 1.7)
 
     # Since each mouse will have a different place for the target, we can use the target position to separate all the videos
     mice = df.groupby(df[f'{target}_x'])
@@ -385,7 +410,7 @@ def plot_example_data(X, y):
 
     # Select data to plot
     position = np.sqrt(X[:, 0]**2 + X[:, 1]**2).copy()
-    exploration = pd.DataFrame(y.astype(int), columns=['exploration'])
+    exploration = pd.DataFrame((y>=0.5).astype(int), columns=['exploration'])
 
     # Create the plot using Plotly
     fig = go.Figure()
@@ -471,11 +496,24 @@ def plot_history(model, model_name):
 
     fig.show()
 
-def build_LSTM_model(input_shape, units):
+def build_RNN(modeling_path, model_dict):
+
+    # Load parameters
+    modeling = load_yaml(modeling_path)
+    RNN_params = modeling.get("RNN", {})
+    width = RNN_params.get("width", {})
+    past = width.get("past", 3)
+    future = width.get("future", 3)
+    broad = width.get("broad", 1.7)
+
+    units = RNN_params.get("units", [])
+    lr = RNN_params.get("lr", 0.0001)
+
+    input_shape = (model_dict['X_tr_wide'].shape[1], model_dict['X_tr_wide'].shape[2])
 
     inputs = Input(shape=input_shape)
 
-    # Stacked Bidirectional LSTMs with conditional slicing
+    # Stacked Bidirectional RNNs with conditional slicing
     x = inputs
     current_timesteps = input_shape[0]  # Initialize with the number of timesteps
 
@@ -495,7 +533,51 @@ def build_LSTM_model(input_shape, units):
     output = Dense(1, activation='sigmoid')(x)
 
     model = Model(inputs, output)
+
+    # Compile model
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate = lr), 
+                    loss='binary_crossentropy', metrics=['accuracy'])
+
+    model.summary()
+
     return model
+
+# Define a learning rate schedule function
+def lr_schedule(epoch):
+    warmup_epochs = 6  # Number of warm-up epochs
+    initial_lr = 6e-5  # Starting learning rate
+    peak_lr = 2e-4     # Peak learning rate
+    decay_factor = 0.9 # Decay factor
+
+    if epoch < warmup_epochs:
+        # Exponential warm-up: increase learning rate exponentially
+        return initial_lr * (peak_lr / initial_lr) ** (epoch / warmup_epochs)
+    else:
+        # Start decay after warm-up
+        return peak_lr * (decay_factor ** (epoch - warmup_epochs))
+
+def train_RNN(modeling_path, model_dict, model):
+    # Load parameters
+    modeling = load_yaml(modeling_path)
+    RNN_params = modeling.get("RNN", {})
+    epochs = RNN_params.get("epochs", 60)
+    batch_size = RNN_params.get("batch_size", 64)
+
+    # Define the EarlyStopping callback
+    early_stopping = EarlyStopping(monitor='val_loss', patience=6, restore_best_weights=True, mode='min', verbose=1)
+
+    # Define the LearningRateScheduler callback
+    lr_scheduler = LearningRateScheduler(lr_schedule)
+
+    # Train the model
+    history = model.fit(model_dict['X_tr_wide'], model_dict['y_tr'],
+                                epochs = epochs,
+                                batch_size = batch_size,
+                                validation_data=(model_dict['X_val_wide'], model_dict['y_val']),
+                                verbose = 2,
+                                callbacks=[early_stopping, lr_scheduler])
+    
+    return history
 
 # %% Evaluation
 
@@ -747,24 +829,30 @@ def create_autolabels(params_path):
     """
     # Load parameters
     params = load_yaml(params_path)
-    path = params.get("path")
-    filenames = glob(os.path.join(path,"*/position/*position.csv")) # There should be a more specific way of doing this, using filenames = params.get("filenames", [])
+    folder_path = params.get("path")
+    filenames = params.get("filenames")
+    trials = params.get("seize_labels", {}).get("trials", [])
+    files = []
+    for trial in trials:
+        temp_files = [os.path.join(folder_path, trial, 'position', file + '_position.csv') for file in filenames if trial in file]
+        files.extend(temp_files)
     targets = params.get("targets", [])
+    scale = params.get("geometric_analysis", {}).get("roi_data", {}).get("scale", 1)
 
     # Load automatic analysis parameters
-    model_params = params.get("automatic analysis", {})
-    model_name = model_params.get("model")
-    model_date = model_params.get("model date")
-    model_path = os.path.join(os.path.dirname(os.path.dirname(path)), f'models/m_{model_name}/{model_name}_{model_date}.keras')
-    model = load_model(model_path)
-    bodyparts = model_params.get("model bodyparts", ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'])
+    model_params = params.get("automatic_analysis", {})
+    model_path = model_params.get("model_path")
+    model = load_model(model_path) # Loads the .keras file
+
+    bodyparts = model_params.get("model_bodyparts", ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'])
     rescaling = model_params.get("rescaling", True)
     reshaping = model_params.get("reshaping", False)
-    past = model_params.get("past", 3)
-    future = model_params.get("future", 3)
-    broad = model_params.get("broad", 1.7)
+    RNN_width = model_params.get("RNN_width", {})
+    past = RNN_width.get("past", 3)
+    future = RNN_width.get("future", 3)
+    broad = RNN_width.get("broad", 1.7)
     
-    for file in filenames:
+    for file in files:
         
         # Determine the output file path
         input_dir, input_filename = os.path.split(file)
@@ -772,6 +860,9 @@ def create_autolabels(params_path):
         
         # Read the file
         position = pd.read_csv(file)
+
+        # Scale the data
+        position *= 1/scale
 
         if all(f'{target}_x' in position.columns for target in targets):
     
@@ -804,6 +895,11 @@ def polar_graph(position: pd.DataFrame, label_1: pd.DataFrame, label_2: pd.DataF
         obj_1 (str, optional): Name of the first object. Defaults to "obj_1".
         obj_2 (str, optional): Name of the second object. Defaults to "obj_2".
     """
+
+    scale = 20
+
+    # Scale the data
+    position *= 1/scale
     
     # Extract positions of both objects and bodyparts
     obj1 = Point(position, 'obj_1')

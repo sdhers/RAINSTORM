@@ -134,7 +134,7 @@ geometric_analysis:
 automatic_analysis:
 
   # Path to the model file
-  model_path: path/to/trained/model.keras
+  model_path: c:\Users\dhers\Desktop\Rainstorm\docs\models\m_wide\wide_2025-03-12.keras
 
   # List of bodyparts used to train the model
   model_bodyparts:
@@ -148,11 +148,11 @@ automatic_analysis:
   # Whether to rescale the data
   rescaling: true
 
-  # Whether to reshape the data (set to True for LSTM models)
-  reshaping: false
+  # Whether to reshape the data (set to True for RNN models)
+  reshaping: true
 
-  # Parameters for the LSTM model
-  LSTM_shape:
+  # Parameters for the RNN model
+  RNN_width:
 
     # Number of past frames to include
     past: 3

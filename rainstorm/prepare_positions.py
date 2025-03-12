@@ -121,7 +121,7 @@ def create_params(folder_path:str, ROIs_path = None):
             "model_bodyparts": ["nose", "L_ear", "R_ear", "head", "neck", "body"],
             "rescaling": True,
             "reshaping": False,
-            "LSTM_shape": {
+            "RNN_width": {
                 "past": 3,
                 "future": 3,
                 "broad": 1.7
@@ -179,8 +179,8 @@ def create_params(folder_path:str, ROIs_path = None):
         "model_path": "  # Path to the model file",
         "model_bodyparts": "  # List of bodyparts used to train the model",
         "rescaling": "  # Whether to rescale the data",
-        "reshaping": "  # Whether to reshape the data (set to True for LSTM models)",
-        "LSTM_shape": "  # Defines the shape of the LSTM model",
+        "reshaping": "  # Whether to reshape the data (set to True for RNN models)",
+        "RNN_width": "  # Defines the shape of the RNN model",
         "past": "    # Number of past frames to include",
         "future": "    # Number of future frames to include",
         "broad": "    # Broaden the window by skipping some frames as we stray further from the present",

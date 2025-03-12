@@ -1,26 +1,29 @@
 # Rainstorm Modeling file
 
-# Path to the experiment folder
+# Path to the models folder
 path: c:\Users\dhers\Desktop\Rainstorm\docs\models
 
+# The colabels file is used to store and organize positions and labels for model training
+colabels:
+
   # Path to the colabels file
-colabels path: c:\Users\dhers\Desktop\Rainstorm\docs\models\colabels.csv
+  colabels_path: c:\Users\dhers\Desktop\Rainstorm\docs\models\colabels.csv
 
   # List of labelers on the colabels file (as found in the columns)
-labelers:
-- Labeler_A
-- Labeler_B
-- Labeler_C
-- Labeler_D
-- Labeler_E
+  labelers:
+  - Labeler_A
+  - Labeler_B
+  - Labeler_C
+  - Labeler_D
+  - Labeler_E
 
   # Name of the target on the colabels file
-target: tgt
+  target: tgt
 
-  # Window of frames to consider around an exploration event
-focus distance: 25
+# Window of frames to consider around an exploration event
+focus_distance: 25
 
-  # List of bodyparts used to train the model
+# List of bodyparts used to train the model
 bodyparts:
 - nose
 - L_ear
@@ -29,7 +32,7 @@ bodyparts:
 - neck
 - body
 
-  # Parameters for the split of the data
+# Parameters for splitting the data into training, validation, and testing sets
 split:
 
   # Percentage of the data to use for validation
@@ -38,14 +41,33 @@ split:
   # Percentage of the data to use for testing
   test: 0.15
 
-  # Parameters that define the shape of the LSTM model
-LSTM shape:
+# Set up the Recurrent Neural Network
+RNN:
 
-  # Number of past frames to include
-  past: 3
+  # Defines the temporal width of the RNN model
+  width:
 
-  # Number of future frames to include
-  future: 3
+    # Number of past frames to include
+    past: 3
 
-  # Broaden the window by skipping some frames as we stray further from the present.
-  broad: 1.7
+    # Number of future frames to include
+    future: 3
+
+    # Broaden the window by skipping some frames as we stray further from the present.
+    broad: 1.7
+
+  # Number of neurons on each layer
+  units:
+  - 32
+  - 24
+  - 16
+  - 8
+
+  # Number of training samples the model processes before updating its weights
+  batch_size: 64
+
+  # Learning rate
+  lr: 0.0001
+
+  # Each epoch is a complete pass through the entire training dataset
+  epochs: 60

@@ -15,6 +15,11 @@ import matplotlib.patches as patches
 
 # %% Functions
 
+def load_yaml(params_path: str) -> dict:
+    """Loads a YAML file."""
+    with open(params_path, "r") as file:
+        return yaml.safe_load(file)
+
 class Point:
     def __init__(self, df, table):
 
@@ -63,7 +68,12 @@ def choose_example_csv(params_path, look_for: str = 'TS') -> str:
     """
     params = load_yaml(params_path)
     folder_path = params.get("path")
-    files = glob(os.path.join(folder_path,"*/position/*position.csv"))
+    filenames = params.get("filenames")
+    trials = params.get("seize_labels", {}).get("trials", [])
+    files = []
+    for trial in trials:
+        temp_files = [os.path.join(folder_path, trial, 'position', file + '_position.csv') for file in filenames if trial in file]
+        files.extend(temp_files)
     
     if not files:
         raise ValueError("The list of files is empty. Please provide a non-empty list.")
@@ -81,11 +91,6 @@ def choose_example_csv(params_path, look_for: str = 'TS') -> str:
 
     return example
 
-def load_yaml(params_path: str) -> dict:
-    """Loads a YAML file."""
-    with open(params_path, "r") as file:
-        return yaml.safe_load(file)
-
 def plot_position(params_path:str, file: str, scale: bool = True) -> None:
     """Plot mouse exploration around multiple targets.
 
@@ -97,12 +102,9 @@ def plot_position(params_path:str, file: str, scale: bool = True) -> None:
     params = load_yaml(params_path)
     targets = params.get("targets", [])
 
-    # Load scaling parameters
-    roi_data = params.get("roi data", {})
-    scale = roi_data.get("scale", 1)
-
     # Load geometric analysis parameters
-    geometric_params = params.get("geometric analysis", {})
+    geometric_params = params.get("geometric_analysis", {})
+    scale = geometric_params.get("roi_data", {}).get("scale", 1)
     max_distance = geometric_params.get("distance", 2.5)
     max_angle = geometric_params.get("angle", 45)
 
@@ -133,8 +135,8 @@ def plot_position(params_path:str, file: str, scale: bool = True) -> None:
     traces = [nose_trace]
 
     # Loop over each target in the list of target names
-    for idx, tgt in enumerate(targets):
-        if tgt is not None:
+    if targets:
+        for idx, tgt in enumerate(targets):
 
             # Create a Point target for the target
             tgt_coords = Point(df, tgt)
@@ -150,7 +152,7 @@ def plot_position(params_path:str, file: str, scale: bool = True) -> None:
             angle = Vector.angle(head_nose, head_tgt)  # in degrees
             
             # Filter nose positions oriented towards the target
-            towards_tgt = nose.positions[(angle < max_angle) & (dist < max_distance**2)]
+            towards_tgt = nose.positions[(angle < max_angle) & (dist < max_distance*2.5)]
             
             # Create trace for filtered points oriented towards the target
             towards_trace = go.Scatter(
@@ -204,11 +206,6 @@ def plot_position(params_path:str, file: str, scale: bool = True) -> None:
     # Show plot
     fig.show()
 
-def load_yaml(file_path):
-    """Load YAML file and return the data."""
-    with open(file_path, "r") as f:
-        return yaml.safe_load(f)
-
 def point_in_roi(x, y, center, width, height, angle):
     """Check if a point (x, y) is inside a rotated rectangle."""
     angle = np.radians(angle)
@@ -229,9 +226,8 @@ def detect_roi_activity(params_path, file, bodypart = 'body', plot_activity = Fa
     """Assigns an area to each body part for each frame."""
     # Load parameters
     params = load_yaml(params_path)
-    roi_data = params.get("roi data", {})
-    areas = roi_data.get("areas", [])
-    fps = roi_data.get("video fps", 30)
+    fps = params.get("fps", 30)
+    areas = params.get("geometric_analysis", {}).get("roi_data", {}).get("areas", [])
     
     if not areas:
         if verbose:
@@ -260,11 +256,6 @@ def detect_roi_activity(params_path, file, bodypart = 'body', plot_activity = Fa
 
         """
         Plot the time spent in each area for a specific body part.
-        
-        Parameters:
-        - area_df: DataFrame containing the assigned areas for each body part.
-        - bodypart: The body part to analyze (column name).
-        - fps: Frames per second of the video (default: 30).
         """
         # Count occurrences of each area
         time_spent = roi_activity[bodypart].value_counts().sort_index()
@@ -299,9 +290,9 @@ def plot_heatmap(params_path, file, bodypart = 'body', bins=50, cmap="coolwarm",
 
     # Load parameters
     params = load_yaml(params_path)
-    roi_data = params.get("roi data", {})
+    roi_data = params.get("geometric_analysis", {}).get("roi_data", {})
     areas = roi_data.get("areas", [])
-    frame_shape = roi_data.get("frame shape", {})
+    frame_shape = roi_data.get("frame_shape", {})
     frame_width = frame_shape.get("width", 0)
     frame_height = frame_shape.get("height", 0)
 
@@ -335,19 +326,20 @@ def plot_heatmap(params_path, file, bodypart = 'body', bins=50, cmap="coolwarm",
     ax.imshow(heatmap, extent=[0, frame_width, 0, frame_height], origin="lower", cmap=cmap, alpha=alpha)
 
     # Plot ROIs
-    for area in areas:
-        center_x, center_y = area["center"]
-        width, height = area["width"], area["height"]
-        angle = area["angle"]
+    if areas:
+        for area in areas:
+            center_x, center_y = area["center"]
+            width, height = area["width"], area["height"]
+            angle = area["angle"]
 
-        # Create rotated rectangle
-        rect = patches.Rectangle(
-            (center_x - width / 2, center_y - height / 2), width, height,
-            angle=angle, rotation_point="center", edgecolor="black", facecolor="none", lw=2
-        )
-        ax.add_patch(rect)
-        ax.text(center_x, center_y, area["name"], fontsize=10, color="black", 
-                ha="center", va="center", bbox=dict(facecolor="white", alpha=0.6, edgecolor="none"))
+            # Create rotated rectangle
+            rect = patches.Rectangle(
+                (center_x - width / 2, center_y - height / 2), width, height,
+                angle=angle, rotation_point="center", edgecolor="black", facecolor="none", lw=2
+            )
+            ax.add_patch(rect)
+            ax.text(center_x, center_y, area["name"], fontsize=10, color="black", 
+                    ha="center", va="center", bbox=dict(facecolor="white", alpha=0.6, edgecolor="none"))
 
     plt.show()
 
@@ -360,15 +352,10 @@ def plot_freezing(params_path:str, file: str) -> None:
     """
     # Load parameters
     params = load_yaml(params_path)
-    fps = params.get("video fps", 30)
-
-    # Load scaling parameters
-    roi_data = params.get("roi data", {})
-    scale = roi_data.get("scale", 1)
-
-    # Load geometric analysis parameters
-    geometric_params = params.get("geometric analysis", {})
-    threshold = geometric_params.get("freezing threshold", 0.01)
+    fps = params.get("fps", 30)
+    geometric_params = params.get("geometric_analysis", {})
+    scale = geometric_params.get("roi_data", {}).get("scale", 1)
+    threshold = geometric_params.get("freezing_threshold", 0.01)
     
     # Load the CSV
     df = pd.read_csv(file)
@@ -442,22 +429,22 @@ def create_movement_and_geolabels(params_path:str, wait: int = 2) -> None:
         wait (int, optional): Number of seconds to wait before starting to measure movement. Defaults to 2.
     """
     params = load_yaml(params_path)
-    path = params.get("path")
-    filenames = glob(os.path.join(path,"*/position/*position.csv")) # There should be a more specific way of doing this, using filenames = params.get("filenames", [])
+    folder_path = params.get("path")
+    filenames = params.get("filenames")
+    trials = params.get("seize_labels", {}).get("trials", [])
+    files = []
+    for trial in trials:
+        temp_files = [os.path.join(folder_path, trial, 'position', file + '_position.csv') for file in filenames if trial in file]
+        files.extend(temp_files)
     targets = params.get("targets", [])
-    fps = params.get("video fps", 30)
+    fps = params.get("fps", 30)
+    geometric_params = params.get("geometric_analysis", {})
+    scale = geometric_params.get("roi_data", {}).get("scale", 1)
+    max_distance = geometric_params.get("distance", 2.5) # in cm
+    max_angle = geometric_params.get("angle", 45)  # in degrees
+    freezing_threshold = geometric_params.get("freezing_threshold", 0.01)
 
-    # Load scaling parameters
-    roi_data = params.get("roi data", {})
-    scale = roi_data.get("scale", 1)
-
-    # Load geometric analysis parameters
-    geometric_params = params.get("geometric analysis", {})
-    max_distance = geometric_params.get("distance", 2.5)
-    max_angle = geometric_params.get("angle", 45)
-    freezing_threshold = geometric_params.get("freezing threshold", 0.01)
-
-    for file in filenames:
+    for file in files:
         
         # Determine the output file path
         input_dir, input_filename = os.path.split(file)
@@ -469,7 +456,7 @@ def create_movement_and_geolabels(params_path:str, wait: int = 2) -> None:
         # Scale the data
         position *= 1/scale
 
-        if targets != [None]:
+        if targets:
 
             # Initialize geolabels dataframe with columns for each target
             geolabels = pd.DataFrame(np.zeros((position.shape[0], len(targets))), columns=targets) 

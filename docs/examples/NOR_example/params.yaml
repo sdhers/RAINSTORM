@@ -3,7 +3,7 @@
 # Path to the folder containing the pose estimation files
 path: C:\Users\dhers\Desktop\Rainstorm\docs\examples\NOR_example
 
-# List of the pose estimation filenames
+# Pose estimation filenames
 filenames:
 - NOR_Hab_C1_A
 - NOR_Hab_C1_B
@@ -66,10 +66,13 @@ filenames:
 - NOR_TS_C5_C
 - NOR_TS_C5_D
 
-# Software used to generate the pose estimation files
+# Software used to generate the pose estimation files ('DLC' or 'SLEAP')
 software: DLC
 
-# List of the tracked bodyparts
+# Video frames per second
+fps: 25
+
+# Tracked bodyparts
 bodyparts:
 - nose
 - L_ear
@@ -81,73 +84,60 @@ bodyparts:
 - tail_2
 - tail_3
 
-# List of the exploration targets.
+# Exploration targets
 targets:
 - obj_1
 - obj_2
 
-# If your experiment has multiple trials, specify the trial names here.
-trials:
-- Hab
-- TR
-- TS
-
 # Parameters for processing positions
-filtering & smoothing:
+prepare_positions:
+
+  # How many std_dev away from the mean the point's likelihood can be without being erased
   confidence: 2
+
+  # If the mean likelihood is below this value, the whole point will be erased
   tolerance: 0.8
+
+  # Number of frames to use for the median filter (it must be an odd number)
   median_filter: 3
 
-# Video settings
-video_fps: 25
+# Parameters for geometric analysis
+geometric_analysis:
 
-# Regions of Interest (ROIs) and key points from JSON
-roi_data:
+  # Loaded from ROIs.json
+  roi_data:
 
-  # Shape of the video frames
-  frame_shape:
-    width: 680
-    height: 500
+    # Shape of the video frames
+    frame_shape:
+      width: 720
+      height: 480
 
-  # Scale factor (in px/cm)
-  scale: 20
+    # Scale factor (in px/cm)
+    scale: 20
 
-  # Defined ROIs (areas) in the frame
-  areas: 
-  - name: centre
-    center:
-    - 340
-    - 250
-    width: 270
-    height: 270
-    angle: 30
+    # Defined ROIs (areas) in the frame
+    areas: null
 
-  # Key points within the frame
-  points: null
+    # Key points within the frame
+    points: null
 
-# Parameters for defining exploration and freezing behavior
-geometric analysis:
-
-  # Maximum nose-target distance to consider exploration.
+  # Maximum nose-target distance to consider exploration
   distance: 2.5
 
-  # Maximum head-target orientation angle to consider exploration.
+  # Maximum head-target orientation angle to consider exploration
   orientation: 45.0
 
-  # Movement threshold for freezing, computed as mean std of all body parts over 1 second.
-  freezing threshold: 0.01
+  # Movement threshold to consider freezing, computed as the mean std of all body parts over 1 second
+  freezing_threshold: 0.01
 
-# Parameters for automatic analysis of the experiment
-automatic analysis:
+# Parameters for automatic analysis
+automatic_analysis:
 
-  # Model name (simple, wide, RF, etc.)
-  model: wide
-
-  # Training date of the model
-  model date: example
+  # Path to the model file
+  model_path: path/to/trained/model.keras
 
   # List of bodyparts used to train the model
-  model bodyparts:
+  model_bodyparts:
   - nose
   - L_ear
   - R_ear
@@ -156,30 +146,39 @@ automatic analysis:
   - body
 
   # Whether to rescale the data
-  rescaling: True
+  rescaling: true
 
   # Whether to reshape the data (set to True for LSTM models)
-  reshaping: True
+  reshaping: false
 
-  # Number of frames to use for past frames
-  past: 3
+  # Parameters for the LSTM model
+  LSTM_shape:
 
-  # Number of frames to use for future frames
-  future: 3
+    # Number of past frames to include
+    past: 3
 
-  # Window size for the moving average filter
-  broad: 1.7
+    # Number of future frames to include
+    future: 3
 
-# Parameters for the analysis of the experiment
-experiment metadata:
+    # Broaden the window by skipping some frames as we stray further from the present
+    broad: 1.7
 
-  # List of the groups in the experiment
+# Parameters for the analysis of the experiment results
+seize_labels:
+
+  # Experimental groups you want to compare
   groups:
-  - 24 hs
-  - 1 week
+  - Group_1
+  - Group_2
+
+  # If your experiment has multiple trials, list the trial names here
+  trials:
+  - Hab
+  - TR
+  - TS
 
   # Role/novelty of each target in the experiment
-  target roles:
+  target_roles:
     Hab: null
     TR:
     - Left
@@ -188,5 +187,5 @@ experiment metadata:
     - Novel
     - Known
 
-  # Type of labels used to measure exploration (geolabels, autolabels, etc.)
-  label type: autolabels
+  # Type of labels used to measure exploration (geolabels, autolabels, labels, etc)
+  label_type: geolabels

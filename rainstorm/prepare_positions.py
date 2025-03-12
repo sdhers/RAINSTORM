@@ -89,9 +89,9 @@ def create_params(folder_path:str, ROIs_path = None):
                 with open(ROIs_path, "r") as json_file:
                     roi_data = json.load(json_file) # Overwrite null roi_data
             except Exception as e:
-                print(f"Error loading ROI data: {e}.\nEdit the params.yaml file manually to add ROIs.")
+                print(f"Error loading ROI data: {e}.\nEdit the params.yaml file manually to add frame_shape, scaling factor, and ROIs.")
         else:
-            print(f"Error loading ROI data: ROIs_path '{ROIs_path}' does not exist.\nEdit the params.yaml file manually to add ROIs.")
+            print(f"Error loading ROI data: ROIs_path '{ROIs_path}' does not exist.\nEdit the params.yaml file manually to add frame_shape, scaling factor, and ROIs.")
         
     all_h5_files = glob(os.path.join(folder_path,"*position.h5"))
     filenames = [os.path.basename(file).replace('_position.h5', '') for file in all_h5_files]
@@ -101,39 +101,41 @@ def create_params(folder_path:str, ROIs_path = None):
         "path": folder_path,
         "filenames": filenames,
         "software": "DLC",
+        "fps": 25,
         "bodyparts": ["nose", "L_ear", "R_ear", "head", "neck", "body", "tail_1", "tail_2", "tail_3"],
         "targets": ["obj_1", "obj_2"],
-        "trials": ['Hab', 'TR', 'TS'],
-        "filtering & smoothing": {  # Grouped under a dictionary
+
+        "prepare_positions": {  # Grouped under a dictionary
             "confidence": 2,
             "tolerance": 0.8,
-            "median filter": 3
-        },
-        "video fps": 25,
-        "roi data": roi_data,  # Add the JSON content here
-        "geometric analysis": {
+            "median_filter": 3
+            },
+        "geometric_analysis": {
+            "roi_data": roi_data,  # Add the JSON content here
             "distance": 2.5,
             "orientation": 45.0,
-            "freezing threshold": 0.01
-        },
-        "automatic analysis": {
-            "model": "wide",
-            "model date": "example",
-            "model bodyparts": ["nose", "L_ear", "R_ear", "head", "neck", "body"],
+            "freezing_threshold": 0.01
+            },
+        "automatic_analysis": {
+            "model_path": "path/to/trained/model.keras",
+            "model_bodyparts": ["nose", "L_ear", "R_ear", "head", "neck", "body"],
             "rescaling": True,
             "reshaping": False,
-            "past": 3,
-            "future": 3,
-            "broad": 1.7
-        },
-        "experiment metadata": {
+            "LSTM_shape": {
+                "past": 3,
+                "future": 3,
+                "broad": 1.7
+                }
+            },
+        "seize_labels": {
             "groups": ["Group_1", "Group_2"],
-            "target roles": {
+            "trials": ['Hab', 'TR', 'TS'],
+            "target_roles": {
                 "Hab": None,
                 "TR": ["Left", "Right"],
                 "TS": ["Novel", "Known"]
             },
-            "label type": "geolabels",
+            "label_type": "geolabels",
         }
     }
 
@@ -152,38 +154,42 @@ def create_params(folder_path:str, ROIs_path = None):
     # Define comments to insert
     comments = {
         "path": "# Path to the folder containing the pose estimation files",
-        "filenames": "# List of the pose estimation filenames",
-        "software": "# Software used to generate the pose estimation files",
-        "bodyparts": "# List of the tracked bodyparts",
-        "targets": "# List of the exploration targets.",
-        "trials": "# If your experiment has multiple trials, specify the trial names here.",
-        "filtering & smoothing": "# Parameters for processing positions",
-        "confidence": "# Confidence threshold for filtering",
-        "tolerance": "# Tolerance threshold for filtering",
-        "median filter": "# Median filter window size",
-        "video fps": "# Video settings",
-        "roi data": "# Regions of Interest (ROIs) and key points from JSON",
-        "frame shape": "  # Shape of the video frames",
-        "scale": "  # Scale factor (in px/cm)",
-        "areas": "  # Defined ROIs (areas) in the frame",
-        "points": "  # Key points within the frame",
-        "geometric analysis": "# Parameters for geometric analysis",
-        "distance": "  # Maximum nose-target distance to consider exploration.",
-        "orientation": "  # Maximum head-target orientation angle to consider exploration.",
-        "freezing threshold": "  # Movement threshold for freezing, computed as mean std of all body parts over 1 second.",
-        "automatic analysis": "# Parameters for automatic analysis",
-        "model": "  # Model name (simple, wide, RF, etc.)",
-        "model date": "  # Training date of the model",
-        "model bodyparts": "  # List of bodyparts used to train the model",
+        "filenames": "# Pose estimation filenames",
+        "software": "# Software used to generate the pose estimation files ('DLC' or 'SLEAP')",
+        "fps": "# Video frames per second",
+        "bodyparts": "# Tracked bodyparts",
+        "targets": "# Exploration targets",
+
+        "prepare_positions": "# Parameters for processing positions",
+        "confidence": "  # How many std_dev away from the mean the point's likelihood can be without being erased",
+        "tolerance": "  # If the mean likelihood is below this value, the whole point will be erased",
+        "median_filter": "  # Number of frames to use for the median filter (it must be an odd number)",
+        
+        "geometric_analysis": "# Parameters for geometric analysis",
+        "roi_data": "  # Loaded from ROIs.json",
+        "frame_shape": "    # Shape of the video frames",
+        "scale": "    # Scale factor (in px/cm)",
+        "areas": "    # Defined ROIs (areas) in the frame",
+        "points": "    # Key points within the frame",
+        "distance": "  # Maximum nose-target distance to consider exploration",
+        "orientation": "  # Maximum head-target orientation angle to consider exploration",
+        "freezing_threshold": "  # Movement threshold to consider freezing, computed as the mean std of all body parts over 1 second",
+        
+        "automatic_analysis": "# Parameters for automatic analysis",
+        "model_path": "  # Path to the model file",
+        "model_bodyparts": "  # List of bodyparts used to train the model",
         "rescaling": "  # Whether to rescale the data",
-        "reshaping": "  # Whether to reshape the data (set to True for LSTM models))",
-        "past": "  # Number of past frames to include",
-        "future": "  # Number of future frames to include",
-        "broad": "  # Broaden the window by skipping some frames as we stray further from the present.",
-        "experiment metadata": "# Parameters for the analysis of the experiment",
-        "groups": "  # List of the groups in the experiment",
-        "target roles": "  # Role/novelty of each target in the experiment",
-        "label type": "  # Type of labels used to measure exploration (geolabels, autolabels, etc.)",
+        "reshaping": "  # Whether to reshape the data (set to True for LSTM models)",
+        "LSTM_shape": "  # Defines the shape of the LSTM model",
+        "past": "    # Number of past frames to include",
+        "future": "    # Number of future frames to include",
+        "broad": "    # Broaden the window by skipping some frames as we stray further from the present",
+        
+        "seize_labels": "# Parameters for the analysis of the experiment results",
+        "groups": "  # Experimental groups you want to compare",
+        "trials": "  # If your experiment has multiple trials, list the trial names here",
+        "target_roles": "  # Role/novelty of each target in the experiment",
+        "label_type": "  # Type of labels used to measure exploration (geolabels, autolabels, labels, etc)",
     }
 
     # Insert comments before corresponding keys
@@ -208,10 +214,10 @@ def load_yaml(params_path: str) -> dict:
         return yaml.safe_load(file)
     
 def choose_example_h5(params_path, look_for: str = 'TS') -> str:
-    """Picks an example file from a list of files.
+    """Picks an example file
 
     Args:
-        files (list): List of files to choose from.
+        params_path (str): Path to the YAML parameters file.
         look_for (str, optional): Word to filter files by. Defaults to 'TS'.
 
     Returns:
@@ -222,7 +228,8 @@ def choose_example_h5(params_path, look_for: str = 'TS') -> str:
     """
     params = load_yaml(params_path)
     folder_path = params.get("path")
-    files = glob(os.path.join(folder_path,"*position.h5"))
+    filenames = params.get("filenames")
+    files = [os.path.join(folder_path, file + '_position.h5') for file in filenames]
     
     if not files:
         raise ValueError("The list of files is empty. Please provide a non-empty list.")
@@ -241,12 +248,12 @@ def choose_example_h5(params_path, look_for: str = 'TS') -> str:
     return example
 
 
-def open_h5_file(params_path: str, filepath, print_data: bool = False) -> pd.DataFrame:
+def open_h5_file(params_path: str, file_path, print_data: bool = False) -> pd.DataFrame:
     """Opens an h5 file and returns the data as a pandas dataframe.
 
     Args:
         params_path (str): Path to the YAML parameters file.
-        filepath (str): Path to the h5 file.
+        file_path (str): Path to the h5 file.
         
     Returns:
         DataFrame with columns [x, y, likelihood] for each body part
@@ -255,10 +262,10 @@ def open_h5_file(params_path: str, filepath, print_data: bool = False) -> pd.Dat
     # Load parameters
     params = load_yaml(params_path)
     software = params.get("software", "DLC")
-    num_sd = params.get("num_sd", 2)
+    num_sd = params.get("prepare_positions", {}).get("confidence", 2)
 
     if software == "DLC":
-        df = pd.read_hdf(filepath)
+        df = pd.read_hdf(file_path)
         scorer = df.columns.levels[0][0]
         bodyparts = df.columns.levels[1].to_list()
         df = df[scorer]
@@ -269,7 +276,7 @@ def open_h5_file(params_path: str, filepath, print_data: bool = False) -> pd.Dat
             df_raw[str(key[0]) + "_" + str(key[1])] = df[key]
 
     elif software == "SLEAP":
-        with h5py.File(filepath, "r") as f:
+        with h5py.File(file_path, "r") as f:
             scorer = "SLEAP"
             locations = f["tracks"][:].T
             bodyparts = [n.decode() for n in f["node_names"][:]]
@@ -313,7 +320,7 @@ def open_h5_file(params_path: str, filepath, print_data: bool = False) -> pd.Dat
 
     return df_raw
 
-def add_targets(params_path: str, df: pd.DataFrame):
+def add_targets(params_path: str, df: pd.DataFrame, verbose: bool = False):
     """Add target columns to the DataFrame based on ROIs.json.
     
     Args:
@@ -326,23 +333,22 @@ def add_targets(params_path: str, df: pd.DataFrame):
     # Load parameters
     params = load_yaml(params_path)
     targets = params.get("targets", [])
-
-    # Load ROI and key points from YAML
-    roi_data = params.get("roi_data", {})
-    # frame_shape = roi_data.get("frame_shape", {})
-    # areas = roi_data.get("areas", [])
-    points = roi_data.get("points", [])
+    points = params.get("geometric_analysis", {}).get("roi_data", {}).get("points", [])
     
     # Filter ROIs based on the targets list
-    for point in points:
-        if point['name'] in targets:  # Check if the ROI name is in the targets list
-            name = point['name']
-            center_x, center_y = point['center']
-            
-            # Add columns for x and y coordinates
-            df[f"{name}_x"] = center_x
-            df[f"{name}_y"] = center_y
-            df[f"{name}_likelihood"] = 1
+    if points:
+        for point in points:
+            if point['name'] in targets:  # Check if the ROI name is in the targets list
+                name = point['name']
+                center_x, center_y = point['center']
+                
+                # Add columns for x and y coordinates
+                df[f"{name}_x"] = center_x
+                df[f"{name}_y"] = center_y
+                df[f"{name}_likelihood"] = 1
+
+                if verbose:
+                    print(f"Added columns for {name}")
     
     return df
 
@@ -362,9 +368,7 @@ def filter_and_smooth_df(params_path: str, df_raw: pd.DataFrame) -> pd.DataFrame
     params = load_yaml(params_path)
     bodyparts = params.get("bodyparts", [])
     targets = params.get("targets", [])
-
-    # Load filter_params from YAML
-    filter_params = params.get("filtering & smoothing", {})
+    filter_params = params.get("prepare_positions", {})
     num_sd = filter_params.get("confidence", 2)
     drop_below = filter_params.get("tolerance", 0.5)
     med_filt_window = filter_params.get("median_filter", 3)
@@ -417,9 +421,8 @@ def filter_and_smooth_df(params_path: str, df_raw: pd.DataFrame) -> pd.DataFrame
             # Trim the padded edges to restore original length
             df[column] = smooth[:len(df[column])]
 
-    for tgt in targets:
-        if tgt is not None:
-
+    if targets:
+        for tgt in targets:
             median = df[f'{tgt}_likelihood'].median()
             mean = df[f'{tgt}_likelihood'].mean()
             std_dev = df[f'{tgt}_likelihood'].std()
@@ -451,10 +454,7 @@ def plot_raw_vs_smooth(params_path: str, df_raw, df_smooth, bodypart = 'nose'):
     """
     # Load parameters
     params = load_yaml(params_path)
-
-    # Load filter_params from YAML
-    filter_params = params.get("filtering & smoothing", {})
-    num_sd = filter_params.get("confidence", 2)
+    num_sd = params.get("prepare_positions", {}).get("confidence", 2)
 
     # Create figure
     fig = go.Figure()
@@ -505,104 +505,6 @@ def plot_raw_vs_smooth(params_path: str, df_raw, df_smooth, bodypart = 'nose'):
     # Show plot
     fig.show()
 
-def get_point_coordinates(point_name: str, points_list: list):
-    """Find the coordinates of a point given its name in the points list."""
-    for point in points_list:
-        if point["name"] == point_name:
-            return point["center"]  # Returns [x, y]
-    return None  # If not found
-
-def find_scale_factor(params_path: str, df: pd.DataFrame, print_results: bool = False, plot_results: bool = False) -> float:
-    """Calculates the scale factor using the distance between two key points.
-
-    Args:
-        params_path (str): Path to the YAML parameters file.
-        df (pd.DataFrame): Input DataFrame with tracking data.
-        print_results (bool, optional): Whether to print the results. Defaults to False.
-        plot_results (bool, optional): Whether to plot the results. Defaults to False.
-
-    Returns:
-        float: The scale factor (real-world distance per pixel).
-    """
-    # Load parameters
-    params = load_yaml(params_path)
-
-    # Load scaling parameters from YAML
-    scaling_params = params.get("scaling", {})
-    measured_points = scaling_params.get("measured_points", [])
-    measured_dist = scaling_params.get("measured_dist", None)
-
-    roi_data = params.get("roi_data", {})
-    points_list = roi_data.get("points", [])
-
-    if not measured_points or measured_dist is None:
-        raise ValueError("Invalid scaling parameters in YAML file.")
-
-    A, B = measured_points
-
-    # First, try to get the points from roi_data['points']
-    A_coords = get_point_coordinates(A, points_list)
-    B_coords = get_point_coordinates(B, points_list)
-
-    if A_coords and B_coords:
-        # If both points are found in roi_data['points'], use them
-        A_x, A_y = A_coords
-        B_x, B_y = B_coords
-        dist = np.sqrt((A_x - B_x) ** 2 + (A_y - B_y) ** 2)
-    elif f"{A}_x" in df.columns and f"{B}_x" in df.columns:
-        # If not found in roi_data, check in df
-        df.dropna(inplace=True)
-        dist = np.sqrt((df[f"{A}_x"] - df[f"{B}_x"])**2 + (df[f"{A}_y"] - df[f"{B}_y"])**2)
-    else:
-        raise ValueError(f"Points {A}, {B} not found in roi_data['points'] or df.")
-
-    if isinstance(dist, pd.Series):
-        dist.dropna(inplace=True)
-        median_dist = np.median(dist)
-        mean_dist = np.mean(dist)
-        plot_results = True  # Plot results if dist is a series
-    else:
-        median_dist = mean_dist = dist  # If dist is a single value, use it directly
-        plot_results = False  # Don't plot results if dist is a single value
-
-    scale = measured_dist / median_dist
-
-    if print_results:
-
-        print(f'median distance is {median_dist}, mean distance is {mean_dist}. Scale factor is {scale:.4f} (1 cm = {1/scale:.2f} px).')
-
-        if plot_results:
-
-            # Create the plot
-            fig = go.Figure()
-
-            # Add the distance trace
-            fig.add_trace(go.Scatter(y=dist, mode='lines', name='Distance between ears'))
-
-            # Add mean and median lines
-            fig.add_trace(go.Scatter(y=[mean_dist]*len(dist), mode='lines', name=f'Mean: {mean_dist:.2f}', line=dict(color='red', dash='dash')))
-            fig.add_trace(go.Scatter(y=[median_dist]*len(dist), mode='lines', name=f'Median: {median_dist:.2f}', line=dict(color='black')))
-
-            # Update layout
-            fig.update_layout(
-                title=f'Distance between {A} and {B}',
-                xaxis_title='Frame',
-                yaxis_title='Distance (pixels)',
-                legend=dict(yanchor="bottom",
-                            y=1,
-                            xanchor="center",
-                            x=0.5,
-                            orientation="h"),
-            )
-
-            # Show the plot
-            fig.show()
-    
-        else:
-            print("Distance between points is a single value. Skipping plot.")
-    
-    return scale
-
 def process_position_files(params_path: str):
     """Processes a list of HDF5 files and saves the smoothed data as a CSV file.
 
@@ -610,13 +512,12 @@ def process_position_files(params_path: str):
         params_path (str): Path to the YAML parameters file.
     """
     params = load_yaml(params_path)
-    path = params.get("path")
-    filenames = params.get("filenames", [])
-    fps = params.get("fps", 30)
+    folder_path = params.get("path")
+    fps = params.get("fps")
+    filenames = params.get("filenames")
+    files = [os.path.join(folder_path, file + '_position.h5') for file in filenames]
     
-    for file in filenames:
-
-        file = os.path.join(path, file + '_position.h5')
+    for file in files:
 
         df_raw = open_h5_file(params_path, file)
 
@@ -655,7 +556,7 @@ def filter_and_move_files(params_path: str):
     """
     params = load_yaml(params_path)
     folder_path = params.get("path")
-    trials = params.get("trials", [])
+    trials = params.get("seize_labels", {}).get("trials", [])
 
     for trial in trials:
         # Create a new subfolder

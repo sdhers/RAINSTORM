@@ -1,0 +1,270 @@
+# Rainstorm Parameters file
+
+# Path to the folder containing the pose estimation files
+path: C:\Users\dhers\Desktop\Rainstorm\docs\examples\SP_example
+
+# Pose estimation filenames
+filenames:
+- social_R01_Hab
+- social_R01_TR1
+- social_R01_TR2
+- social_R02_Hab
+- social_R02_TR1
+- social_R02_TR2
+- social_R02_TR3
+- social_R03_Hab
+- social_R03_TR1
+- social_R03_TR2
+- social_R03_TR3
+- social_R04_Hab
+- social_R04_TR1
+- social_R04_TR2
+- social_R05_Hab
+- social_R05_TR1
+- social_R05_TR2
+- social_R05_TR3
+- social_R06_Hab
+- social_R06_TR1
+- social_R06_TR2
+- social_R06_TR3
+- social_R07_Hab
+- social_R07_TR1
+- social_R07_TR2
+- social_R08_Hab
+- social_R08_TR1
+- social_R08_TR2
+- social_R08_TR3
+- social_R09_Hab
+- social_R09_TR1
+- social_R09_TR2
+- social_R09_TR3
+- social_R10_Hab
+- social_R10_TR1
+- social_R10_TR2
+- social_R11_Hab
+- social_R11_TR1
+- social_R11_TR2
+- social_R11_TR3
+- social_R12_Hab
+- social_R12_TR1
+- social_R12_TR2
+- social_R13_Hab
+- social_R13_TR1
+- social_R13_TR2
+- social_R13_TR3
+- social_R14_Hab
+- social_R14_TR1
+- social_R14_TR2
+- social_R14_TR3
+- social_R15_Hab
+- social_R15_TR1
+- social_R15_TR2
+- social_R15_TR3
+- social_R16_Hab
+- social_R16_TR1
+- social_R16_TR2
+- social_R17_Hab
+- social_R17_TR1
+- social_R17_TR2
+- social_R17_TR3
+- social_R18_Hab
+- social_R18_TR1
+- social_R18_TR2
+- social_R18_TR3
+- social_R19_Hab
+- social_R19_TR1
+- social_R19_TR2
+- social_R19_TR3
+- social_R20_Hab
+- social_R20_TR1
+- social_R20_TR2
+- social_R20_TR3
+- social_R21_Hab
+- social_R21_TR1
+- social_R21_TR2
+- social_R22_Hab
+- social_R22_TR1
+- social_R22_TR2
+- social_R23_Hab
+- social_R23_TR1
+- social_R23_TR2
+- social_R23_TR3
+
+# Software used to generate the pose estimation files ('DLC' or 'SLEAP')
+software: DLC
+
+# Video frames per second
+fps: 15
+
+# Tracked bodyparts
+bodyparts:
+- nose
+- left_ear
+- right_ear
+- head
+- neck
+- body
+- tail_base
+- tail_mid
+- tail_end
+- left_shoulder
+- right_shoulder
+- left_midside
+- right_midside
+- left_hip
+- right_hip
+
+# Exploration targets
+targets:
+- blue_cyl
+- red_cyl
+
+# Parameters for processing positions
+prepare_positions:
+
+  # How many std_dev away from the mean the point's likelihood can be without being erased
+  confidence: 2
+
+  # If the mean likelihood is below this value, the whole point will be erased
+  tolerance: 0.8
+
+  # Number of frames to use for the median filter (it must be an odd number)
+  median_filter: 3
+
+# Parameters for geometric analysis
+geometric_analysis:
+
+  # Loaded from ROIs.json
+  roi_data:
+
+    # Shape of the video frames ([width, height])
+    frame_shape:
+    - 960
+    - 640
+
+    # Scale factor (in px/cm)
+    scale: 12.32
+
+    # Defined ROIs (areas) in the frame
+    areas:
+    - name: center
+      center:
+      - 484
+      - 484
+      width: 300
+      height: 300
+      angle: 0
+    - name: blue_corner
+      center:
+      - 184
+      - 484
+      width: 300
+      height: 300
+      angle: 0
+    - name: blue_chamber
+      center:
+      - 184
+      - 184
+      width: 300
+      height: 300
+      angle: 0
+    - name: red_corner
+      center:
+      - 784
+      - 484
+      width: 300
+      height: 300
+      angle: 0
+    - name: red_chamber
+      center:
+      - 784
+      - 184
+      width: 300
+      height: 300
+      angle: 0
+
+    # Key points within the frame
+    points:
+    - name: blue_cyl
+      center:
+      - 137
+      - 111
+    - name: red_cyl
+      center:
+      - 840
+      - 110
+
+  # Maximum nose-target distance to consider exploration
+  distance: 8
+
+  # Maximum head-target orientation angle to consider exploration
+  orientation: 45.0
+
+  # Movement threshold to consider freezing, computed as the mean std of all body parts over 1 second
+  freezing_threshold: 0.01
+
+# Parameters for automatic analysis
+automatic_analysis:
+
+  # Path to the model file
+  model_path: path/to/trained/model.keras
+
+  # List of bodyparts used to train the model
+  model_bodyparts:
+  - nose
+  - L_ear
+  - R_ear
+  - head
+  - neck
+  - body
+
+  # Whether to rescale the data
+  rescaling: true
+
+  # Whether to reshape the data (set to True for RNN models)
+  reshaping: true
+
+  # Defines the shape of the RNN model
+  RNN_width:
+
+    # Number of past frames to include
+    past: 3
+
+    # Number of future frames to include
+    future: 3
+
+    # Broaden the window by skipping some frames as we stray further from the present
+    broad: 1.7
+
+# Parameters for the analysis of the experiment results
+seize_labels:
+
+  # Experimental groups you want to compare
+  groups:
+  - WT
+  - 3xTg
+
+  # If your experiment has multiple trials, list the trial names here
+  trials:
+  - Hab
+  - TR1
+  - TR2
+  - TR3
+
+  # Role/novelty of each target in the experiment
+  target_roles:
+    Hab:
+    - Left
+    - Right
+    TR1:
+    - Mice
+    - Object
+    TR2:
+    - Novel
+    - Known
+    TR3:
+    - Homecage
+    - Known
+
+  # Type of labels used to measure exploration (geolabels, autolabels, labels, etc)
+  label_type: geolabels

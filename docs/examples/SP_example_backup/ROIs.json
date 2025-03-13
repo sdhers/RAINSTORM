@@ -1,73 +1,74 @@
 {
-    "frame_shape": {
-        "width": 960,
-        "height": 640
-    },
+    "frame_shape": [
+        960,
+        640
+    ],
+    "scale": 12.32,
     "areas": [
         {
             "name": "center",
             "center": [
-                485,
-                453
+                484,
+                484
             ],
-            "width": 311,
-            "height": 273,
-            "angle": 0
-        },
-        {
-            "name": "blue_chamber",
-            "center": [
-                173,
-                179
-            ],
-            "width": 311,
-            "height": 273,
-            "angle": 0
-        },
-        {
-            "name": "red_chamber",
-            "center": [
-                798,
-                180
-            ],
-            "width": 311,
-            "height": 273,
+            "width": 300,
+            "height": 300,
             "angle": 0
         },
         {
             "name": "blue_corner",
             "center": [
-                172,
-                454
+                184,
+                484
             ],
-            "width": 311,
-            "height": 273,
+            "width": 300,
+            "height": 300,
+            "angle": 0
+        },
+        {
+            "name": "blue_chamber",
+            "center": [
+                184,
+                184
+            ],
+            "width": 300,
+            "height": 300,
             "angle": 0
         },
         {
             "name": "red_corner",
             "center": [
-                799,
-                455
+                784,
+                484
             ],
-            "width": 311,
-            "height": 273,
+            "width": 300,
+            "height": 300,
+            "angle": 0
+        },
+        {
+            "name": "red_chamber",
+            "center": [
+                784,
+                184
+            ],
+            "width": 300,
+            "height": 300,
             "angle": 0
         }
     ],
     "points": [
         {
-            "name": "blue",
+            "name": "blue_cyl",
             "center": [
-                138,
+                137,
                 111
             ]
         },
         {
-            "name": "red",
+            "name": "red_cyl",
             "center": [
                 840,
-                111
+                110
             ]
         }
     ]

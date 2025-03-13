@@ -94,30 +94,30 @@ filenames:
 software: DLC
 
 # Video frames per second
-fps: 25
+fps: 15
 
 # Tracked bodyparts
 bodyparts:
 - nose
+- left_ear
+- right_ear
 - head
 - neck
 - body
-- left_ear
-- left_hip
-- left_midside
-- left_shoulder
-- right_ear
-- right_hip
-- right_midside
-- right_shoulder
 - tail_base
 - tail_mid
 - tail_end
+- left_shoulder
+- right_shoulder
+- left_midside
+- right_midside
+- left_hip
+- right_hip
 
 # Exploration targets
 targets:
-- blue
-- red
+- blue_cyl
+- red_cyl
 
 # Parameters for processing positions
 prepare_positions:
@@ -137,65 +137,65 @@ geometric_analysis:
   # Loaded from ROIs.json
   roi_data:
 
-    # Shape of the video frames
+    # Shape of the video frames ([width, height])
     frame_shape:
-      width: 960
-      height: 640
+    - 960
+    - 640
 
     # Scale factor (in px/cm)
-    scale: 13.12
+    scale: 12.32
 
     # Defined ROIs (areas) in the frame
     areas:
     - name: center
       center:
-      - 485
-      - 453
-      width: 311
-      height: 273
-      angle: 0
-    - name: blue_chamber
-      center:
-      - 173
-      - 179
-      width: 311
-      height: 273
-      angle: 0
-    - name: red_chamber
-      center:
-      - 798
-      - 180
-      width: 311
-      height: 273
+      - 484
+      - 484
+      width: 300
+      height: 300
       angle: 0
     - name: blue_corner
       center:
-      - 172
-      - 454
-      width: 311
-      height: 273
+      - 184
+      - 484
+      width: 300
+      height: 300
+      angle: 0
+    - name: blue_chamber
+      center:
+      - 184
+      - 184
+      width: 300
+      height: 300
       angle: 0
     - name: red_corner
       center:
-      - 799
-      - 455
-      width: 311
-      height: 273
+      - 784
+      - 484
+      width: 300
+      height: 300
+      angle: 0
+    - name: red_chamber
+      center:
+      - 784
+      - 184
+      width: 300
+      height: 300
       angle: 0
 
     # Key points within the frame
     points:
-    - name: blue
+    - name: blue_cyl
       center:
-      - 138
+      - 137
       - 111
-    - name: red
+    - name: red_cyl
       center:
       - 840
-      - 111
+      - 110
 
   # Maximum nose-target distance to consider exploration
-  distance: 9
+  distance: 8
 
   # Maximum head-target orientation angle to consider exploration
   orientation: 45.0
@@ -221,11 +221,11 @@ automatic_analysis:
   # Whether to rescale the data
   rescaling: true
 
-  # Whether to reshape the data (set to True for LSTM models)
+  # Whether to reshape the data (set to True for RNN models)
   reshaping: true
 
-  # Parameters for the LSTM model
-  LSTM_shape:
+  # Defines the shape of the RNN model
+  RNN_width:
 
     # Number of past frames to include
     past: 3
@@ -263,7 +263,7 @@ seize_labels:
     - Novel
     - Known
     TR3:
-    - HC
+    - Homecage
     - Known
 
   # Type of labels used to measure exploration (geolabels, autolabels, labels, etc)

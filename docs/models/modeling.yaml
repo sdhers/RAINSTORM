@@ -36,10 +36,10 @@ bodyparts:
 split:
 
   # Percentage of the data to use for validation
-  validation: 0.1
+  validation: 0.15
 
   # Percentage of the data to use for testing
-  test: 0.1
+  test: 0.15
 
 # Set up the Recurrent Neural Network
 RNN:

@@ -293,9 +293,9 @@ def plot_heatmap(params_path, file, bodypart = 'body', bins=50, cmap="coolwarm",
     params = load_yaml(params_path)
     roi_data = params.get("geometric_analysis", {}).get("roi_data", {})
     areas = roi_data.get("areas", [])
-    frame_shape = roi_data.get("frame_shape", {})
-    frame_width = frame_shape.get("width", 0)
-    frame_height = frame_shape.get("height", 0)
+    frame_shape = roi_data.get("frame_shape", [])
+    frame_width = frame_shape[0]
+    frame_height = frame_shape[1]
 
     if not frame_width or not frame_height:
         print("Frame shape not found in the parameters file. Skipping heatmap plot.")

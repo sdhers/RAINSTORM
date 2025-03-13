@@ -6,9 +6,6 @@
 import numpy as np
 import pandas as pd
 
-import os
-import random
-
 from sklearn.metrics import classification_report, accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, mean_absolute_error, r2_score
 
 # %% Functions

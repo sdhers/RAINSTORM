@@ -74,13 +74,10 @@ def create_params(folder_path:str, ROIs_path = None):
         return params_path
     
     roi_data = {
-            "frame_shape": {
-                "width": None,
-                "height": None
-            },
+            "frame_shape": [],
             "scale": 1,
-            "areas": None,
-            "points": None
+            "areas": [],
+            "points": []
             }
 
     if ROIs_path is not None:
@@ -135,7 +132,7 @@ def create_params(folder_path:str, ROIs_path = None):
                 "TR": ["Left", "Right"],
                 "TS": ["Novel", "Known"]
             },
-            "label_type": "geolabels",
+            "label_type": "autolabels",
         }
     }
 
@@ -167,7 +164,7 @@ def create_params(folder_path:str, ROIs_path = None):
         
         "geometric_analysis": "# Parameters for geometric analysis",
         "roi_data": "  # Loaded from ROIs.json",
-        "frame_shape": "    # Shape of the video frames",
+        "frame_shape": "    # Shape of the video frames ([width, height])",
         "scale": "    # Scale factor (in px/cm)",
         "areas": "    # Defined ROIs (areas) in the frame",
         "points": "    # Key points within the frame",

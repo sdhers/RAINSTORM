@@ -22,16 +22,18 @@ def load_yaml(params_path: str) -> dict:
         return yaml.safe_load(file)
 
 # Define the color pairs for plotting
-global color_A_list; color_A_list = ['dodgerblue',    'green',    'orangered',    'indigo',   'sienna']
-global color_B_list; color_B_list = ['darkorange',    'orchid',   'turquoise',    'gray',     'limegreen']
+global color_A_list; color_A_list = ['dodgerblue',    'green',    'orangered',    'indigo',   'sienna',     'black']
+global color_B_list; color_B_list = ['darkorange',    'orchid',   'turquoise',    'gray',     'limegreen',  'pink']
 
 def create_reference_file(params_path:str):
     
     params = load_yaml(params_path)
     folder = params.get("path")
-    trials = params.get("trials", [])
     targets = params.get("targets", [])
-    
+
+    seize_labels = params.get("seize_labels", {})
+    trials = seize_labels.get("trials", [])
+
     reference_path = os.path.join(folder, 'reference.csv')
     
     # Check if Reference.csv already exists
@@ -69,19 +71,17 @@ def create_summary(params_path:str):
     params = load_yaml(params_path)
     folder = params.get("path")
     reference_path = os.path.join(folder, 'reference.csv')
-
-    trials = params.get("trials", [])
-    targets = params.get("targets", [])
-    fps = params.get("video_fps", 30)
-
-    experiment_metadata = params.get("experiment metadata", {})
-    label_type = experiment_metadata.get("label_type", "geolabels")
-    
-    parent_dir = os.path.dirname(reference_path)
     reference = pd.read_csv(reference_path)
+
+    targets = params.get("targets", [])
+    fps = params.get("fps", 30)
+
+    seize_labels = params.get("seize_labels", {})
+    trials = seize_labels.get("trials", [])
+    label_type = seize_labels.get("label_type")
     
     # Create a subfolder named "summary"
-    summary_path = os.path.join(parent_dir, f'summary')
+    summary_path = os.path.join(folder, f'summary')
 
     # Check if it exists
     if os.path.exists(summary_path):
@@ -105,10 +105,10 @@ def create_summary(params_path:str):
                 os.makedirs(trial_path, exist_ok = True)
 
                 # Find the old file path & read the CSV file into a DataFrame
-                old_movement_path = os.path.join(parent_dir, trial, 'movement', f'{video_name}_movement.csv')
+                old_movement_path = os.path.join(folder, trial, 'movement', f'{video_name}_movement.csv')
                 df_movement = pd.read_csv(old_movement_path)
 
-                label_path = os.path.join(parent_dir, trial, f'{label_type}', f'{video_name}_{label_type}.csv')
+                label_path = os.path.join(folder, trial, f'{label_type}', f'{video_name}_{label_type}.csv')
                 
                 if os.path.exists(label_path):
                     df_label = pd.read_csv(label_path)
@@ -144,7 +144,7 @@ def calculate_DI(df: pd.DataFrame, novelty: list, fps: float = 30) -> pd.DataFra
 
     Args:
         df (pd.DataFrame): DataFrame containing the exploration times.
-        novelty (list): List of the novelty values of the objects.
+        novelty (list): List of the novelty values of the targets.
         fps (float, optional): Frames per second of the video. Defaults to 30.
 
     Returns:
@@ -160,7 +160,6 @@ def calculate_DI(df: pd.DataFrame, novelty: list, fps: float = 30) -> pd.DataFra
     df['DI'] = (df[f'{A}_cumsum'] - df[f'{B}_cumsum']) / (df[f'{A}_cumsum'] + df[f'{B}_cumsum']) * 100
 
     return df
-
 
 def calculate_durations(series, fps):
     durations = []
@@ -184,7 +183,7 @@ def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = Tr
 
     Args:
         path (str): Path to the main folder.
-        data (dict): Group names with their trials and object novelty pair.
+        data (dict): Group names with their trials and target novelty pair.
         groups (list): Groups to plot.
         trial (str): Trial name.
         plots (list): List of functions to apply for plotting.
@@ -196,12 +195,11 @@ def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = Tr
     """
     params = load_yaml(params_path)
     path = params.get("path")
-    fps = params.get("video_fps", 30)
+    fps = params.get("fps", 30)
 
-    experiment_metadata = params.get("experiment metadata", {})
-    groups = experiment_metadata.get("groups", [])
-    data = experiment_metadata.get("target roles", {})
-    print(data) 
+    seize_labels = params.get("seize_labels", {})
+    groups = seize_labels.get("groups", [])
+    data = seize_labels.get("target_roles", {})
 
     # Number of plots to create
     num_plots = len(plots)
@@ -253,7 +251,7 @@ def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = Tr
 
 def plot_exploration_time(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
     """
-    Plot the exploration time for each object for a single trial on a given axis.
+    Plot the exploration time for each target for a single trial on a given axis.
 
     Args:
         path (str): Path to the main folder.
@@ -291,14 +289,18 @@ def plot_exploration_time(path: str, group: str, trial: str, novelty: list, fps:
 
     all_dfs = pd.concat(trunc_dfs, ignore_index=True)
 
-    df = all_dfs.groupby('Frame').agg(['mean', 'std']).reset_index()
+    # Select only numeric columns for aggregation
+    numeric_cols = all_dfs.select_dtypes(include=['number']).columns
+    df = all_dfs.groupby('Frame')[numeric_cols].agg(['mean', 'std']).reset_index()
+
+    # Flatten the MultiIndex column names
     df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
 
     # Define a list of colors (you can expand this as needed)
     color_A = color_A_list[aux_glob]
     color_B = color_B_list[aux_glob]
 
-    # Object exploration
+    # Target exploration
     ax.plot(df['Time_mean'], df[f'{A}_cumsum_mean'], label = f'{group} {A}', color = color_A, marker='_')
     ax.fill_between(df['Time_mean'], df[f'{A}_cumsum_mean'] - df[f'{A}_cumsum_std'] /se, df[f'{A}_cumsum_mean'] + df[f'{A}_cumsum_std'] /se, color = color_A, alpha=0.2)
     ax.plot(df['Time_mean'], df[f'{B}_cumsum_mean'], label = f'{group} {B}', color = color_B, marker='_')
@@ -307,14 +309,14 @@ def plot_exploration_time(path: str, group: str, trial: str, novelty: list, fps:
     max_time = df['Time_mean'].max()
     ax.set_xticks(np.arange(0, max_time + 30, 60))    
     ax.set_ylabel('Exploration Time (s)')
-    ax.set_title('Exploration of objects during TS')
+    ax.set_title('Exploration of targets during TS')
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
 
 def plot_exploration_boxplot(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
     """
-    Plot a boxplot of exploration time for each object at the end of the session
+    Plot a boxplot of exploration time for each target at the end of the session
 
     Args:
         path (str): Path to the main folder.
@@ -375,14 +377,14 @@ def plot_exploration_boxplot(path: str, group: str, trial: str, novelty: list, f
     ax.axhline(mean_a, color=color_A, linestyle='--', label=f'{group} {A}')
     ax.axhline(mean_b, color=color_B, linestyle='--', label=f'{group} {B}')
     ax.set_ylabel('Exploration Time (s)')
-    ax.set_title('Exploration of objects at the end of TS')
+    ax.set_title('Exploration of targets at the end of TS')
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
 
 def plot_exploration_histogram(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
     """
-    Plot an histogram of the durations of the exploration of each object.
+    Plot an histogram of the durations of the exploration of each target.
 
     Args:
         path (str): Path to the main folder.
@@ -450,7 +452,7 @@ def plot_exploration_histogram(path: str, group: str, trial: str, novelty: list,
 
 def plot_exploration_scatterplot(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
     """
-    Plot a scatter plot of exploration time for each object at the end of the session
+    Plot a scatter plot of exploration time for each target at the end of the session
 
     Args:
         path (str): Path to the main folder.
@@ -492,8 +494,8 @@ def plot_exploration_scatterplot(path: str, group: str, trial: str, novelty: lis
     # Scatter plot of exploration
     ax.scatter(exp_B, exp_A, color=scatter_color)
     ax.set_title('Scatter Plot')
-    ax.set_xlabel(f'time exploring the {B} object (s)')
-    ax.set_ylabel(f'time exploring the {A} object (s)')
+    ax.set_xlabel(f'time exploring the {B} target (s)')
+    ax.set_ylabel(f'time exploring the {A} target (s)')
     ax.set_aspect('equal', adjustable='box')
     
     # Calculate the slope with the intercept fixed at 0
@@ -547,7 +549,11 @@ def plot_DI(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=
 
     all_dfs = pd.concat(trunc_dfs, ignore_index=True)
 
-    df = all_dfs.groupby('Frame').agg(['mean', 'std']).reset_index()
+    # Select only numeric columns for aggregation
+    numeric_cols = all_dfs.select_dtypes(include=['number']).columns
+    df = all_dfs.groupby('Frame')[numeric_cols].agg(['mean', 'std']).reset_index()
+
+    # Flatten the MultiIndex column names
     df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
 
     # Define a list of colors (you can expand this as needed)
@@ -849,48 +855,65 @@ class Vector:
 
         return angle
 
-def Extract_positions(position, maxAngle = 45, maxDist = 2.5):
+def Extract_positions(position, scale, targets, maxAngle, maxDist):
 
-    # Extract positions of both objects and bodyparts
-    obj1 = Point(position, 'obj_1')
-    obj2 = Point(position, 'obj_2')
+    position *= 1/scale
+
+    # Extract positions of both targets and bodyparts
+    tgt1 = Point(position, targets[0])
+    tgt2 = Point(position, targets[1])
     nose = Point(position, 'nose')
     head = Point(position, 'head')
     
-    # We now filter the frames where the mouse's nose is close to each object
-    # Find distance from the nose to each object
-    dist1 = Point.dist(nose, obj1)
-    dist2 = Point.dist(nose, obj2)
+    # We now filter the frames where the mouse's nose is close to each target
+    # Find distance from the nose to each target
+    dist1 = Point.dist(nose, tgt1)
+    dist2 = Point.dist(nose, tgt2)
     
-    # Next, we filter the points where the mouse is looking at each object    
-    # Compute normalized head-nose and head-object vectors
+    # Next, we filter the points where the mouse is looking at each target    
+    # Compute normalized head-nose and head-target vectors
     head_nose = Vector(head, nose, normalize = True)
-    head_obj1 = Vector(head, obj1, normalize = True)
-    head_obj2 = Vector(head, obj2, normalize = True)
+    head_tgt1 = Vector(head, tgt1, normalize = True)
+    head_tgt2 = Vector(head, tgt2, normalize = True)
     
-    # Find the angles between the head-nose and head-object vectors
-    angle1 = Vector.angle(head_nose, head_obj1) # deg
-    angle2 = Vector.angle(head_nose, head_obj2) # deg
+    # Find the angles between the head-nose and head-target vectors
+    angle1 = Vector.angle(head_nose, head_tgt1) # deg
+    angle2 = Vector.angle(head_nose, head_tgt2) # deg
     
-    # Find points where the mouse is looking at the objects
-    # Im asking the nose be closer to the aimed object to filter distant sighting
+    # Find points where the mouse is looking at the targets
+    # Im asking the nose be closer to the aimed target to filter distant sighting
     towards1 = nose.positions[(angle1 < maxAngle) & (dist1 < maxDist * 3)]
     towards2 = nose.positions[(angle2 < maxAngle) & (dist2 < maxDist * 3)]
     
-    return nose, towards1, towards2, obj1, obj2
+    return nose, towards1, towards2, tgt1, tgt2
 
-def plot_all(path: str, data: dict, groups: list, trials: list, fps: int = 30, show = False):
+def plot_all_individual_exploration(params_path, show = False):
 
+    params = load_yaml(params_path)
+    path = params.get("path")
+    fps = params.get("fps", 30)
+    targets = params.get("targets", [])
+    scale = params.get("geometric_analysis", {}).get("roi_data", {}).get("scale", 1)
+    angle = params.get("geometric_analysis", {}).get("orientation", 45)
+    distance = params.get("geometric_analysis", {}).get("distance", 2.5)
+
+    seize_labels = params.get("seize_labels", {})
+    groups = seize_labels.get("groups", [])
+    trials = seize_labels.get("trials", [])
+    data = seize_labels.get("target_roles", {})
+    
     for group in groups:
         for trial in trials:
-
             folder = os.path.join(path, 'summary', group, trial)
 
             if not os.path.exists(folder):
                 raise FileNotFoundError(f"Folder {folder} does not exist.")
-            
-            novelty = data[group][trial]
-            
+
+            novelty = data[trial]
+            if not novelty:
+                print(f"No data for target novelty found for trial {trial}. Skipping.")
+                continue
+
             for file in glob(os.path.join(folder, '*')):
                 df = pd.read_csv(file)
                 df = calculate_DI(df, novelty, fps)
@@ -901,16 +924,16 @@ def plot_all(path: str, data: dict, groups: list, trials: list, fps: int = 30, s
                 position = pd.read_csv(position_file)
 
                 # Extract positions
-                nose, towards1, towards2, obj1, obj2 = Extract_positions(position)
+                nose, towards1, towards2, tgt1, tgt2 = Extract_positions(position, scale, targets, angle, distance)
 
                 # Prepare the figure
                 fig, axes = plt.subplots(2, 2, figsize=(12, 8))
 
                 # Plot each subplot
                 _plot_distance_covered(df, axes[0, 0])
-                _plot_object_exploration(df, novelty, axes[0, 1])
+                _plot_target_exploration(df, novelty, axes[0, 1])
                 _plot_discrimination_index(df, axes[1, 0])
-                _plot_positions(nose, towards1, towards2, obj1, obj2, axes[1, 1])
+                _plot_positions(nose, towards1, towards2, tgt1, tgt2, axes[1, 1])
 
                 # Set the overall title
                 file_name = os.path.basename(file)
@@ -942,14 +965,14 @@ def _plot_distance_covered(file, ax):
     ax.legend(loc='upper left', fancybox=True, shadow=True)
     ax.grid(True)
 
-def _plot_object_exploration(file, novelty, ax):
+def _plot_target_exploration(file, novelty, ax):
     A = novelty[0]
     B = novelty[1]
     ax.plot(file['Time'], file[f'{A}_cumsum'], label=f'{A}', marker='_')
     ax.plot(file['Time'], file[f'{B}_cumsum'], label=f'{B}', marker='_')
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('Exploration Time (s)')
-    ax.set_title('Object Exploration')
+    ax.set_title('Target Exploration')
     ax.legend(loc='upper left', fancybox=True, shadow=True)
     ax.grid(True)
 
@@ -962,14 +985,14 @@ def _plot_discrimination_index(file, ax):
     ax.legend(loc='upper left', fancybox=True, shadow=True)
     ax.grid(True)
 
-def _plot_positions(nose, towards1, towards2, obj1, obj2, ax):
+def _plot_positions(nose, towards1, towards2, tgt1, tgt2, ax):
     ax.plot(*nose.positions.T, ".", color="grey", alpha=0.15, label="Nose Positions")
     ax.plot(*towards1.T, ".", color="brown", alpha=0.3)
     ax.plot(*towards2.T, ".", color="teal", alpha=0.3)
-    ax.plot(*obj1.positions[0], "s", lw=20, color="blue", markersize=9, markeredgecolor="blue")
-    ax.plot(*obj2.positions[0], "o", lw=20, color="red", markersize=10, markeredgecolor="darkred")
-    ax.add_artist(Circle(obj1.positions[0], 2.5, color="orange", alpha=0.3))
-    ax.add_artist(Circle(obj2.positions[0], 2.5, color="orange", alpha=0.3))
+    ax.plot(*tgt1.positions[0], "s", lw=20, color="blue", markersize=9, markeredgecolor="blue")
+    ax.plot(*tgt2.positions[0], "o", lw=20, color="red", markersize=10, markeredgecolor="darkred")
+    ax.add_artist(Circle(tgt1.positions[0], 2.5, color="orange", alpha=0.3))
+    ax.add_artist(Circle(tgt2.positions[0], 2.5, color="orange", alpha=0.3))
     ax.axis('equal')
     ax.set_xlabel("Horizontal position (cm)")
     ax.set_ylabel("Vertical position (cm)")

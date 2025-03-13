@@ -148,7 +148,7 @@ def draw_rois():
     
     # Create metadata dictionary
     video_metadata = {
-        "frame_shape": {"width": image.shape[1], "height": image.shape[0]},
+        "frame_shape": [image.shape[1], image.shape[0]], # [Width, height]
         "scale": None,
         "areas": [],
         "points": []
@@ -292,7 +292,7 @@ def draw_rois():
                 if not real_length:
                     print(f"Scale not saved.")
                 else:
-                    scale_factor = np.sqrt((scale_line[0][0] - scale_line[1][0])**2 + (scale_line[0][1] - scale_line[1][1])**2) / real_length
+                    scale_factor = round(np.sqrt((scale_line[0][0] - scale_line[1][0])**2 + (scale_line[0][1] - scale_line[1][1])**2) / real_length, 2)
                     video_metadata["scale"] = scale_factor
                     corners = []
             if len(corners) == 2:  # Save the ROI
@@ -851,18 +851,24 @@ def apply_transformations(video_dict: dict, trim = False, crop=False, align=Fals
         # Compute alignment transformation if needed
         rotate_matrix, translate_matrix = get_alignment_matrices(video_data, align, mean_point_1, mean_length, mean_angle, width, height)
 
-        # Compute cropping parameters
-        crop_params = video_data.get("crop", {})
-        crop_center = tuple(crop_params.get("center", (width // 2, height // 2)))
-        crop_width, crop_height = crop_params.get("width", width), crop_params.get("height", height)
-        crop_angle = crop_params.get("angle", 0) if not horizontal else 0 # If horizontal, crop_angle is always 0 (this makes cropping a bit dull when we force the points to be on the same horizontal line)
+        output_size = (width, height)
+        print('checkpoint 1')
 
-        output_size = (crop_width, crop_height) if crop else (width, height)
+        if crop:
+            # Compute cropping parameters
+            crop_params = video_data.get("crop", {})
+            crop_center = tuple(crop_params.get("center", (width // 2, height // 2)))
+            crop_width, crop_height = crop_params.get("width", width), crop_params.get("height", height)
+            crop_angle = crop_params.get("angle", 0) if not horizontal else 0 # If horizontal, crop_angle is always 0 (this makes cropping a bit dull when we force the points to be on the same horizontal line)
+
+            output_size = (crop_width, crop_height)
 
         # Setup output video
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for MP4
         output_path = os.path.join(output_folder, os.path.basename(video_path))
         out = cv2.VideoWriter(output_path, fourcc, fps, output_size)
+
+        print('checkpoint 2')
 
         # Process frames
         for frame_count in range(start_frame, end_frame):
@@ -880,12 +886,20 @@ def apply_transformations(video_dict: dict, trim = False, crop=False, align=Fals
                 frame = crop_frame(frame, crop_center, crop_angle, crop_width, crop_height)
 
             out.write(frame)
+            print('checkpoint 3')
+
 
         cap.release()
         out.release()
+
+        print('checkpoint 4')
+        
         print(f"Processed {os.path.basename(video_path)}.")
-    print(f"Trimmed {start_frame/fps:.2f}s - {end_frame/fps:.2f}s.") if trim else print("Trimmed: No trimming applied.")
-    print(f"Aligned {mean_point_1} and {mean_point_2}.") if align else print("Aligned: No alignment applied.")
-    print(f"Cropped {crop_width}x{crop_height} from {width}x{height} pixels.") if crop else print("Cropped: No cropping applied.")
+    if trim:
+        print(f"Trimmed {start_frame/fps:.2f}s - {end_frame/fps:.2f}s.") if trim else print("Trimmed: No trimming applied.")
+    if align:
+        print(f"Aligned {mean_point_1} and {mean_point_2}.") if align else print("Aligned: No alignment applied.")
+    if crop:
+        print(f"Cropped {crop_width}x{crop_height} from {width}x{height} pixels.") if crop else print("Cropped: No cropping applied.")
 
     print(f"Modified videos saved in '{output_folder}'.")

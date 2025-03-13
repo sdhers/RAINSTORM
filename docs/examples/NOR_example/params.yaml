@@ -107,19 +107,19 @@ geometric_analysis:
   # Loaded from ROIs.json
   roi_data:
 
-    # Shape of the video frames
+    # Shape of the video frames ([width, height])
     frame_shape:
-      width: 720
-      height: 480
+    - 720
+    - 640
 
     # Scale factor (in px/cm)
-    scale: 20
+    scale: 18.66
 
     # Defined ROIs (areas) in the frame
-    areas: null
+    areas: []
 
     # Key points within the frame
-    points: null
+    points: []
 
   # Maximum nose-target distance to consider exploration
   distance: 2.5
@@ -134,7 +134,7 @@ geometric_analysis:
 automatic_analysis:
 
   # Path to the model file
-  model_path: C:\Users\dhers\Desktop\Rainstorm\docs\models\m_wide\wide_2025-03-12.keras
+  model_path: C:\Users\dhers\Desktop\Rainstorm\docs\models\m_wide\wide_2025-03-13.keras
 
   # List of bodyparts used to train the model
   model_bodyparts:

@@ -120,7 +120,7 @@ def create_params(folder_path:str, ROIs_path = None):
             "model_path": "path/to/trained/model.keras",
             "model_bodyparts": ["nose", "L_ear", "R_ear", "head", "neck", "body"],
             "rescaling": True,
-            "reshaping": False,
+            "reshaping": True,
             "RNN_width": {
                 "past": 3,
                 "future": 3,

@@ -7,7 +7,11 @@ import os
 import pandas as pd
 import numpy as np
 import datetime
+from glob import glob
+import yaml
+import random
 
+import seaborn as sns
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
@@ -19,8 +23,8 @@ import tensorflow as tf
 from tensorflow.keras.layers import LSTM, Dense, Input, Bidirectional, Dropout, Lambda, BatchNormalization, GlobalAveragePooling1D
 from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import EarlyStopping, LearningRateScheduler
+from keras.models import load_model
 
-import seaborn as sns
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.decomposition import PCA
 
@@ -812,9 +816,6 @@ def plot_performance_on_video(folder_path, models, labelers, plot_obj, frame_rat
     fig.show()
 
 # %% Use for file analysis
-from keras.models import load_model
-from glob import glob
-import yaml
 
 def load_yaml(params_path: str) -> dict:
     """Loads a YAML file."""
@@ -884,7 +885,57 @@ def create_autolabels(params_path):
 
 # %% Compare labels
 
-def polar_graph(position: pd.DataFrame, label_1: pd.DataFrame, label_2: pd.DataFrame, obj_1: str = "obj_1", obj_2: str = "obj_2"):
+def compare_labels(folder_path, include_all=False):
+    TS_positions = glob(os.path.join(folder_path,"TS/position/*position.csv")) # Notice that I added 'TS' on the folder name to only compare files from the testing session
+    TS_manual_labels = glob(os.path.join(folder_path,"TS/labels/*labels.csv"))
+    TS_geolabels = glob(os.path.join(folder_path,"TS/geolabels/*labels.csv"))
+    TS_autolabels = glob(os.path.join(folder_path,"TS/autolabels/*labels.csv"))
+
+    if include_all:
+        # Create an empty list to store DataFrames
+        for_manual_labels = []
+        for_geolabels = []
+        for_autolabels = []
+        for_position = []
+
+        for i in range(len(TS_positions)):
+
+            df_position = pd.read_csv(TS_positions[i])
+            for_position.append(df_position)
+
+            df_manual_labels = pd.read_csv(TS_manual_labels[i])
+            len_dif = len(df_manual_labels) - len(df_position)
+            df_manual_labels = df_manual_labels.iloc[len_dif:].reset_index(drop=True)
+            for_manual_labels.append(df_manual_labels)
+
+            df_geolabels = pd.read_csv(TS_geolabels[i])
+            for_geolabels.append(df_geolabels)
+
+            df_autolabels = pd.read_csv(TS_autolabels[i])
+            for_autolabels.append(df_autolabels)
+            
+        # Concatenate all DataFrames into a single DataFrame
+        positions = pd.concat(for_position, ignore_index=True)
+        manual_labels = pd.concat(for_manual_labels, ignore_index=True)
+        geolabels = pd.concat(for_geolabels, ignore_index=True)
+        autolabels = pd.concat(for_autolabels, ignore_index=True)
+        
+    else:
+        # Choose an example file to plot:
+        file = random.randint(0, len(TS_positions)-1)
+        path = TS_positions[file]
+        positions = pd.read_csv(path)
+        manual_labels = pd.read_csv(path.replace('position', 'labels'))
+        geolabels = pd.read_csv(path.replace('position', 'geolabels'))
+        autolabels = pd.read_csv(path.replace('position', 'autolabels'))
+    
+        # We need to remove the first few rows from the manual labels (due to the time when the mouse hasn't yet entered the arena).
+        len_dif = len(manual_labels) - len(positions) 
+        manual_labels = manual_labels.iloc[len_dif:].reset_index(drop=True)
+
+    return positions, manual_labels, geolabels, autolabels
+
+def polar_graph(params_path, position: pd.DataFrame, label_1: pd.DataFrame, label_2: pd.DataFrame, obj_1: str = "obj_1", obj_2: str = "obj_2"):
     """
     Plots a polar graph with the distance and angle of approach to the two objects.
     
@@ -895,8 +946,8 @@ def polar_graph(position: pd.DataFrame, label_1: pd.DataFrame, label_2: pd.DataF
         obj_1 (str, optional): Name of the first object. Defaults to "obj_1".
         obj_2 (str, optional): Name of the second object. Defaults to "obj_2".
     """
-
-    scale = 20
+    params = load_yaml(params_path)
+    scale = params.get("geometric_analysis", {}).get("roi_data", {}).get("scale", 1)
 
     # Scale the data
     position *= 1/scale
@@ -960,7 +1011,6 @@ def polar_graph(position: pd.DataFrame, label_1: pd.DataFrame, label_2: pd.DataF
          315 / 180 * np.pi])
     ax1.set_xticklabels(["  90°", "45°", "0°", "45°", "90°  ", "135°    ", "180°", "    135°"])
     
-    
     # Set title for the first subplot
     ax2.set_title(f"{obj_2}")
     
@@ -1001,7 +1051,6 @@ def polar_graph(position: pd.DataFrame, label_1: pd.DataFrame, label_2: pd.DataF
     
     # Show the figure with two subplots
     plt.show()
-
 
 def accuracy_scores(reference, compare, method, threshold = 0.5):
     

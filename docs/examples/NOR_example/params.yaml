@@ -134,7 +134,7 @@ geometric_analysis:
 automatic_analysis:
 
   # Path to the model file
-  model_path: c:\Users\dhers\Desktop\Rainstorm\docs\models\m_wide\wide_2025-03-12.keras
+  model_path: C:\Users\dhers\Desktop\Rainstorm\docs\models\m_wide\wide_2025-03-12.keras
 
   # List of bodyparts used to train the model
   model_bodyparts:
@@ -151,7 +151,7 @@ automatic_analysis:
   # Whether to reshape the data (set to True for RNN models)
   reshaping: true
 
-  # Parameters for the RNN model
+  # Defines the shape of the RNN model
   RNN_width:
 
     # Number of past frames to include
@@ -188,4 +188,4 @@ seize_labels:
     - Known
 
   # Type of labels used to measure exploration (geolabels, autolabels, labels, etc)
-  label_type: geolabels
+  label_type: autolabels

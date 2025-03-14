@@ -52,7 +52,7 @@ def create_reference_file(params_path:str):
     # Create a new CSV file with a header 'Videos'
     with open(reference_path, 'w', newline='') as output_file:
         csv_writer = csv.writer(output_file)
-        col_list = ['Video', 'Group'] + targets
+        col_list = ['Video', 'Group'] + targets if targets else ['Video', 'Group']
         csv_writer.writerow(col_list)
 
         # Write each position file name in the 'Videos' column
@@ -216,9 +216,10 @@ def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = Tr
         aux_glob = 0
         # Loop through groups and plot each group separately on the current ax
         for group in groups:
+            novelty = data[trial] if data else None
             try:
                 # Call the plotting function for each group on the current subplot axis
-                plot_func(path, group, trial, data[trial], fps, ax=ax)
+                plot_func(path, group, trial, novelty, fps, ax=ax)
                 aux_glob += 1
             except Exception as e:
                 print(f"Error plotting {plot_func.__name__} for group {group} and trial {trial}: {e}")
@@ -575,7 +576,6 @@ def plot_DI(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
-
 def plot_distance(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
     """
     Plot the distance traveled by the mouse.
@@ -611,7 +611,7 @@ def plot_distance(path: str, group: str, trial: str, novelty: list, fps: int = 3
 
     if not dfs:
         raise ValueError("No valid data files were found.")
-    
+
     n = len(dfs)
     se = np.sqrt(n) if n > 1 else 1
 
@@ -620,7 +620,11 @@ def plot_distance(path: str, group: str, trial: str, novelty: list, fps: int = 3
 
     all_dfs = pd.concat(trunc_dfs, ignore_index=True)
 
-    df = all_dfs.groupby('Frame').agg(['mean', 'std']).reset_index()
+    # Select only numeric columns for aggregation
+    numeric_cols = all_dfs.select_dtypes(include=['number']).columns
+    df = all_dfs.groupby('Frame')[numeric_cols].agg(['mean', 'std']).reset_index()
+
+    # Flatten the MultiIndex column names
     df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
 
     # Define a list of colors (you can expand this as needed)
@@ -638,7 +642,6 @@ def plot_distance(path: str, group: str, trial: str, novelty: list, fps: int = 3
     ax.set_ylabel('Distance traveled (cm)')
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
-
 
 def plot_freezing(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
 
@@ -689,7 +692,7 @@ def plot_freezing(path: str, group: str, trial: str, novelty: list, fps: int = 3
     # Define a list of colors (you can expand this as needed)
     color = color_A_list[aux_glob]  # Assign color based on group name
 
-    # Distance covered
+    # Time freezing
     ax.plot(df['Time_mean'], df[f'{A}_cumsum_mean'], label = f'{group} {A}', color = color)
     ax.fill_between(df['Time_mean'], df[f'{A}_cumsum_mean'] - df[f'{A}_cumsum_std'] /se, df[f'{A}_cumsum_mean'] + df[f'{A}_cumsum_std'] /se, color = color, alpha=0.2)
     ax.set_xlabel('Time (s)')
@@ -998,4 +1001,153 @@ def _plot_positions(nose, towards1, towards2, tgt1, tgt2, ax):
     ax.set_ylabel("Vertical position (cm)")
     ax.legend(loc='upper left', ncol=2, fancybox=True, shadow=True)
     ax.grid(True)
+
+# %% ROI activity
+
+def plot_roi_time(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+    """
+    Plot the average time spent in each ROI area.
+
+    Args:
+        path (str): Path to the main folder.
+        group (str): Group name.
+        trial (str): Trial name.
+        fps (int): Frames per second of the video.
+        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
+
+    Returns:
+        None
+    """
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    folder = os.path.join(path, 'summary', group, trial)
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"Folder {folder} does not exist.")
+    
+    all_roi_times = {}
+
+    for file_path in glob(os.path.join(folder, "*summary.csv")):
+        df = pd.read_csv(file_path)
+
+        # Count total time spent in each area (convert frames to seconds)
+        roi_times = df.groupby('body').size() / fps
+
+        # Store values in a dictionary
+        for roi, time in roi_times.items():
+            if roi not in all_roi_times:
+                all_roi_times[roi] = []
+            all_roi_times[roi].append(time)
+
+    # Sort ROI names to keep plots consistent across groups
+    roi_labels = sorted(all_roi_times.keys())  
+    num_rois = len(roi_labels)
+    space = 1/(num_rois+1)
+    print(f"Number of ROIs: {num_rois}")
+
+    # Generate x-axis positions for each ROI dynamically
+    group_positions = [aux_glob + i*space for i in range(num_rois)]
+
+    # Define a list of colors (you can expand this as needed)
+    color = color_A_list[aux_glob]
+
+    # Boxplot for each ROI
+    for i, roi in enumerate(roi_labels):
+        ax.boxplot(all_roi_times[roi], positions=[group_positions[i]], widths=space, tick_labels=[f'{roi}'])
+
+    # Scatter plot with jitter
+    jitter = space*0.01 
+    for i, roi in enumerate(roi_labels):
+        ax.scatter(
+            [group_positions[i] + np.random.uniform(-jitter, jitter) for _ in range(len(all_roi_times[roi]))],
+            all_roi_times[roi],
+            alpha=0.7,
+            label=f'{group} {roi}'  # Avoid duplicate legend entries
+        )
+    
+    ax.set_ylabel('Time Spent (s)')
+    ax.set_title(f'Time spent in each area ({group} - {trial})')
+    ax.legend(loc='best', fancybox=True, shadow=True, ncol=2)
+    ax.grid(False)
+
+def count_alternations_and_entries(area_sequence):
+    """
+    Count the number of alternations and total area entries in a given sequence of visited areas.
+
+    Args:
+        area_sequence (list): Ordered list of visited areas.
+
+    Returns:
+        tuple: (Number of alternations, Total number of area entries)
+    """
+    # Remove consecutive duplicates (track only area **entrances**)
+    filtered_seq = [area_sequence[i] for i in range(len(area_sequence)) if i == 0 or area_sequence[i] != area_sequence[i - 1]]
+    
+    # Remove 'other' from the sequence
+    filtered_seq = [area for area in filtered_seq if area != "other"]
+
+    total_entries = len(filtered_seq)  # Total number of area entrances
+    alternations = 0
+
+    for i in range(len(filtered_seq) - 2):
+        if filtered_seq[i] != filtered_seq[i + 2] and filtered_seq[i] != filtered_seq[i + 1]:
+            alternations += 1
+
+    return alternations, total_entries
+
+def plot_alternations(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+    """
+    Plot a boxplot of the proportion of alternations over total area entrances.
+
+    Args:
+        path (str): Path to the main folder.
+        group (str): Group name.
+        trial (str): Trial name.
+        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
+
+    Returns:
+        None
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 5))
+
+    folder = os.path.join(path, 'summary', group, trial)
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"Folder {folder} does not exist.")
+
+    alternation_proportions = []
+
+    for file_path in glob(os.path.join(folder, "*summary.csv")):
+        df = pd.read_csv(file_path)
+
+        if "body" not in df.columns:
+            raise ValueError(f"File {file_path} does not contain a 'body' column.")
+
+        area_sequence = df["body"].tolist()
+        alternations, total_entries = count_alternations_and_entries(area_sequence)
+        print(f"Alternations: {alternations}, Total Entries: {total_entries}")
+
+        if total_entries > 2:
+            alternation_proportions.append(alternations / (total_entries-2)) # Exclude the first two entries
+        else:
+            alternation_proportions.append(0)  # Avoid division by zero
+
+    # Dynamically calculate x-axis positions using a global auxiliary variable
+    group_positions = [aux_glob]
+
+    # Define a list of colors (you can expand this as needed)
+    color = color_A_list[aux_glob]
+    
+    # Boxplot
+    ax.boxplot(alternation_proportions, positions=[group_positions[0]], tick_labels=[f'{group}'])
+    
+    # Replace boxplots with scatter plots with jitter
+    jitter = 0.05  # Adjust the jitter amount as needed
+    ax.scatter([group_positions[0] + np.random.uniform(-jitter, jitter) for _ in range(len(alternation_proportions))], alternation_proportions, color=color, alpha=0.7,label="Alternation Proportion")
+
+    ax.set_ylabel("Proportion of Alternations")
+    ax.set_title(f"Proportion of Alternations ({group} - {trial})")
+
+    ax.legend(loc="best", fancybox=True, shadow=True)
+    ax.grid(False)
 

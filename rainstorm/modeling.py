@@ -62,6 +62,59 @@ class Vector:
             angle[i] = np.rad2deg(np.arccos(np.dot(v1.positions[i], v2.positions[i])))
 
         return angle
+# %% Create colabels
+
+def create_colabels(path, labelers, targets):
+    """Creates colabels for a given folder of position files.
+
+    Args:
+        path (str): Path to the folder containing position files.
+        labelers (list): List of labelers names, each corresponding to a folder.
+        targets (list): List of targets.
+    """
+    # Get list of position files
+    position_files = [os.path.join(path, f) for f in os.listdir(path) if f.endswith('.csv')]
+    
+    # Initialize list to store concatenated data
+    all_data = []
+    
+    for pos_file in position_files:
+        # Load position data
+        pos_df = pd.read_csv(pos_file)
+        
+        # Identify body part columns (excluding object positions)
+        bodypart_cols = [col for col in pos_df.columns if not any(col.startswith(f'{obj}') for obj in targets)]
+        bodyparts = pos_df[bodypart_cols]
+        
+        for obj in targets:
+            # Extract object position columns
+            obj_x = pos_df[f'{obj}_x']
+            obj_y = pos_df[f'{obj}_y']
+            
+            # Load labeler data for this object
+            labels = []
+            for labeler in labelers:
+                label_file = os.path.join(os.path.dirname(path), labeler, os.path.basename(pos_file).replace('_position.csv', '_labels.csv'))
+                label_df = pd.read_csv(label_file)
+                labels.append(label_df[f'{obj}'])
+            
+            # Create a DataFrame with object positions, labels, and bodyparts
+            obj_data = pd.DataFrame({'obj_x': obj_x, 'obj_y': obj_y})
+            for i, label_col in enumerate(labels):
+                obj_data[f'{labelers[i]}'] = label_col
+            
+            # Repeat bodypart positions for each object
+            obj_data = pd.concat([bodyparts, obj_data], axis=1)
+            
+            all_data.append(obj_data)
+    
+    # Concatenate all targets' data vertically
+    colabels_df = pd.concat(all_data, ignore_index=True)
+    
+    # Save to CSV
+    output_file = os.path.join(os.path.dirname(path), 'colabels.csv')
+    colabels_df.to_csv(output_file, index=False)
+    print(f'Colabels file saved as {output_file}')
 
 # %% Create modeling.yaml
 

@@ -108,7 +108,7 @@ def plot_position(params_path:str, file: str, scale: bool = True) -> None:
     max_distance = geometric_params.get("distance", 2.5)
     max_angle = geometric_params.get("angle", 45)
 
-    color_list = ['blue', 'red', 'green', 'orange', 'purple', 'yellow', 'black', 'grey']
+    color_list = ['brown', 'red', 'green', 'blue', 'purple', 'yellow', 'black', 'grey']
     symbol_list = ['square', 'circle', 'diamond', 'cross', 'x', 'triangle-up', 'triangle-down', 'star']
     
     # Read the .csv
@@ -260,6 +260,7 @@ def detect_roi_activity(params_path, file, bodypart = 'body', plot_activity = Fa
         """
         # Count occurrences of each area
         time_spent = roi_activity[bodypart].value_counts().sort_index()
+        time_spent = time_spent[time_spent.index != 'other']
 
         # Convert frame count to time (seconds)
         time_spent_seconds = time_spent / fps
@@ -422,7 +423,7 @@ def plot_freezing(params_path:str, file: str) -> None:
     # Show the plot
     fig.show()
 
-def create_movement_and_geolabels(params_path:str, wait: int = 2) -> None:
+def create_movement_and_geolabels(params_path:str, wait: int = 2, roi_bodypart = 'body') -> None:
     """Analyzes the position data of a list of files.
 
     Args:
@@ -529,7 +530,7 @@ def create_movement_and_geolabels(params_path:str, wait: int = 2) -> None:
         movement.loc[:wait*fps,:] = 0 # the first two seconds, as the mouse just entered the arena, we dont quantify the movement
 
         # Calculate ROI activity
-        roi_activity = detect_roi_activity(params_path, file, bodypart = 'body', plot_activity = False, verbose = False)
+        roi_activity = detect_roi_activity(params_path, file, bodypart = roi_bodypart, plot_activity = False, verbose = False)
 
         movement = pd.concat([movement, roi_activity], axis = 1)
         

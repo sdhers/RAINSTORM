@@ -27,28 +27,26 @@ def load_yaml(params_path: str) -> dict:
 global colors; colors = ['dodgerblue', 'darkorange', 'green', 'orchid', 'orangered', 'turquoise', 'indigo', 'gray', 'sienna', 'limegreen', 'black', 'pink']
 
 def create_video(params_path):
+
     # Load data from CSV files (adjust the file paths and delimiter as needed)
     position_df = pd.read_csv(r'c:\Users\dhers\Desktop\Rainstorm\docs\examples\NOR\TS\position\NOR_TS_C1_position.csv')
     labels_df = pd.read_csv(r'c:\Users\dhers\Desktop\Rainstorm\docs\examples\NOR\TS\autolabels\NOR_TS_C1_autolabels.csv')
 
-    # Video resolution: assuming it's provided as a tuple (width, height)
+    # Load params
     params = load_yaml(params_path)
     path = params.get("path")
     fps = params.get("fps", 30)
     roi_data = params.get("geometric_analysis", {}).get("roi_data", {})
     frame_shape = roi_data.get("frame_shape", [])
+    areas = roi_data.get("areas", {})
     width, height = frame_shape
 
+    bodyparts = params.get("bodyparts", [])
+    targets = params.get("targets", [])
 
     # Initialize video writer: adjust fps and codec as needed
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     video_writer = cv2.VideoWriter(os.path.join(path, 'output_video.mp4'), fourcc, fps, (width, height))
-
-    # Define target positions (these should be defined based on your video context)
-    # Example: dictionary mapping target names (matching column names in labels_df) to coordinates
-    targets = {}
-    for i in range(len(roi_data['areas'])):
-        targets[f'target_{i}'] = roi_data['areas'][i]['center']
     
     # Define a threshold for exploration values
     exploration_threshold = 0.5
@@ -59,33 +57,20 @@ def create_video(params_path):
         frame = np.zeros((height, width, 3), dtype=np.uint8)
         
         # Create a dictionary for all points using the column names
-        points = {
-            'obj_1': (int(position_df.loc[i, 'obj_1_x']), int(position_df.loc[i, 'obj_1_y'])),
-            'obj_2': (int(position_df.loc[i, 'obj_2_x']), int(position_df.loc[i, 'obj_2_y'])),
-            'nose': (int(position_df.loc[i, 'nose_x']), int(position_df.loc[i, 'nose_y'])),
-            'L_ear': (int(position_df.loc[i, 'L_ear_x']), int(position_df.loc[i, 'L_ear_y'])),
-            'R_ear': (int(position_df.loc[i, 'R_ear_x']), int(position_df.loc[i, 'R_ear_y'])),
-            'head': (int(position_df.loc[i, 'head_x']), int(position_df.loc[i, 'head_y'])),
-            'neck': (int(position_df.loc[i, 'neck_x']), int(position_df.loc[i, 'neck_y'])),
-            'body': (int(position_df.loc[i, 'body_x']), int(position_df.loc[i, 'body_y'])),
-            'tail_1': (int(position_df.loc[i, 'tail_1_x']), int(position_df.loc[i, 'tail_1_y'])),
-            'tail_2': (int(position_df.loc[i, 'tail_2_x']), int(position_df.loc[i, 'tail_2_y'])),
-            'tail_3': (int(position_df.loc[i, 'tail_3_x']), int(position_df.loc[i, 'tail_3_y']))
-        }
+
+        bodyparts = {f'{point}': (int(position_df.loc[i, f'{point}_x']), int(position_df.loc[i, f'{point}_y'])) for point in bodyparts}
+        targets = {f'{point}': (int(position_df.loc[i, f'{point}_x']), int(position_df.loc[i, f'{point}_y'])) for point in targets}
         
         # Plot each point on the frame
-        for part_name, pos in points.items():
-            if part_name in ['obj_1', 'obj_2']:
-                # Retrieve the exploration value from labels_df; assumes column names match
+        for part_name, pos in bodyparts.items():
+            cv2.circle(frame, pos, 5, (255, 255, 255), -1)
+
+        # Retrieve the exploration value from labels_df; assumes column names match
+        for part_name, pos in targets.items:
                 exploration_value = labels_df.loc[i, part_name]
                 # Use red if exploring (value > threshold), otherwise green
                 color = (0, 0, 255) if exploration_value > exploration_threshold else (0, 255, 0)
-                radius = 10  # larger circle for objects
-            else:
-                color = (255, 255, 255)  # white for body parts
-                radius = 5
-            
-            cv2.circle(frame, pos, radius, color, -1)
+                cv2.circle(frame, pos, 10, color, -1)
         
         # Write the processed frame to the video
         video_writer.write(frame)

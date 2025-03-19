@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 
 import csv
+import random
+import cv2
 
 # %% functions
 
@@ -22,8 +24,74 @@ def load_yaml(params_path: str) -> dict:
         return yaml.safe_load(file)
 
 # Define the color pairs for plotting
-global color_A_list; color_A_list = ['dodgerblue',    'green',    'orangered',    'indigo',   'sienna',     'black']
-global color_B_list; color_B_list = ['darkorange',    'orchid',   'turquoise',    'gray',     'limegreen',  'pink']
+global colors; colors = ['dodgerblue', 'darkorange', 'green', 'orchid', 'orangered', 'turquoise', 'indigo', 'gray', 'sienna', 'limegreen', 'black', 'pink']
+
+def create_video(params_path):
+    # Load data from CSV files (adjust the file paths and delimiter as needed)
+    position_df = pd.read_csv(r'c:\Users\dhers\Desktop\Rainstorm\docs\examples\NOR\TS\position\NOR_TS_C1_position.csv')
+    labels_df = pd.read_csv(r'c:\Users\dhers\Desktop\Rainstorm\docs\examples\NOR\TS\autolabels\NOR_TS_C1_autolabels.csv')
+
+    # Video resolution: assuming it's provided as a tuple (width, height)
+    params = load_yaml(params_path)
+    path = params.get("path")
+    fps = params.get("fps", 30)
+    roi_data = params.get("geometric_analysis", {}).get("roi_data", {})
+    frame_shape = roi_data.get("frame_shape", [])
+    width, height = frame_shape
+
+
+    # Initialize video writer: adjust fps and codec as needed
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    video_writer = cv2.VideoWriter(os.path.join(path, 'output_video.mp4'), fourcc, fps, (width, height))
+
+    # Define target positions (these should be defined based on your video context)
+    # Example: dictionary mapping target names (matching column names in labels_df) to coordinates
+    targets = {}
+    for i in range(len(roi_data['areas'])):
+        targets[f'target_{i}'] = roi_data['areas'][i]['center']
+    
+    # Define a threshold for exploration values
+    exploration_threshold = 0.5
+
+    # Loop over each frame
+    for i in range(len(position_df)):
+        # Create a blank frame (black background)
+        frame = np.zeros((height, width, 3), dtype=np.uint8)
+        
+        # Create a dictionary for all points using the column names
+        points = {
+            'obj_1': (int(position_df.loc[i, 'obj_1_x']), int(position_df.loc[i, 'obj_1_y'])),
+            'obj_2': (int(position_df.loc[i, 'obj_2_x']), int(position_df.loc[i, 'obj_2_y'])),
+            'nose': (int(position_df.loc[i, 'nose_x']), int(position_df.loc[i, 'nose_y'])),
+            'L_ear': (int(position_df.loc[i, 'L_ear_x']), int(position_df.loc[i, 'L_ear_y'])),
+            'R_ear': (int(position_df.loc[i, 'R_ear_x']), int(position_df.loc[i, 'R_ear_y'])),
+            'head': (int(position_df.loc[i, 'head_x']), int(position_df.loc[i, 'head_y'])),
+            'neck': (int(position_df.loc[i, 'neck_x']), int(position_df.loc[i, 'neck_y'])),
+            'body': (int(position_df.loc[i, 'body_x']), int(position_df.loc[i, 'body_y'])),
+            'tail_1': (int(position_df.loc[i, 'tail_1_x']), int(position_df.loc[i, 'tail_1_y'])),
+            'tail_2': (int(position_df.loc[i, 'tail_2_x']), int(position_df.loc[i, 'tail_2_y'])),
+            'tail_3': (int(position_df.loc[i, 'tail_3_x']), int(position_df.loc[i, 'tail_3_y']))
+        }
+        
+        # Plot each point on the frame
+        for part_name, pos in points.items():
+            if part_name in ['obj_1', 'obj_2']:
+                # Retrieve the exploration value from labels_df; assumes column names match
+                exploration_value = labels_df.loc[i, part_name]
+                # Use red if exploring (value > threshold), otherwise green
+                color = (0, 0, 255) if exploration_value > exploration_threshold else (0, 255, 0)
+                radius = 10  # larger circle for objects
+            else:
+                color = (255, 255, 255)  # white for body parts
+                radius = 5
+            
+            cv2.circle(frame, pos, radius, color, -1)
+        
+        # Write the processed frame to the video
+        video_writer.write(frame)
+
+    # Finalize the video file
+    video_writer.release()
 
 def create_reference_file(params_path:str):
     
@@ -64,7 +132,6 @@ def create_reference_file(params_path:str):
     print(f"CSV file '{reference_path}' created successfully with the list of video files.")
     
     return reference_path
-
 
 def create_summary(params_path:str):
     
@@ -123,9 +190,6 @@ def create_summary(params_path:str):
                 else:
                     df = df_movement
 
-                df['Time'] = (df['Frame'] / fps).round(2)
-                df = df[['Time'] + [col for col in df.columns if col != 'Time']]
-
                 # Create the new file path
                 new_name = f'{video_name}_summary.csv'
                 new_path = os.path.join(trial_path, new_name)
@@ -177,25 +241,24 @@ def choose_example_summary(params_path, look_for: str = 'TS') -> str:
 
     return example
 
-
-def calculate_cumsum(df: pd.DataFrame, objects: list, fps: float = 30) -> pd.DataFrame:
+def calculate_cumsum(df: pd.DataFrame, targets: list, fps: float = 30) -> pd.DataFrame:
     """
-    Calculates the cumulative sum (in seconds) for each target in the objects list.
+    Calculates the cumulative sum (in seconds) for each target in the list.
 
     Args:
         df (pd.DataFrame): DataFrame containing exploration times for each object.
-        objects (list): List of target names/column names in the DataFrame.
+        targets (list): List of target names/column names in the DataFrame.
         fps (float, optional): Frames per second of the video. Defaults to 30.
 
     Returns:
         pd.DataFrame: DataFrame with additional cumulative sum columns for each target.
     """
-    for obj in objects:
+    for obj in targets:
         df[f'{obj}_cumsum'] = df[obj].cumsum() / fps
     return df
 
 
-def calculate_DI(df: pd.DataFrame, obj1: str, obj2: str) -> pd.DataFrame:
+def calculate_DI(df: pd.DataFrame, targets: list) -> pd.DataFrame:
     """
     Calculates the discrimination index (DI) between two targets.
     
@@ -204,15 +267,15 @@ def calculate_DI(df: pd.DataFrame, obj1: str, obj2: str) -> pd.DataFrame:
 
     Args:
         df (pd.DataFrame): DataFrame containing cumulative sum columns.
-        obj1 (str): Name of the first target.
-        obj2 (str): Name of the second target.
+        targets (list): List of target names/column names in the DataFrame.
 
     Returns:
         pd.DataFrame: DataFrame with a new column for the DI value.
     """
-    df[f'DI_{obj1}_{obj2}'] = (
-        (df[f'{obj1}_cumsum'] - df[f'{obj2}_cumsum']) /
-        (df[f'{obj1}_cumsum'] + df[f'{obj2}_cumsum'])
+    tgt_1, tgt_2 = targets
+    df[f'DI'] = (
+        (df[f'{tgt_1}_cumsum'] - df[f'{tgt_2}_cumsum']) /
+        (df[f'{tgt_1}_cumsum'] + df[f'{tgt_2}_cumsum'])
     ) * 100
     return df
 
@@ -251,6 +314,7 @@ def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = Tr
     params = load_yaml(params_path)
     path = params.get("path")
     fps = params.get("fps", 30)
+    targets = params.get("targets", [])
 
     seize_labels = params.get("seize_labels", {})
     groups = seize_labels.get("groups", [])
@@ -264,18 +328,19 @@ def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = Tr
     if num_plots == 1:
         axes = [axes]
 
-    global aux_glob # We will use a global variable to avoid repeating colors and positions between groups on the same plot.
+    global aux_position # We will use a global variable to avoid repeating colors and positions between groups on the same plot.
+    global aux_color
 
     # Loop through each plot function in plot_list and create a separate subplot for it
     for ax, plot_func in zip(axes, plots):
-        aux_glob = 0
+        aux_position = 0
+        aux_color = 0
         # Loop through groups and plot each group separately on the current ax
         for group in groups:
-            novelty = data[trial] if data else None
+            novelty = data[trial] if data[trial] else targets
             try:
                 # Call the plotting function for each group on the current subplot axis
                 plot_func(path, group, trial, novelty, fps, ax=ax)
-                aux_glob += 1
             except Exception as e:
                 print(f"Error plotting {plot_func.__name__} for group {group} and trial {trial}: {e}")
                 ax.set_title(f"Error in {plot_func.__name__}")
@@ -305,7 +370,74 @@ def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = Tr
 
 # %% modular plotting functions
 
-def plot_exploration_time(path: str, group: str, trial: str, objects: list, fps: int = 30, ax=None) -> None:
+def plot_distance(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+    """
+    Plot the distance traveled by the mouse.
+
+    Args:
+        path (str): Path to the main folder.
+        group (str): Group name.
+        trial (str): Trial name.
+        targets (list): Novelty condition for DI calculation.
+        fps (int): Frames per second of the video.
+        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
+
+    Returns:
+        None
+    """
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    body = 'body_dist'
+
+    dfs = []
+    folder = os.path.join(path, 'summary', group, trial)
+
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"Folder {folder} does not exist.")
+
+    for file_path in glob(os.path.join(folder, "*summary.csv")):
+        df = pd.read_csv(file_path)
+        df[f'{body}_cumsum'] = df[body].cumsum() / fps
+        dfs.append(df)
+
+    if not dfs:
+        raise ValueError("No valid data files were found.")
+
+    n = len(dfs)
+    se = np.sqrt(n) if n > 1 else 1
+
+    min_length = min([len(df) for df in dfs])
+    trunc_dfs = [df.iloc[:min_length].copy() for df in dfs]
+
+    all_dfs = pd.concat(trunc_dfs, ignore_index=True)
+
+    # Select only numeric columns for aggregation
+    numeric_cols = all_dfs.select_dtypes(include=['number']).columns
+    df = all_dfs.groupby('Frame')[numeric_cols].agg(['mean', 'std']).reset_index()
+    
+    # Flatten the MultiIndex column names
+    df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
+    df['Time'] = df['Frame_mean'] / fps
+
+    # Define a list of colors (you can expand this as needed)
+    global aux_color
+    color = colors[aux_color]
+
+    # Distance covered
+    ax.plot(df['Time'], df[f'{body}_cumsum_mean'], label = f'{group} distance', color = color)
+    ax.fill_between(df['Time'], df[f'{body}_cumsum_mean'] - df[f'{body}_cumsum_std'] /se, df[f'{body}_cumsum_mean'] + df[f'{body}_cumsum_std'] /se, color = color, alpha=0.2)
+    ax.set_xlabel('Time (s)')
+    max_time = df['Time'].max()
+    ax.set_xticks(np.arange(0, max_time + 30, 60))    
+    ax.set_ylabel('Distance traveled (cm)')
+    ax.legend(loc='best', fancybox=True, shadow=True)
+    ax.grid(True)
+    aux_color += len(targets)
+
+# %% Exploration
+
+def plot_exploration_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
     Plot the exploration time (cumulative sums) for each target for a single trial.
 
@@ -313,7 +445,7 @@ def plot_exploration_time(path: str, group: str, trial: str, objects: list, fps:
         path (str): Path to the main folder.
         group (str): Group name.
         trial (str): Trial name.
-        objects (list): List of target names/conditions.
+        targets (list): List of target names/conditions.
         fps (int): Frames per second of the video.
         ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
     """
@@ -328,8 +460,7 @@ def plot_exploration_time(path: str, group: str, trial: str, objects: list, fps:
 
     for file_path in glob(os.path.join(folder, "*summary.csv")):
         df = pd.read_csv(file_path)
-        # Compute cumsum for all objects
-        df = calculate_cumsum(df, objects, fps)
+        df = calculate_cumsum(df, targets, fps)
         dfs.append(df)
 
     if not dfs:
@@ -342,33 +473,34 @@ def plot_exploration_time(path: str, group: str, trial: str, objects: list, fps:
     trunc_dfs = [df.iloc[:min_length].copy() for df in dfs]
     all_dfs = pd.concat(trunc_dfs, ignore_index=True)
     numeric_cols = all_dfs.select_dtypes(include=['number']).columns
-    agg_df = all_dfs.groupby('Frame')[numeric_cols].agg(['mean', 'std']).reset_index()
-    # Flatten the column names
-    agg_df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in agg_df.columns]
-
-    # Define a list of colors (make sure to have enough colors for your targets)
-    color_list = ['blue', 'green', 'red', 'orange', 'purple']
+    df = all_dfs.groupby('Frame')[numeric_cols].agg(['mean', 'std']).reset_index()
     
-    for i, obj in enumerate(objects):
-        color = color_list[i % len(color_list)]
-        ax.plot(agg_df['Time_mean'], agg_df[f'{obj}_cumsum_mean'], label=f'{group} {obj}', color=color, marker='_')
+    # Flatten the column names
+    df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
+    df['Time'] = df['Frame_mean'] / fps
+
+    global aux_color
+    for i, obj in enumerate(targets):
+        color = colors[aux_color]
+        ax.plot(df['Time'], df[f'{obj}_cumsum_mean'], label=f'{group} {obj}', color=color, marker='_')
         ax.fill_between(
-            agg_df['Time_mean'],
-            agg_df[f'{obj}_cumsum_mean'] - agg_df[f'{obj}_cumsum_std'] / se,
-            agg_df[f'{obj}_cumsum_mean'] + agg_df[f'{obj}_cumsum_std'] / se,
+            df['Time'],
+            df[f'{obj}_cumsum_mean'] - df[f'{obj}_cumsum_std'] / se,
+            df[f'{obj}_cumsum_mean'] + df[f'{obj}_cumsum_std'] / se,
             color=color,
             alpha=0.2
         )
+        aux_color += 1
 
     ax.set_xlabel('Time (s)')
-    max_time = agg_df['Time_mean'].max()
+    max_time = df['Time'].max()
     ax.set_xticks(np.arange(0, max_time + 30, 60))
     ax.set_ylabel('Exploration Time (s)')
     ax.set_title('Exploration of targets during TS')
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
-def plot_exploration_boxplot(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+def plot_exploration_boxplot(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
     Plot a boxplot of exploration time for each target at the end of the session
 
@@ -376,18 +508,12 @@ def plot_exploration_boxplot(path: str, group: str, trial: str, novelty: list, f
         path (str): Path to the main folder.
         group (str): Group name.
         trial (str): Trial name.
-        novelty (list): Novelty condition for DI calculation.
+        targets (list): Novelty condition for DI calculation.
         fps (int): Frames per second of the video.
         ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
-
-    Returns:
-        None
     """
     if ax is None:
         fig, ax = plt.subplots()
-
-    A = novelty[0]
-    B = novelty[1]
 
     bxplt = []
     folder = os.path.join(path, 'summary', group, trial)
@@ -397,65 +523,75 @@ def plot_exploration_boxplot(path: str, group: str, trial: str, novelty: list, f
     
     for file_path in glob(os.path.join(folder, "*summary.csv")):
         df = pd.read_csv(file_path)
-        df = calculate_DI(df, novelty, fps)
-
-        bxplt.append([df.loc[df.index[-1], f'{A}_cumsum'], df.loc[df.index[-1], f'{B}_cumsum']])
+        df = calculate_cumsum(df, targets, fps)
+        # Select only the last frame for each target
+        final_values = [df.loc[df.index[-1], f'{obj}_cumsum'] for obj in targets]
+        bxplt.append(final_values)
     
-    bxplt = pd.DataFrame(bxplt, columns = [A, B])
+    # Create a DataFrame where each column corresponds to a target from the targets list
+    bxplt = pd.DataFrame(bxplt, columns=targets)
 
-    # Dynamically calculate x-axis positions using a global auxiliary variable
-    group_positions = [aux_glob, aux_glob + 0.4]
+    # Calculate x positions for each target within this group
+    global aux_position, aux_color
+    space = 1/(len(targets)+1)
+    group_positions = [aux_position + i*space for i in range(len(targets))] # here we space them by 0.4 units.
 
-    # Define a list of colors (you can expand this as needed)
-    color_A = color_A_list[aux_glob]
-    color_B = color_B_list[aux_glob]
-
-    # Boxplot
-    ax.boxplot(bxplt[A], positions=[group_positions[0]], tick_labels=[f'{A}\n            {group}'])
-    ax.boxplot(bxplt[B], positions=[group_positions[1]], tick_labels=[f'{B}\n'])
+    jitter = 0.02  # amount of horizontal jitter for individual scatter points
     
-    # Replace boxplots with scatter plots with jitter
-    jitter = 0.05  # Adjust the jitter amount as needed
-    ax.scatter([group_positions[0] + np.random.uniform(-jitter, jitter) for _ in range(len(bxplt[A]))], bxplt[A], color=color_A, alpha=0.7)
-    ax.scatter([group_positions[1] + np.random.uniform(-jitter, jitter) for _ in range(len(bxplt[B]))], bxplt[B], color=color_B, alpha=0.7)
+    # Plot a boxplot and scatter points for each target
+    for i, obj in enumerate(targets):
+        pos = group_positions[i]
+        color = colors[aux_color]
+        # Create the boxplot for the current target.
+        bp = ax.boxplot(bxplt[obj], positions=[pos], widths=0.2, patch_artist=True,
+                        labels=[f'{obj}\n{group}'])
+        # Set the face color and transparency of the boxplot
+        for patch in bp['boxes']:
+            patch.set_facecolor(color)
+            patch.set_alpha(0.2)
+        # Scatter the individual data points with a little horizontal jitter
+        x_jitter = [pos + np.random.uniform(-jitter, jitter) for _ in range(len(bxplt[obj]))]
+        ax.scatter(x_jitter, bxplt[obj], color=color, alpha=0.7)
+
+        # Add a line for the mean of each target
+        mean_val = np.mean(bxplt[obj])
+        ax.axhline(mean_val, color=color, linestyle='--', label=f'{group} {obj}')
+        aux_color += 1
+
+    # For each subject, connect the points across targets with a line
+    for idx in bxplt.index:
+        x_vals = []
+        y_vals = []
+        for i, obj in enumerate(targets):
+            pos = group_positions[i] + np.random.uniform(-jitter, jitter)
+            x_vals.append(pos)
+            y_vals.append(bxplt.at[idx, obj])
+        ax.plot(x_vals, y_vals, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
     
-    # Add lines connecting points from the same row
-    for row in bxplt.index:
-        index_a = group_positions[0]
-        index_b = group_positions[1]
-        ax.plot([index_a + np.random.uniform(-jitter, jitter), index_b + np.random.uniform(-jitter, jitter)],
-                        [bxplt.at[row, A], bxplt.at[row, B]], color='gray', linestyle='-', linewidth=0.5)
-    # Add mean lines
-    mean_a = np.mean(bxplt[A])
-    mean_b = np.mean(bxplt[B])
-    ax.axhline(mean_a, color=color_A, linestyle='--', label=f'{group} {A}')
-    ax.axhline(mean_b, color=color_B, linestyle='--', label=f'{group} {B}')
     ax.set_ylabel('Exploration Time (s)')
     ax.set_title('Exploration of targets at the end of TS')
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
+    # Update the global position variable
+    aux_position += 1
 
-def plot_exploration_histogram(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+# %% For a pair of targets
+
+def plot_DI(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
-    Plot an histogram of the durations of the exploration of each target.
+    Plot the Discrimination Index (DI) for a single trial on a given axis.
 
     Args:
         path (str): Path to the main folder.
         group (str): Group name.
         trial (str): Trial name.
-        novelty (list): Novelty condition for DI calculation.
+        targets (list): Novelty condition for DI calculation.
         fps (int): Frames per second of the video.
         ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
-
-    Returns:
-        None
     """
     if ax is None:
         fig, ax = plt.subplots()
-
-    A = novelty[0]
-    B = novelty[1]
 
     dfs = []
     folder = os.path.join(path, 'summary', group, trial)
@@ -465,7 +601,8 @@ def plot_exploration_histogram(path: str, group: str, trial: str, novelty: list,
 
     for file_path in glob(os.path.join(folder, "*summary.csv")):
         df = pd.read_csv(file_path)
-        df = calculate_DI(df, novelty, fps)
+        df = calculate_cumsum(df, targets, fps)
+        df = calculate_DI(df, targets)
         dfs.append(df)
 
     if not dfs:
@@ -479,32 +616,36 @@ def plot_exploration_histogram(path: str, group: str, trial: str, novelty: list,
 
     all_dfs = pd.concat(trunc_dfs, ignore_index=True)
 
-    df = all_dfs.groupby('Frame').agg(['mean', 'std']).reset_index()
+    # Select only numeric columns for aggregation
+    numeric_cols = all_dfs.select_dtypes(include=['number']).columns
+    df = all_dfs.groupby('Frame')[numeric_cols].agg(['mean', 'std']).reset_index()
+
+    # Flatten the MultiIndex column names
     df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
+    df['Time'] = df['Frame_mean'] / fps
 
-    # Define a list of colors (you can expand this as needed)
-    color_A = color_A_list[aux_glob]
-    color_B = color_B_list[aux_glob]
-
-    # Histogram of exploration event durations
-    A_durations = []
-    B_durations = []
-    for df in trunc_dfs:
-        A_durations.extend(calculate_durations(df[A], fps=fps))
-        B_durations.extend(calculate_durations(df[B], fps=fps))
-    # n_bins = int((np.sqrt(len(A_durations))) + np.sqrt(len(B_durations))) // 2
-    n_bins = 20
-    
-    ax.hist(A_durations, bins=n_bins, alpha=0.5, color=color_A, label = f'{group} {A}')
-    ax.hist(B_durations, bins=n_bins, alpha=0.5, color=color_B, label = f'{group} {B}')
-    ax.set_xlabel('Duration (s)')
-    ax.set_ylabel('Events')
+    global aux_color
+    color = colors[aux_color]
+    ax.plot(df['Time'], df['DI_mean'], label=f'{group} DI', color=color, linestyle='--')
+    ax.fill_between(
+        df['Time'], 
+        df['DI_mean'] - df['DI_std'] / se, 
+        df['DI_mean'] + df['DI_std'] / se, 
+        color=color, alpha=0.2
+    )
+    ax.set_xlabel('Time (s)')
+    max_time = df['Time'].max()
+    ax.set_xticks(np.arange(0, max_time + 30, 60))
+    ax.set_ylabel('DI (%)')
+    ax.axhline(y=0, color='black', linestyle='--', linewidth=2)
+    ax.set_title(f"{trial}")
     ax.legend(loc='best', fancybox=True, shadow=True)
-    ax.set_title('Histogram of Exploration Durations')
-    ax.set_xlim([0, None])
+    ax.grid(True)
 
+    # Update the global color variable
+    aux_color += len(targets)
 
-def plot_exploration_scatterplot(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+def plot_exploration_scatterplot(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
     Plot a scatter plot of exploration time for each target at the end of the session
 
@@ -512,7 +653,7 @@ def plot_exploration_scatterplot(path: str, group: str, trial: str, novelty: lis
         path (str): Path to the main folder.
         group (str): Group name.
         trial (str): Trial name.
-        novelty (list): Novelty condition for DI calculation.
+        targets (list): Novelty condition for DI calculation.
         fps (int): Frames per second of the video.
         ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
 
@@ -522,8 +663,7 @@ def plot_exploration_scatterplot(path: str, group: str, trial: str, novelty: lis
     if ax is None:
         fig, ax = plt.subplots()
 
-    A = novelty[0]
-    B = novelty[1]
+    A, B = targets
 
     exp_A = []
     exp_B = []
@@ -534,7 +674,8 @@ def plot_exploration_scatterplot(path: str, group: str, trial: str, novelty: lis
     
     for file_path in glob(os.path.join(folder, "*summary.csv")):
         df = pd.read_csv(file_path)
-        df = calculate_DI(df, novelty, fps)
+        df = calculate_cumsum(df, targets, fps)
+        df = calculate_DI(df, targets)
 
         exp_A.append(df.loc[df.index[-1], f'{A}_cumsum'])
         exp_B.append(df.loc[df.index[-1], f'{B}_cumsum'])
@@ -543,13 +684,35 @@ def plot_exploration_scatterplot(path: str, group: str, trial: str, novelty: lis
     exp_B = np.array(exp_B)
 
     # Define a list of colors (you can expand this as needed)
-    scatter_color = color_A_list[aux_glob]
+    global aux_color
+    scatter_color = colors[aux_color]
     
     # Scatter plot of exploration
     ax.scatter(exp_B, exp_A, color=scatter_color)
     ax.set_title('Scatter Plot')
     ax.set_xlabel(f'time exploring the {B} target (s)')
     ax.set_ylabel(f'time exploring the {A} target (s)')
+
+        # Calculate new limits based solely on the current data with a margin
+    all_vals = np.concatenate([exp_A, exp_B])
+    new_min = all_vals.min()
+    new_max = all_vals.max()
+    margin = (new_max - new_min) * 0.1  # 10% margin
+    computed_lower = new_min - margin
+    computed_upper = new_max + margin
+
+    # Get current axis limits (if any) to prevent shrinking the view
+    cur_xlim = ax.get_xlim()
+    cur_ylim = ax.get_ylim()
+    
+    # Use the union of the current limits and the new computed limits
+    final_lower = min(cur_xlim[0], computed_lower)
+    final_upper = max(cur_xlim[1], computed_upper)
+    
+    ax.set_xlim(final_lower, final_upper)
+    ax.set_ylim(final_lower, final_upper)
+    
+    # Keep the axes square (1:1 ratio)
     ax.set_aspect('equal', adjustable='box')
     
     # Calculate the slope with the intercept fixed at 0
@@ -558,145 +721,15 @@ def plot_exploration_scatterplot(path: str, group: str, trial: str, novelty: lis
     # Create the trendline that passes through (0, 0)
     trendline_y = slope * exp_B
     ax.plot(exp_B, trendline_y, color=scatter_color, linestyle='--', label=f'{A}/{B} - {group}')
-
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
+    # Update the global color variable
+    aux_color += len(targets)
 
-def plot_DI(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
-    """
-    Plot the Discrimination Index (DI) for a single trial on a given axis.
+# %% Freezing
 
-    Args:
-        path (str): Path to the main folder.
-        group (str): Group name.
-        trial (str): Trial name.
-        novelty (list): Novelty condition for DI calculation.
-        fps (int): Frames per second of the video.
-        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
-
-    Returns:
-        None
-    """
-    if ax is None:
-        fig, ax = plt.subplots()
-
-    dfs = []
-    folder = os.path.join(path, 'summary', group, trial)
-
-    if not os.path.exists(folder):
-        raise FileNotFoundError(f"Folder {folder} does not exist.")
-
-    for file_path in glob(os.path.join(folder, "*summary.csv")):
-        df = pd.read_csv(file_path)
-        df = calculate_DI(df, novelty, fps)
-        dfs.append(df)
-
-    if not dfs:
-        raise ValueError("No valid data files were found.")
-    
-    n = len(dfs)
-    se = np.sqrt(n) if n > 1 else 1
-
-    min_length = min([len(df) for df in dfs])
-    trunc_dfs = [df.iloc[:min_length].copy() for df in dfs]
-
-    all_dfs = pd.concat(trunc_dfs, ignore_index=True)
-
-    # Select only numeric columns for aggregation
-    numeric_cols = all_dfs.select_dtypes(include=['number']).columns
-    df = all_dfs.groupby('Frame')[numeric_cols].agg(['mean', 'std']).reset_index()
-
-    # Flatten the MultiIndex column names
-    df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
-
-    # Define a list of colors (you can expand this as needed)
-    color = color_A_list[aux_glob]  # Assign color based on group name
-
-    ax.plot(df['Time_mean'], df['DI_mean'], label=f'{group} DI', color=color, linestyle='--')
-    ax.fill_between(
-        df['Time_mean'], 
-        df['DI_mean'] - df['DI_std'] / se, 
-        df['DI_mean'] + df['DI_std'] / se, 
-        color=color, alpha=0.2
-    )
-    ax.set_xlabel('Time (s)')
-    max_time = df['Time_mean'].max()
-    ax.set_xticks(np.arange(0, max_time + 30, 60))
-    ax.set_ylabel('DI (%)')
-    ax.axhline(y=0, color='black', linestyle='--', linewidth=2)
-    ax.set_title(f"{trial}")
-    ax.legend(loc='best', fancybox=True, shadow=True)
-    ax.grid(True)
-
-def plot_distance(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
-    """
-    Plot the distance traveled by the mouse.
-
-    Args:
-        path (str): Path to the main folder.
-        group (str): Group name.
-        trial (str): Trial name.
-        novelty (list): Novelty condition for DI calculation.
-        fps (int): Frames per second of the video.
-        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
-
-    Returns:
-        None
-    """
-    if ax is None:
-        fig, ax = plt.subplots()
-
-    A = 'nose_dist'
-    B = 'body_dist'
-
-    dfs = []
-    folder = os.path.join(path, 'summary', group, trial)
-
-    if not os.path.exists(folder):
-        raise FileNotFoundError(f"Folder {folder} does not exist.")
-
-    for file_path in glob(os.path.join(folder, "*summary.csv")):
-        df = pd.read_csv(file_path)
-        df[f'{A}_cumsum'] = df[A].cumsum() / fps
-        df[f'{B}_cumsum'] = df[B].cumsum() / fps
-        dfs.append(df)
-
-    if not dfs:
-        raise ValueError("No valid data files were found.")
-
-    n = len(dfs)
-    se = np.sqrt(n) if n > 1 else 1
-
-    min_length = min([len(df) for df in dfs])
-    trunc_dfs = [df.iloc[:min_length].copy() for df in dfs]
-
-    all_dfs = pd.concat(trunc_dfs, ignore_index=True)
-
-    # Select only numeric columns for aggregation
-    numeric_cols = all_dfs.select_dtypes(include=['number']).columns
-    df = all_dfs.groupby('Frame')[numeric_cols].agg(['mean', 'std']).reset_index()
-
-    # Flatten the MultiIndex column names
-    df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
-
-    # Define a list of colors (you can expand this as needed)
-    color_A = color_A_list[aux_glob]
-    color_B = color_B_list[aux_glob]
-
-    # Distance covered
-    ax.plot(df['Time_mean'], df[f'{A}_cumsum_mean'], label = f'{group} {A}', color = color_A)
-    ax.fill_between(df['Time_mean'], df[f'{A}_cumsum_mean'] - df[f'{A}_cumsum_std'] /se, df[f'{A}_cumsum_mean'] + df[f'{A}_cumsum_std'] /se, color = color_A, alpha=0.2)
-    ax.plot(df['Time_mean'], df[f'{B}_cumsum_mean'], label = f'{group} {B}', color = color_B)
-    ax.fill_between(df['Time_mean'], df[f'{B}_cumsum_mean'] - df[f'{B}_cumsum_std'] /se, df[f'{B}_cumsum_mean'] + df[f'{B}_cumsum_std'] /se, color = color_B, alpha=0.2)
-    ax.set_xlabel('Time (s)')
-    max_time = df['Time_mean'].max()
-    ax.set_xticks(np.arange(0, max_time + 30, 60))    
-    ax.set_ylabel('Distance traveled (cm)')
-    ax.legend(loc='best', fancybox=True, shadow=True)
-    ax.grid(True)
-
-def plot_freezing(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+def plot_freezing(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
 
     """
     Plot the time the mouse spent freezing.
@@ -705,7 +738,7 @@ def plot_freezing(path: str, group: str, trial: str, novelty: list, fps: int = 3
         path (str): Path to the main folder.
         group (str): Group name.
         trial (str): Trial name.
-        novelty (list): Novelty condition for DI calculation.
+        targets (list): Novelty condition for DI calculation.
         fps (int): Frames per second of the video.
         ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
 
@@ -715,7 +748,7 @@ def plot_freezing(path: str, group: str, trial: str, novelty: list, fps: int = 3
     if ax is None:
         fig, ax = plt.subplots()
 
-    A = 'freezing'
+    behavior = 'freezing'
 
     dfs = []
     folder = os.path.join(path, 'summary', group, trial)
@@ -725,7 +758,7 @@ def plot_freezing(path: str, group: str, trial: str, novelty: list, fps: int = 3
 
     for file_path in glob(os.path.join(folder, "*summary.csv")):
         df = pd.read_csv(file_path)
-        df[f'{A}_cumsum'] = df[A].cumsum() / fps
+        df[f'{behavior}_cumsum'] = df[behavior].cumsum() / fps
         dfs.append(df)
 
     if not dfs:
@@ -739,24 +772,33 @@ def plot_freezing(path: str, group: str, trial: str, novelty: list, fps: int = 3
 
     all_dfs = pd.concat(trunc_dfs, ignore_index=True)
 
-    df = all_dfs.groupby('Frame').agg(['mean', 'std']).reset_index()
+    # Select only numeric columns for aggregation
+    numeric_cols = all_dfs.select_dtypes(include=['number']).columns
+    df = all_dfs.groupby('Frame')[numeric_cols].agg(['mean', 'std']).reset_index()
+
+    # Flatten the MultiIndex column names
     df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
+    df['Time'] = df['Frame_mean'] / fps
 
     # Define a list of colors (you can expand this as needed)
-    color = color_A_list[aux_glob]  # Assign color based on group name
+    global aux_color
+    color = colors[aux_color]  # Assign color based on group name
 
     # Time freezing
-    ax.plot(df['Time_mean'], df[f'{A}_cumsum_mean'], label = f'{group} {A}', color = color)
-    ax.fill_between(df['Time_mean'], df[f'{A}_cumsum_mean'] - df[f'{A}_cumsum_std'] /se, df[f'{A}_cumsum_mean'] + df[f'{A}_cumsum_std'] /se, color = color, alpha=0.2)
+    ax.plot(df['Time'], df[f'{behavior}_cumsum_mean'], label = f'{group} {behavior}', color = color)
+    ax.fill_between(df['Time'], df[f'{behavior}_cumsum_mean'] - df[f'{behavior}_cumsum_std'] /se, df[f'{behavior}_cumsum_mean'] + df[f'{behavior}_cumsum_std'] /se, color = color, alpha=0.2)
     ax.set_xlabel('Time (s)')
-    max_time = df['Time_mean'].max()
+    max_time = df['Time'].max()
     ax.set_xticks(np.arange(0, max_time + 30, 60))    
-    ax.set_ylabel('Time freezing (s)')
+    ax.set_ylabel(f'Time {behavior} (s)')
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
+    # Update the global color variable
+    aux_color += len(targets)
 
-def plot_freezing_boxplot(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+
+def plot_freezing_boxplot(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
     Plot a boxplot of freezing time at the end of the session
 
@@ -764,7 +806,7 @@ def plot_freezing_boxplot(path: str, group: str, trial: str, novelty: list, fps:
         path (str): Path to the main folder.
         group (str): Group name.
         trial (str): Trial name.
-        novelty (list): Novelty condition for DI calculation.
+        targets (list): Novelty condition for DI calculation.
         fps (int): Frames per second of the video.
         ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
 
@@ -774,7 +816,7 @@ def plot_freezing_boxplot(path: str, group: str, trial: str, novelty: list, fps:
     if ax is None:
         fig, ax = plt.subplots()
 
-    A = 'freezing'
+    behavior = 'freezing'
     
     bxplt = []
     folder = os.path.join(path, 'summary', group, trial)
@@ -784,35 +826,37 @@ def plot_freezing_boxplot(path: str, group: str, trial: str, novelty: list, fps:
     
     for file_path in glob(os.path.join(folder, "*summary.csv")):
         df = pd.read_csv(file_path)
-        df["freezing_cumsum"] = df["freezing"].cumsum() / fps
+        df[f"{behavior}_cumsum"] = df[f"{behavior}"].cumsum() / fps
 
-        bxplt.append([df.loc[df.index[-1], f'freezing_cumsum']])
+        bxplt.append([df.loc[df.index[-1], f"{behavior}_cumsum"]])
     
-    bxplt = pd.DataFrame(bxplt, columns = [A])
+    bxplt = pd.DataFrame(bxplt, columns = [behavior])
 
     # Dynamically calculate x-axis positions using a global auxiliary variable
-    group_positions = [aux_glob]
-
-    # Define a list of colors (you can expand this as needed)
-    color_A = color_A_list[aux_glob]
+    global aux_position, aux_color
+    group_positions = [aux_position]
+    color = colors[aux_color]
 
     # Boxplot
-    ax.boxplot(bxplt[A], positions=[group_positions[0]], tick_labels=[f'{A}\n{group}'])
+    ax.boxplot(bxplt[behavior], positions=[group_positions[0]], tick_labels=[f'{behavior}\n{group}'])
     
     # Replace boxplots with scatter plots with jitter
     jitter = 0.05  # Adjust the jitter amount as needed
-    ax.scatter([group_positions[0] + np.random.uniform(-jitter, jitter) for _ in range(len(bxplt[A]))], bxplt[A], color=color_A, alpha=0.7)
+    ax.scatter([group_positions[0] + np.random.uniform(-jitter, jitter) for _ in range(len(bxplt[behavior]))], bxplt[behavior], color=color, alpha=0.7)
     
     # Add mean lines
-    mean_a = np.mean(bxplt[A])
-    ax.axhline(mean_a, color=color_A, linestyle='--', label=f'{group} {A}')
-    ax.set_ylabel('Freezing Time (s)')
-    ax.set_title('Total freezing time at the end of TS')
+    mean_line = np.mean(bxplt[behavior])
+    ax.axhline(mean_line, color=color, linestyle='--', label=f'{group} {behavior}')
+    ax.set_ylabel(f"{behavior} time (s)")
+    ax.set_title(f"Total {behavior} time at the end of TS")
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
+    # Update the global position and color variables
+    aux_position += 1
+    aux_color += len(targets)
 
-def plot_freezing_histogram(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+def plot_freezing_histogram(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
 
     """
     Plot an histogram of the durations of each freezing event.
@@ -821,7 +865,7 @@ def plot_freezing_histogram(path: str, group: str, trial: str, novelty: list, fp
         path (str): Path to the main folder.
         group (str): Group name.
         trial (str): Trial name.
-        novelty (list): Novelty condition for DI calculation.
+        targets (list): Novelty condition for DI calculation.
         fps (int): Frames per second of the video.
         ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
 
@@ -831,7 +875,7 @@ def plot_freezing_histogram(path: str, group: str, trial: str, novelty: list, fp
     if ax is None:
         fig, ax = plt.subplots()
 
-    A = 'freezing'
+    behavior = 'freezing'
 
     dfs = []
     folder = os.path.join(path, 'summary', group, trial)
@@ -845,35 +889,39 @@ def plot_freezing_histogram(path: str, group: str, trial: str, novelty: list, fp
 
     if not dfs:
         raise ValueError("No valid data files were found.")
-    
-    n = len(dfs)
-    se = np.sqrt(n) if n > 1 else 1
 
-    min_length = min([len(df) for df in dfs])
+    # Standardize the length of data from each file
+    min_length = min(len(df) for df in dfs)
     trunc_dfs = [df.iloc[:min_length].copy() for df in dfs]
 
-    all_dfs = pd.concat(trunc_dfs, ignore_index=True)
+    # Define a color using a global color variable
+    global aux_color
+    color = colors[aux_color]
 
-    df = all_dfs.groupby('Frame').agg(['mean', 'std']).reset_index()
-    df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
-
-    # Define a list of colors (you can expand this as needed)
-    color_A = color_A_list[aux_glob]
-
-    # Histogram of exploration event durations
-    A_durations = []
-    B_durations = []
+    # Gather durations for freezing events
+    durations = []
     for df in trunc_dfs:
-        A_durations.extend(calculate_durations(df[A], fps=fps))
-    # n_bins = int((np.sqrt(len(A_durations))) + np.sqrt(len(B_durations))) // 2
-    n_bins = 20
+        durations.extend(calculate_durations(df[behavior], fps=fps))
     
-    ax.hist(A_durations, bins=n_bins, alpha=0.5, color=color_A, label = f'{group} {A}')
+    # Plot the histogram with the specified bins and density option
+    density = False
+    ax.hist(durations, bins='auto', alpha=0.5, color=color, label=f'{group} {behavior}', density=density)
+    
+    # Overlay summary statistics: mean and median lines
+    mean_duration = np.mean(durations)
+    median_duration = np.median(durations)
+    ax.axvline(mean_duration, color=color, linestyle='--', linewidth=2, label=f'Mean: {mean_duration:.2f}s')
+    # ax.axvline(median_duration, color=color, linestyle=':', linewidth=1, label=f'Median: {median_duration:.2f}s')
+
     ax.set_xlabel('Duration (s)')
-    ax.set_ylabel('Events')
+    ax.set_ylabel('Probability Density' if density else 'Events')
     ax.legend(loc='best', fancybox=True, shadow=True)
-    ax.set_title('Histogram of Freezing Event Durations')
+    ax.set_title(f'Histogram of {behavior} Event Durations')
     ax.set_xlim([0, None])
+    ax.grid(True)
+
+    # Update the global color variable
+    aux_color += len(targets)
 
 
 # %% Individual plotting
@@ -972,9 +1020,11 @@ def plot_all_individual_exploration(params_path, show = False):
 
             for file in glob(os.path.join(folder, '*')):
                 df = pd.read_csv(file)
-                df = calculate_DI(df, novelty, fps)
+                df = calculate_cumsum(df, novelty, fps)
+                df = calculate_DI(df, novelty)
                 df['nose_dist_cumsum'] = df['nose_dist'].cumsum() / fps
                 df['body_dist_cumsum'] = df['body_dist'].cumsum() / fps
+                df['Time'] = df['Frame'] / fps
 
                 position_file = file.replace(f'summary\\{group}\\{trial}', f'{trial}\\position').replace('_summary', f'_position')
                 position = pd.read_csv(position_file)
@@ -1057,7 +1107,7 @@ def _plot_positions(nose, towards1, towards2, tgt1, tgt2, ax):
 
 # %% ROI activity
 
-def plot_roi_time(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+def plot_roi_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
     Plot the average time spent in each ROI area.
 
@@ -1065,6 +1115,7 @@ def plot_roi_time(path: str, group: str, trial: str, novelty: list, fps: int = 3
         path (str): Path to the main folder.
         group (str): Group name.
         trial (str): Trial name.
+        targets (list): Novelty condition for DI calculation.
         fps (int): Frames per second of the video.
         ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
 
@@ -1084,7 +1135,7 @@ def plot_roi_time(path: str, group: str, trial: str, novelty: list, fps: int = 3
         df = pd.read_csv(file_path)
 
         # Count total time spent in each area (convert frames to seconds)
-        roi_times = df.groupby('body').size() / fps
+        roi_times = df.groupby('location').size() / fps
 
         # Store values in a dictionary
         for roi, time in roi_times.items():
@@ -1098,11 +1149,12 @@ def plot_roi_time(path: str, group: str, trial: str, novelty: list, fps: int = 3
     space = 1/(num_rois+1)
     print(f"Number of ROIs: {num_rois}")
 
-    # Generate x-axis positions for each ROI dynamically
-    group_positions = [aux_glob + i*space for i in range(num_rois)]
+    # Calculate x positions for each target within this group
+    global aux_position, aux_color
+    space = 1/(len(targets)+1)
+    group_positions = [aux_position + i*space for i in range(len(targets))] # here we space them by 0.4 units.
 
-    # Define a list of colors (you can expand this as needed)
-    color = color_A_list[aux_glob]
+    jitter = 0.02  # amount of horizontal jitter for individual scatter points
 
     # Boxplot for each ROI
     for i, roi in enumerate(roi_labels):
@@ -1122,6 +1174,9 @@ def plot_roi_time(path: str, group: str, trial: str, novelty: list, fps: int = 3
     ax.set_title(f'Time spent in each area ({group} - {trial})')
     ax.legend(loc='best', fancybox=True, shadow=True, ncol=2)
     ax.grid(False)
+
+    # Update the global position variable
+    aux_position += 1
 
 def count_alternations_and_entries(area_sequence):
     """
@@ -1148,7 +1203,7 @@ def count_alternations_and_entries(area_sequence):
 
     return alternations, total_entries
 
-def plot_alternations(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+def plot_alternations(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
     Plot a boxplot of the proportion of alternations over total area entrances.
 
@@ -1156,6 +1211,8 @@ def plot_alternations(path: str, group: str, trial: str, novelty: list, fps: int
         path (str): Path to the main folder.
         group (str): Group name.
         trial (str): Trial name.
+        targets (list): Novelty condition for DI calculation.
+        fps (int): Frames per second of the video.
         ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
 
     Returns:
@@ -1173,10 +1230,10 @@ def plot_alternations(path: str, group: str, trial: str, novelty: list, fps: int
     for file_path in glob(os.path.join(folder, "*summary.csv")):
         df = pd.read_csv(file_path)
 
-        if "body" not in df.columns:
-            raise ValueError(f"File {file_path} does not contain a 'body' column.")
+        if "location" not in df.columns:
+            raise ValueError(f"File {file_path} does not contain a 'location' column.")
 
-        area_sequence = df["body"].tolist()
+        area_sequence = df["location"].tolist()
         alternations, total_entries = count_alternations_and_entries(area_sequence)
         print(f"Alternations: {alternations}, Total Entries: {total_entries}")
 
@@ -1185,11 +1242,13 @@ def plot_alternations(path: str, group: str, trial: str, novelty: list, fps: int
         else:
             alternation_proportions.append(0)  # Avoid division by zero
 
-    # Dynamically calculate x-axis positions using a global auxiliary variable
-    group_positions = [aux_glob]
+    # Calculate x positions for each target within this group
+    global aux_position, aux_color
+    space = 1/(len(targets)+1)
+    group_positions = [aux_position + i*space for i in range(len(targets))] # here we space them by 0.4 units.
+    color = colors[aux_color]
 
-    # Define a list of colors (you can expand this as needed)
-    color = color_A_list[aux_glob]
+    jitter = 0.02  # amount of horizontal jitter for individual scatter points
     
     # Boxplot
     ax.boxplot(alternation_proportions, positions=[group_positions[0]], tick_labels=[f'{group}'])
@@ -1204,7 +1263,11 @@ def plot_alternations(path: str, group: str, trial: str, novelty: list, fps: int
     ax.legend(loc="best", fancybox=True, shadow=True)
     ax.grid(False)
 
-# %%
+    # Update the global position and color variables
+    aux_position += 1
+    aux_color += len(targets)
+
+# %% Extra plots
 
 def plot_exploration_time_extra(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
     """
@@ -1269,3 +1332,71 @@ def plot_exploration_time_extra(path: str, group: str, trial: str, novelty: list
     ax.set_title('Exploration of targets during TS')
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
+
+def plot_exploration_histogram(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
+    """
+    Plot an histogram of the durations of the exploration of each target.
+
+    Args:
+        path (str): Path to the main folder.
+        group (str): Group name.
+        trial (str): Trial name.
+        novelty (list): Novelty condition for DI calculation.
+        fps (int): Frames per second of the video.
+        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
+
+    Returns:
+        None
+    """
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    A = novelty[0]
+    B = novelty[1]
+
+    dfs = []
+    folder = os.path.join(path, 'summary', group, trial)
+
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"Folder {folder} does not exist.")
+
+    for file_path in glob(os.path.join(folder, "*summary.csv")):
+        df = pd.read_csv(file_path)
+        df = calculate_cumsum(df, novelty, fps)
+        df = calculate_DI(df, novelty)
+        dfs.append(df)
+
+    if not dfs:
+        raise ValueError("No valid data files were found.")
+    
+    n = len(dfs)
+    se = np.sqrt(n) if n > 1 else 1
+
+    min_length = min([len(df) for df in dfs])
+    trunc_dfs = [df.iloc[:min_length].copy() for df in dfs]
+
+    all_dfs = pd.concat(trunc_dfs, ignore_index=True)
+
+    df = all_dfs.groupby('Frame').agg(['mean', 'std']).reset_index()
+    df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
+
+    # Define a list of colors (you can expand this as needed)
+    color_A = color_A_list[aux_glob]
+    color_B = color_B_list[aux_glob]
+
+    # Histogram of exploration event durations
+    A_durations = []
+    B_durations = []
+    for df in trunc_dfs:
+        A_durations.extend(calculate_durations(df[A], fps=fps))
+        B_durations.extend(calculate_durations(df[B], fps=fps))
+    # n_bins = int((np.sqrt(len(A_durations))) + np.sqrt(len(B_durations))) // 2
+    n_bins = 20
+    
+    ax.hist(A_durations, bins=n_bins, alpha=0.5, color=color_A, label = f'{group} {A}')
+    ax.hist(B_durations, bins=n_bins, alpha=0.5, color=color_B, label = f'{group} {B}')
+    ax.set_xlabel('Duration (s)')
+    ax.set_ylabel('Events')
+    ax.legend(loc='best', fancybox=True, shadow=True)
+    ax.set_title('Histogram of Exploration Durations')
+    ax.set_xlim([0, None])

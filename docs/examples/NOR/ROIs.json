@@ -1,0 +1,30 @@
+{
+    "frame_shape": [
+        720,
+        640
+    ],
+    "scale": 18.41,
+    "areas": [
+        {
+            "name": "left_area",
+            "center": [
+                221,
+                156
+            ],
+            "width": 115,
+            "height": 115,
+            "angle": 0
+        },
+        {
+            "name": "right_area",
+            "center": [
+                502,
+                156
+            ],
+            "width": 115,
+            "height": 115,
+            "angle": 0
+        }
+    ],
+    "points": []
+}

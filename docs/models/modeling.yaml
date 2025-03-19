@@ -58,13 +58,13 @@ RNN:
 
   # Number of neurons on each layer
   units:
+  - 64
   - 32
-  - 24
   - 16
   - 8
 
   # Number of training samples the model processes before updating its weights
-  batch_size: 64
+  batch_size: 128
 
   # Learning rate
   lr: 0.0001

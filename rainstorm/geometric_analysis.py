@@ -251,7 +251,7 @@ def detect_roi_activity(params_path, file, bodypart = 'body', plot_activity = Fa
                 break
         area_col.append(assigned_area)
     
-    roi_activity[bodypart] = area_col  # Assign the area to the corresponding body part column
+    roi_activity['location'] = area_col  # Assign the area to the corresponding body part column
 
     if plot_activity:
 
@@ -259,7 +259,7 @@ def detect_roi_activity(params_path, file, bodypart = 'body', plot_activity = Fa
         Plot the time spent in each area for a specific body part.
         """
         # Count occurrences of each area
-        time_spent = roi_activity[bodypart].value_counts().sort_index()
+        time_spent = roi_activity['location'].value_counts().sort_index()
         time_spent = time_spent[time_spent.index != 'other']
 
         # Convert frame count to time (seconds)

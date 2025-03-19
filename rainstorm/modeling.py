@@ -18,7 +18,7 @@ import h5py
 
 import tensorflow as tf
 from tensorflow.keras.layers import LSTM, Dense, Input, Bidirectional, Dropout, Lambda, BatchNormalization, GlobalAveragePooling1D
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.callbacks import EarlyStopping, LearningRateScheduler
 
 from sklearn.metrics.pairwise import cosine_similarity
@@ -554,6 +554,15 @@ def plot_history(model, model_name):
 
     fig.show()
 
+def save_model(modeling_path, model, model_name):
+    """Saves a model to a keras model file
+    """
+    # Load parameters
+    modeling = load_yaml(modeling_path)
+    path = modeling.get("path")
+    
+    model.save(os.path.join(path, 'trained_models', f"{model_name}.keras"))
+
 def build_RNN(modeling_path, model_dict):
 
     # Load parameters
@@ -638,6 +647,32 @@ def train_RNN(modeling_path, model_dict, model):
     return history
 
 # %% Evaluation
+
+def build_evaluation_dict(modeling_path):
+    """Creates a dictionary to evaluate the performance of the models.
+    """
+    # Load parameters
+    modeling = load_yaml(modeling_path)
+    colabels = modeling.get("colabels", {})
+    colabels_path = colabels.get("colabels_path")
+    labelers = colabels.get("labelers", [])
+
+    # Open the colabels file
+    colabels_df = pd.read_csv(colabels_path)
+    position = colabels_df.filter(regex='_x|_y').filter(regex='^(?!.*tail)').copy() # Extract positions, excluding tail-related columns
+    manual_labels = pd.concat([colabels_df.filter(regex=name).copy() for name in labelers], axis=1) # Extract individual labelers' columns
+    geometric = colabels_df.filter(regex='Geometric').copy() # Extract geometric labels
+
+    # Create a dictionary to store evaluation results
+    evaluation_dict = {}
+    evaluation_dict['position'] = position
+    # add the manual labels to the dictionary
+    for name in labelers:
+        evaluation_dict[name] = colabels_df.filter(regex=name).copy()
+    evaluation_dict['manual_labels'] = manual_labels
+    evaluation_dict['geometric'] = geometric
+
+    return evaluation_dict
 
 def create_chimera_and_loo_mean(df: pd.DataFrame, seed: int = None) -> tuple:
     """Creates a chimera DataFrame by randomly selecting columns for each row.
@@ -725,7 +760,7 @@ def smooth_columns(df: pd.DataFrame, columns: list = [], kernel_size: int = 3, g
     return df.drop(columns=['med_filt', 'smooth'])
 
 
-def use_model(position, model, objects = ['obj_1', 'obj_2'], bodyparts = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'], recentering = True, reshaping = False, past: int = 3, future: int = 3, broad: float = 1.7):
+def use_model(position, model, objects = ['tgt'], bodyparts = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'], recentering = False, reshaping = False, past: int = 3, future: int = 3, broad: float = 1.7):
     
     if recentering:
         position = pd.concat([recenter(position, obj, bodyparts) for obj in objects], ignore_index=True)
@@ -755,6 +790,28 @@ def use_model(position, model, objects = ['obj_1', 'obj_2'], bodyparts = ['nose'
     
     return labels
 
+def build_and_run_models(path_dict, position, objects = ['tgt'], bodyparts = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body']):
+    X_all = position.copy()
+    models_dict = {}
+    
+    for key, path in path_dict.items():
+        print(f"Loading model from: {path}")
+        model = load_model(path)
+
+        # Determine if reshaping is needed
+        reshaping = len(model.input_shape) == 3  # True if input is 3D
+
+        if reshaping:
+            past = future = model.input_shape[1] // 2
+            output = use_model(X_all, model, objects, bodyparts, recentering=True, reshaping=True, past=past, future=future)
+        
+        else:
+            output = use_model(X_all, model, objects, bodyparts, recentering=True)
+
+        # Store the result in the dictionary
+        models_dict[f"model_{key}"] = output
+
+    return models_dict
 
 def calculate_cosine_sim(data, show_plot = True):
 
@@ -769,7 +826,6 @@ def calculate_cosine_sim(data, show_plot = True):
         plt.show()
 
     return cosine_sim
-
 
 def plot_PCA(data, make_discrete = False):
     
@@ -797,8 +853,7 @@ def plot_PCA(data, make_discrete = False):
     plt.grid(True)
     plt.show()
 
-
-def plot_performance_on_video(folder_path, models, labelers, plot_obj, frame_rate=25):
+def plot_performance_on_video(folder_path, models, labelers, plot_obj, fps=25, objects = ['obj_1', 'obj_2'], bodyparts = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'],):
     """
     Plots the performance of multiple models and labelers over time.
 
@@ -809,23 +864,36 @@ def plot_performance_on_video(folder_path, models, labelers, plot_obj, frame_rat
         labelers (dict): Dictionary of labeler names and paths to their CSV files.
                          Example: {"lblr_A": "Example_Marian.csv"}
         plot_obj (str): Name of the object column to plot (e.g., "obj_1").
-        frame_rate (int): Frame rate of the video to calculate time in seconds. Default is 25.
+        fps (int): Frame rate of the video to calculate time in seconds. Default is 25.
     """
     # Prepare dataset for the video
     X_view = pd.read_csv(os.path.join(folder_path, 'Example_position.csv')).filter(regex='^(?!.*tail)')
     
     # Generate labels using models
     model_outputs = {}
-    for model_name, (model, kwargs) in models.items():
-        model_outputs[model_name] = use_model(X_view, model, **kwargs)
+    for key, path in models.items():
+        print(f"Loading model from: {path}")
+        model = load_model(path)
+
+        # Determine if reshaping is needed
+        reshaping = len(model.input_shape) == 3  # True if input is 3D
+
+        if reshaping:
+            past = future = model.input_shape[1] // 2
+            output = use_model(X_view, model, objects = ['obj_1', 'obj_2'], bodyparts = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'], recentering = True, reshaping = True, past=past, future=future)
+        
+        else:
+            output = use_model(X_view, model, objects = ['obj_1', 'obj_2'], bodyparts = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'], recentering=True)
+
+        model_outputs[f"{key}"] = output
 
     # Load labeler data
     labeler_outputs = {}
     for labeler_name, labeler_file in labelers.items():
         labeler_outputs[labeler_name] = pd.read_csv(os.path.join(folder_path, labeler_file))
-    
+
     # Create time axis
-    time = np.arange(len(model_outputs[list(models.keys())[0]][plot_obj])) / frame_rate
+    time = np.arange(len(model_outputs[list(models.keys())[0]][plot_obj])) / fps
 
     # Create a figure
     fig = go.Figure()

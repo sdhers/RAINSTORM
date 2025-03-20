@@ -5,21 +5,24 @@ path: C:\Users\dhers\Desktop\Rainstorm\docs\examples\NOR
 
 # Pose estimation filenames
 filenames:
-- NOR_Hab_C1
-- NOR_Hab_C2
-- NOR_Hab_C3
-- NOR_Hab_C4
-- NOR_Hab_C5
-- NOR_TR_C1
-- NOR_TR_C2
-- NOR_TR_C3
-- NOR_TR_C4
-- NOR_TR_C5
-- NOR_TS_C1
-- NOR_TS_C2
-- NOR_TS_C3
-- NOR_TS_C4
-- NOR_TS_C5
+- NOR_Hab_R01
+- NOR_Hab_R02
+- NOR_Hab_R03
+- NOR_Hab_R04
+- NOR_Hab_R05
+- NOR_Hab_R06
+- NOR_TR_R01
+- NOR_TR_R02
+- NOR_TR_R03
+- NOR_TR_R04
+- NOR_TR_R05
+- NOR_TR_R06
+- NOR_TS_R01
+- NOR_TS_R02
+- NOR_TS_R03
+- NOR_TS_R04
+- NOR_TS_R05
+- NOR_TS_R06
 
 # Software used to generate the pose estimation files ('DLC' or 'SLEAP')
 software: DLC
@@ -29,15 +32,21 @@ fps: 25
 
 # Tracked bodyparts
 bodyparts:
-- nose
-- L_ear
-- R_ear
-- head
-- neck
 - body
-- tail_1
-- tail_2
-- tail_3
+- head
+- left_ear
+- left_hip
+- left_midside
+- left_shoulder
+- neck
+- nose
+- right_ear
+- right_hip
+- right_midside
+- right_shoulder
+- tail_base
+- tail_end
+- tail_mid
 
 # Exploration targets
 targets:
@@ -65,30 +74,38 @@ geometric_analysis:
     # Shape of the video frames ([width, height])
     frame_shape:
     - 720
-    - 640
+    - 480
 
     # Scale factor (in px/cm)
-    scale: 18.41
+    scale: 18.93
 
     # Defined ROIs (areas) in the frame
     areas:
-    - name: left_area
+    - name: left
       center:
-      - 221
-      - 156
-      width: 115
-      height: 115
+      - 215
+      - 218
+      width: 275
+      height: 400
       angle: 0
-    - name: right_area
+    - name: right
       center:
-      - 502
-      - 156
-      width: 115
-      height: 115
+      - 491
+      - 218
+      width: 275
+      height: 400
       angle: 0
 
     # Key points within the frame
-    points: []
+    points:
+    - name: obj_1
+      center:
+      - 219
+      - 138
+    - name: obj_2
+      center:
+      - 484
+      - 138
 
   # Maximum nose-target distance to consider exploration
   distance: 2.5
@@ -108,8 +125,8 @@ automatic_analysis:
   # List of bodyparts used to train the model
   model_bodyparts:
   - nose
-  - L_ear
-  - R_ear
+  - left_ear
+  - right_ear
   - head
   - neck
   - body

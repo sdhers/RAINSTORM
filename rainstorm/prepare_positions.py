@@ -99,7 +99,7 @@ def create_params(folder_path:str, ROIs_path = None):
         "filenames": filenames,
         "software": "DLC",
         "fps": 25,
-        "bodyparts": ["nose", "L_ear", "R_ear", "head", "neck", "body", "tail_1", "tail_2", "tail_3"],
+        "bodyparts": ['body', 'head', 'left_ear', 'left_hip', 'left_midside', 'left_shoulder', 'neck', 'nose', 'right_ear', 'right_hip', 'right_midside', 'right_shoulder', 'tail_base', 'tail_end', 'tail_mid'],
         "targets": ["obj_1", "obj_2"],
 
         "prepare_positions": {  # Grouped under a dictionary
@@ -114,8 +114,8 @@ def create_params(folder_path:str, ROIs_path = None):
             "freezing_threshold": 0.01
             },
         "automatic_analysis": {
-            "model_path": "path/to/trained/model.keras",
-            "model_bodyparts": ["nose", "L_ear", "R_ear", "head", "neck", "body"],
+            "model_path": "C:\Users\dhers\Desktop\Rainstorm\docs\models\trained_models\example_wide.keras",
+            "model_bodyparts": ["nose", "left_ear", "right_ear", "head", "neck", "body"],
             "rescaling": True,
             "reshaping": True,
             "RNN_width": {
@@ -420,23 +420,29 @@ def filter_and_smooth_df(params_path: str, df_raw: pd.DataFrame) -> pd.DataFrame
 
     if targets:
         for tgt in targets:
-            median = df[f'{tgt}_likelihood'].median()
-            mean = df[f'{tgt}_likelihood'].mean()
-            std_dev = df[f'{tgt}_likelihood'].std()
-                
-            limit = mean - num_sd*std_dev
+            likelihood_col = f'{tgt}_likelihood'
+            x_col = f'{tgt}_x'
+            y_col = f'{tgt}_y'
             
-            if median < drop_below:
-                # If the likelihood of an tgtect is too low, probably the tgtect is not there. Lets drop those columns
-                df.drop([f'{tgt}_x', f'{tgt}_y', f'{tgt}_likelihood'], axis=1, inplace=True)
-            
-            else:
-                # Set x and y coordinates to NaN where the likelihood is below the tolerance limit
-                df.loc[df[f'{tgt}_likelihood'] < limit, [f'{tgt}_x', f'{tgt}_y']] = np.nan
+            # Check if the required columns exist in df
+            if likelihood_col in df.columns and x_col in df.columns and y_col in df.columns:
+                median = df[likelihood_col].median()
+                mean = df[likelihood_col].mean()
+                std_dev = df[likelihood_col].std()
+                    
+                limit = mean - num_sd * std_dev
                 
-                for axis in ['x','y']:
-                    column = f'{tgt}_{axis}'
-                    df[column] = df[column].median()
+                if median < drop_below:
+                    # If the likelihood is too low, drop the columns
+                    df.drop([x_col, y_col, likelihood_col], axis=1, inplace=True)
+                else:
+                    # Set x and y coordinates to NaN where the likelihood is below the tolerance limit
+                    df.loc[df[likelihood_col] < limit, [x_col, y_col]] = np.nan
+                    
+                    for axis in ['x', 'y']:
+                        column = f'{tgt}_{axis}'
+                        if column in df.columns:
+                            df[column] = df[column].median()
 
     return df
 
@@ -502,7 +508,7 @@ def plot_raw_vs_smooth(params_path: str, df_raw, df_smooth, bodypart = 'nose'):
     # Show plot
     fig.show()
 
-def process_position_files(params_path: str):
+def process_position_files(params_path: str, targetless_trials:list = []):
     """Processes a list of HDF5 files and saves the smoothed data as a CSV file.
 
     Args:
@@ -518,7 +524,8 @@ def process_position_files(params_path: str):
 
         df_raw = open_h5_file(params_path, file)
 
-        df_raw = add_targets(params_path, df_raw)
+        if not any(trial in file for trial in targetless_trials):
+            df_raw = add_targets(params_path, df_raw)
 
         df_smooth = filter_and_smooth_df(params_path, df_raw)
 

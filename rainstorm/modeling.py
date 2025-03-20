@@ -142,7 +142,7 @@ def create_modeling(folder_path:str):
             "target": 'tgt',
             },
         "focus_distance": 25,
-        "bodyparts": ["nose", "L_ear", "R_ear", "head", "neck", "body"],
+        "bodyparts": ["nose", "left_ear", "right_ear", "head", "neck", "body"],
         "split": {
             "validation": 0.15,
             "test": 0.15
@@ -760,7 +760,7 @@ def smooth_columns(df: pd.DataFrame, columns: list = [], kernel_size: int = 3, g
     return df.drop(columns=['med_filt', 'smooth'])
 
 
-def use_model(position, model, objects = ['tgt'], bodyparts = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'], recentering = False, reshaping = False, past: int = 3, future: int = 3, broad: float = 1.7):
+def use_model(position, model, objects = ['tgt'], bodyparts = ['nose', 'left_ear', 'right_ear', 'head', 'neck', 'body'], recentering = False, reshaping = False, past: int = 3, future: int = 3, broad: float = 1.7):
     
     if recentering:
         position = pd.concat([recenter(position, obj, bodyparts) for obj in objects], ignore_index=True)
@@ -790,7 +790,7 @@ def use_model(position, model, objects = ['tgt'], bodyparts = ['nose', 'L_ear', 
     
     return labels
 
-def build_and_run_models(path_dict, position, objects = ['tgt'], bodyparts = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body']):
+def build_and_run_models(path_dict, position, objects = ['tgt'], bodyparts = ['nose', 'left_ear', 'right_ear', 'head', 'neck', 'body']):
     X_all = position.copy()
     models_dict = {}
     
@@ -853,7 +853,7 @@ def plot_PCA(data, make_discrete = False):
     plt.grid(True)
     plt.show()
 
-def plot_performance_on_video(folder_path, models, labelers, plot_obj, fps=25, objects = ['obj_1', 'obj_2'], bodyparts = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'],):
+def plot_performance_on_video(folder_path, models, labelers, plot_obj, fps=25, objects = ['obj_1', 'obj_2'], bodyparts = ['nose', 'left_ear', 'right_ear', 'head', 'neck', 'body']):
     """
     Plots the performance of multiple models and labelers over time.
 
@@ -880,10 +880,10 @@ def plot_performance_on_video(folder_path, models, labelers, plot_obj, fps=25, o
 
         if reshaping:
             past = future = model.input_shape[1] // 2
-            output = use_model(X_view, model, objects = ['obj_1', 'obj_2'], bodyparts = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'], recentering = True, reshaping = True, past=past, future=future)
+            output = use_model(X_view, model, objects, bodyparts, recentering = True, reshaping = True, past=past, future=future)
         
         else:
-            output = use_model(X_view, model, objects = ['obj_1', 'obj_2'], bodyparts = ['nose', 'L_ear', 'R_ear', 'head', 'neck', 'body'], recentering=True)
+            output = use_model(X_view, model, objects, bodyparts, recentering=True)
 
         model_outputs[f"{key}"] = output
 

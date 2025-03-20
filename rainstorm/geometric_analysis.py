@@ -91,7 +91,12 @@ def choose_example_csv(params_path, look_for: str = 'TS') -> str:
 
     return example
 
-def plot_position(params_path:str, file: str, scale: bool = True) -> None:
+import os
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+
+def plot_position(params_path: str, file: str, scale: bool = True) -> None:
     """Plot mouse exploration around multiple targets.
 
     Args:
@@ -107,20 +112,34 @@ def plot_position(params_path:str, file: str, scale: bool = True) -> None:
     scale = geometric_params.get("roi_data", {}).get("scale", 1)
     max_distance = geometric_params.get("distance", 2.5)
     max_angle = geometric_params.get("angle", 45)
+    front = geometric_params.get("front", "nose")
+    pivot = geometric_params.get("pivot", "head")
 
-    color_list = ['brown', 'red', 'green', 'blue', 'purple', 'yellow', 'black', 'grey']
-    symbol_list = ['square', 'circle', 'diamond', 'cross', 'x', 'triangle-up', 'triangle-down', 'star']
-    
+    # Define colors and symbols
+    symbol_list = ['square', 'circle', 'diamond', 'cross', 'x']
+    color_list =        ['blue',        'darkred',      'darkgreen',    'purple',   'goldenrod']
+    trace_color_list =  ['turquoise',   'orangered',    'limegreen',    'magenta',  'gold']
+
+    # Create a dictionary mapping targets to their properties
+    target_styles = {
+        tgt: {            
+            "symbol": symbol_list[idx % len(symbol_list)],
+            "color": color_list[idx % len(color_list)],  # Avoid index errors
+            "trace_color": trace_color_list[idx % len(trace_color_list)]  # Darker shade for towards_trace
+        }
+        for idx, tgt in enumerate(targets)
+    }
+
     # Read the .csv
     df = pd.read_csv(file)
 
     if scale:
         # Scale the data
-        df *= 1/scale
+        df *= 1 / scale
 
     # Extract body parts
-    nose = Point(df, 'nose')
-    head = Point(df, 'head')
+    nose = Point(df, front)
+    head = Point(df, pivot)
 
     # Create the main trace for nose positions
     nose_trace = go.Scatter(
@@ -130,77 +149,76 @@ def plot_position(params_path:str, file: str, scale: bool = True) -> None:
         marker=dict(color='grey', opacity=0.2),
         name='Nose Positions'
     )
-    
+
     # Store all traces
     traces = [nose_trace]
 
-    # Loop over each target in the list of target names
-    if targets:
-        for idx, tgt in enumerate(targets):
-            if f'{tgt}_x' in df.columns:
+    # Loop over each target
+    for tgt in targets:
+        if f'{tgt}_x' in df.columns:
+            # Get target properties from dictionary
+            target_color = target_styles[tgt]["color"]
+            target_symbol = target_styles[tgt]["symbol"]
+            towards_trace_color = target_styles[tgt]["trace_color"]
 
-                # Create a Point target for the target
-                tgt_coords = Point(df, tgt)
+            # Create a Point target for the target
+            tgt_coords = Point(df, tgt)
 
-                # Find distance from the nose to the target
-                dist = Point.dist(nose, tgt_coords)
-                
-                # Compute the normalized head-target vector
-                head_nose = Vector(head, nose, normalize=True)
-                head_tgt = Vector(head, tgt_coords, normalize=True)
-                
-                # Find the angle between the head-nose and head-target vectors
-                angle = Vector.angle(head_nose, head_tgt)  # in degrees
-                
-                # Filter nose positions oriented towards the target
-                towards_tgt = nose.positions[(angle < max_angle) & (dist < max_distance*2.5)]
-                
-                # Create trace for filtered points oriented towards the target
-                towards_trace = go.Scatter(
-                    x=towards_tgt[:, 0],
-                    y=towards_tgt[:, 1],
-                    mode='markers',
-                    marker=dict(opacity=0.4),
-                    name=f'Towards {tgt}'
-                )
+            # Find distance from the nose to the target
+            dist = Point.dist(nose, tgt_coords)
 
-                # Assign colors and symbols dynamically based on index
-                target_color = color_list[idx]
-                target_symbol = symbol_list[idx]
+            # Compute the normalized head-target vector
+            head_nose = Vector(head, nose, normalize=True)
+            head_tgt = Vector(head, tgt_coords, normalize=True)
 
-                # Create trace for the target
-                tgt_trace = go.Scatter(
-                    x=[tgt_coords.positions[0][0]],
-                    y=[tgt_coords.positions[0][1]],
-                    mode='markers',
-                    marker=dict(symbol=target_symbol, size=20, color=target_color),
-                    name=f'{tgt}'
-                )
+            # Find the angle between the head-nose and head-target vectors
+            angle = Vector.angle(head_nose, head_tgt)  # in degrees
 
-                # Create circle around the target
-                circle_trace = go.Scatter(
-                    x=tgt_coords.positions[0][0] + max_distance * np.cos(np.linspace(0, 2 * np.pi, 100)),
-                    y=tgt_coords.positions[0][1] + max_distance * np.sin(np.linspace(0, 2 * np.pi, 100)),
-                    mode='lines',
-                    line=dict(color='green', dash='dash'),
-                    name=f'{tgt} radius'
-                )
+            # Filter nose positions oriented towards the target
+            towards_tgt = nose.positions[(angle < max_angle) & (dist < max_distance * 3)]
 
-                # Append target-specific traces
-                traces.append(towards_trace)
-                traces.append(tgt_trace)
-                traces.append(circle_trace)
+            # Create trace for filtered points oriented towards the target
+            towards_trace = go.Scatter(
+                x=towards_tgt[:, 0],
+                y=towards_tgt[:, 1],
+                mode='markers',
+                marker=dict(opacity=0.4, color=towards_trace_color),
+                name=f'Towards {tgt}'
+            )
+
+            # Create trace for the target
+            tgt_trace = go.Scatter(
+                x=[tgt_coords.positions[0][0]],
+                y=[tgt_coords.positions[0][1]],
+                mode='markers',
+                marker=dict(symbol=target_symbol, size=20, color=target_color),
+                name=f'{tgt}'
+            )
+
+            # Create circle around the target
+            circle_trace = go.Scatter(
+                x=tgt_coords.positions[0][0] + max_distance * np.cos(np.linspace(0, 2 * np.pi, 100)),
+                y=tgt_coords.positions[0][1] + max_distance * np.sin(np.linspace(0, 2 * np.pi, 100)),
+                mode='lines',
+                line=dict(color='green', dash='dash'),
+                name=f'{tgt} radius'
+            )
+
+            # Append target-specific traces
+            traces.append(towards_trace)
+            traces.append(tgt_trace)
+            traces.append(circle_trace)
 
     # Extract the filename without extension
     filename = os.path.splitext(os.path.basename(file))[0]
 
     # Create layout
     layout = go.Layout(
-        title=f'Target exploration in {filename}', 
-        xaxis=dict(title='Horizontal position (cm)', scaleanchor='y'),  # Lock aspect ratio to the y-axis
+        title=f'Target exploration in {filename}',
+        xaxis=dict(title='Horizontal position (cm)', scaleanchor='y'),
         yaxis=dict(title='Vertical position (cm)', autorange="reversed"),
     )
-    
+
     # Create figure
     fig = go.Figure(data=traces, layout=layout)
 

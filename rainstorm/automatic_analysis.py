@@ -123,7 +123,7 @@ def create_autolabels(params_path):
 
 def compare_labels(folder_path, include_all=False):
     TS_positions = glob(os.path.join(folder_path,"TS/position/*position.csv")) # Notice that I added 'TS' on the folder name to only compare files from the testing session
-    TS_manual_labels = glob(os.path.join(folder_path,"TS/labels/*labels.csv"))
+    TS_manual_labels = glob(os.path.join(folder_path,"TS_manual_labels/*labels.csv"))
     TS_geolabels = glob(os.path.join(folder_path,"TS/geolabels/*labels.csv"))
     TS_autolabels = glob(os.path.join(folder_path,"TS/autolabels/*labels.csv"))
 
@@ -161,7 +161,7 @@ def compare_labels(folder_path, include_all=False):
         file = random.randint(0, len(TS_positions)-1)
         path = TS_positions[file]
         positions = pd.read_csv(path)
-        manual_labels = pd.read_csv(path.replace('position', 'labels'))
+        manual_labels = pd.read_csv(path.replace('position', 'labels').replace('/labels', '_manual_labels'))
         geolabels = pd.read_csv(path.replace('position', 'geolabels'))
         autolabels = pd.read_csv(path.replace('position', 'autolabels'))
     
@@ -228,8 +228,8 @@ def polar_graph(params_path, position: pd.DataFrame, label_1: pd.DataFrame, labe
     colors_1 = ['red' if label >= 0.5 else 'gray' for label in label_1[f"{obj_1}"][a:b]]
     alpha_1 = [0.5 if label >= 0.5 else 0.2 for label in label_1[f"{obj_1}"][a:b]]
     
-    colors_2 = ['blue' if label == 1 else 'gray' for label in label_2[f"{obj_1}"][a:b]]
-    alpha_2 = [0.5 if label == 1 else 0.2 for label in label_2[f"{obj_1}"][a:b]]
+    colors_2 = ['blue' if label >= 0.5 else 'gray' for label in label_2[f"{obj_1}"][a:b]]
+    alpha_2 = [0.5 if label >= 0.5 else 0.2 for label in label_2[f"{obj_1}"][a:b]]
     
     # Plot for the first subplot (ax1)
     c1 = ax1.scatter((angle1[a:b] + 90) / 180 * np.pi, dist1[a:b], c=colors_1, s=6, alpha=alpha_1)
@@ -254,8 +254,8 @@ def polar_graph(params_path, position: pd.DataFrame, label_1: pd.DataFrame, labe
     colors_1 = ['red' if label >= 0.5 else 'gray' for label in label_1[f"{obj_2}"][a:b]]
     alpha_1 = [0.5 if label >= 0.5 else 0.2 for label in label_1[f"{obj_2}"][a:b]]
     
-    colors_2 = ['blue' if label == 1 else 'gray' for label in label_2[f"{obj_2}"][a:b]]
-    alpha_2 = [0.5 if label == 1 else 0.2 for label in label_2[f"{obj_2}"][a:b]]
+    colors_2 = ['blue' if label >= 0.5 else 'gray' for label in label_2[f"{obj_2}"][a:b]]
+    alpha_2 = [0.5 if label >= 0.5 else 0.2 for label in label_2[f"{obj_2}"][a:b]]
     
     # Plot for the second subplot (ax2) - copy content from ax1
     ax2.scatter((angle2[a:b] + 90) / 180 * np.pi, dist2[a:b], c=colors_1, s=6, alpha=alpha_1)

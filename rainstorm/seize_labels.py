@@ -16,6 +16,9 @@ import csv
 import random
 import cv2
 
+# Define the color pairs for plotting
+global colors; colors = ['dodgerblue', 'darkorange', 'green', 'orchid', 'orangered', 'turquoise', 'indigo', 'gray', 'sienna', 'limegreen', 'black', 'pink']
+
 # %% functions
 
 def load_yaml(params_path: str) -> dict:
@@ -23,60 +26,190 @@ def load_yaml(params_path: str) -> dict:
     with open(params_path, "r") as file:
         return yaml.safe_load(file)
 
-# Define the color pairs for plotting
-global colors; colors = ['dodgerblue', 'darkorange', 'green', 'orchid', 'orangered', 'turquoise', 'indigo', 'gray', 'sienna', 'limegreen', 'black', 'pink']
+def choose_example_csv(params_path, look_for: str = 'TS') -> str:
+    """Picks an example file from a list of files.
 
-def create_video(params_path):
+    Args:
+        files (list): List of files to choose from.
+        look_for (str, optional): Word to filter files by. Defaults to 'TS'.
 
-    # Load data from CSV files (adjust the file paths and delimiter as needed)
-    position_df = pd.read_csv(r'c:\Users\dhers\Desktop\Rainstorm\docs\examples\NOR\TS\position\NOR_TS_C1_position.csv')
-    labels_df = pd.read_csv(r'c:\Users\dhers\Desktop\Rainstorm\docs\examples\NOR\TS\autolabels\NOR_TS_C1_autolabels.csv')
+    Returns:
+        str: Name of the chosen file.
 
-    # Load params
+    Raises:
+        ValueError: If the files list is empty.
+    """
     params = load_yaml(params_path)
-    path = params.get("path")
+    folder_path = params.get("path")
+    filenames = params.get("filenames")
+    trials = params.get("seize_labels", {}).get("trials", [])
+    files = []
+    for trial in trials:
+        temp_files = [os.path.join(folder_path, trial, 'position', file + '_position.csv') for file in filenames if trial in file]
+        files.extend(temp_files)
+    
+    if not files:
+        raise ValueError("The list of files is empty. Please provide a non-empty list.")
+
+    filtered_files = [file for file in files if look_for in file]
+
+    if not filtered_files:
+        print("No files found with the specified word")
+        example = random.choice(files)
+        print(f"Plotting coordinates from {os.path.basename(example)}")
+    else:
+        # Choose one file at random to use as example
+        example = random.choice(filtered_files)
+        print(f"Plotting coordinates from {os.path.basename(example)}")
+
+    return example
+
+def create_video(params_path, position_file, video_path=None,  
+                 skeleton_links=[
+                    ["nose", "head"], ["head", "neck"], ["neck", "body"], ["body", "tail_base"],
+                    ["tail_base", "tail_mid"], ["tail_mid", "tail_end"],
+                    ["nose", "left_ear"], ["nose", "right_ear"], 
+                    ["head", "left_ear"], ["head", "right_ear"], 
+                    ["neck", "left_ear"], ["neck", "right_ear"],
+                    ["neck", "left_shoulder"], ["neck", "right_shoulder"],
+                    ["left_midside", "left_shoulder"], ["right_midside", "right_shoulder"],
+                    ["left_midside", "left_hip"], ["right_midside", "right_hip"],
+                    ["left_midside", "body"], ["right_midside", "body"],
+                    ["tail_base", "left_hip"], ["tail_base", "right_hip"]
+                 ]):
+    
+    # Load parameters from YAML file
+    params = load_yaml(params_path)
+    output_path = params.get("path")
     fps = params.get("fps", 30)
     roi_data = params.get("geometric_analysis", {}).get("roi_data", {})
     frame_shape = roi_data.get("frame_shape", [])
-    areas = roi_data.get("areas", {})
+    if len(frame_shape) != 2:
+        raise ValueError("frame_shape must be a list or tuple of two integers [width, height]")
     width, height = frame_shape
+    scale = roi_data.get("scale", 1)
+    obj_size = int(scale * 1.8)
+    areas = roi_data.get("areas", {})
 
-    bodyparts = params.get("bodyparts", [])
-    targets = params.get("targets", [])
+    seize_labels = params.get("seize_labels", {})
+    label_type = seize_labels.get("label_type")
 
-    # Initialize video writer: adjust fps and codec as needed
+    # Get lists of bodyparts and targets from params
+    bodyparts_list = params.get("bodyparts", [])
+    targets_list = params.get("targets", [])
+
+    # Load data from CSV files
+    position_df = pd.read_csv(position_file)
+    labels_df = pd.read_csv(position_file.replace('position', f'{label_type}'))
+
+    # If a video file is provided, check frame count and pad data if needed
+    if video_path:
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            raise ValueError(f"Could not open video file: {video_path}")
+        video_frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        data_frame_count = len(position_df)
+        if video_frame_count > data_frame_count:
+            diff = video_frame_count - data_frame_count
+            # Create empty rows (filled with NaNs) for position and labels
+            empty_rows_pos = pd.DataFrame({col: [np.nan]*diff for col in position_df.columns})
+            position_df = pd.concat([empty_rows_pos, position_df], ignore_index=True)
+            empty_rows_lab = pd.DataFrame({col: [np.nan]*diff for col in labels_df.columns})
+            labels_df = pd.concat([empty_rows_lab, labels_df], ignore_index=True)
+        # Reset the video to the beginning
+        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        mouse_color = (250, 250, 250)
+    else:
+        cap = None
+        mouse_color = (0, 0, 0)
+
+    # Initialize video writer
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    video_writer = cv2.VideoWriter(os.path.join(path, 'output_video.mp4'), fourcc, fps, (width, height))
+    video_out_path = os.path.join(output_path, os.path.basename(position_file).replace('_position.csv','_video.mp4'))
+    video_writer = cv2.VideoWriter(video_out_path, fourcc, fps, (width, height))
     
-    # Define a threshold for exploration values
-    exploration_threshold = 0.5
-
     # Loop over each frame
     for i in range(len(position_df)):
-        # Create a blank frame (black background)
-        frame = np.zeros((height, width, 3), dtype=np.uint8)
-        
-        # Create a dictionary for all points using the column names
+        # Read a frame from the video if available
+        if cap:
+            ret, frame = cap.read()
+            if not ret:
+                print(f"Warning: Video ended before position data at frame {i}")
+                break
+            frame = cv2.resize(frame, (width, height))  # Ensure frame matches expected dimensions
+        else:
+            # Create a blank frame with a white background if no video is provided
+            frame = np.ones((height, width, 3), dtype=np.uint8) * 255
 
-        bodyparts = {f'{point}': (int(position_df.loc[i, f'{point}_x']), int(position_df.loc[i, f'{point}_y'])) for point in bodyparts}
-        targets = {f'{point}': (int(position_df.loc[i, f'{point}_x']), int(position_df.loc[i, f'{point}_y'])) for point in targets}
+        # Build dictionaries mapping bodypart/target names to their (x, y) coordinates for the current frame
+        # Use fillna or default values in case the row is empty (e.g., from the prepended rows)
+        bodyparts_coords = {}
+        for point in bodyparts_list:
+            x_val = position_df.loc[i, f'{point}_x'] if f'{point}_x' in position_df.columns else np.nan
+            y_val = position_df.loc[i, f'{point}_y'] if f'{point}_y' in position_df.columns else np.nan
+            if not (np.isnan(x_val) or np.isnan(y_val)):
+                bodyparts_coords[point] = (int(x_val), int(y_val))
         
-        # Plot each point on the frame
-        for part_name, pos in bodyparts.items():
-            cv2.circle(frame, pos, 5, (255, 255, 255), -1)
+        targets_coords = {}
+        for point in targets_list:
+            x_val = position_df.loc[i, f'{point}_x'] if f'{point}_x' in position_df.columns else np.nan
+            y_val = position_df.loc[i, f'{point}_y'] if f'{point}_y' in position_df.columns else np.nan
+            if not (np.isnan(x_val) or np.isnan(y_val)):
+                targets_coords[point] = (int(x_val), int(y_val))
+        
+        # Draw ROIs if defined
+        if areas:
+            for area in areas:
+                # Expected keys: "center", "width", "height", "angle", and "name"
+                center = area["center"]  # [x, y]
+                width_roi = area["width"]
+                height_roi = area["height"]
+                angle = area["angle"]
+                # Create a rotated rectangle (center, size, angle)
+                rect = ((center[0], center[1]), (width_roi, height_roi), angle)
+                box = cv2.boxPoints(rect)
+                box = np.int0(box)
+                cv2.drawContours(frame, [box], 0, (255, 0, 0), 2)  # Blue color in BGR
 
-        # Retrieve the exploration value from labels_df; assumes column names match
-        for part_name, pos in targets.items:
-                exploration_value = labels_df.loc[i, part_name]
-                # Use red if exploring (value > threshold), otherwise green
-                color = (0, 0, 255) if exploration_value > exploration_threshold else (0, 255, 0)
-                cv2.circle(frame, pos, 10, color, -1)
+                # Calculate bottom-left corner of the ROI from the box points
+                # Here we take the point with the smallest x and largest y as an approximation.
+                bottom_left = (int(np.min(box[:, 0]))+2, int(np.max(box[:, 1]))-2)
+                cv2.putText(frame, area["name"], bottom_left,
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_AA)
         
+        # Draw targets with a gradual color change based on the exploration value
+        for target_name, pos in targets_coords.items():
+            if target_name in labels_df.columns:
+                exploration_value = labels_df.loc[i, target_name]
+                r = int(255 * exploration_value)
+                g = int(255 * (1 - exploration_value))
+                color = (0, g, r)  # BGR format
+                thickness = int(3 + (exploration_value*30))
+                if exploration_value > 0.9:
+                    thickness = -1
+            else:
+                color = (0, 255, 0)
+                thickness = 3
+            cv2.circle(frame, pos, obj_size - thickness//2, color, thickness)
+
+        # Draw skeleton lines connecting specified bodyparts
+        for link in skeleton_links:
+            pt1, pt2 = link
+            if pt1 in bodyparts_coords and pt2 in bodyparts_coords:
+                cv2.line(frame, bodyparts_coords[pt1], bodyparts_coords[pt2], mouse_color, 2)
+
+        # Draw bodyparts as black circles (mouse skeleton)
+        for part_name, pos in bodyparts_coords.items():
+            cv2.circle(frame, pos, 3, mouse_color, -1)
+
         # Write the processed frame to the video
         video_writer.write(frame)
 
     # Finalize the video file
     video_writer.release()
+    if cap:
+        cap.release()
+
 
 def create_reference_file(params_path:str):
     

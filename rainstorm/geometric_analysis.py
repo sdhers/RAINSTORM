@@ -311,7 +311,7 @@ def plot_heatmap(params_path, file, bodypart = 'body', bins=50, cmap="coolwarm",
     # Load parameters
     params = load_yaml(params_path)
     roi_data = params.get("geometric_analysis", {}).get("roi_data", {})
-    areas = roi_data.get("areas", [])
+    areas = roi_data.get("areas", {})
     frame_shape = roi_data.get("frame_shape", [])
     frame_width = frame_shape[0]
     frame_height = frame_shape[1]

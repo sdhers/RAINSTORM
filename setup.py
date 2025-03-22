@@ -1,6 +1,6 @@
-# RAINSTORM: Real & Artificial Intelligence Networks – Simple Tracker for Object Recognition Memory
+# RAINSTORM: Real & Artificial Intelligence for Neuroscience – Simple Tracker for Object Recognition Memory
 # Authors: Santiago D'hers. 
-# © 2024. This project is openly licensed under the MIT License.
+# © 2025. This project is openly licensed under the MIT License.
 # https://github.com/sdhers/RAINSTORM
 
 from setuptools import setup, find_packages
@@ -10,11 +10,11 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="rainstorm",
-    version="0.0.9",
+    version="1.0.0",
     url="https://github.com/sdhers/RAINSTORM",
     author="Santiago D'hers",
     author_email="dhers.santiago@gmail.com",
-    description="Real & Artificial Intelligence in Neuroscience – Simple Tracker for Object Recognition Memory",
+    description="Real & Artificial Intelligence for Neuroscience – Simple Tracker for Object Recognition Memory",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=find_packages(),

@@ -1,4 +1,3 @@
 package/
-rainstorm/__pycache__
-docs/examples/colabeled_video/plot_img.png
-docs/examples/NOR_example_copy/
+rainstorm/
+setup.py

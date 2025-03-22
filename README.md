@@ -42,6 +42,7 @@ Pose estimation software (e.g. DeepLabCut) analyzes video files and returns the 
 ### 1. Install **Miniconda** (or Anaconda), **Visual Studio Code** and **Git**
 
 Download and install from the official installation site: [Miniconda](https://docs.anaconda.com/miniconda/install/), [VS Code](https://code.visualstudio.com/Download) & [Git](https://git-scm.com/downloads).
+During installation, select the option to add Miniconda and VS code to your computer's PATH.
 Once finished, it is best to reboot your computer (this way we make sure everything is set up and running).
 
 ### 2. **Clone the RAINSTORM Repository**

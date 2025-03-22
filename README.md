@@ -7,9 +7,9 @@
 
 </div>
 
-**RAINSTORM** is a tool for scoring object recognition memory in mice 🐭. It allows users to automate the analysis of recognition memory performance through training of artificial neural networks.
+**RAINSTORM** is a tool for scoring exploratory behavior in rodents 🐭. It allows users to automate the analysis of recognition memory performance through training of artificial neural networks.
 
-DeepLabCut analyzes video files and returns the position of the mouse's bodyparts... What we do next is up to us!
+Pose estimation software (e.g. DeepLabCut) analyzes video files and returns the position of the mouse's bodyparts... What we do next is up to us!
 
 ---
 ---
@@ -19,8 +19,8 @@ DeepLabCut analyzes video files and returns the position of the mouse's bodypart
 - **Frame-by-Frame Behavioral Labeling**  
    Use this versatile tool for accurate manual scoring. On top of that, prepare your data to train an artificial neural network to recognize behaviors.  
 
-- **Post-DeepLabCut Data Processing**  
-   Clean up tracking glitches like disappearing body parts and ensure smooth, reliable data. 
+- **Pre & Post-DeepLabCut Data Processing**  
+   Align points in videos, clean up tracking glitches like disappearing body parts and ensure smooth, reliable data. 
 
 - **Geometric Analysis for Exploration**  
    Leverage distance and angle metrics to identify exploration behavior with precision.  
@@ -84,11 +84,11 @@ In VS Code, ensure the Python extension is installed:
   - Go to the Extensions view (```Ctrl+Shift+X``` or ```Cmd+Shift+X``` on macOS).
   - Search for "Python" and install the extension provided by Microsoft.
 
-Open the ```0-First_steps.ipynb``` notebook.
+Open the ```0-Video_handling.ipynb``` notebook.
   - When prompted to select a kernel, choose the ```rainstorm``` Conda environment among the ```Python Environments```.
 
 ### 5. **Start Exploring RAINSTORM**
-  - Run the cells in 0-First_steps.ipynb to get started.
+  - Run the cells in the Notebook to get started.
 
 You can also launch any of the RAINSTORM notebooks without opening the Prompt.
 
@@ -129,12 +129,12 @@ python -m rainstorm.labeler
 
 ### 5. **Type the behaviors you would like to label.**
 
-- As we label the exploration of two objects, the presets are ```obj_1```, ```obj_2```, ```freezing``` and ```grooming```.
+- As we label the exploration of two objects, the presets are ```obj_1```, ```obj_2```, ```freezing```, ```grooming``` and ```rearing```.
 - You may add as many behaviors as you want.
 
 ### 6. **Type the keyboard keys you'd like to use**
 
-- One for each behavior, the presets are ```4```, ```6```, ```f``` and ```g```.
+- One for each behavior, the presets are ```4```, ```6```, ```f```, ```g``` and ```r```.
 
 ### 7. **Start labeling**
 
@@ -154,7 +154,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ---
 
-### ```1-Prepare_positions.ipynb```: Process and clean bodypart position data.
+### ```2a-Prepare_positions.ipynb```: Process and clean bodypart position data.
 - This is the first notebook of the RAINSTORM project. Here you'll find the initial steps to prepare the data for analysis.
 - If you dont have your pose estimation files yet (or you just want to try out the workflow), RAINSTORM comes with an example folder with pose estimation files from mice on a Novel Object Recognition (NOR) task.
 - Filter out the frames where the mouse is not in the video.
@@ -166,7 +166,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ---
 
-### ```2-Geometric_analysis.ipynb```: Perform geometric labeling of exploration and freezing.
+### ```2b-Geometric_analysis.ipynb```: Perform geometric labeling of exploration and freezing.
 
 - One way of finding out when the mouse is exploring an object is to use a geometric criteria:
   - If the mouse is close to the object (distance < 2.5 cm).
@@ -176,7 +176,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ---
 
-### ```3-Create_Models.ipynb```: Train AI models for automatic behavioral labeling.
+### ```3a-Create_Models.ipynb```: Train AI models for automatic behavioral labeling.
 
 - Another way of finding out when the mouse is exploring is to train an artificial neural network with manually labeled data:
 
@@ -196,7 +196,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ---
 
-### ```4-Automatic_analysis.ipynb```: Automate labeling with your AI model.
+### ```3b-Automatic_analysis.ipynb```: Automate labeling with your AI model.
 
 - Having chosen our favorite model, it is time to analyze and label our own position files.
 - Once we have the manual, geometric and automatic labels, we can compare the performance of each on an example video
@@ -206,7 +206,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ---
 
-### ```5-Seize_Labels.ipynb```: Extract and summarize your labeled data.
+### ```4-Seize_Labels.ipynb```: Extract and summarize your labeled data.
 
 - Use the best labels to find differences in the exploration of familiar and novel objects for groups of trained mice (which was the obective all along):
 
@@ -226,7 +226,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ## **Conclusions**
 - This project, although already in use, is a work in progress that could significantly improve the way we analyze object exploration videos.
-- If you wish to contact us, please do so: real.ai.networks@gmail.com
+- If you wish to contact us, please do so: sdhers@fbmc.fcen.uba.ar
 - © 2024. This project is openly licensed under the MIT License.
 
 ### Thanks for exploring us!

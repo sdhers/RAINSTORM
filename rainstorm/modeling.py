@@ -1,5 +1,5 @@
 # RAINSTORM - @author: Santiago D'hers
-# Functions for the notebook: 3-Create_models.ipynb, 4-Use_models.ipynb & 5-Automatic_analysis.ipynb
+# Functions for the notebook: 3a-Create_models.ipynb
 
 # %% Imports
 
@@ -130,7 +130,7 @@ def create_modeling(folder_path:str):
     modeling_path = os.path.join(folder_path, 'modeling.yaml')
 
     if os.path.exists(modeling_path):
-        print(f"modeling.yaml already exists in '{folder_path}'.\nSkipping creation.")
+        print(f"modeling.yaml already exists: {modeling_path}\nSkipping creation.")
         return modeling_path
     
     # Define configuration with a nested dictionary
@@ -213,6 +213,58 @@ def create_modeling(folder_path:str):
 
 # %% Create models
 
+def smooth_columns(df: pd.DataFrame, columns: list = [], kernel_size: int = 3, gauss_std: float = 0.6) -> pd.DataFrame:
+    """Applies smoothing to a DataFrame column.
+
+    Args:
+        df (pd.DataFrame): DataFrame to apply smoothing to.
+        columns (list, optional): List of columns to apply smoothing to. Defaults to [].
+        kernel_size (int, optional): Size of the smoothing kernel. Defaults to 3.
+        gauss_std (float, optional): Standard deviation of the Gaussian kernel. Defaults to 0.6.
+
+    Returns:
+        pd.DataFrame: Smoothed & transformed DataFrame.
+    """
+    
+    df = df.copy()  # Avoid modifying the original DataFrame
+
+    if not columns:
+        columns = df.columns
+
+    for column in columns:
+        print(f'Smoothing column: {column}')
+
+        # Apply median filter
+        df['med_filt'] = signal.medfilt(df[column], kernel_size=kernel_size)
+        
+        # Gaussian kernel
+        gauss_kernel = signal.windows.gaussian(kernel_size, gauss_std)
+        gauss_kernel /= gauss_kernel.sum()  # Normalize
+        
+        # Pad to mitigate edge effects
+        pad_width = (len(gauss_kernel) - 1) // 2
+        padded = np.pad(df['med_filt'], pad_width, mode='edge')
+        
+        # Apply convolution
+        df['smooth'] = signal.convolve(padded, gauss_kernel, mode='valid')[:len(df[column])]
+
+        df[column] = df['smooth']
+
+    return df.drop(columns=['med_filt', 'smooth'])
+
+def apply_sigmoid_transformation(data):
+    """
+    Apply a sigmoid function to scale values between 0 and 1.
+    Values ≤ 0.3 are set to 0, and values ≥ 0.9 are set to 1.
+    """
+    sigmoid = 1 / (1 + np.exp(-9 * (data - 0.6)))
+    sigmoid = np.round(sigmoid, 3)
+
+    sigmoid[data <= 0.3] = 0  # Set values ≤ 0.3 to 0
+    sigmoid[data >= 0.9] = 1  # Set values ≥ 0.9 to 1
+
+    return sigmoid
+
 def prepare_data(modeling_path) -> pd.DataFrame:
     """Read the positions and labels into a DataFrame
 
@@ -238,27 +290,13 @@ def prepare_data(modeling_path) -> pd.DataFrame:
 
     # Concatenate the dataframes along the columns axis (axis=1) and calculate the mean of each row
     combined_df = pd.concat(all_labelers, axis=1)
-    avrg = pd.DataFrame(combined_df.mean(axis=1), columns=['mean'])
+    avrg = pd.DataFrame(combined_df.mean(axis=1), columns=['labels'])
 
-    # Apply median filter
-    avrg['med_filt'] = signal.medfilt(avrg['mean'], kernel_size = 3)
+    # Smooth the columns
+    avrg = smooth_columns(avrg, ['labels'])
 
-    # Gaussian kernel
-    gauss_kernel = signal.windows.gaussian(3, 0.6)
-    gauss_kernel = gauss_kernel / sum(gauss_kernel)
-
-    # Pad the median filtered data to mitigate edge effects
-    pad_width = (len(gauss_kernel) - 1) // 2
-    padded = np.pad(avrg['med_filt'], pad_width, mode='edge')
-
-    # Apply convolution
-    smooth = signal.convolve(padded, gauss_kernel, mode='valid')
-
-    # Trim the padded edges to restore original length
-    avrg['smooth'] = smooth[:len(avrg['mean'])]
-
-    # Apply sigmoid function to keep values between 0 and 1
-    avrg['labels'] = round(1 / (1 + np.exp(-18*(avrg['smooth']-0.6))), 2)
+    # Apply sigmoid transformation
+    avrg['labels'] = apply_sigmoid_transformation(avrg['labels'])
 
     ready_data = pd.concat([position, avrg['labels']], axis = 1)
 
@@ -718,48 +756,6 @@ def create_chimera_and_loo_mean(df: pd.DataFrame, seed: int = None) -> tuple:
     
     return chimera, loo_mean
 
-
-def smooth_columns(df: pd.DataFrame, columns: list = [], kernel_size: int = 3, gauss_std: float = 0.6) -> pd.DataFrame:
-    """Applies smoothing to a DataFrame column.
-
-    Args:
-        df (pd.DataFrame): DataFrame to apply smoothing to.
-        columns (list, optional): List of columns to apply smoothing to. Defaults to [].
-        kernel_size (int, optional): Size of the smoothing kernel. Defaults to 3.
-        gauss_std (float, optional): Standard deviation of the Gaussian kernel. Defaults to 0.6.
-
-    Returns:
-        pd.DataFrame: Smoothed DataFrame.
-    """
-
-    if not columns:
-        columns = df.columns
-
-    for column in columns:
-
-        # Apply median filter
-        df['med_filt'] = signal.medfilt(df[column], kernel_size=kernel_size)
-        
-        # Gaussian kernel
-        gauss_kernel = signal.windows.gaussian(kernel_size, gauss_std)
-        gauss_kernel = gauss_kernel / sum(gauss_kernel)  # Normalize kernel
-        
-        # Pad the median filtered data to mitigate edge effects
-        pad_width = (len(gauss_kernel) - 1) // 2
-        padded = np.pad(df['med_filt'], pad_width, mode='edge')
-        
-        # Apply convolution
-        smooth = signal.convolve(padded, gauss_kernel, mode='valid')
-        
-        # Trim the padded edges to restore original length
-        df['smooth'] = smooth[:len(df[column])]
-        
-        # Apply sigmoid transformation
-        df[column] = round(1 / (1 + np.exp(-12*(df['smooth'] - 0.5))), 2)
-        
-    return df.drop(columns=['med_filt', 'smooth'])
-
-
 def use_model(position, model, objects = ['tgt'], bodyparts = ['nose', 'left_ear', 'right_ear', 'head', 'neck', 'body'], recentering = False, reshaping = False, past: int = 3, future: int = 3, broad: float = 1.7):
     
     if recentering:
@@ -771,6 +767,11 @@ def use_model(position, model, objects = ['tgt'], bodyparts = ['nose', 'left_ear
     pred = model.predict(position) # Use the model to predict the labels
     pred = pred.flatten()
     pred = pd.DataFrame(pred, columns=['predictions'])
+
+    # Smooth the predictions
+    pred.loc[pred['predictions'] < 0.1, 'predictions'] = 0  # Set values below 0.3 to 0
+    #pred.loc[pred['predictions'] > 0.98, 'predictions'] = 1  # Set values below 0.3 to 0
+    #pred = smooth_columns(pred, ['predictions'], gauss_std=0.2)
 
     n_objects = len(objects)
 
@@ -785,12 +786,17 @@ def use_model(position, model, objects = ['tgt'], bodyparts = ['nose', 'left_ear
 
     # Rename columns
     labels.columns = [f'{obj}' for obj in objects]
-
-    labels = round(labels, 2)
     
     return labels
 
-def build_and_run_models(path_dict, position, objects = ['tgt'], bodyparts = ['nose', 'left_ear', 'right_ear', 'head', 'neck', 'body']):
+def build_and_run_models(modeling_path, path_dict, position):
+
+    # Load parameters
+    modeling = load_yaml(modeling_path)
+    bodyparts = modeling.get("bodyparts", [])
+    target = modeling.get("colabels", {}).get("target", 'tgt')
+    targets = [target] # Because 'use_model' only accepts a list of targets
+
     X_all = position.copy()
     models_dict = {}
     
@@ -803,10 +809,10 @@ def build_and_run_models(path_dict, position, objects = ['tgt'], bodyparts = ['n
 
         if reshaping:
             past = future = model.input_shape[1] // 2
-            output = use_model(X_all, model, objects, bodyparts, recentering=True, reshaping=True, past=past, future=future)
+            output = use_model(X_all, model, targets, bodyparts, recentering=True, reshaping=True, past=past, future=future)
         
         else:
-            output = use_model(X_all, model, objects, bodyparts, recentering=True)
+            output = use_model(X_all, model, targets, bodyparts, recentering=True)
 
         # Store the result in the dictionary
         models_dict[f"model_{key}"] = output
@@ -853,7 +859,7 @@ def plot_PCA(data, make_discrete = False):
     plt.grid(True)
     plt.show()
 
-def plot_performance_on_video(folder_path, models, labelers, plot_obj, fps=25, objects = ['obj_1', 'obj_2'], bodyparts = ['nose', 'left_ear', 'right_ear', 'head', 'neck', 'body']):
+def plot_performance_on_video(folder_path, models, labelers, fps = 25, bodyparts = ['nose', 'left_ear', 'right_ear', 'head', 'neck', 'body'], targets = ['obj_1', 'obj_2'], plot_tgt = "obj_1"):
     """
     Plots the performance of multiple models and labelers over time.
 
@@ -880,10 +886,10 @@ def plot_performance_on_video(folder_path, models, labelers, plot_obj, fps=25, o
 
         if reshaping:
             past = future = model.input_shape[1] // 2
-            output = use_model(X_view, model, objects, bodyparts, recentering = True, reshaping = True, past=past, future=future)
+            output = use_model(X_view, model, targets, bodyparts, recentering = True, reshaping = True, past=past, future=future)
         
         else:
-            output = use_model(X_view, model, objects, bodyparts, recentering=True)
+            output = use_model(X_view, model, targets, bodyparts, recentering=True)
 
         model_outputs[f"{key}"] = output
 
@@ -893,7 +899,7 @@ def plot_performance_on_video(folder_path, models, labelers, plot_obj, fps=25, o
         labeler_outputs[labeler_name] = pd.read_csv(os.path.join(folder_path, labeler_file))
 
     # Create time axis
-    time = np.arange(len(model_outputs[list(models.keys())[0]][plot_obj])) / fps
+    time = np.arange(len(model_outputs[list(models.keys())[0]][plot_tgt])) / fps
 
     # Create a figure
     fig = go.Figure()
@@ -904,7 +910,7 @@ def plot_performance_on_video(folder_path, models, labelers, plot_obj, fps=25, o
         fig.add_trace(
             go.Scatter(
                 x=time,
-                y=[x * offset for x in labeler_data[plot_obj]],
+                y=[x * offset for x in labeler_data[plot_tgt]],
                 mode='markers',
                 name=labeler_name,
                 marker=dict(color=f"hsl({idx * 60}, 70%, 50%)")
@@ -916,7 +922,7 @@ def plot_performance_on_video(folder_path, models, labelers, plot_obj, fps=25, o
         fig.add_trace(
             go.Scatter(
                 x=time,
-                y=model_output[plot_obj],
+                y=model_output[plot_tgt],
                 mode='lines',
                 name=model_name,
                 line=dict(width=2)

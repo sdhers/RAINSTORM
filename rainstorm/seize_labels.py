@@ -1,5 +1,5 @@
 # RAINSTORM - @author: Santiago D'hers
-# Functions for the notebook: 7-Seize_labels.ipynb
+# Functions for the notebook: 4-Seize_labels.ipynb
 
 # %% imports
 
@@ -26,7 +26,7 @@ def load_yaml(params_path: str) -> dict:
     with open(params_path, "r") as file:
         return yaml.safe_load(file)
 
-def choose_example_csv(params_path, look_for: str = 'TS') -> str:
+def choose_example_position(params_path, look_for: str = 'TS') -> str:
     """Picks an example file from a list of files.
 
     Args:
@@ -56,13 +56,15 @@ def choose_example_csv(params_path, look_for: str = 'TS') -> str:
     if not filtered_files:
         print("No files found with the specified word")
         example = random.choice(files)
-        print(f"Plotting coordinates from {os.path.basename(example)}")
+        print(f"Example file: {os.path.basename(example)}")
     else:
         # Choose one file at random to use as example
         example = random.choice(filtered_files)
-        print(f"Plotting coordinates from {os.path.basename(example)}")
+        print(f"Example file: {os.path.basename(example)}")
 
     return example
+
+# %% Crate video
 
 def create_video(params_path, position_file, video_path=None,  
                  skeleton_links=[
@@ -100,28 +102,39 @@ def create_video(params_path, position_file, video_path=None,
 
     # Load data from CSV files
     position_df = pd.read_csv(position_file)
-    labels_df = pd.read_csv(position_file.replace('position', f'{label_type}'))
+    try:
+        labels_file = position_file.replace('position', f'{label_type}')
+        labels_df = pd.read_csv(labels_file)
+    except FileNotFoundError:
+        labels_df = pd.DataFrame()
+        print(f"Could not find labels file: {labels_file}")
 
-    # If a video file is provided, check frame count and pad data if needed
     if video_path:
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
-            raise ValueError(f"Could not open video file: {video_path}")
-        video_frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        data_frame_count = len(position_df)
-        if video_frame_count > data_frame_count:
-            diff = video_frame_count - data_frame_count
-            # Create empty rows (filled with NaNs) for position and labels
-            empty_rows_pos = pd.DataFrame({col: [np.nan]*diff for col in position_df.columns})
-            position_df = pd.concat([empty_rows_pos, position_df], ignore_index=True)
-            empty_rows_lab = pd.DataFrame({col: [np.nan]*diff for col in labels_df.columns})
-            labels_df = pd.concat([empty_rows_lab, labels_df], ignore_index=True)
-        # Reset the video to the beginning
-        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        mouse_color = (250, 250, 250)
+            cap = None  # Skip video loading
+            print(f"Could not open video file: {video_path}")
+        else:
+            video_frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            data_frame_count = len(position_df)
+
+            if video_frame_count > data_frame_count:
+                diff = video_frame_count - data_frame_count
+                empty_rows_pos = pd.DataFrame({col: [np.nan] * diff for col in position_df.columns})
+                position_df = pd.concat([empty_rows_pos, position_df], ignore_index=True).reset_index(drop=True)
+
+                if labels_df is not None:
+                    empty_rows_lab = pd.DataFrame({col: [np.nan] * diff for col in labels_df.columns})
+                    labels_df = pd.concat([empty_rows_lab, labels_df], ignore_index=True).reset_index(drop=True)
+
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Reset video to start
+
+    if cap is None:
+        mouse_color = (0, 0, 0)  # Keep black background if video is not loaded
     else:
-        cap = None
-        mouse_color = (0, 0, 0)
+        mouse_color = (250, 250, 250)  # White background when video loads successfully
+
+    print('Creating video...')
 
     # Initialize video writer
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -207,9 +220,139 @@ def create_video(params_path, position_file, video_path=None,
 
     # Finalize the video file
     video_writer.release()
+    print(f'Video created successfully: {video_out_path}')
     if cap:
         cap.release()
 
+# %% Individual mouse exploration
+
+# Modular plots
+def plot_target_exploration(labels, targets, ax, color_list):
+    for i, obj in enumerate(targets):
+        color = color_list[i % len(color_list)]
+        ax.plot(labels['Time'], labels[f'{obj}_cumsum'], label=f'{obj}', color=color, marker='_')
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('Exploration Time (s)')
+    ax.set_title('Target Exploration')
+    ax.legend(loc='upper left', fancybox=True, shadow=True)
+    ax.grid(True)
+
+def plot_positions(position, targets, ax, scale, front, pivot, maxAngle, maxDist, target_styles):
+    # Scale the positions
+    position *= 1/scale
+    nose = Point(position, front)
+    head = Point(position, pivot)
+
+    # Plot nose positions
+    ax.plot(*nose.positions.T, ".", color="grey", alpha=0.15, label="Nose Positions")
+    
+    # Collect coordinates for zooming
+    all_coords = [nose.positions]
+
+    # Loop over each target and generate corresponding plots
+    for tgt in targets:
+        if f'{tgt}_x' in position.columns:
+            # Retrieve target style properties
+            target_color = target_styles[tgt]["color"]
+            target_symbol = target_styles[tgt]["symbol"]
+            towards_trace_color = target_styles[tgt]["trace_color"]
+
+            # Create a Point object for the target
+            tgt_coords = Point(position, tgt)
+            # Add the target coordinate for zooming
+            all_coords.append(tgt_coords.positions[0].reshape(1, -1))
+
+            # Compute the distance and vectors for filtering
+            dist = Point.dist(nose, tgt_coords)
+            head_nose = Vector(head, nose, normalize=True)
+            head_tgt = Vector(head, tgt_coords, normalize=True)
+            angle = Vector.angle(head_nose, head_tgt)
+
+            # Filter nose positions oriented towards the target
+            towards_tgt = nose.positions[(angle < maxAngle) & (dist < maxDist * 3)]
+            if towards_tgt.size > 0:
+                ax.plot(*towards_tgt.T, ".", color=towards_trace_color, alpha=0.25, label=f"Towards {tgt}")
+                all_coords.append(towards_tgt)
+
+            # Plot target marker with label
+            ax.plot(*tgt_coords.positions[0], target_symbol, color=target_color, markersize=9, label=f"{tgt} Target")
+            # Add a circle around the target
+            ax.add_artist(Circle(tgt_coords.positions[0], 2.5, color="orange", alpha=0.5))
+
+    # Compute zoom limits based on collected coordinates
+    all_coords = np.vstack(all_coords)
+    x_min, y_min = np.min(all_coords, axis=0)
+    x_max, y_max = np.max(all_coords, axis=0)
+    # Apply a margin of 10%
+    x_margin = (x_max - x_min) * 0.1
+    y_margin = (y_max - y_min) * 0.1
+    ax.set_xlim(x_min - x_margin, x_max + x_margin)
+    # For the y-axis, reverse the limits for a reversed axis
+    ax.set_ylim(y_max + y_margin, y_min - y_margin)
+
+    ax.axis('equal')
+    ax.set_xlabel("Horizontal position (cm)")
+    ax.set_ylabel("Vertical position (cm)")
+    ax.grid(True)
+    ax.legend(loc='upper left', bbox_to_anchor=(1.05, 1), fancybox=True, shadow=True)
+
+# Main function
+
+def plot_mouse_exploration(params_path, position_file):
+    # Load parameters
+    params = load_yaml(params_path)
+    path = params.get("path")
+    fps = params.get("fps", 30)
+    targets = params.get("targets", [])
+    geometric_params = params.get("geometric_analysis", {})
+    scale = geometric_params.get("roi_data", {}).get("scale", 1)
+    distance = geometric_params.get("distance", 2.5)
+    orientation = geometric_params.get("orientation", {})
+    max_angle = orientation.get("degree", 45)  # in degrees
+    front = orientation.get("front", 'nose')
+    pivot = orientation.get("pivot", 'head')
+    seize_labels = params.get("seize_labels", {})
+    label_type = seize_labels.get("label_type")
+    
+    # Read the CSV files
+    position = pd.read_csv(position_file)
+    labels = pd.read_csv(position_file.replace('position', f'{label_type}'))
+    labels = calculate_cumsum(labels, targets, fps)
+    labels['Time'] = labels['Frame'] / fps
+
+    # Define symbols and colors
+    symbol_list = ['o', 's', 'D', 'P', 'h']
+    color_list = ['blue', 'darkred', 'darkgreen', 'purple', 'goldenrod']
+    trace_color_list = ['turquoise', 'orangered', 'limegreen', 'magenta', 'gold']
+
+    # Create a dictionary mapping each target to its style properties
+    target_styles = {
+        tgt: {            
+            "symbol": symbol_list[idx % len(symbol_list)],
+            "color": color_list[idx % len(color_list)],
+            "trace_color": trace_color_list[idx % len(trace_color_list)]
+        }
+        for idx, tgt in enumerate(targets)
+    }
+
+    # Prepare the figure with two subplots
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+    # Plot exploration time
+    plot_target_exploration(labels, targets, axes[0], trace_color_list)
+    # Plot positions with zoom and legend
+    plot_positions(position, targets, axes[1], scale, front, pivot, max_angle, distance, target_styles)
+
+    plt.suptitle(f"Analysis of {os.path.basename(position_file).replace('_position.csv', '')}", y=0.98)
+    plt.tight_layout()
+
+    # Create 'plots' folder inside the specified path
+    plots_folder = os.path.join(path, 'plots', 'individual')
+    os.makedirs(plots_folder, exist_ok=True)
+
+    plt.show(fig)
+
+# %% Create Reference File
 
 def create_reference_file(params_path:str):
     
@@ -319,45 +462,7 @@ def create_summary(params_path:str):
         
     return summary_path
 
-def choose_example_summary(params_path, look_for: str = 'TS') -> str:
-    """Picks an example file from a list of files.
-
-    Args:
-        files (list): List of files to choose from.
-        look_for (str, optional): Word to filter files by. Defaults to 'TS'.
-
-    Returns:
-        str: Name of the chosen file.
-
-    Raises:
-        ValueError: If the files list is empty.
-    """
-    params = load_yaml(params_path)
-    folder_path = params.get("path")
-    filenames = params.get("filenames")
-    trials = params.get("seize_labels", {}).get("trials", [])
-    groups = params.get("seize_labels", {}).get("groups", [])
-    files = []
-    for group in groups:
-        for trial in trials:
-            temp_files = [os.path.join(folder_path, 'summary', group, trial, file + '_summary.csv') for file in filenames if trial in file]
-            files.extend(temp_files)
-    
-    if not files:
-        raise ValueError("The list of files is empty. Please provide a non-empty list.")
-
-    filtered_files = [file for file in files if look_for in file]
-
-    if not filtered_files:
-        print("No files found with the specified word")
-        example = random.choice(files)
-        print(f"Plotting coordinates from {os.path.basename(example)}")
-    else:
-        # Choose one file at random to use as example
-        example = random.choice(filtered_files)
-        print(f"Plotting coordinates from {os.path.basename(example)}")
-
-    return example
+# %% Auxiliary functions
 
 def calculate_cumsum(df: pd.DataFrame, targets: list, fps: float = 30) -> pd.DataFrame:
     """
@@ -374,7 +479,6 @@ def calculate_cumsum(df: pd.DataFrame, targets: list, fps: float = 30) -> pd.Dat
     for obj in targets:
         df[f'{obj}_cumsum'] = df[obj].cumsum() / fps
     return df
-
 
 def calculate_DI(df: pd.DataFrame, targets: list) -> pd.DataFrame:
     """
@@ -486,7 +590,7 @@ def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = Tr
     else:
         plt.close(fig)
 
-# %% modular plotting functions
+# %% Movement
 
 def plot_distance(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
@@ -915,7 +1019,6 @@ def plot_freezing(path: str, group: str, trial: str, targets: list, fps: int = 3
     # Update the global color variable
     aux_color += len(targets)
 
-
 def plot_freezing_boxplot(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
     Plot a boxplot of freezing time at the end of the session
@@ -1041,9 +1144,7 @@ def plot_freezing_histogram(path: str, group: str, trial: str, targets: list, fp
     # Update the global color variable
     aux_color += len(targets)
 
-
 # %% Individual plotting
-
 class Point:
     def __init__(self, df, table):
 
@@ -1077,15 +1178,15 @@ class Vector:
 
         return angle
 
-def Extract_positions(position, scale, targets, maxAngle, maxDist):
+def Extract_positions(position, scale, targets, maxAngle, maxDist, front, pivot):
 
     position *= 1/scale
 
     # Extract positions of both targets and bodyparts
     tgt1 = Point(position, targets[0])
     tgt2 = Point(position, targets[1])
-    nose = Point(position, 'nose')
-    head = Point(position, 'head')
+    nose = Point(position, front)
+    head = Point(position, pivot)
     
     # We now filter the frames where the mouse's nose is close to each target
     # Find distance from the nose to each target
@@ -1115,10 +1216,14 @@ def plot_all_individual_exploration(params_path, show = False):
     path = params.get("path")
     fps = params.get("fps", 30)
     targets = params.get("targets", [])
-    scale = params.get("geometric_analysis", {}).get("roi_data", {}).get("scale", 1)
-    angle = params.get("geometric_analysis", {}).get("orientation", 45)
-    distance = params.get("geometric_analysis", {}).get("distance", 2.5)
-
+    geometric_params = params.get("geometric_analysis", {})
+    scale = geometric_params.get("roi_data", {}).get("scale", 1)
+    distance = geometric_params.get("distance", 2.5)
+    orientation = geometric_params.get("orientation", {})
+    max_angle = orientation.get("degree", 45)  # in degrees
+    front = orientation.get("front", 'nose')
+    pivot = orientation.get("pivot", 'head')
+    
     seize_labels = params.get("seize_labels", {})
     groups = seize_labels.get("groups", [])
     trials = seize_labels.get("trials", [])
@@ -1148,7 +1253,7 @@ def plot_all_individual_exploration(params_path, show = False):
                 position = pd.read_csv(position_file)
 
                 # Extract positions
-                nose, towards1, towards2, tgt1, tgt2 = Extract_positions(position, scale, targets, angle, distance)
+                nose, towards1, towards2, tgt1, tgt2 = Extract_positions(position, scale, targets, max_angle, distance, front, pivot)
 
                 # Prepare the figure
                 fig, axes = plt.subplots(2, 2, figsize=(12, 8))

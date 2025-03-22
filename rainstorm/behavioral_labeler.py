@@ -149,10 +149,14 @@ def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_fra
 
     # Display each object, its corresponding key, and sum on the frame
     for i, (j, info) in enumerate(behavior_info.items()):
+        behavior_value = int(float(behaviors[i]))  # Ensure behaviors[i] is an integer
+        text_color = (0, 250 - behavior_value * 255, 0 + behavior_value * 255)  # Calculate color based on behavior_value
+
+        # Draw text with the correctly calculated color
         draw_text(frame, f"{j} ({info['key']}): {info['sum']}",
-                  pos=(right_border, 2*gap + 7*k + i*k),
-                  font_scale = txt, font_thickness = 1 + behaviors[i],
-                  text_color =(0, 250 - behaviors[i]*255, 0 + (behaviors[i]*255)))
+            pos=(right_border, 2*gap + 7*k + i*k),
+            font_scale=txt, font_thickness=1 + behavior_value,
+            text_color=text_color)
         
     draw_text(frame, "none / delete (0)", 
               pos=(right_border, 3*gap + 8*k + i*k))
@@ -183,23 +187,22 @@ def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_fra
 
     return behaviors, move
 
-def find_checkpoint(df:pd.DataFrame, behaviors:list) -> int:
-    """Find the checkpoint for the current frame
+def find_checkpoint(df: pd.DataFrame, behaviors: list) -> int:
+    """Find the checkpoint for the current frame.
 
     Args:
-        df (pd.DataFrame): Labelled dataframe
-        behaviors (list): List of behaviors to check for
+        df (pd.DataFrame): Labeled dataframe.
+        behaviors (list): List of behaviors to check for.
 
     Returns:
-        int: Frame number of the last labeled frame
+        int: Frame number of the last labeled frame, or 0 if all frames are labeled.
     """
-
-    for checkpoint, row in df[::-1].iterrows():  # Iterate in reverse order
-        if any(str(row[j]).isdigit() for j in behaviors):
-            # Return the frame number (1-based index)
-            return checkpoint + 1  # +1 to convert from 0-based to 1-based indexing
-        
-    # If no frames are labeled, return 0
+    for checkpoint, row in df.iterrows():  # Iterate from the beginning
+        if any(str(row[j]) == '-' for j in behaviors):  
+            # First occurrence of an incomplete frame
+            return checkpoint  # Return the current checkpoint as the first incomplete frame
+    
+    # If no '-' is found, the file is fully labeled, return 0
     return 0
 
 def converter(value):
@@ -207,7 +210,7 @@ def converter(value):
     """
     try:
         # Try to convert the value to an integer
-        return int(value)
+        return int(float(value))
     except ValueError:
         # If it's not possible, return the original value
         return value
@@ -233,7 +236,7 @@ def load_labels(csv_path: str, frame_list: list, behaviors: list) -> tuple:
         
         response = messagebox.askquestion("Load checkpoint", "Do you want to continue where you left off?")
         if response == 'yes':
-            checkpoint = find_checkpoint(labels, behaviors) - 1  # Start one frame before the last saved data
+            checkpoint = find_checkpoint(labels, behaviors)
         else:
             checkpoint = 0
 
@@ -425,7 +428,7 @@ def labeler(behaviors: list = ['exp_1', 'exp_2', 'freezing', 'front_grooming', '
     root.withdraw()
 
     # Ask the user whether they want to load an existing CSV or start a new one
-    response = messagebox.askquestion("Load existing labels", "Do you want to load an existing CSV file?")
+    response = messagebox.askquestion("Load existing labels", "Do you want to load an existing CSV file?\n\nChoose 'yes' to load an existing CSV file or 'no' to start a new one.")
     
     if response == 'yes':
         # Open a file dialog to select the CSV file

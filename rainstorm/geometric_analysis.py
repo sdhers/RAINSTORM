@@ -111,9 +111,10 @@ def plot_position(params_path: str, file: str, scale: bool = True) -> None:
     geometric_params = params.get("geometric_analysis", {})
     scale = geometric_params.get("roi_data", {}).get("scale", 1)
     max_distance = geometric_params.get("distance", 2.5)
-    max_angle = geometric_params.get("angle", 45)
-    front = geometric_params.get("front", "nose")
-    pivot = geometric_params.get("pivot", "head")
+    orientation = geometric_params.get("orientation", {})
+    max_angle = orientation.get("degree", 45)  # in degrees
+    front = orientation.get("front", 'nose')
+    pivot = orientation.get("pivot", 'head')
 
     # Define colors and symbols
     symbol_list = ['square', 'circle', 'diamond', 'cross', 'x']
@@ -461,7 +462,10 @@ def create_movement_and_geolabels(params_path:str, wait: int = 2, roi_bodypart =
     geometric_params = params.get("geometric_analysis", {})
     scale = geometric_params.get("roi_data", {}).get("scale", 1)
     max_distance = geometric_params.get("distance", 2.5) # in cm
-    max_angle = geometric_params.get("angle", 45)  # in degrees
+    orientation = geometric_params.get("orientation", {})
+    max_angle = orientation.get("degree", 45)  # in degrees
+    front = orientation.get("front", 'nose')
+    pivot = orientation.get("pivot", 'head')
     freezing_threshold = geometric_params.get("freezing_threshold", 0.01)
 
     for file in files:
@@ -482,8 +486,8 @@ def create_movement_and_geolabels(params_path:str, wait: int = 2, roi_bodypart =
             geolabels = pd.DataFrame(np.zeros((position.shape[0], len(targets))), columns=targets) 
 
             # Extract body parts
-            nose = Point(position, 'nose')
-            head = Point(position, 'head')
+            nose = Point(position, front)
+            head = Point(position, pivot)
 
             # Check if all required target columns exist
             missing_targets = []

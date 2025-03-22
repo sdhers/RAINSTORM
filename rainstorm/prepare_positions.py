@@ -110,11 +110,15 @@ def create_params(folder_path:str, ROIs_path = None):
         "geometric_analysis": {
             "roi_data": roi_data,  # Add the JSON content here
             "distance": 2.5,
-            "orientation": 45.0,
+            "orientation": {
+                "degree": 45,
+                "front": 'nose',
+                "pivot": 'head'
+                },
             "freezing_threshold": 0.01
             },
         "automatic_analysis": {
-            "model_path": "C:\Users\dhers\Desktop\Rainstorm\docs\models\trained_models\example_wide.keras",
+            "model_path": r"C:\Users\dhers\Desktop\Rainstorm\docs\models\trained_models\example_wide.keras",
             "model_bodyparts": ["nose", "left_ear", "right_ear", "head", "neck", "body"],
             "rescaling": True,
             "reshaping": True,
@@ -169,7 +173,10 @@ def create_params(folder_path:str, ROIs_path = None):
         "areas": "    # Defined ROIs (areas) in the frame",
         "points": "    # Key points within the frame",
         "distance": "  # Maximum nose-target distance to consider exploration",
-        "orientation": "  # Maximum head-target orientation angle to consider exploration",
+        "orientation": "  # Set up orientation analysis",
+        "degree": "    # Maximum head-target orientation angle to consider exploration (in degrees)",
+        "front": "    # Ending bodypart of the orientation line",
+        "pivot": "    # Starting bodypart of the orientation line",
         "freezing_threshold": "  # Movement threshold to consider freezing, computed as the mean std of all body parts over 1 second",
         
         "automatic_analysis": "# Parameters for automatic analysis",
@@ -480,7 +487,11 @@ def plot_raw_vs_smooth(params_path: str, df_raw, df_smooth, bodypart = 'nose'):
     mean = df_raw[f'{bodypart}_likelihood'].mean()
     std_dev = df_raw[f'{bodypart}_likelihood'].std()
         
-    limit = mean - num_sd*std_dev
+    tolerance = mean - num_sd*std_dev
+
+    # Add a horizontal line for the freezing threshold
+    fig.add_hline(y=tolerance, line=dict(color='black', dash='dash'),
+              annotation_text='Tolerance', annotation_position='bottom left')
 
     # Update layout for secondary y-axis
     fig.update_layout(
@@ -495,14 +506,7 @@ def plot_raw_vs_smooth(params_path: str, df_raw, df_smooth, bodypart = 'nose'):
                     y=1,
                     xanchor="center",
                     x=0.5,
-                    orientation="h"),
-        shapes=[dict(type='line', 
-                    x0=df_raw.index.min(), 
-                    x1=df_raw.index.max(), 
-                    y0=limit, 
-                    y1=limit, 
-                    line=dict(color='black', dash='dash'),
-                    yref='y2')],
+                    orientation="h")
     )
 
     # Show plot

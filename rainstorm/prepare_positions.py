@@ -104,7 +104,6 @@ def create_params(folder_path:str, ROIs_path = None):
 
         "prepare_positions": {  # Grouped under a dictionary
             "confidence": 2,
-            "tolerance": 0.8,
             "median_filter": 3
             },
         "geometric_analysis": {
@@ -163,7 +162,6 @@ def create_params(folder_path:str, ROIs_path = None):
 
         "prepare_positions": "# Parameters for processing positions",
         "confidence": "  # How many std_dev away from the mean the point's likelihood can be without being erased",
-        "tolerance": "  # If the mean likelihood is below this value, the whole point will be erased",
         "median_filter": "  # Number of frames to use for the median filter (it must be an odd number)",
         
         "geometric_analysis": "# Parameters for geometric analysis",
@@ -374,7 +372,6 @@ def filter_and_smooth_df(params_path: str, df_raw: pd.DataFrame) -> pd.DataFrame
     targets = params.get("targets", [])
     filter_params = params.get("prepare_positions", {})
     num_sd = filter_params.get("confidence", 2)
-    drop_below = filter_params.get("tolerance", 0.5)
     med_filt_window = filter_params.get("median_filter", 3)
 
     if not bodyparts:
@@ -439,17 +436,13 @@ def filter_and_smooth_df(params_path: str, df_raw: pd.DataFrame) -> pd.DataFrame
                     
                 limit = mean - num_sd * std_dev
                 
-                if median < drop_below:
-                    # If the likelihood is too low, drop the columns
-                    df.drop([x_col, y_col, likelihood_col], axis=1, inplace=True)
-                else:
-                    # Set x and y coordinates to NaN where the likelihood is below the tolerance limit
-                    df.loc[df[likelihood_col] < limit, [x_col, y_col]] = np.nan
-                    
-                    for axis in ['x', 'y']:
-                        column = f'{tgt}_{axis}'
-                        if column in df.columns:
-                            df[column] = df[column].median()
+                # Set x and y coordinates to NaN where the likelihood is below the tolerance limit
+                df.loc[df[likelihood_col] < limit, [x_col, y_col]] = np.nan
+                
+                for axis in ['x', 'y']:
+                    column = f'{tgt}_{axis}'
+                    if column in df.columns:
+                        df[column] = df[column].median()
 
     return df
 
@@ -490,8 +483,24 @@ def plot_raw_vs_smooth(params_path: str, df_raw, df_smooth, bodypart = 'nose'):
     tolerance = mean - num_sd*std_dev
 
     # Add a horizontal line for the freezing threshold
-    fig.add_hline(y=tolerance, line=dict(color='black', dash='dash'),
-              annotation_text='Tolerance', annotation_position='bottom left')
+    fig.add_shape(
+        type="line",
+        x0=0, x1=1,  # Relative x positions (0 to 1 spans the full width)
+        y0=tolerance, y1=tolerance,
+        line=dict(color='black', dash='dash'),
+        xref='paper',  # Ensures the line spans the full x-axis
+        yref='y2'  # Assign to secondary y-axis
+    )
+
+    # Add annotation for the threshold line
+    fig.add_annotation(
+        x=0, y=tolerance+0.025,
+        text="Tolerance",
+        showarrow=False,
+        yref="y2",
+        xref="paper",
+        xanchor="left"
+    )
 
     # Update layout for secondary y-axis
     fig.update_layout(
@@ -500,7 +509,7 @@ def plot_raw_vs_smooth(params_path: str, df_raw, df_smooth, bodypart = 'nose'):
         yaxis2=dict(title=f'{bodypart} likelihood', 
                     overlaying='y', 
                     side='right',
-                    gridcolor='black'),
+                    gridcolor='lightgray'),
         title=f'{bodypart} position & likelihood',
         legend=dict(yanchor="bottom",
                     y=1,

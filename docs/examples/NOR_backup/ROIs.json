@@ -1,0 +1,45 @@
+{
+    "frame_shape": [
+        720,
+        480
+    ],
+    "scale": 18.93,
+    "areas": [
+        {
+            "name": "left",
+            "center": [
+                215,
+                218
+            ],
+            "width": 275,
+            "height": 400,
+            "angle": 0
+        },
+        {
+            "name": "right",
+            "center": [
+                491,
+                218
+            ],
+            "width": 275,
+            "height": 400,
+            "angle": 0
+        }
+    ],
+    "points": [
+        {
+            "name": "obj_1",
+            "center": [
+                219,
+                138
+            ]
+        },
+        {
+            "name": "obj_2",
+            "center": [
+                484,
+                138
+            ]
+        }
+    ]
+}

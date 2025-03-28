@@ -930,7 +930,7 @@ def plot_performance_on_video(folder_path, models, labelers, fps = 25, bodyparts
         )
 
     # Add horizontal line
-    fig.add_hline(y=0.5, line_dash="dash", line_color="black")
+    # fig.add_hline(y=0.5, line_dash="dash", line_color="black")
 
     # Update layout
     fig.update_layout(

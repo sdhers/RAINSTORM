@@ -180,4 +180,4 @@ seize_labels:
     - Known
 
   # Type of labels used to measure exploration (geolabels, autolabels, labels, etc)
-  label_type: autolabels
+  label_type: geolabels

@@ -504,7 +504,7 @@ def calculate_DI(df: pd.DataFrame, targets: list) -> pd.DataFrame:
 
 def calculate_diff(df: pd.DataFrame, targets: list) -> pd.DataFrame:
     """
-    Calculates the discrimination index (DI) between two targets.
+    Calculates the discrimination index (diff) between two targets.
     
     This function assumes that the cumulative sum columns (e.g., "target_cumsum")
     have already been computed.
@@ -514,10 +514,10 @@ def calculate_diff(df: pd.DataFrame, targets: list) -> pd.DataFrame:
         targets (list): List of target names/column names in the DataFrame.
 
     Returns:
-        pd.DataFrame: DataFrame with a new column for the DI value.
+        pd.DataFrame: DataFrame with a new column for the diff value.
     """
     tgt_1, tgt_2 = targets
-    df[f'DI'] = (df[f'{tgt_1}_cumsum'] - df[f'{tgt_2}_cumsum'])
+    df[f'diff'] = (df[f'{tgt_1}_cumsum'] - df[f'{tgt_2}_cumsum'])
 
     return df
 
@@ -612,7 +612,7 @@ def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = Tr
 
 # %% Movement
 
-def plot_distance(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def lineplot_cumulative_distance(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
     Plot the distance traveled by the mouse.
 
@@ -679,7 +679,203 @@ def plot_distance(path: str, group: str, trial: str, targets: list, fps: int = 3
 
 # %% Exploration
 
-def plot_exploration_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def lineplot_exploration_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+    """
+    Plot the exploration time (cumulative sums) for each target for a single trial.
+
+    Args:
+        path (str): Path to the main folder.
+        group (str): Group name.
+        trial (str): Trial name.
+        targets (list): List of target names/conditions.
+        fps (int): Frames per second of the video.
+        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
+    """
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    dfs = []
+    folder = os.path.join(path, 'summary', group, trial)
+
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"Folder {folder} does not exist.")
+
+    for file_path in glob(os.path.join(folder, "*summary.csv")):
+        df = pd.read_csv(file_path)
+        dfs.append(df)
+
+    if not dfs:
+        raise ValueError("No valid data files were found.")
+
+    # Aggregate across data files
+    n = len(dfs)
+    se = np.sqrt(n) if n > 1 else 1
+    min_length = min(len(df) for df in dfs)
+    trunc_dfs = [df.iloc[:min_length].copy() for df in dfs]
+    all_dfs = pd.concat(trunc_dfs, ignore_index=True)
+    numeric_cols = all_dfs.select_dtypes(include=['number']).columns
+    df = all_dfs.groupby('Frame')[numeric_cols].agg(['mean', 'std']).reset_index()
+    
+    # Flatten the column names
+    df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
+    df['Time'] = df['Frame_mean'] / fps
+
+    global aux_color
+    for i, obj in enumerate(targets):
+        color = colors[aux_color]
+        ax.plot(df['Time'], df[f'{obj}_mean'], label=f'{group} {obj}', color=color, marker='o')
+        ax.fill_between(
+            df['Time'],
+            df[f'{obj}_mean'] - df[f'{obj}_std'] / se,
+            df[f'{obj}_mean'] + df[f'{obj}_std'] / se,
+            color=color,
+            alpha=0.2
+        )
+        aux_color += 1
+
+    ax.set_xlabel('Time (s)')
+    max_time = df['Time'].max()
+    ax.set_xticks(np.arange(0, max_time + 30, 60))
+    ax.set_ylabel('Exploration Time (s)')
+    ax.set_title('Exploration of targets during TS')
+    ax.legend(loc='best', fancybox=True, shadow=True)
+    ax.grid(True)
+
+def plot_binned_exploration_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+    """
+    Plot the exploration time (cumulative sums) for each target for a single trial, aggregated in time bins.
+
+    Args:
+        path (str): Path to the main folder.
+        group (str): Group name.
+        trial (str): Trial name.
+        targets (list): List of target names/conditions.
+        fps (int): Frames per second of the video.
+        bin_size (int): Time bin size in seconds.
+        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
+    """
+
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    dfs = []
+    folder = os.path.join(path, 'summary', group, trial)
+
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"Folder {folder} does not exist.")
+
+    for file_path in glob(os.path.join(folder, "*summary.csv")):
+        df = pd.read_csv(file_path)
+        dfs.append(df)
+
+    if not dfs:
+        raise ValueError("No valid data files were found.")
+
+    # Aggregate across data files: truncate to minimum length across files
+    n = len(dfs)
+    se = np.sqrt(n) if n > 1 else 1
+    min_length = min(len(df) for df in dfs)
+    trunc_dfs = [df.iloc[:min_length].copy() for df in dfs]
+    all_dfs = pd.concat(trunc_dfs, ignore_index=True)
+    
+    # Determine numeric columns and group by 'Frame'
+    numeric_cols = all_dfs.select_dtypes(include=['number']).columns
+    df = all_dfs.groupby('Frame')[numeric_cols].agg(['mean', 'std']).reset_index()
+    
+    # Flatten the column names
+    df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
+    df['Time'] = df['Frame_mean'] / fps
+    bin_size = 20
+
+    # Create time bins and re-aggregate within each bin
+    df['Time_bin'] = (df['Time'] // bin_size) * bin_size
+    # For each column (e.g., each target's mean and std), take the average value in the bin.
+    agg_dict = {col: 'mean' for col in df.columns if col not in ['Frame_mean', 'Frame_std', 'Time', 'Time_bin']}
+    agg_dict.update({'Time': 'mean'})  # In case you want the average time per bin (or you could use first/last)
+    df_binned = df.groupby('Time_bin').agg(agg_dict).reset_index(drop=True)
+    # Replace the Time column with the bin center (or simply the lower edge) if desired.
+    df_binned['Time'] = df_binned['Time']
+
+    global aux_color
+    for i, obj in enumerate(targets):
+        color = colors[aux_color]
+        # Plot binned mean values
+        ax.plot(df_binned['Time'], df_binned[f'{obj}_mean'], label=f'{group} {obj}', color=color, marker='o')
+        # Error fill: using the binned standard deviation, scaled by the sqrt of number of samples.
+        ax.fill_between(
+            df_binned['Time'],
+            df_binned[f'{obj}_mean'] - df_binned[f'{obj}_std'] / se,
+            df_binned[f'{obj}_mean'] + df_binned[f'{obj}_std'] / se,
+            color=color,
+            alpha=0.2
+        )
+        aux_color += 1
+
+    ax.set_xlabel('Time (s)')
+    max_time = df_binned['Time'].max()
+    ax.set_xticks(np.arange(0, max_time + bin_size, bin_size))
+    ax.set_ylabel('Exploration Time (s)')
+    ax.set_title('Exploration of targets during TS')
+    ax.legend(loc='best', fancybox=True, shadow=True)
+    ax.grid(True)
+
+def histogram_exploration_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, bins: int = 20) -> None:
+    """
+    Plot a histogram of exploration times (distribution of mean exploration time across frames) for each target for a single trial.
+    
+    Args:
+        path (str): Path to the main folder.
+        group (str): Group name.
+        trial (str): Trial name.
+        targets (list): List of target names/conditions.
+        fps (int): Frames per second of the video.
+        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
+        bins (int): Number of bins for the histogram.
+    """
+
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    dfs = []
+    folder = os.path.join(path, 'summary', group, trial)
+
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"Folder {folder} does not exist.")
+
+    for file_path in glob(os.path.join(folder, "*summary.csv")):
+        df = pd.read_csv(file_path)
+        dfs.append(df)
+
+    if not dfs:
+        raise ValueError("No valid data files were found.")
+
+    # Aggregate across data files
+    n = len(dfs)
+    se = np.sqrt(n) if n > 1 else 1
+    min_length = min(len(df) for df in dfs)
+    trunc_dfs = [df.iloc[:min_length].copy() for df in dfs]
+    all_dfs = pd.concat(trunc_dfs, ignore_index=True)
+    numeric_cols = all_dfs.select_dtypes(include=['number']).columns
+    df_agg = all_dfs.groupby('Frame')[numeric_cols].agg(['mean', 'std']).reset_index()
+    
+    # Flatten the column names
+    df_agg.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df_agg.columns]
+    df_agg['Time'] = df_agg['Frame_mean'] / fps
+
+    global aux_color  # Assuming aux_color and colors are defined globally.
+    for i, obj in enumerate(targets):
+        color = colors[aux_color]
+        # Plot histogram of the mean exploration time distribution for each target.
+        ax.hist(df_agg[f'{obj}_mean'], bins=bins, alpha=0.7, label=f'{group} {obj}', color=color)
+        aux_color += 1
+
+    ax.set_xlabel('Exploration Time (s)')
+    ax.set_ylabel('Frequency')
+    ax.set_title('Histogram of Exploration Time during TS')
+    ax.legend(loc='best', fancybox=True, shadow=True)
+    ax.grid(True)
+
+def lineplot_exploration_cumulative_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
     Plot the exploration time (cumulative sums) for each target for a single trial.
 
@@ -742,7 +938,7 @@ def plot_exploration_time(path: str, group: str, trial: str, targets: list, fps:
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
-def plot_exploration_boxplot(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def boxplot_exploration_cumulative_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
     Plot a boxplot of exploration time for each target at the end of the session
 
@@ -811,6 +1007,85 @@ def plot_exploration_boxplot(path: str, group: str, trial: str, targets: list, f
         ax.plot(x_vals, y_vals, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
     
     ax.set_ylabel('Exploration Time (s)')
+    ax.set_title('Exploration of targets at the end of TS')
+    ax.legend(loc='best', fancybox=True, shadow=True)
+    ax.grid(True)
+
+    # Update the global position variable
+    aux_position += 1
+
+def boxplot_exploration_proportion(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+    """
+    Plot a boxplot of exploration time for each target at the end of the session
+
+    Args:
+        path (str): Path to the main folder.
+        group (str): Group name.
+        trial (str): Trial name.
+        targets (list): Novelty condition for DI calculation.
+        fps (int): Frames per second of the video.
+        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
+    """
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    bxplt = []
+    folder = os.path.join(path, 'summary', group, trial)
+
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"Folder {folder} does not exist.")
+    
+    for file_path in glob(os.path.join(folder, "*summary.csv")):
+        df = pd.read_csv(file_path)
+        df = calculate_cumsum(df, targets, fps)
+        # Create a time vector based on the frame column.
+        time = df['Frame'] / fps
+        duration = time.max()**2 / 2
+        # Calculate the area under the curve for each target.
+        areas = [(np.trapz(y=df[f'{obj}_cumsum'], x=time)/duration)*100 for obj in targets]
+        bxplt.append(areas)
+    
+    # Create a DataFrame where each column corresponds to a target from the targets list
+    bxplt = pd.DataFrame(bxplt, columns=targets)
+
+    # Calculate x positions for each target within this group
+    global aux_position, aux_color
+    space = 1/(len(targets)+1)
+    group_positions = [aux_position + i*space for i in range(len(targets))] # here we space them by 0.4 units.
+
+    jitter = 0.02  # amount of horizontal jitter for individual scatter points
+    
+    # Plot a boxplot and scatter points for each target
+    for i, obj in enumerate(targets):
+        pos = group_positions[i]
+        color = colors[aux_color]
+        # Create the boxplot for the current target.
+        bp = ax.boxplot(bxplt[obj], positions=[pos], widths=0.2, patch_artist=True,
+                        labels=[f'{obj}\n{group}'])
+        # Set the face color and transparency of the boxplot
+        for patch in bp['boxes']:
+            patch.set_facecolor(color)
+            patch.set_alpha(0.2)
+        # Scatter the individual data points with a little horizontal jitter
+        x_jitter = [pos + np.random.uniform(-jitter, jitter) for _ in range(len(bxplt[obj]))]
+        ax.scatter(x_jitter, bxplt[obj], color=color, alpha=0.7)
+
+        # Add a line for the mean of each target
+        mean_val = np.mean(bxplt[obj])
+        ax.axhline(mean_val, color=color, linestyle='--', label=f'{group} {obj}')
+        aux_color += 1
+
+    # For each subject, connect the points across targets with a line
+    for idx in bxplt.index:
+        x_vals = []
+        y_vals = []
+        for i, obj in enumerate(targets):
+            pos = group_positions[i] + np.random.uniform(-jitter, jitter)
+            x_vals.append(pos)
+            y_vals.append(bxplt.at[idx, obj])
+        ax.plot(x_vals, y_vals, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
+    
+    ax.set_ylabel('Exploration Time (%)')
     ax.set_title('Exploration of targets at the end of TS')
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
@@ -1865,137 +2140,3 @@ def plot_alternations(path: str, group: str, trial: str, targets: list, fps: int
     # Update the global position and color variables
     aux_position += 1
     aux_color += len(targets)
-
-# %% Extra plots
-
-def plot_exploration_time_extra(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
-    """
-    Plot the exploration time for each target for a single trial on a given axis.
-
-    Args:
-        path (str): Path to the main folder.
-        group (str): Group name.
-        trial (str): Trial name.
-        novelty (list): Novelty condition for DI calculation.
-        fps (int): Frames per second of the video.
-        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
-    """
-    if ax is None:
-        fig, ax = plt.subplots()
-
-    A = novelty[0]
-    B = novelty[1]
-    
-    dfs = []
-    folder = os.path.join(path, 'summary', group, trial)
-
-    if not os.path.exists(folder):
-        raise FileNotFoundError(f"Folder {folder} does not exist.")
-
-    for file_path in glob(os.path.join(folder, "*summary.csv")):
-        df = pd.read_csv(file_path)
-        df = calculate_DI(df, novelty, fps)
-        dfs.append(df)
-
-    if not dfs:
-        raise ValueError("No valid data files were found.")
-    
-    n = len(dfs)
-    se = np.sqrt(n) if n > 1 else 1
-
-    min_length = min([len(df) for df in dfs])
-    trunc_dfs = [df.iloc[:min_length].copy() for df in dfs]
-
-    all_dfs = pd.concat(trunc_dfs, ignore_index=True)
-
-    # Select only numeric columns for aggregation
-    numeric_cols = all_dfs.select_dtypes(include=['number']).columns
-    df = all_dfs.groupby('Frame')[numeric_cols].agg(['mean', 'std']).reset_index()
-
-    # Flatten the MultiIndex column names
-    df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
-
-    # Define a list of colors (you can expand this as needed)
-    color_A = color_A_list[aux_glob]
-    color_B = color_B_list[aux_glob]
-
-    # Target exploration
-    ax.plot(df['Time_mean'], df[f'{A}_cumsum_mean'], label = f'{group} {A}', color = color_A, marker='_')
-    ax.fill_between(df['Time_mean'], df[f'{A}_cumsum_mean'] - df[f'{A}_cumsum_std'] /se, df[f'{A}_cumsum_mean'] + df[f'{A}_cumsum_std'] /se, color = color_A, alpha=0.2)
-    ax.plot(df['Time_mean'], df[f'{B}_cumsum_mean'], label = f'{group} {B}', color = color_B, marker='_')
-    ax.fill_between(df['Time_mean'], df[f'{B}_cumsum_mean'] - df[f'{B}_cumsum_std'] /se, df[f'{B}_cumsum_mean'] + df[f'{B}_cumsum_std'] /se, color = color_B, alpha=0.2)
-    ax.set_xlabel('Time (s)')
-    max_time = df['Time_mean'].max()
-    ax.set_xticks(np.arange(0, max_time + 30, 60))    
-    ax.set_ylabel('Exploration Time (s)')
-    ax.set_title('Exploration of targets during TS')
-    ax.legend(loc='best', fancybox=True, shadow=True)
-    ax.grid(True)
-
-def plot_exploration_histogram(path: str, group: str, trial: str, novelty: list, fps: int = 30, ax=None) -> None:
-    """
-    Plot an histogram of the durations of the exploration of each target.
-
-    Args:
-        path (str): Path to the main folder.
-        group (str): Group name.
-        trial (str): Trial name.
-        novelty (list): Novelty condition for DI calculation.
-        fps (int): Frames per second of the video.
-        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
-
-    Returns:
-        None
-    """
-    if ax is None:
-        fig, ax = plt.subplots()
-
-    A = novelty[0]
-    B = novelty[1]
-
-    dfs = []
-    folder = os.path.join(path, 'summary', group, trial)
-
-    if not os.path.exists(folder):
-        raise FileNotFoundError(f"Folder {folder} does not exist.")
-
-    for file_path in glob(os.path.join(folder, "*summary.csv")):
-        df = pd.read_csv(file_path)
-        df = calculate_cumsum(df, novelty, fps)
-        df = calculate_DI(df, novelty)
-        dfs.append(df)
-
-    if not dfs:
-        raise ValueError("No valid data files were found.")
-    
-    n = len(dfs)
-    se = np.sqrt(n) if n > 1 else 1
-
-    min_length = min([len(df) for df in dfs])
-    trunc_dfs = [df.iloc[:min_length].copy() for df in dfs]
-
-    all_dfs = pd.concat(trunc_dfs, ignore_index=True)
-
-    df = all_dfs.groupby('Frame').agg(['mean', 'std']).reset_index()
-    df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
-
-    # Define a list of colors (you can expand this as needed)
-    color_A = color_A_list[aux_glob]
-    color_B = color_B_list[aux_glob]
-
-    # Histogram of exploration event durations
-    A_durations = []
-    B_durations = []
-    for df in trunc_dfs:
-        A_durations.extend(calculate_durations(df[A], fps=fps))
-        B_durations.extend(calculate_durations(df[B], fps=fps))
-    # n_bins = int((np.sqrt(len(A_durations))) + np.sqrt(len(B_durations))) // 2
-    n_bins = 20
-    
-    ax.hist(A_durations, bins=n_bins, alpha=0.5, color=color_A, label = f'{group} {A}')
-    ax.hist(B_durations, bins=n_bins, alpha=0.5, color=color_B, label = f'{group} {B}')
-    ax.set_xlabel('Duration (s)')
-    ax.set_ylabel('Events')
-    ax.legend(loc='best', fancybox=True, shadow=True)
-    ax.set_title('Histogram of Exploration Durations')
-    ax.set_xlim([0, None])

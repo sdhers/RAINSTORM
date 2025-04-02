@@ -315,10 +315,10 @@ def open_h5_file(params_path: str, file_path, print_data: bool = False) -> pd.Da
         print(f"Points in df: {bodyparts}")
         print(f"Frame count: {df_raw.shape[0]}")
         for point in bodyparts:
-            median = df_raw[f'{point}_likelihood'].median()
+            # median = df_raw[f'{point}_likelihood'].median()
             mean = df_raw[f'{point}_likelihood'].mean()
             std_dev = df_raw[f'{point}_likelihood'].std()
-            print(f'{point} \t median: {median:.2f} \t mean: {mean:.2f} \t std_dev: {std_dev:.2f} \t tolerance: {mean - num_sd*std_dev:.2f}')
+            print(f'{point} \t mean: {mean:.2f} \t std_dev: {std_dev:.2f} \t tolerance: {mean - num_sd*std_dev:.2f}')
 
     return df_raw
 
@@ -474,7 +474,7 @@ def plot_raw_vs_smooth(params_path: str, df_raw, df_smooth, bodypart = 'nose'):
     for column in df_smooth.columns:
         if bodypart in column:
             if 'likelihood' not in column:
-                fig.add_trace(go.Scatter(x=df_smooth.index, y=df_smooth[column], name=f'new {column}', line=dict(width=3)))
+                fig.add_trace(go.Scatter(x=df_smooth.index, y=df_smooth[column], name=f'smooth {column}', line=dict(width=3)))
 
     median = df_raw[f'{bodypart}_likelihood'].median()
     mean = df_raw[f'{bodypart}_likelihood'].mean()

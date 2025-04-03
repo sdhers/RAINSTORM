@@ -1,0 +1,195 @@
+# Rainstorm Parameters file
+
+# Path to the folder containing the pose estimation files
+path: C:\Users\dhers\Desktop\Rainstorm\docs\examples\NOR
+
+# Pose estimation filenames
+filenames:
+- NOR_Hab_01
+- NOR_Hab_02
+- NOR_Hab_03
+- NOR_Hab_04
+- NOR_Hab_05
+- NOR_Hab_06
+- NOR_Hab_07
+- NOR_Hab_08
+- NOR_Hab_09
+- NOR_Hab_10
+- NOR_TR_01
+- NOR_TR_02
+- NOR_TR_03
+- NOR_TR_04
+- NOR_TR_05
+- NOR_TR_06
+- NOR_TR_07
+- NOR_TR_08
+- NOR_TR_09
+- NOR_TR_10
+- NOR_TS_01
+- NOR_TS_02
+- NOR_TS_03
+- NOR_TS_04
+- NOR_TS_05
+- NOR_TS_06
+- NOR_TS_07
+- NOR_TS_08
+- NOR_TS_09
+- NOR_TS_10
+
+# Software used to generate the pose estimation files ('DLC' or 'SLEAP')
+software: DLC
+
+# Video frames per second
+fps: 25
+
+# Tracked bodyparts
+bodyparts:
+- body
+- head
+- left_ear
+- left_hip
+- left_midside
+- left_shoulder
+- neck
+- nose
+- right_ear
+- right_hip
+- right_midside
+- right_shoulder
+- tail_base
+- tail_end
+- tail_mid
+
+# Exploration targets
+targets:
+- obj_1
+- obj_2
+
+# Parameters for processing positions
+prepare_positions:
+
+  # How many std_dev away from the mean the point's likelihood can be without being erased
+  confidence: 2
+
+  # Number of frames to use for the median filter (it must be an odd number)
+  median_filter: 3
+
+# Parameters for geometric analysis
+geometric_analysis:
+
+  # Loaded from ROIs.json
+  roi_data:
+
+    # Shape of the video frames ([width, height])
+    frame_shape:
+    - 700
+    - 500
+
+    # Scale factor (in px/cm)
+    scale: 18.62
+
+    # Defined ROIs (areas) in the frame
+    areas:
+    - name: left
+      center:
+      - 212
+      - 217
+      width: 275
+      height: 400
+      angle: 0
+    - name: right
+      center:
+      - 488
+      - 217
+      width: 275
+      height: 400
+      angle: 0
+
+    # Key points within the frame
+    points:
+    - name: obj_1
+      center:
+      - 218
+      - 134
+    - name: obj_2
+      center:
+      - 481
+      - 134
+
+  # Maximum nose-target distance to consider exploration
+  distance: 3
+
+  # Set up orientation analysis
+  orientation:
+
+    # Maximum head-target orientation angle to consider exploration (in degrees)
+    degree: 45
+
+    # Ending bodypart of the orientation line
+    front: nose
+
+    # Starting bodypart of the orientation line
+    pivot: head
+
+  # Movement threshold to consider freezing, computed as the mean std of all body parts over 1 second
+  freezing_threshold: 0.01
+
+# Parameters for automatic analysis
+automatic_analysis:
+
+  # Path to the model file
+  model_path: C:\Users\dhers\Desktop\Rainstorm\docs\models\trained_models\example_wide.keras
+
+  # List of bodyparts used to train the model
+  model_bodyparts:
+  - nose
+  - left_ear
+  - right_ear
+  - head
+  - neck
+  - body
+
+  # Whether to rescale the data
+  rescaling: true
+
+  # Whether to reshape the data (set to True for RNN models)
+  reshaping: true
+
+  # Defines the shape of the RNN model
+  RNN_width:
+
+    # Number of past frames to include
+    past: 3
+
+    # Number of future frames to include
+    future: 3
+
+    # Broaden the window by skipping some frames as we stray further from the present
+    broad: 1.7
+
+# Parameters for the analysis of the experiment results
+seize_labels:
+
+  # Experimental groups you want to compare
+  groups:
+  - Group_1
+  - Group_2
+
+  # If your experiment has multiple trials, list the trial names here
+  trials:
+  - Hab
+  - TR
+  - TS
+
+  # Role/novelty of each target in the experiment
+  target_roles:
+    Hab: null
+    TR:
+    - Left
+    - Right
+    TS:
+    - Novel
+    - Known
+
+  # Type of labels used to measure exploration (geolabels, autolabels, labels, etc)
+  label_type: autolabels

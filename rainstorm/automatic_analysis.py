@@ -128,6 +128,7 @@ def compare_labels(folder_path, include_all=False):
     TS_autolabels = glob(os.path.join(folder_path,"TS/autolabels/*labels.csv"))
 
     if include_all:
+        print("Including all files")
         # Create an empty list to store DataFrames
         for_manual_labels = []
         for_geolabels = []
@@ -160,6 +161,7 @@ def compare_labels(folder_path, include_all=False):
         # Choose an example file to plot:
         file = random.randint(0, len(TS_positions)-1)
         path = TS_positions[file]
+        print(f"Choosing file {os.path.basename(path)}")
         positions = pd.read_csv(path)
         manual_labels = pd.read_csv(path.replace('position', 'labels').replace('/labels', '_manual_labels'))
         geolabels = pd.read_csv(path.replace('position', 'geolabels'))
@@ -184,6 +186,8 @@ def polar_graph(params_path, position: pd.DataFrame, label_1: pd.DataFrame, labe
     """
     params = load_yaml(params_path)
     scale = params.get("geometric_analysis", {}).get("roi_data", {}).get("scale", 1)
+    distance = params.get("geometric_analysis", {}).get("distance", 2.5)
+    degree = params.get("geometric_analysis", {}).get("orientation", {}).get("degree", 45)
 
     # Scale the data
     position *= 1/scale
@@ -220,7 +224,6 @@ def polar_graph(params_path, position: pd.DataFrame, label_1: pd.DataFrame, labe
     # Create a figure with two subplots
     fig, (ax1, ax2) = plt.subplots(1, 2, subplot_kw=dict(projection='polar'))
     
-    
     # Set title for the first subplot
     ax1.set_title(f"{obj_1}")
     
@@ -235,9 +238,12 @@ def polar_graph(params_path, position: pd.DataFrame, label_1: pd.DataFrame, labe
     c1 = ax1.scatter((angle1[a:b] + 90) / 180 * np.pi, dist1[a:b], c=colors_1, s=6, alpha=alpha_1)
     c1 = ax1.scatter(-(angle1[a:b] - 90) / 180 * np.pi, dist1[a:b], c=colors_2, s=6, alpha=alpha_2)
     
-    ang_plot = np.linspace(np.pi/4, np.pi / 2, 25).tolist()
+    angle_start = (np.pi/2) - np.deg2rad(degree)  # Convert degrees to radians
+    angle_end = np.pi/2  # 90° in radians
+
+    ang_plot = np.linspace(angle_start, angle_end, 25).tolist()
     
-    c1 = ax1.plot([0] + ang_plot + [0], [0] + [2.5] * 25 + [0], c="k", linestyle='dashed', linewidth=4)
+    c1 = ax1.plot([0] + ang_plot + [0], [0] + [distance] * 25 + [0], c="k", linestyle='dashed', linewidth=4)
     
     ax1.set_ylim([0, 4])
     ax1.set_yticks([1, 2, 3, 4])
@@ -260,7 +266,7 @@ def polar_graph(params_path, position: pd.DataFrame, label_1: pd.DataFrame, labe
     # Plot for the second subplot (ax2) - copy content from ax1
     ax2.scatter((angle2[a:b] + 90) / 180 * np.pi, dist2[a:b], c=colors_1, s=6, alpha=alpha_1)
     ax2.scatter(-(angle2[a:b] - 90) / 180 * np.pi, dist2[a:b], c=colors_2, s=6, alpha=alpha_2)
-    ax2.plot([0] + ang_plot + [0], [0] + [2.5] * 25 + [0], c="k", linestyle='dashed', linewidth=4)
+    ax2.plot([0] + ang_plot + [0], [0] + [distance] * 25 + [0], c="k", linestyle='dashed', linewidth=4)
     
     ax2.set_ylim([0, 4])
     ax2.set_yticks([1, 2, 3, 4])
@@ -298,28 +304,28 @@ def accuracy_scores(reference, compare, method, threshold = 0.5):
 
     for i in range(len(reference)):
 
-        if reference["obj_1"][i] > threshold: # Count the total events of exploration
+        if reference["obj_1"][i] >= threshold: # Count the total events of exploration
             events += 1
-        if compare["obj_1"][i] > threshold: # Count the total events of exploration
+        if compare["obj_1"][i] >= threshold: # Count the total events of exploration
             detected += 1
-        if reference["obj_1"][i] > threshold and compare["obj_1"][i] > threshold: # Correct 
+        if reference["obj_1"][i] >= threshold and compare["obj_1"][i] >= threshold: # Correct 
             sum_correct += 1
-        if reference["obj_1"][i] > threshold and compare["obj_1"][i] < threshold: # False negative
+        if reference["obj_1"][i] >= threshold and compare["obj_1"][i] <= threshold: # False negative
             sum_error += 1
-        if reference["obj_1"][i] < threshold and compare["obj_1"][i] > threshold: # False positive
+        if reference["obj_1"][i] <= threshold and compare["obj_1"][i] >= threshold: # False positive
             sum_false += 1
             
     for i in range(len(reference)):
         
-        if reference["obj_2"][i] > threshold: # Count the total events of exploration
+        if reference["obj_2"][i] >= threshold: # Count the total events of exploration
             events += 1
-        if compare["obj_2"][i] > threshold: # Count the total events of exploration
+        if compare["obj_2"][i] >= threshold: # Count the total events of exploration
             detected += 1
-        if reference["obj_2"][i] > threshold and compare["obj_2"][i] > threshold: # Correct 
+        if reference["obj_2"][i] >= threshold and compare["obj_2"][i] >= threshold: # Correct 
             sum_correct += 1
-        if reference["obj_2"][i] > threshold and compare["obj_2"][i] < threshold: # False negative
+        if reference["obj_2"][i] >= threshold and compare["obj_2"][i] <= threshold: # False negative
             sum_error += 1
-        if reference["obj_2"][i] < threshold and compare["obj_2"][i] > threshold: # False positive
+        if reference["obj_2"][i] <= threshold and compare["obj_2"][i] >= threshold: # False positive
             sum_false += 1
     
     print(f"Mice explored {(events/len(reference))*100}% of the time.")

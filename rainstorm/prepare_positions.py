@@ -318,7 +318,7 @@ def open_h5_file(params_path: str, file_path, print_data: bool = False) -> pd.Da
             # median = df_raw[f'{point}_likelihood'].median()
             mean = df_raw[f'{point}_likelihood'].mean()
             std_dev = df_raw[f'{point}_likelihood'].std()
-            print(f'{point} \t mean: {mean:.2f} \t std_dev: {std_dev:.2f} \t tolerance: {mean - num_sd*std_dev:.2f}')
+            print(f'{point} \t\t mean_likelihood: {mean:.2f} \t std_dev: {std_dev:.2f} \t tolerance: {mean - num_sd*std_dev:.2f}')
 
     return df_raw
 

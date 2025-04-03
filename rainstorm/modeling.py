@@ -314,7 +314,7 @@ def focus(modeling_path, df: pd.DataFrame, filter_by: str = 'labels'):
     print(f'Starting with {len(column)} rows')
 
     # Find the indices of the non-zero rows in the column
-    non_zero_indices = column[column > 0.05].index
+    non_zero_indices = column[column > 0.3].index
 
     # Create a boolean mask to keep rows that are within 'distance' rows of a non-zero row
     mask = pd.Series(False, index=df.index)

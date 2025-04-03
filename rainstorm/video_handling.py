@@ -120,14 +120,6 @@ def draw_rectangle(image, center, width, height, rotation=0, color=(0, 255, 0), 
     cv2.circle(image, center, radius=2, color=color, thickness=-1)
 
 def draw_rois():
-    print("Instructions:")
-    print("1. Left-click once to mark a point.")
-    print("2. Left-click and drag to draw a rectangle.")
-    print("3. Right-click and drag to move the ROI.")
-    print("4. Scroll to resize, Ctrl+Scroll to rotate.")
-    print("5. Alt+Left-click and drag to draw a scale line.")
-    print("6. Press 'S' to save selection or scale.")
-    print("7. Press 'Q' to quit and save all data.")
 
     # Initialize Tkinter and hide the root window
     root = Tk()

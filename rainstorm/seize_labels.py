@@ -84,14 +84,16 @@ def create_video(params_path, position_file, video_path=None,
     params = load_yaml(params_path)
     output_path = params.get("path")
     fps = params.get("fps", 30)
-    roi_data = params.get("geometric_analysis", {}).get("roi_data", {})
+    geometric_params = params.get("geometric_analysis", {})
+    roi_data = geometric_params.get("roi_data", {})
     frame_shape = roi_data.get("frame_shape", [])
     if len(frame_shape) != 2:
         raise ValueError("frame_shape must be a list or tuple of two integers [width, height]")
     width, height = frame_shape
-    scale = roi_data.get("scale", 1)
-    obj_size = int(scale * 1.8)
     areas = roi_data.get("areas", {})
+    distance = geometric_params.get("distance", 2.5)
+    scale = roi_data.get("scale", 1)
+    obj_size = int(scale*distance*(2/3))
 
     seize_labels = params.get("seize_labels", {})
     label_type = seize_labels.get("label_type")
@@ -599,8 +601,19 @@ def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = Tr
     plots_folder = os.path.join(path, "plots")
     os.makedirs(plots_folder, exist_ok=True)
 
+    # Generate a unique filename
+    base_filename = f"{trial}_multiple_analyses"
+    ext = ".png"
+    counter = 1
+
+    save_path = os.path.join(plots_folder, f"{base_filename}{ext}")
+
+    # Check if the file already exists, and if so, increment the suffix
+    while os.path.exists(save_path):
+        save_path = os.path.join(plots_folder, f"{base_filename}_{counter}{ext}")
+        counter += 1
+
     # Save the figure in the 'plots' folder
-    save_path = os.path.join(plots_folder, f"{trial}_multiple_analyses.png")
     plt.savefig(save_path, dpi=300)
     print(f"Plot saved at: {save_path}")
 
@@ -1162,9 +1175,94 @@ def plot_DI(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=
     # Update the global color variable
     aux_color += len(targets)
 
+def boxplot_DI_area(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+    """
+    Plot a boxplot of the areas under the cumulative sum curves for each target in a trial.
+    
+    For each CSV file in the trial folder, this function computes the area under the curve 
+    for each target (using the cumulative sum column produced by calculate_cumsum), and then
+    plots the distribution as boxplots with individual subject points, similar to the exploration
+    boxplot style.
+    
+    Args:
+        path (str): Path to the main folder.
+        group (str): Group name.
+        trial (str): Trial name.
+        targets (list): List of target names.
+        fps (int): Frames per second of the video.
+        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
+    """
+
+    # Create axis if not provided.
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    bxplt = []
+    folder = os.path.join(path, 'summary', group, trial)
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"Folder {folder} does not exist.")
+    
+    # Process each CSV file.
+    csv_files = glob(os.path.join(folder, "*summary.csv"))
+    if not csv_files:
+        raise ValueError("No valid data files were found.")
+    
+    for file_path in csv_files:
+        df = pd.read_csv(file_path)
+        df = calculate_cumsum(df, targets, fps)
+        df = calculate_DI(df, targets)
+        
+        # Create a time vector based on the frame column.
+        time = df['Frame'] / fps
+        # Compute the area under the curve for each target.
+        area_values = []
+        col = 'DI'
+        if col not in df.columns:
+            raise ValueError(f"Expected column '{col}' not found in {file_path}")
+        area = np.trapz(y=df[col], x=time)
+        area = area//300
+        area_values.append(area)
+        bxplt.append(area_values)
+    
+    # Create a DataFrame with each column corresponding to a target.
+    bxplt_df = pd.DataFrame(bxplt, columns=['DI'])
+    
+    # Calculate x positions for each target within this group.
+    # (Uses global aux_position and aux_color, as in your original function.)
+    global aux_position, aux_color, colors
+    group_positions = aux_position
+    jitter = 0.02  # Horizontal jitter for individual scatter points.
+    
+    # Plot a boxplot and scatter points for each target.
+    pos = group_positions
+    color = colors[aux_color]
+    
+    # Create the boxplot for the current target.
+    bp = ax.boxplot(bxplt_df['DI'], positions=[pos], widths=0.2, patch_artist=True,
+                    labels=[f'DI\n{group}'])
+    for patch in bp['boxes']:
+        patch.set_facecolor(color)
+        patch.set_alpha(0.2)
+    # Scatter the individual data points with horizontal jitter.
+    x_jitter = [pos + np.random.uniform(-jitter, jitter) for _ in range(len(bxplt_df['DI']))]
+    ax.scatter(x_jitter, bxplt_df['DI'], color=color, alpha=0.7)
+    
+    # Add a horizontal line at the mean for the current target.
+    mean_val = np.mean(bxplt_df['DI'])
+    ax.axhline(mean_val, color=color, linestyle='--', label=f'{group} DI')
+    aux_color += 1
+    
+    ax.set_ylabel('Area Under Curve')
+    ax.set_title('Area under the curves for each target')
+    ax.legend(loc='best', fancybox=True, shadow=True)
+    ax.grid(True)
+    
+    # Update the global position variable.
+    aux_position += 1
+
 def plot_diff(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
-    Plot the Discrimination Index (DI) for a single trial on a given axis.
+    Plot the Difference in target exploration (diff) for a single trial on a given axis.
 
     Args:
         path (str): Path to the main folder.
@@ -1210,17 +1308,17 @@ def plot_diff(path: str, group: str, trial: str, targets: list, fps: int = 30, a
 
     global aux_color
     color = colors[aux_color]
-    ax.plot(df['Time'], df['DI_mean'], label=f'{group} DI', color=color, linestyle='--')
+    ax.plot(df['Time'], df['diff_mean'], label=f'{group} diff', color=color, linestyle='--')
     ax.fill_between(
         df['Time'], 
-        df['DI_mean'] - df['DI_std'] / se, 
-        df['DI_mean'] + df['DI_std'] / se, 
+        df['diff_mean'] - df['diff_std'] / se, 
+        df['diff_mean'] + df['diff_std'] / se, 
         color=color, alpha=0.2
     )
     ax.set_xlabel('Time (s)')
     max_time = df['Time'].max()
     ax.set_xticks(np.arange(0, max_time + 30, 60))
-    ax.set_ylabel('DI (%)')
+    ax.set_ylabel('diff (s)')
     ax.axhline(y=0, color='black', linestyle='--', linewidth=2)
     ax.set_title(f"{trial}")
     ax.legend(loc='best', fancybox=True, shadow=True)
@@ -1229,7 +1327,7 @@ def plot_diff(path: str, group: str, trial: str, targets: list, fps: int = 30, a
     # Update the global color variable
     aux_color += len(targets)
 
-def plot_diff_area_boxplot(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def boxplot_diff_area(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
     Plot a boxplot of the areas under the cumulative sum curves for each target in a trial.
     
@@ -1275,7 +1373,7 @@ def plot_diff_area_boxplot(path: str, group: str, trial: str, targets: list, fps
         time = df['Frame'] / fps
         # Compute the area under the curve for each target.
         area_values = []
-        col = 'DI'
+        col = 'diff'
         if col not in df.columns:
             raise ValueError(f"Expected column '{col}' not found in {file_path}")
         area = np.trapz(y=df[col], x=time)
@@ -1285,8 +1383,6 @@ def plot_diff_area_boxplot(path: str, group: str, trial: str, targets: list, fps
     
     # Create a DataFrame with each column corresponding to a target.
     bxplt_df = pd.DataFrame(bxplt, columns=['diff'])
-
-    print(bxplt_df)
     
     # Calculate x positions for each target within this group.
     # (Uses global aux_position and aux_color, as in your original function.)
@@ -1321,204 +1417,9 @@ def plot_diff_area_boxplot(path: str, group: str, trial: str, targets: list, fps
     # Update the global position variable.
     aux_position += 1
 
-def plot_DI_area_boxplot(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
-    """
-    Plot a boxplot of the areas under the cumulative sum curves for each target in a trial.
-    
-    For each CSV file in the trial folder, this function computes the area under the curve 
-    for each target (using the cumulative sum column produced by calculate_cumsum), and then
-    plots the distribution as boxplots with individual subject points, similar to the exploration
-    boxplot style.
-    
-    Args:
-        path (str): Path to the main folder.
-        group (str): Group name.
-        trial (str): Trial name.
-        targets (list): List of target names.
-        fps (int): Frames per second of the video.
-        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
-    """
-    import os
-    from glob import glob
-    import numpy as np
-    import pandas as pd
-    import matplotlib.pyplot as plt
+# %%
 
-    # Create axis if not provided.
-    if ax is None:
-        fig, ax = plt.subplots()
-
-    bxplt = []
-    folder = os.path.join(path, 'summary', group, trial)
-    if not os.path.exists(folder):
-        raise FileNotFoundError(f"Folder {folder} does not exist.")
-    
-    # Process each CSV file.
-    csv_files = glob(os.path.join(folder, "*summary.csv"))
-    if not csv_files:
-        raise ValueError("No valid data files were found.")
-    
-    for file_path in csv_files:
-        df = pd.read_csv(file_path)
-        df = calculate_cumsum(df, targets, fps)
-        df = calculate_DI(df, targets)
-
-        print(df)
-        
-        # Create a time vector based on the frame column.
-        time = df['Frame'] / fps
-        # Compute the area under the curve for each target.
-        area_values = []
-        col = 'DI'
-        if col not in df.columns:
-            raise ValueError(f"Expected column '{col}' not found in {file_path}")
-        area = np.trapz(y=df[col], x=time)
-        area = area//300
-        area_values.append(area)
-        bxplt.append(area_values)
-    
-    # Create a DataFrame with each column corresponding to a target.
-    bxplt_df = pd.DataFrame(bxplt, columns=['diff'])
-    
-    print(bxplt_df)
-    
-    # Calculate x positions for each target within this group.
-    # (Uses global aux_position and aux_color, as in your original function.)
-    global aux_position, aux_color, colors
-    group_positions = aux_position
-    jitter = 0.02  # Horizontal jitter for individual scatter points.
-    
-    # Plot a boxplot and scatter points for each target.
-    pos = group_positions
-    color = colors[aux_color]
-    
-    # Create the boxplot for the current target.
-    bp = ax.boxplot(bxplt_df['diff'], positions=[pos], widths=0.2, patch_artist=True,
-                    labels=[f'diff\n{group}'])
-    for patch in bp['boxes']:
-        patch.set_facecolor(color)
-        patch.set_alpha(0.2)
-    # Scatter the individual data points with horizontal jitter.
-    x_jitter = [pos + np.random.uniform(-jitter, jitter) for _ in range(len(bxplt_df['diff']))]
-    ax.scatter(x_jitter, bxplt_df['diff'], color=color, alpha=0.7)
-    
-    # Add a horizontal line at the mean for the current target.
-    mean_val = np.mean(bxplt_df['diff'])
-    ax.axhline(mean_val, color=color, linestyle='--', label=f'{group} diff')
-    aux_color += 1
-    
-    ax.set_ylabel('Area Under Curve')
-    ax.set_title('Area under the curves for each target')
-    ax.legend(loc='best', fancybox=True, shadow=True)
-    ax.grid(True)
-    
-    # Update the global position variable.
-    aux_position += 1
-
-def plot_exploration_area_boxplot(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
-    """
-    Plot a boxplot of the areas under the cumulative sum curves for each target in a trial.
-    
-    For each CSV file in the trial folder, this function computes the area under the curve 
-    for each target (using the cumulative sum column produced by calculate_cumsum), and then
-    plots the distribution as boxplots with individual subject points, similar to the exploration
-    boxplot style.
-    
-    Args:
-        path (str): Path to the main folder.
-        group (str): Group name.
-        trial (str): Trial name.
-        targets (list): List of target names.
-        fps (int): Frames per second of the video.
-        ax (matplotlib.axes.Axes, optional): Axis to plot on. Creates a new figure if None.
-    """
-    import os
-    from glob import glob
-    import numpy as np
-    import pandas as pd
-    import matplotlib.pyplot as plt
-
-    # Create axis if not provided.
-    if ax is None:
-        fig, ax = plt.subplots()
-
-    bxplt = []
-    folder = os.path.join(path, 'summary', group, trial)
-    if not os.path.exists(folder):
-        raise FileNotFoundError(f"Folder {folder} does not exist.")
-    
-    # Process each CSV file.
-    csv_files = glob(os.path.join(folder, "*summary.csv"))
-    if not csv_files:
-        raise ValueError("No valid data files were found.")
-    
-    for file_path in csv_files:
-        df = pd.read_csv(file_path)
-        df = calculate_cumsum(df, targets, fps)
-        # Optionally, if needed, you could also call calculate_diff here:
-        # df = calculate_diff(df, targets)
-        
-        # Create a time vector based on the frame column.
-        time = df['Frame'] / fps
-        # Compute the area under the curve for each target.
-        area_values = []
-        for target in targets:
-            col = f'{target}_cumsum'
-            if col not in df.columns:
-                raise ValueError(f"Expected column '{col}' not found in {file_path}")
-            area = np.trapz(y=df[col], x=time)
-            area_values.append(area)
-        bxplt.append(area_values)
-    
-    # Create a DataFrame with each column corresponding to a target.
-    bxplt_df = pd.DataFrame(bxplt, columns=targets)
-    
-    # Calculate x positions for each target within this group.
-    # (Uses global aux_position and aux_color, as in your original function.)
-    global aux_position, aux_color, colors
-    space = 1 / (len(targets) + 1)
-    group_positions = [aux_position + i * space for i in range(len(targets))]
-    jitter = 0.02  # Horizontal jitter for individual scatter points.
-    
-    # Plot a boxplot and scatter points for each target.
-    for i, target in enumerate(targets):
-        pos = group_positions[i]
-        color = colors[aux_color]
-        # Create the boxplot for the current target.
-        bp = ax.boxplot(bxplt_df[target], positions=[pos], widths=0.2, patch_artist=True,
-                        labels=[f'{target}\n{group}'])
-        for patch in bp['boxes']:
-            patch.set_facecolor(color)
-            patch.set_alpha(0.2)
-        # Scatter the individual data points with horizontal jitter.
-        x_jitter = [pos + np.random.uniform(-jitter, jitter) for _ in range(len(bxplt_df[target]))]
-        ax.scatter(x_jitter, bxplt_df[target], color=color, alpha=0.7)
-        
-        # Add a horizontal line at the mean for the current target.
-        mean_val = np.mean(bxplt_df[target])
-        ax.axhline(mean_val, color=color, linestyle='--', label=f'{group} {target}')
-        aux_color += 1
-    
-    # For each subject, connect the points across targets with a gray line.
-    for idx in bxplt_df.index:
-        x_vals = []
-        y_vals = []
-        for i, target in enumerate(targets):
-            pos = group_positions[i] + np.random.uniform(-jitter, jitter)
-            x_vals.append(pos)
-            y_vals.append(bxplt_df.at[idx, target])
-        ax.plot(x_vals, y_vals, color='gray', linestyle='-', linewidth=0.5, alpha=0.5)
-    
-    ax.set_ylabel('Area Under Curve')
-    ax.set_title('Area under the curves for each target')
-    ax.legend(loc='best', fancybox=True, shadow=True)
-    ax.grid(True)
-    
-    # Update the global position variable.
-    aux_position += 1
-
-
-def plot_exploration_scatterplot(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def scatterplot_exploration_cumulative_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
     Plot a scatter plot of exploration time for each target at the end of the session
 

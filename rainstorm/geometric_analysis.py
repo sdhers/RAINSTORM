@@ -217,7 +217,7 @@ def plot_position(params_path: str, file: str, scale: bool = True) -> None:
     layout = go.Layout(
         title=f'Target exploration in {filename}',
         xaxis=dict(title='Horizontal position (cm)', scaleanchor='y'),
-        yaxis=dict(title='Vertical position (cm)', autorange="reversed"),
+        yaxis=dict(title='Vertical position (cm)', autorange="reversed")
     )
 
     # Create figure

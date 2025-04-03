@@ -2041,3 +2041,84 @@ def plot_alternations(path: str, group: str, trial: str, targets: list, fps: int
     # Update the global position and color variables
     aux_position += 1
     aux_color += len(targets)
+
+# %% Write csv with the results
+
+def condense_results_to_csv(params_path: str, trial: str) -> None:
+    """
+    Condense mouse exploratory behavior results into a CSV file.
+    
+    Each row represents a mouse with columns for:
+        - cumulative_exploration_time for each target,
+        - discrimination index (DI) for the novelty pair,
+        - distance traveled,
+        - total freezing time,
+        - additional information (group, mouse_id, etc.)
+    
+    Args:
+        params_path (str): Path to the YAML parameter file.
+        trial (str): Trial identifier.
+        output_csv (str, optional): Path to output CSV file. If not provided,
+                                    a default file will be created in a 'plots' folder.
+    
+    Returns:
+        None: Saves the CSV file to disk.
+    """
+    # Load parameters from the YAML file
+    params = load_yaml(params_path)
+    base_path = params.get("path")
+    fps = params.get("fps", 30)
+    targets = params.get("targets", [])
+    
+    seize_labels = params.get("seize_labels", {})
+    groups = seize_labels.get("groups", [])
+    target_roles = seize_labels.get("target_roles", {})
+    
+    # Determine the novelty targets for the trial (fallback to all targets if not provided)
+    novelty = target_roles.get(trial, targets)
+    
+    # Container for all computed results
+    results = []
+    
+    # Iterate over each group
+    for group in groups:
+        # Load data for each mouse in the group
+        mouse_data_list = load_mouse_data(base_path, group, trial)
+        
+        for mouse_id, mouse_data in mouse_data_list:
+            # Compute metrics for the current mouse
+            cum_exploration = compute_cumulative_exploration_time(mouse_data, targets)
+            DI = compute_discrimination_index(mouse_data, novelty)
+            diff = compute_difference(mouse_data, novelty)
+            distance = compute_distance_traveled(mouse_data, fps)
+            freezing = compute_total_freezing_time(mouse_data, fps)
+            
+            # Build the row for the CSV
+            row = {
+                "group": group,
+                "mouse_id": mouse_id,
+                "DI": DI,
+                "distance_traveled": distance,
+                "total_freezing_time": freezing
+            }
+            
+            # Add each target's cumulative exploration time as its own column
+            for target, time in cum_exploration.items():
+                row[f"cumulative_exploration_time_{target}"] = time
+            
+            results.append(row)
+    
+    # Create a DataFrame from the results
+    df = pd.DataFrame(results)
+    
+    # Determine the output CSV file path
+    base_filename = f"{trial}_results.csv"
+    output_csv = os.path.join(base_path, base_filename)
+    counter = 1
+    while os.path.exists(output_csv):
+        output_csv = os.path.join(base_path, f"{trial}_results_{counter}.csv")
+        counter += 1
+    
+    # Write the DataFrame to a CSV file
+    df.to_csv(output_csv, index=False)
+    print(f"Results CSV saved at: {output_csv}")

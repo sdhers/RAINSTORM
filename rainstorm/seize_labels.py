@@ -279,7 +279,7 @@ def plot_positions(position, targets, ax, scale, front, pivot, maxAngle, maxDist
             # Plot target marker with label
             ax.plot(*tgt_coords.positions[0], target_symbol, color=target_color, markersize=9, label=f"{tgt} Target")
             # Add a circle around the target
-            ax.add_artist(Circle(tgt_coords.positions[0], 2.5, color="orange", alpha=0.5))
+            ax.add_artist(Circle(tgt_coords.positions[0], maxDist, color="orange", alpha=0.5))
 
     # Compute zoom limits based on collected coordinates
     all_coords = np.vstack(all_coords)
@@ -479,7 +479,10 @@ def calculate_cumsum(df: pd.DataFrame, targets: list, fps: float = 30) -> pd.Dat
         pd.DataFrame: DataFrame with additional cumulative sum columns for each target.
     """
     for obj in targets:
-        df[f'{obj}_cumsum'] = df[obj].cumsum() / fps
+        if obj in df.columns:
+            df[f'{obj}_cumsum'] = df[obj].cumsum() / fps
+        else:
+            df[f'{obj}_cumsum'] = None
     return df
 
 def calculate_DI(df: pd.DataFrame, targets: list) -> pd.DataFrame:
@@ -497,11 +500,15 @@ def calculate_DI(df: pd.DataFrame, targets: list) -> pd.DataFrame:
         pd.DataFrame: DataFrame with a new column for the DI value.
     """
     tgt_1, tgt_2 = targets
-    df[f'DI'] = (
-        (df[f'{tgt_1}_cumsum'] - df[f'{tgt_2}_cumsum']) /
-        (df[f'{tgt_1}_cumsum'] + df[f'{tgt_2}_cumsum'])
-    ) * 100
-    df['DI'] = df['DI'].fillna(0)
+    if tgt_1 in df.columns and tgt_2 in df.columns:
+        diff = df[f'{tgt_1}_cumsum'] - df[f'{tgt_2}_cumsum']
+        sum = df[f'{tgt_1}_cumsum'] + df[f'{tgt_2}_cumsum']
+        df[f'DI'] = ( diff / sum ) * 100
+        df['DI'] = df['DI'].fillna(0)
+
+    else:
+        df['DI'] = None
+    
     return df
 
 def calculate_diff(df: pd.DataFrame, targets: list) -> pd.DataFrame:
@@ -2044,81 +2051,52 @@ def plot_alternations(path: str, group: str, trial: str, targets: list, fps: int
 
 # %% Write csv with the results
 
-def condense_results_to_csv(params_path: str, trial: str) -> None:
-    """
-    Condense mouse exploratory behavior results into a CSV file.
-    
-    Each row represents a mouse with columns for:
-        - cumulative_exploration_time for each target,
-        - discrimination index (DI) for the novelty pair,
-        - distance traveled,
-        - total freezing time,
-        - additional information (group, mouse_id, etc.)
-    
-    Args:
-        params_path (str): Path to the YAML parameter file.
-        trial (str): Trial identifier.
-        output_csv (str, optional): Path to output CSV file. If not provided,
-                                    a default file will be created in a 'plots' folder.
-    
-    Returns:
-        None: Saves the CSV file to disk.
-    """
-    # Load parameters from the YAML file
+def create_results_file(params_path: str):
     params = load_yaml(params_path)
-    base_path = params.get("path")
+    path = params.get("path")
     fps = params.get("fps", 30)
     targets = params.get("targets", [])
-    
+
     seize_labels = params.get("seize_labels", {})
     groups = seize_labels.get("groups", [])
-    target_roles = seize_labels.get("target_roles", {})
-    
-    # Determine the novelty targets for the trial (fallback to all targets if not provided)
-    novelty = target_roles.get(trial, targets)
-    
-    # Container for all computed results
+    trials = seize_labels.get("trials", [])
+    data = seize_labels.get("target_roles", {})
+
     results = []
-    
-    # Iterate over each group
+
     for group in groups:
-        # Load data for each mouse in the group
-        mouse_data_list = load_mouse_data(base_path, group, trial)
-        
-        for mouse_id, mouse_data in mouse_data_list:
-            # Compute metrics for the current mouse
-            cum_exploration = compute_cumulative_exploration_time(mouse_data, targets)
-            DI = compute_discrimination_index(mouse_data, novelty)
-            diff = compute_difference(mouse_data, novelty)
-            distance = compute_distance_traveled(mouse_data, fps)
-            freezing = compute_total_freezing_time(mouse_data, fps)
-            
-            # Build the row for the CSV
-            row = {
-                "group": group,
-                "mouse_id": mouse_id,
-                "DI": DI,
-                "distance_traveled": distance,
-                "total_freezing_time": freezing
-            }
-            
-            # Add each target's cumulative exploration time as its own column
-            for target, time in cum_exploration.items():
-                row[f"cumulative_exploration_time_{target}"] = time
-            
-            results.append(row)
-    
-    # Create a DataFrame from the results
-    df = pd.DataFrame(results)
-    
-    # Determine the output CSV file path
-    base_filename = f"{trial}_results.csv"
-    output_csv = os.path.join(base_path, base_filename)
-    counter = 1
-    while os.path.exists(output_csv):
-        output_csv = os.path.join(base_path, f"{trial}_results_{counter}.csv")
-        counter += 1
-    
-    # Write the DataFrame to a CSV file
-    df.to_csv(output_csv, index=False)
-    print(f"Results CSV saved at: {output_csv}")
+        for trial in trials:
+            summarys = glob(os.path.join(path, f"summary/{group}/{trial}/*_summary.csv"))
+
+            for file in summarys:
+                summary_df = pd.read_csv(file)
+                novelty = data.get(trial) or targets
+
+                row_result = {
+                    "Video": os.path.basename(file).replace('_summary.csv',''),
+                    "Group": group,
+                }
+
+                df = calculate_cumsum(summary_df, novelty, fps)
+
+                for target in novelty:
+                    if f'{target}_cumsum' in summary_df.columns:
+                        row_result[f"exploration_time_{target}"] = df[f'{target}_cumsum'].iloc[-1]
+
+                df = calculate_DI(df, novelty)
+                row_result[f"DI"] = df["DI"].iloc[-1]
+
+                df = calculate_diff(df, novelty)
+                row_result[f"diff"] = df["diff"].iloc[-1]
+
+                row_result['freezing_time'] = (df['freezing'].cumsum() / fps).iloc[-1]
+
+                results.append(row_result)
+
+    results_df = pd.DataFrame(results)
+    results_df.dropna(axis=1, how='all', inplace=True)
+    results_path = os.path.join(path, 'results.csv')
+    results_df.to_csv(results_path, index=False)
+    print(f"Results file saved at {results_path}")
+    return results_path
+

@@ -1,7 +1,7 @@
 # Rainstorm Parameters file
 
 # Path to the folder containing the pose estimation files
-path: C:\Users\dhers\Desktop\Rainstorm\docs\examples\NOR
+path: C:\Users\dhers\Desktop\Rainstorm\docs\examples\NOR_finished
 
 # Pose estimation filenames
 filenames:

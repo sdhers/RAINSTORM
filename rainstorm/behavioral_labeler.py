@@ -95,7 +95,7 @@ def draw_text(img: np.uint8,
     cv2.rectangle(img, pos, (x + text_w, y + text_h), text_color_bg, -1)
     cv2.putText(img, text, (x, y + text_h + font_scale - 1), font, font_scale, text_color, font_thickness)
 
-def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames: int, behavior_info: dict, screen_width: int) -> tuple:
+def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames: int, behavior_info: dict, screen_width: int, operant_keys: dict) -> tuple:
     """Process a frame for labeling
 
     Args:
@@ -105,9 +105,11 @@ def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_fra
         total_frames (int): Total number of frames
         behavior_info (dict): behavior information
         screen_width (int): Screen width
+        operant_keys (dict): mapping for special actions
 
     Returns:
-        tuple: Updates behavior and move variables
+        tuple: (behaviors, move) where behaviors is a list of 0/1
+               flags and move is an integer offset
     """
 
     move = False
@@ -128,7 +130,7 @@ def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_fra
     right_border = int(frame.shape[1] - margin + gap)
 
     # Add frame number and video name to the frame
-    draw_text(frame, "Rainstorm Behavioral Labeler",
+    draw_text(frame, "RAINSTORM Behavioral Labeler",
               pos=(right_border, gap),
               font_scale = txt, font_thickness= txt,
               text_color=(255, 255, 255))
@@ -139,7 +141,7 @@ def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_fra
               pos=(right_border, gap + 2*k))
     draw_text(frame, f"Frame: {frame_number + 1}/{total_frames}", 
               pos=(right_border, gap + 3*k))
-    draw_text(frame, "next (5), previous (2), ffw (8)", 
+    draw_text(frame, f"next ({operant_keys['next']}), previous ({operant_keys['prev']}), ffw ({operant_keys['ffw']})", 
               pos=(right_border, gap + 4*k))
     draw_text(frame, "exit (q), zoom in (+), zoom out (-)", 
               pos=(right_border, gap + 5*k))
@@ -158,7 +160,7 @@ def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_fra
             font_scale=txt, font_thickness=1 + behavior_value,
             text_color=text_color)
         
-    draw_text(frame, "none / delete (0)", 
+    draw_text(frame, f"none / delete ({operant_keys['erase']})", 
               pos=(right_border, 3*gap + 8*k + i*k))
     
     # Display the frame
@@ -174,15 +176,15 @@ def process_frame(video_name: str, frame: np.uint8, frame_number: int, total_fra
             behaviors[i] = 1  # Mark this behavior
             move = 1
     
-    # Handling additional actions
-    if key == ord('0'):  # No behavior
-        behaviors = [0] * len(behavior_info)  # Reset all to 0
+    # Operant actions driven by operant_keys
+    if key == ord(operant_keys['erase']):
+        behaviors = [0] * len(behavior_info)
         move = 1
-    if key == ord('5'):  # Go to the next frame
+    elif key == ord(operant_keys['next']):
         move = 1
-    if key == ord('2'):  # Go back one frame
+    elif key == ord(operant_keys['prev']):
         move = -1
-    if key == ord('8'):  # Skip three frames forward
+    elif key == ord(operant_keys['ffw']):
         move = 3
 
     return behaviors, move
@@ -408,7 +410,7 @@ def frame_generator(video_path):
 # Main function
 
 # Main function to handle frame labeling for multiple behaviors
-def labeler(behaviors: list = ['exp_1', 'exp_2', 'freezing', 'front_grooming', 'back_grooming', 'rearing', 'head_dipping', 'protected_hd'], keys: list = ['4','6','f','g','b','r','h','p']):
+def labeler(behaviors: list = ['exp_1', 'exp_2', 'freezing', 'front_grooming', 'back_grooming', 'rearing', 'head_dipping', 'protected_hd'], keys: list = ['4','6','f','g','b','r','h','p'], operant_keys: dict = {'next': '5', 'prev': '2', 'ffw': '8', 'erase': '0'}):
     """Handle frame labeling for multiple behaviors.
     """
 
@@ -483,7 +485,7 @@ def labeler(behaviors: list = ['exp_1', 'exp_2', 'freezing', 'front_grooming', '
         behavior_info = build_behavior_info(behaviors, keys, behavior_sums, current_behavior)
         
         # Call the labeling function
-        behavior_list, move = process_frame(video_name, frame, current_frame, total_frames, behavior_info, screen_width)
+        behavior_list, move = process_frame(video_name, frame, current_frame, total_frames, behavior_info, screen_width, operant_keys)
 
         # Break the loop if the user presses 'q'
         if keyboard.is_pressed('q'):

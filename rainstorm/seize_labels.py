@@ -1510,7 +1510,7 @@ def scatterplot_exploration_cumulative_time(path: str, group: str, trial: str, t
 
 # %% Freezing
 
-def plot_freezing(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def lineplot_freezing_cumulative_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
 
     """
     Plot the time the mouse spent freezing.

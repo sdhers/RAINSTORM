@@ -1,0 +1,24 @@
+{
+    "frame_shape": [
+        720,
+        480
+    ],
+    "scale": 18.72,
+    "areas": [],
+    "points": [
+        {
+            "name": "obj_1",
+            "center": [
+                227,
+                137
+            ]
+        },
+        {
+            "name": "obj_2",
+            "center": [
+                491,
+                137
+            ]
+        }
+    ]
+}

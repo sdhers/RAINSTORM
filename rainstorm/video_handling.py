@@ -53,7 +53,7 @@ def merge_frames(video_files: list) -> np.ndarray:
 
     return merged_image
 
-def zoom_in_display(frame, x, y, zoom_scale = 5, zoom_window_size = 25):
+def zoom_in_display(frame, x, y, zoom_scale = 5, zoom_window_size = 35):
     # Create zoomed-in display
     x1 = max(0, x - zoom_window_size)
     x2 = min(frame.shape[1], x + zoom_window_size)

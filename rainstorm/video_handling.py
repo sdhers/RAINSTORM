@@ -4,96 +4,267 @@ import cv2
 import json
 from tkinter import Tk, filedialog, simpledialog, messagebox, Label, Entry, Button, Toplevel
 
-# Draw ROIs
+#%% Select Alignment
+
+# ====================
+# Configuration Constants
+# ====================
+INITIAL_ZOOM = 1               # Starting zoom magnification
+MIN_ZOOM, MAX_ZOOM = 1, 20     # Zoom range limits
+OVERLAY_FRAC = 0.33            # Inset occupies this fraction of frame width
+MARGIN = 10                    # Padding from edges for inset
+POINT_RADIUS = 4               # Radius for drawn points
+CROSS_LENGTH_FRAC = 0.1        # Crosshair arm length as fraction of inset size
+WINDOW_NAME = 'Select Points'  # OpenCV window name
+
+# Key mappings for navigation and actions
+KEY_MAP = {
+    ord('q'): 'quit',
+    ord('b'): 'back',
+    ord('e'): 'erase',
+    13: 'confirm'  # 'Enter' key
+}
+
+# WASD for nudging a point by one pixel
+NUDGE_MAP = {
+    ord('a'): (-1,  0),
+    ord('d'): ( 1,  0),
+    ord('w'): ( 0, -1),
+    ord('s'): ( 0,  1)
+}
 
 def merge_frames(video_files: list) -> np.ndarray:
     """
-    Merge frames into a single image.
-
-    Args:
-        video_files (list): List of video files.
-    
-    Returns:
-        np.ndarray: Merged image.
+    Merge frames into a single averaged image:
+      - If >1 video: use the first frame of each.
+      - If single video: use first, middle, last frames.
     """
     frames = []
-    
+
     if len(video_files) > 1:
-        # Read first valid frame from each video
-        for file in video_files:
-            cap = cv2.VideoCapture(file)
-            success, frame = cap.read()
+        for path in video_files:
+            cap = cv2.VideoCapture(path)
+            ok, frm = cap.read()
             cap.release()
-            if success:
-                frames.append(frame)
+            if ok:
+                frames.append(frm)
     else:
-        # Extract first, middle, and last frame from a single video
         cap = cv2.VideoCapture(video_files[0])
         if not cap.isOpened():
-            raise ValueError(f"Could not open video file: {video_files[0]}")
-
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        selected_indices = np.linspace(0, total_frames - 1, num=3, dtype=int)
-
-        for frame_idx in selected_indices:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-            success, frame = cap.read()
-            if success:
-                frames.append(frame)
-            else:
-                print(f"Warning: Could not read frame {frame_idx} from {video_files[0]}")
-
+            raise ValueError(f"Cannot open video: {video_files[0]}")
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        indices = np.linspace(0, total - 1, 3, dtype=int)
+        for idx in indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+            ok, frm = cap.read()
+            if ok:
+                frames.append(frm)
         cap.release()
 
     if not frames:
         raise ValueError("No valid frames extracted.")
+    return np.mean(frames, axis=0).astype(np.uint8)
 
-    # Merge frames by computing the mean
-    merged_image = np.mean(frames, axis=0).astype(np.uint8)
+def zoom_in_display(frame: np.ndarray, x: int, y: int,
+                    zoom_scale: int = INITIAL_ZOOM,
+                    overlay_frac: float = OVERLAY_FRAC,
+                    margin: int = MARGIN):
+    """
+    Create a zoomed inset at (x,y) and return it plus its placement coords.
+    """
+    H, W = frame.shape[:2]
+    overlay_w = int(W * overlay_frac)
+    half_crop = overlay_w // (2 * zoom_scale)
 
-    return merged_image
+    x1, x2 = max(0, x - half_crop), min(W, x + half_crop)
+    y1, y2 = max(0, y - half_crop), min(H, y + half_crop)
+    crop = frame[y1:y2, x1:x2]
+    inset = cv2.resize(crop, (overlay_w, overlay_w), interpolation=cv2.INTER_LINEAR)
 
-def zoom_in_display(frame, x, y, zoom_scale = 5, zoom_window_size = 35):
-    # Create zoomed-in display
-    x1 = max(0, x - zoom_window_size)
-    x2 = min(frame.shape[1], x + zoom_window_size)
-    y1 = max(0, y - zoom_window_size)
-    y2 = min(frame.shape[0], y + zoom_window_size)
+    cx, cy = overlay_w // 2, overlay_w // 2
+    ll = int(overlay_w * CROSS_LENGTH_FRAC)
+    cv2.line(inset, (cx, cy - ll), (cx, cy + ll), (0, 255, 0), 1)
+    cv2.line(inset, (cx - ll, cy), (cx + ll, cy), (0, 255, 0), 1)
 
-    zoomed_area = frame[y1:y2, x1:x2]
-    
-    # Resize zoomed-in area
-    zoomed_area_resized = cv2.resize(zoomed_area, None, fx=zoom_scale, fy=zoom_scale, interpolation=cv2.INTER_LINEAR)
+    ox1 = W - overlay_w - margin
+    oy1 = margin
+    if x2 > (W - overlay_w - margin) and y1 < (overlay_w + margin):
+        ox1 = margin
+        oy1 = H - overlay_w - margin
 
-    # Add crosshair to the center
-    center_x = zoomed_area_resized.shape[1] // 2
-    center_y = zoomed_area_resized.shape[0] // 2
-    color = (0, 255, 0)  # Black crosshair
-    thickness = 2
-    line_length = 20  # Length of crosshair lines
+    return inset, (ox1, ox1 + overlay_w, oy1, oy1 + overlay_w)
 
-    # Draw vertical line
-    cv2.line(zoomed_area_resized, (center_x, center_y - line_length), (center_x, center_y + line_length), color, thickness)
-    # Draw horizontal line
-    cv2.line(zoomed_area_resized, (center_x - line_length, center_y), (center_x + line_length, center_y), color, thickness)
 
-    if x2 > (frame.shape[1] - zoomed_area_resized.shape[1] - 10) and y1 < (10 + zoomed_area_resized.shape[0]):
-        # Overlay zoomed-in area in the top-left corner of the frame
-        overlay_x1 = 10
-        overlay_x2 = 10 + zoomed_area_resized.shape[1]
-        overlay_y1 = 10
-        overlay_y2 = 10 + zoomed_area_resized.shape[0]
-    
-    else:
-        # Overlay zoomed-in area in the top-right corner of the frame
-        overlay_x1 = frame.shape[1] - zoomed_area_resized.shape[1] - 10
-        overlay_x2 = frame.shape[1] - 10
-        overlay_y1 = 10
-        overlay_y2 = 10 + zoomed_area_resized.shape[0]
+class Aligner:
+    """
+    Interactive aligner that:
+      - Caches merged frames once
+      - Tracks two user-selected points per video
+      - Displays zoomable inset and navigation
+      - Relies on external video_dict for persistence
+    """
+    def __init__(self, video_dict: dict):
+        self.video_dict = video_dict
+        self.video_paths = list(video_dict.keys())
 
-    placement = (overlay_x1, overlay_x2, overlay_y1, overlay_y2)
+        # Precompute merged reference frames
+        self.merged_frames = {vp: merge_frames([vp]) for vp in self.video_paths}
 
-    return zoomed_area_resized, placement
+        # Find first video needing alignment
+        self.idx = next(
+            (i for i, vp in enumerate(self.video_paths)
+             if not video_dict[vp].get('align')
+             or len(video_dict[vp]['align']) < 2),
+            0
+        )
+
+        # Interactive state
+        self.zoom_scale = INITIAL_ZOOM
+        self.current_point = None
+        self.confirmed_points = []
+        self.cursor_pos = (0, 0)
+        self.state_changed = True
+
+    def on_mouse(self, event, x, y, flags, param):
+        """
+        Mouse callback to update cursor, place points, adjust zoom.
+        """
+        self.cursor_pos = (x, y)
+        self.state_changed = True
+        if event == cv2.EVENT_LBUTTONDOWN:
+            self.current_point = (x, y)
+        elif event == cv2.EVENT_MOUSEWHEEL and (flags & cv2.EVENT_FLAG_SHIFTKEY):
+            delta = 1 if flags > 0 else -1
+            self.zoom_scale = min(max(self.zoom_scale + delta, MIN_ZOOM), MAX_ZOOM)
+
+    def render(self) -> np.ndarray:
+        """
+        Draw points, inset, and status text on the base frame.
+        """
+        frame = self.merged_frames[self.video_paths[self.idx]].copy()
+        for pt in self.confirmed_points:
+            cv2.circle(frame, pt, POINT_RADIUS, (0, 0, 255), -1)
+        if self.current_point:
+            cv2.circle(frame, self.current_point, POINT_RADIUS, (0, 255, 0), -1)
+
+        if self.zoom_scale > 1:
+            zx, zy = self.cursor_pos
+            inset, (ox1, ox2, oy1, oy2) = zoom_in_display(
+                frame, zx, zy, self.zoom_scale)
+            frame[oy1:oy2, ox1:ox2] = inset
+
+        text = f"Video {self.idx+1}/{len(self.video_paths)}"
+        h, w = frame.shape[:2]
+        cv2.putText(frame, text, (w - 250, h - 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        return frame
+
+    def start(self) -> dict:
+        """
+        Runs the interactive loop, updating video_dict in place.
+        Returns the updated video_dict for external saving.
+        """
+        cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
+        cv2.setMouseCallback(WINDOW_NAME, self.on_mouse)
+
+        while True:
+            # If past last video, prompt to exit or revisit
+            if self.idx >= len(self.video_paths):
+                ans = messagebox.askquestion("Exit", "All points selected, save and quit?")
+                if ans == 'yes':
+                    cv2.destroyAllWindows()
+                    return self.video_dict
+                else:
+                    self.idx = max(self.idx - 1, 0)
+                    self.state_changed = True
+
+            vp = self.video_paths[self.idx]
+            align = self.video_dict[vp].get('align') or {}
+            self.confirmed_points = []
+            if 'first_point' in align and 'second_point' in align:
+                self.confirmed_points = [
+                    tuple(align['first_point']),
+                    tuple(align['second_point'])
+                ]
+            self.current_point = None
+            self.state_changed = True
+
+            while True:
+                
+                if len(self.confirmed_points) >= 2 and self.current_point:
+                    messagebox.showinfo("Info", "Both points already selected, erase (press 'e') or confirm (press 'Enter') to continue")
+                    self.current_point = None
+
+                elif self.state_changed:
+                    disp = self.render()
+                    cv2.imshow(WINDOW_NAME, disp)
+                    self.state_changed = False
+
+                key = cv2.waitKey(10) & 0xFF
+                action = KEY_MAP.get(key)
+
+                if action == 'quit':
+                    if messagebox.askquestion("Exit", "Save and quit?") == 'yes':
+                        cv2.destroyAllWindows()
+                        return self.video_dict
+
+                elif action == 'back':
+                    self.idx = max(self.idx - 1, 0)
+                    break
+
+                elif action == 'erase':
+                    self.confirmed_points = []
+                    self.video_dict[vp].pop('align', None)
+                    self.state_changed = True
+
+                elif action == 'confirm':
+                    if len(self.confirmed_points) >= 2:
+                        self.idx += 1
+                        break
+                    elif len(self.confirmed_points) < 2:
+                        if self.current_point:
+                            self.confirmed_points.append(self.current_point)
+                            self.current_point = None
+                            self.state_changed = True
+                            if len(self.confirmed_points) == 2:
+                                self.video_dict[vp]['align'] = {
+                                    'first_point': self.confirmed_points[0],
+                                    'second_point': self.confirmed_points[1]
+                                }
+                                self.idx += 1
+                                break
+                        else:
+                            messagebox.showinfo("Info", "Select a point first, then confirm")
+
+                elif key in NUDGE_MAP and self.current_point:
+                    dx, dy = NUDGE_MAP[key]
+                    x, y = self.current_point
+                    h, w = self.merged_frames[vp].shape[:2]
+                    self.current_point = (
+                        max(0, min(w - 1, x + dx)),
+                        max(0, min(h - 1, y + dy))
+                    )
+                    self.state_changed = True
+
+        return self.video_dict
+
+def select_alignment(video_dict: dict) -> dict:
+    """Wrapper to launch aligner; returns updated video_dict."""
+
+    print("Select alignment:")
+    print("  - 'Left-click' to place a point")
+    print("  - Press 'Enter' to confirm the point")
+    print("  - Use 'WASD' to edit a point's position by one pixel")
+    print("  - Use 'Shift + Mouse Wheel' to zoom in/out")
+    print("  - Select two points in each video frame")
+    print("  - Press 'b' to go back")
+    print("  - Press 'e' to erase points from a frame")
+    print("  - Press 'q' to quit")
+
+    video_dict = Aligner(video_dict).start()
+    return video_dict
+
+#%% Draw ROIs
 
 def draw_text_on_frame_bottom(image, text):
             # Display text at the bottom of the frame
@@ -120,6 +291,17 @@ def draw_rectangle(image, center, width, height, rotation=0, color=(0, 255, 0), 
     cv2.circle(image, center, radius=2, color=color, thickness=-1)
 
 def draw_rois():
+
+    print("Draw ROIs:")
+    print("  - Select the videos you want to draw on")
+    print("  - Left-click to select a point")
+    print("  - Left-click and drag to draw a rectangle")
+    print("    - Right-click and drag to move the rectangle")
+    print("    - Use the scroll wheel to resize the rectangle")
+    print("    - Use Ctrl + scroll wheel to rotate the rectangle")
+    print("  - Alt + left-click and drag to draw a scale line")
+    print("  - Press 'Enter' to save the current ROI")
+    print("  - Press 'Q' to quit and save all ROIs")
 
     # Initialize Tkinter and hide the root window
     root = Tk()
@@ -278,7 +460,7 @@ def draw_rois():
         cv2.imshow("Select ROIs", clone)
         key = cv2.waitKey(1) & 0xFF
             
-        if key == ord('s'):
+        if key == 13: # 'Enter' key
             if scale_line is not None:
                 real_length = simpledialog.askfloat("Input", "Enter the length of the selected line in cm:")
                 if not real_length:
@@ -341,17 +523,46 @@ def draw_rois():
     else:
         print("No ROIs saved.")
 
-# Create video dictionary
+#%% Create video dictionary
 
-def save_video_dict(video_dict, file_path):
-    """Save video_dict as a JSON file."""
-    with open(file_path, 'w') as file:
-        json.dump(video_dict, file)
+def save_video_dict(video_dict):
+    """Save video_dict as a JSON file using a file dialog."""
+    root = Tk()
+    root.withdraw()  # Hide the root window
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".json",
+        filetypes=[("JSON files", "*.json")],
+        title="Save video_dict as..."
+    )
+    root.destroy()
 
-def load_video_dict(file_path):
-    """Load video_dict from a JSON file."""
-    with open(file_path, 'r') as file:
-        return json.load(file)
+    if file_path:
+        folder = os.path.dirname(file_path)
+        if not os.path.exists(folder):
+            os.makedirs(folder)  # Make sure the folder exists
+
+        with open(file_path, 'w') as file:
+            json.dump(video_dict, file)
+        print(f"Saved video_dict to: {file_path}")
+    else:
+        print("Save canceled.")
+
+def load_video_dict():
+    """Load video_dict from a JSON file using a file dialog."""
+    root = Tk()
+    root.withdraw()  # Hide the root window
+    file_path = filedialog.askopenfilename(
+        filetypes=[("JSON files", "*.json")],
+        title="Open video_dict file"
+    )
+    root.destroy()
+
+    if file_path:
+        with open(file_path, 'r') as file:
+            return json.load(file)
+    else:
+        print("Load canceled.")
+        return None
 
 def get_video_info(file_path):
     """Extracts all possible metadata from a video file and returns a dictionary."""
@@ -398,7 +609,7 @@ def create_video_dict() -> dict:
 
     return video_dict
 
-# Trimming
+#%% Select Trimming
 
 def convert_time(time_str):
     """Convert mm:ss format to seconds."""
@@ -454,99 +665,16 @@ def select_trimming(video_dict):
 
     window.mainloop() # This will show the popup and keep it running
 
-# Alignment
-
-def select_alignment(video_dict: dict):
-    """Select two alignment points for each video and update the video_dict.
-
-    Args:
-        video_dict (dict): Dictionary of video files with parameters.
-
-    Returns:
-        dict: Updated dictionary with alignment points added.
-    """
-
-    # Initialize Tkinter and hide the root window
-    root = Tk()
-    root.withdraw()
-
-    # Define callback function for point selection
-    def select_points(event, x, y, flags, param):
-        nonlocal frame, temp_frame, current_point, confirmed_points
-
-        if event == cv2.EVENT_LBUTTONDOWN:
-            # Update the current point with the clicked position
-            current_point = (x, y)
-            # Draw the current point
-            cv2.circle(temp_frame, current_point, 3, (0, 255, 0), -1)
-            # Draw the confirmed points on the frame
-            for point in confirmed_points: 
-                cv2.circle(temp_frame, point, 3, (0, 0, 255), -1)
-            # Display the frame
-            cv2.imshow('Select Points', temp_frame)
-        
-        # Reset the frame
-        temp_frame = frame.copy()
-
-        # Draw the current point
-        if current_point is not None:
-            cv2.circle(temp_frame, current_point, 3, (0, 255, 0), -1)
-        # Draw the confirmed points on the frame
-        for point in confirmed_points:
-            cv2.circle(temp_frame, point, 3, (0, 0, 255), -1)
-        # Display the zoomed-in area
-        zoomed_area_resized, placement = zoom_in_display(temp_frame, x, y)
-        overlay_x1, overlay_x2, overlay_y1, overlay_y2 = placement
-        temp_frame[overlay_y1:overlay_y2, overlay_x1:overlay_x2] = zoomed_area_resized
-        # Display the frame
-        cv2.imshow('Select Points', temp_frame)
-
-    def confirm_point():
-        """Confirm the current point and add it to the list."""
-        nonlocal temp_frame, confirmed_points, current_point
-        if current_point is not None:
-            confirmed_points.append(current_point)
-            # Draw the confirmed points on the frame
-            for point in confirmed_points: 
-                cv2.circle(temp_frame, point, 3, (0, 0, 255), -1)
-            # Display the frame
-            cv2.imshow('Select Points', temp_frame)
-            current_point = None
-            print(f"Point confirmed: {confirmed_points[-1]}")  # Feedback to the user
-    
-    # Step 1: Extract first frames and collect two points for each video
-    for video_path in video_dict.keys():
-        frame = merge_frames([video_path]) # we make video_path a list because merge_frames expects a list
-        confirmed_points = []  # Store the two confirmed points for this video
-        current_point = None  # Temporary point being adjusted
-        temp_frame = frame.copy()  # Create a copy of the frame
-
-        # Run the mouse callback with the frame and confirmed points
-        cv2.imshow('Select Points', frame)
-        cv2.setMouseCallback('Select Points', select_points)
-
-        # Wait for user to confirm two points
-        while len(confirmed_points) < 2:
-            key = cv2.waitKey(1) & 0xFF
-            if key == 13:  # Enter key to confirm the current point
-                confirm_point()
-            elif key == ord('q'):  # Press 'q' to quit
-                response = messagebox.askquestion("Exit", "Do you want to exit aligner?")
-                if response == 'yes':
-                    print("Exiting point selection.")
-                    cv2.destroyAllWindows()
-                    return video_dict
-            
-        # Save the confirmed points to the video dictionary
-        video_dict[video_path]["align"] = {"first_point": confirmed_points[0], "second_point": confirmed_points[1]}
-
-    print("Alignment settings applied to all videos.")
-    
-    cv2.destroyAllWindows()
-
-# Cropping
+#%% Select Cropping
 
 def select_cropping(video_dict):
+
+    print("Select cropping:")
+    print("  - Left-click and drag to draw a rectangle")
+    print("    - Right-click and drag to move the rectangle")
+    print("    - Use the scroll wheel to resize the rectangle")
+    print("    - Use Ctrl + scroll wheel to rotate the rectangle")
+    print("  - Press 'Enter' to select the cropping area")
 
     video_files = list(video_dict.keys())
 
@@ -706,7 +834,7 @@ def select_cropping(video_dict):
             scale_factor = 1.0  # Reset zoom
         
 
-        elif key == ord('c') and len(corners) == 2:  # Save the ROI
+        elif key == 13 and len(corners) == 2:  # Save the ROI
             response = messagebox.askquestion("Crop", "Do you want to crop this region?")
             if response == 'yes':
                 break
@@ -731,170 +859,7 @@ def select_cropping(video_dict):
 
     print("Cropping settings applied to all videos.")
 
-# Helper Functions
-
-def calculate_mean_points(video_dict: dict, horizontal=False):
-    """Calculate the mean alignment points from all videos in video_dict.
-
-    Args:
-        video_dict (dict): Dictionary containing video files and alignment points.
-        horizontal (bool): If True, force the points to have the same y-value.
-
-    Returns:
-        list: Mean alignment points [mean_point_1, mean_point_2].
-    """
-    # Extract all alignment points
-    point_pairs = [
-        [video["align"]["first_point"], video["align"]["second_point"]]
-        for video in video_dict.values() if "align" in video
-    ]
-
-    if not point_pairs:
-        raise ValueError("No alignment points found in video_dict.")
-
-    # Compute mean points
-    mean_points = np.mean(point_pairs, axis=0)
-    mean_point_1, mean_point_2 = mean_points.astype(int)
-
-    if horizontal:
-        print("doing horizontal")
-        # Calculate the mean y-value and align points horizontally
-        y_mean = (mean_point_1[1] + mean_point_2[1]) // 2
-        mean_point_1[1] = y_mean
-        mean_point_2[1] = y_mean
-
-    # Convert mean points to lists before returning
-    mean_points = [mean_point_1.tolist(), mean_point_2.tolist()]
-
-    print(f"Mean points: {mean_points}")
-    return mean_points
-
-def get_alignment_matrices(video_data, align, mean_point_1, mean_length, mean_angle, width, height):
-    """Compute the rotation and translation matrices for alignment."""
-    if not align or "align" not in video_data:
-        return None, None
-
-    point1, point2 = video_data["align"]["first_point"], video_data["align"]["second_point"]
-    vector = np.array(point2) - np.array(point1)
-    length = np.linalg.norm(vector)
-    angle = np.arctan2(vector[1], vector[0])
-
-    scale = mean_length / length if length != 0 else 1
-    rotation_angle = np.degrees(mean_angle - angle)
-    center = (width // 2, height // 2)
-    rotate_matrix = cv2.getRotationMatrix2D(center, rotation_angle, scale)
-
-    new_point1 = rotate_matrix[:, :2] @ np.array(point1).T + rotate_matrix[:, 2]
-    dx, dy = mean_point_1 - new_point1
-    translate_matrix = np.float32([[1, 0, dx], [0, 1, dy]])
-
-    return rotate_matrix, translate_matrix
-
-def crop_frame(frame, crop_center, crop_angle, crop_width, crop_height):
-    """Rotate and crop a frame."""
-    height, width = frame.shape[:2]
-    M = cv2.getRotationMatrix2D(crop_center, crop_angle, 1)
-    rotated = cv2.warpAffine(frame, M, (width, height))
-
-    x1, y1 = int(crop_center[0] - crop_width / 2), int(crop_center[1] - crop_height / 2)
-    x2, y2 = int(crop_center[0] + crop_width / 2), int(crop_center[1] + crop_height / 2)
-
-    return rotated[max(y1, 0):min(y2, height), max(x1, 0):min(x2, width)]
-
-# Main Function
-
-def apply_transformations(video_dict: dict, trim = False, crop=False, align=False):
-    """Apply trimming, cropping, and alignment to videos."""
-    
-    output_folder = os.path.join(os.path.dirname(next(iter(video_dict))), 'modified')
-    os.makedirs(output_folder, exist_ok=True)
-
-    # Compute mean alignment values if needed
-    if align:
-        # Initialize Tkinter and hide the root window
-        root = Tk()
-        root.withdraw()
-        horizontal = messagebox.askyesno("Alignment", "Do you want the points to stand on the same horizontal line?\n\nIt is better to choose 'no' if you want to crop the video too\n(we let the cropping handle the angle).")
-        print(f"Horizontal alignment: {horizontal}")
-        mean_points = calculate_mean_points(video_dict, horizontal)
-
-        if mean_points is not None and len(mean_points) == 2:
-            mean_point_1, mean_point_2 = mean_points
-            mean_vector = np.array(mean_point_2) - np.array(mean_point_1)
-            mean_length = np.linalg.norm(mean_vector)
-            mean_angle = np.arctan2(mean_vector[1], mean_vector[0])
-
-    else:
-        mean_point_1 = mean_point_2 = mean_vector = mean_length = mean_angle = None  # No alignment
-
-    for video_path, video_data in video_dict.items():
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            print(f"Error: Could not open {video_path}")
-            continue
-
-        width, height = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps, total_frames = cap.get(cv2.CAP_PROP_FPS), int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-        # Set trimming parameters
-        trim_data = video_data.get("trim", {})
-        start_frame = int(trim_data.get("start", 0) * fps) if trim else 0
-        end_frame = int(trim_data.get("end", total_frames / fps) * fps) if trim else total_frames
-        cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-
-        # Compute alignment transformation if needed
-        rotate_matrix, translate_matrix = get_alignment_matrices(video_data, align, mean_point_1, mean_length, mean_angle, width, height)
-
-        output_size = (width, height)
-
-        if crop:
-            # Compute cropping parameters
-            crop_params = video_data.get("crop", {})
-            crop_center = tuple(crop_params.get("center", (width // 2, height // 2)))
-            crop_width, crop_height = crop_params.get("width", width), crop_params.get("height", height)
-            crop_angle = crop_params.get("angle", 0) if not horizontal else 0 # If horizontal, crop_angle is always 0 (this makes cropping a bit dull when we force the points to be on the same horizontal line)
-
-            output_size = (crop_width, crop_height)
-
-        # Setup output video
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for MP4
-        output_path = os.path.join(output_folder, os.path.basename(video_path))
-        out = cv2.VideoWriter(output_path, fourcc, fps, output_size)
-
-        # Process frames
-        for frame_count in range(start_frame, end_frame):
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            # Apply alignment
-            if align and rotate_matrix is not None and translate_matrix is not None:
-                frame = cv2.warpAffine(frame, rotate_matrix, (width, height))
-                frame = cv2.warpAffine(frame, translate_matrix, (width, height))
-
-            # Apply cropping
-            if crop:
-                frame = crop_frame(frame, crop_center, crop_angle, crop_width, crop_height)
-
-            out.write(frame)
-
-        cap.release()
-        out.release()
-        
-        print(f"Processed {os.path.basename(video_path)}.")
-    if trim:
-        print(f"Trimmed {start_frame/fps:.2f}s - {end_frame/fps:.2f}s.") if trim else print("Trimmed: No trimming applied.")
-    if align:
-        print(f"Aligned {mean_point_1} and {mean_point_2}.") if align else print("Aligned: No alignment applied.")
-    if crop:
-        print(f"Cropped {crop_width}x{crop_height} from {width}x{height} pixels.") if crop else print("Cropped: No cropping applied.")
-
-    print(f"Modified videos saved in '{output_folder}'.")
-
-# %% Try out the chat's output
-import os
-import cv2
-import numpy as np
+#%% Apply transformations
 import logging
 from typing import Dict, List, Tuple, Optional
 
@@ -1184,5 +1149,8 @@ def apply_transformations(video_dict: Dict[str, Dict],
         logger.info("Cropping applied.")
     else:
         logger.info("No cropping applied.")
+
+    if output_folder is None:
+        output_folder = os.path.join(os.path.dirname(video_path), 'modified')
 
     logger.info(f"Modified videos saved in '{output_folder}'.")

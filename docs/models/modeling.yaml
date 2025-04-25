@@ -21,7 +21,7 @@ colabels:
   target: tgt
 
 # Window of frames to consider around an exploration event
-focus_distance: 25
+focus_distance: 30
 
 # List of bodyparts used to train the model
 bodyparts:
@@ -36,10 +36,10 @@ bodyparts:
 split:
 
   # Percentage of the data to use for validation
-  validation: 0.15
+  validation: 0.1
 
   # Percentage of the data to use for testing
-  test: 0.15
+  test: 0.1
 
 # Set up the Recurrent Neural Network
 RNN:
@@ -54,20 +54,20 @@ RNN:
     future: 3
 
     # Broaden the window by skipping some frames as we stray further from the present.
-    broad: 1.7
+    broad: 1.2
 
   # Number of neurons on each layer
   units:
+  - 128
+  - 64
   - 32
-  - 24
   - 16
-  - 8
 
   # Number of training samples the model processes before updating its weights
-  batch_size: 64
+  batch_size: 8
 
   # Learning rate
   lr: 0.0001
 
   # Each epoch is a complete pass through the entire training dataset
-  epochs: 60
+  epochs: 100

@@ -105,7 +105,7 @@ def create_video(params_path, position_file, video_path=None,
     # Load data from CSV files
     position_df = pd.read_csv(position_file)
     try:
-        labels_file = position_file.replace('position', f'{label_type}')
+        labels_file = position_file.replace('positions', f'{label_type}')
         labels_df = pd.read_csv(labels_file)
     except FileNotFoundError:
         labels_df = pd.DataFrame()

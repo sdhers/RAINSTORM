@@ -90,8 +90,8 @@ def create_params(folder_path:str, ROIs_path = None):
         else:
             print(f"Error loading ROI data: ROIs_path '{ROIs_path}' does not exist.\nEdit the params.yaml file manually to add frame_shape, scaling factor, and ROIs.")
         
-    all_h5_files = glob(os.path.join(folder_path,"*position.h5"))
-    filenames = [os.path.basename(file).replace('_position.h5', '') for file in all_h5_files]
+    all_h5_files = glob(os.path.join(folder_path,"*positions.h5"))
+    filenames = [os.path.basename(file).replace('_positions.h5', '') for file in all_h5_files]
     
     # Define configuration with a nested dictionary
     parameters = {
@@ -231,7 +231,7 @@ def choose_example_h5(params_path, look_for: str = 'TS') -> str:
     params = load_yaml(params_path)
     folder_path = params.get("path")
     filenames = params.get("filenames")
-    files = [os.path.join(folder_path, file + '_position.h5') for file in filenames]
+    files = [os.path.join(folder_path, file + '_positions.h5') for file in filenames]
     
     if not files:
         raise ValueError("The list of files is empty. Please provide a non-empty list.")
@@ -531,7 +531,7 @@ def process_position_files(params_path: str, targetless_trials:list = []):
     folder_path = params.get("path")
     fps = params.get("fps")
     filenames = params.get("filenames")
-    files = [os.path.join(folder_path, file + '_position.h5') for file in filenames]
+    files = [os.path.join(folder_path, file + '_positions.h5') for file in filenames]
     
     for file in files:
 
@@ -577,13 +577,13 @@ def filter_and_move_files(params_path: str):
 
     for trial in trials:
         # Create a new subfolder
-        output_folder = os.path.join(folder_path, trial, "position")
+        output_folder = os.path.join(folder_path, trial, "positions")
         os.makedirs(output_folder, exist_ok=True)
 
         # Get a list of all files in the input folder
         files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
 
-        # Iterate through files, move those without the word "position" to the "extra" subfolder
+        # Iterate through files, move those without the word "positions" to the "extra" subfolder
         for file in files:
             if trial in file and ".csv" in file:
                 file_path = os.path.join(folder_path, file)
@@ -604,7 +604,7 @@ def filter_and_move_files(params_path: str):
     subfolder = os.path.join(folder_path, "h5 files")
     os.makedirs(subfolder, exist_ok=True)
 
-    # Iterate through files, move those without the word "position" to the "extra" subfolder
+    # Iterate through files, move those without the word "positions" to the "extra" subfolder
     for file in other_files:
         file_path = os.path.join(folder_path, file)
         output_path = os.path.join(subfolder, file)

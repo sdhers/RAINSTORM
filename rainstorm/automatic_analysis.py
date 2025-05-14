@@ -24,30 +24,30 @@ class Point:
         x = df[table + '_x']
         y = df[table + '_y']
 
-        self.positions = np.dstack((x, y))[0]
+        self.position = np.dstack((x, y))[0]
 
     @staticmethod
     def dist(p1, p2):
-        return np.linalg.norm(p1.positions - p2.positions, axis=1)
+        return np.linalg.norm(p1.position - p2.position, axis=1)
 
 class Vector:
     def __init__(self, p1, p2, normalize=True):
 
-        self.positions = p2.positions - p1.positions
+        self.position = p2.position - p1.position
 
-        self.norm = np.linalg.norm(self.positions, axis=1)
+        self.norm = np.linalg.norm(self.position, axis=1)
 
         if normalize:
-            self.positions = self.positions / np.repeat(np.expand_dims(self.norm,axis=1), 2, axis=1)
+            self.position = self.position / np.repeat(np.expand_dims(self.norm,axis=1), 2, axis=1)
 
     @staticmethod
     def angle(v1, v2):
         
-        length = len(v1.positions)
+        length = len(v1.position)
         angle = np.zeros(length)
 
         for i in range(length):
-            angle[i] = np.rad2deg(np.arccos(np.dot(v1.positions[i], v2.positions[i])))
+            angle[i] = np.rad2deg(np.arccos(np.dot(v1.position[i], v2.position[i])))
 
         return angle
 
@@ -59,7 +59,7 @@ def load_yaml(params_path: str) -> dict:
         return yaml.safe_load(file)
 
 def create_autolabels(params_path):
-    """Analyzes the position data of a list of files.
+    """Analyzes the positions data of a list of files.
 
     Args:
         params_path (str): Path to the YAML parameters file.
@@ -71,7 +71,7 @@ def create_autolabels(params_path):
     trials = params.get("seize_labels", {}).get("trials", [])
     files = []
     for trial in trials:
-        temp_files = [os.path.join(folder_path, trial, 'position', file + '_position.csv') for file in filenames if trial in file]
+        temp_files = [os.path.join(folder_path, trial, 'positions', file + '_positions.csv') for file in filenames if trial in file]
         files.extend(temp_files)
     targets = params.get("targets", [])
     scale = params.get("geometric_analysis", {}).get("roi_data", {}).get("scale", 1)
@@ -96,21 +96,21 @@ def create_autolabels(params_path):
         parent_dir = os.path.dirname(input_dir)
         
         # Read the file
-        position = pd.read_csv(file)
+        positions = pd.read_csv(file)
 
         # Scale the data
-        position *= 1/scale
+        positions *= 1/scale
 
-        if all(f'{target}_x' in position.columns for target in targets):
+        if all(f'{target}_x' in positions.columns for target in targets):
     
             # lets analyze it!
-            autolabels = use_model(position, model, targets, bodyparts, rescaling, reshaping, past, future, broad)
+            autolabels = use_model(positions, model, targets, bodyparts, rescaling, reshaping, past, future, broad)
             
             # Set column names and add a new column "Frame" with row numbers
             autolabels.insert(0, "Frame", autolabels.index + 1)
         
             # Create a filename for the output CSV file
-            output_filename = input_filename.replace('_position.csv', '_autolabels.csv')
+            output_filename = input_filename.replace('_positions.csv', '_autolabels.csv')
             output_folder = os.path.join(parent_dir + '/autolabels')
             os.makedirs(output_folder, exist_ok = True)
             output_path = os.path.join(output_folder, output_filename)
@@ -122,7 +122,7 @@ def create_autolabels(params_path):
 # %% Compare labels
 
 def compare_labels(folder_path, include_all=False):
-    TS_positions = glob(os.path.join(folder_path,"TS/position/*position.csv")) # Notice that I added 'TS' on the folder name to only compare files from the testing session
+    TS_positions = glob(os.path.join(folder_path,"TS/positions/*positions.csv")) # Notice that I added 'TS' on the folder name to only compare files from the testing session
     TS_manual_labels = glob(os.path.join(folder_path,"TS_manual_labels/*labels.csv"))
     TS_geolabels = glob(os.path.join(folder_path,"TS/geolabels/*labels.csv"))
     TS_autolabels = glob(os.path.join(folder_path,"TS/autolabels/*labels.csv"))
@@ -133,15 +133,15 @@ def compare_labels(folder_path, include_all=False):
         for_manual_labels = []
         for_geolabels = []
         for_autolabels = []
-        for_position = []
+        for_positions = []
 
         for i in range(len(TS_positions)):
 
-            df_position = pd.read_csv(TS_positions[i])
-            for_position.append(df_position)
+            df_positions = pd.read_csv(TS_positions[i])
+            for_positions.append(df_positions)
 
             df_manual_labels = pd.read_csv(TS_manual_labels[i])
-            len_dif = len(df_manual_labels) - len(df_position)
+            len_dif = len(df_manual_labels) - len(df_positions)
             df_manual_labels = df_manual_labels.iloc[len_dif:].reset_index(drop=True)
             for_manual_labels.append(df_manual_labels)
 
@@ -152,7 +152,7 @@ def compare_labels(folder_path, include_all=False):
             for_autolabels.append(df_autolabels)
             
         # Concatenate all DataFrames into a single DataFrame
-        positions = pd.concat(for_position, ignore_index=True)
+        positions = pd.concat(for_positions, ignore_index=True)
         manual_labels = pd.concat(for_manual_labels, ignore_index=True)
         geolabels = pd.concat(for_geolabels, ignore_index=True)
         autolabels = pd.concat(for_autolabels, ignore_index=True)
@@ -163,9 +163,9 @@ def compare_labels(folder_path, include_all=False):
         path = TS_positions[file]
         print(f"Choosing file {os.path.basename(path)}")
         positions = pd.read_csv(path)
-        manual_labels = pd.read_csv(path.replace('position', 'labels').replace('/labels', '_manual_labels'))
-        geolabels = pd.read_csv(path.replace('position', 'geolabels'))
-        autolabels = pd.read_csv(path.replace('position', 'autolabels'))
+        manual_labels = pd.read_csv(path.replace('positions', 'labels').replace('/labels', '_manual_labels'))
+        geolabels = pd.read_csv(path.replace('positions', 'geolabels'))
+        autolabels = pd.read_csv(path.replace('positions', 'autolabels'))
     
         # We need to remove the first few rows from the manual labels (due to the time when the mouse hasn't yet entered the arena).
         len_dif = len(manual_labels) - len(positions) 
@@ -173,12 +173,12 @@ def compare_labels(folder_path, include_all=False):
 
     return positions, manual_labels, geolabels, autolabels
 
-def polar_graph(params_path, position: pd.DataFrame, label_1: pd.DataFrame, label_2: pd.DataFrame, obj_1: str = "obj_1", obj_2: str = "obj_2"):
+def polar_graph(params_path, positions: pd.DataFrame, label_1: pd.DataFrame, label_2: pd.DataFrame, obj_1: str = "obj_1", obj_2: str = "obj_2"):
     """
     Plots a polar graph with the distance and angle of approach to the two objects.
     
     Args:
-        position (pd.DataFrame): DataFrame containing the position of the bodyparts.
+        positions (pd.DataFrame): DataFrame containing the positions of the bodyparts.
         label_1 (pd.DataFrame): DataFrame containing labels.
         label_2 (pd.DataFrame): DataFrame containing labels.
         obj_1 (str, optional): Name of the first object. Defaults to "obj_1".
@@ -190,13 +190,13 @@ def polar_graph(params_path, position: pd.DataFrame, label_1: pd.DataFrame, labe
     degree = params.get("geometric_analysis", {}).get("orientation", {}).get("degree", 45)
 
     # Scale the data
-    position *= 1/scale
+    positions *= 1/scale
     
     # Extract positions of both objects and bodyparts
-    obj1 = Point(position, 'obj_1')
-    obj2 = Point(position, 'obj_2')
-    nose = Point(position, 'nose')
-    head = Point(position, 'head')
+    obj1 = Point(positions, 'obj_1')
+    obj2 = Point(positions, 'obj_2')
+    nose = Point(positions, 'nose')
+    head = Point(positions, 'head')
     
     # Find distance from the nose to each object
     dist1 = Point.dist(nose, obj1)

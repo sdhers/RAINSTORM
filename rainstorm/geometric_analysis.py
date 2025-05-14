@@ -72,7 +72,7 @@ def choose_example_csv(params_path, look_for: str = 'TS') -> str:
     trials = params.get("seize_labels", {}).get("trials", [])
     files = []
     for trial in trials:
-        temp_files = [os.path.join(folder_path, trial, 'position', file + '_position.csv') for file in filenames if trial in file]
+        temp_files = [os.path.join(folder_path, trial, 'positions', file + '_positions.csv') for file in filenames if trial in file]
         files.extend(temp_files)
     
     if not files:
@@ -96,7 +96,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-def plot_position(params_path: str, file: str, scale: bool = True) -> None:
+def plot_positions(params_path: str, file: str, scale: bool = True) -> None:
     """Plot mouse exploration around multiple targets.
 
     Args:
@@ -455,7 +455,7 @@ def create_movement_and_geolabels(params_path:str, wait: int = 2, roi_bodypart =
     trials = params.get("seize_labels", {}).get("trials", [])
     files = []
     for trial in trials:
-        temp_files = [os.path.join(folder_path, trial, 'position', file + '_position.csv') for file in filenames if trial in file]
+        temp_files = [os.path.join(folder_path, trial, 'positions', file + '_positions.csv') for file in filenames if trial in file]
         files.extend(temp_files)
     targets = params.get("targets", [])
     fps = params.get("fps", 30)
@@ -526,7 +526,7 @@ def create_movement_and_geolabels(params_path:str, wait: int = 2, roi_bodypart =
                 geolabels.fillna(0, inplace=True)
 
                 # Create a filename for the output CSV file
-                output_filename_geolabels = input_filename.replace('_position.csv', '_geolabels.csv')
+                output_filename_geolabels = input_filename.replace('_positions.csv', '_geolabels.csv')
                 output_folder_geolabels = os.path.join(parent_dir + '/geolabels')
                 os.makedirs(output_folder_geolabels, exist_ok=True)
                 output_path_geolabels = os.path.join(output_folder_geolabels, output_filename_geolabels)
@@ -562,7 +562,7 @@ def create_movement_and_geolabels(params_path:str, wait: int = 2, roi_bodypart =
         # Replace NaN values with 0
         movement.fillna(0, inplace=True)
         
-        output_filename_movement = input_filename.replace('_position.csv', '_movement.csv')
+        output_filename_movement = input_filename.replace('_positions.csv', '_movement.csv')
         output_folder_distances = os.path.join(parent_dir + '/movement')
         os.makedirs(output_folder_distances, exist_ok = True)
         output_path_distances = os.path.join(output_folder_distances, output_filename_movement)

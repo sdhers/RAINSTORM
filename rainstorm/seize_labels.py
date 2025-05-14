@@ -26,7 +26,7 @@ def load_yaml(params_path: str) -> dict:
     with open(params_path, "r") as file:
         return yaml.safe_load(file)
 
-def choose_example_position(params_path, look_for: str = 'TS') -> str:
+def choose_example_positions(params_path, look_for: str = 'TS') -> str:
     """Picks an example file from a list of files.
 
     Args:
@@ -45,7 +45,7 @@ def choose_example_position(params_path, look_for: str = 'TS') -> str:
     trials = params.get("seize_labels", {}).get("trials", [])
     files = []
     for trial in trials:
-        temp_files = [os.path.join(folder_path, trial, 'position', file + '_position.csv') for file in filenames if trial in file]
+        temp_files = [os.path.join(folder_path, trial, 'positions', file + '_positions.csv') for file in filenames if trial in file]
         files.extend(temp_files)
     
     if not files:
@@ -140,7 +140,7 @@ def create_video(params_path, position_file, video_path=None,
 
     # Initialize video writer
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    video_out_path = os.path.join(output_path, os.path.basename(position_file).replace('_position.csv','_video.mp4'))
+    video_out_path = os.path.join(output_path, os.path.basename(position_file).replace('_positions.csv','_video.mp4'))
     video_writer = cv2.VideoWriter(video_out_path, fourcc, fps, (width, height))
     
     # Loop over each frame
@@ -149,7 +149,7 @@ def create_video(params_path, position_file, video_path=None,
         if cap:
             ret, frame = cap.read()
             if not ret:
-                print(f"Warning: Video ended before position data at frame {i}")
+                print(f"Warning: Video ended before positions data at frame {i}")
                 break
             frame = cv2.resize(frame, (width, height))  # Ensure frame matches expected dimensions
         else:
@@ -239,28 +239,28 @@ def plot_target_exploration(labels, targets, ax, color_list):
     ax.legend(loc='upper left', fancybox=True, shadow=True)
     ax.grid(True)
 
-def plot_positions(position, targets, ax, scale, front, pivot, maxAngle, maxDist, target_styles):
+def plot_positions(positions, targets, ax, scale, front, pivot, maxAngle, maxDist, target_styles):
     # Scale the positions
-    position *= 1/scale
-    nose = Point(position, front)
-    head = Point(position, pivot)
+    positions *= 1/scale
+    nose = Point(positions, front)
+    head = Point(positions, pivot)
 
     # Plot nose positions
-    ax.plot(*nose.positions.T, ".", color="grey", alpha=0.15, label="Nose Positions")
+    ax.plot(*nose.positions.T, ".", color="grey", alpha=0.15, label="Nose positions")
     
     # Collect coordinates for zooming
     all_coords = [nose.positions]
 
     # Loop over each target and generate corresponding plots
     for tgt in targets:
-        if f'{tgt}_x' in position.columns:
+        if f'{tgt}_x' in positions.columns:
             # Retrieve target style properties
             target_color = target_styles[tgt]["color"]
             target_symbol = target_styles[tgt]["symbol"]
             towards_trace_color = target_styles[tgt]["trace_color"]
 
             # Create a Point object for the target
-            tgt_coords = Point(position, tgt)
+            tgt_coords = Point(positions, tgt)
             # Add the target coordinate for zooming
             all_coords.append(tgt_coords.positions[0].reshape(1, -1))
 
@@ -293,8 +293,8 @@ def plot_positions(position, targets, ax, scale, front, pivot, maxAngle, maxDist
     ax.set_ylim(y_max + y_margin, y_min - y_margin)
 
     ax.axis('equal')
-    ax.set_xlabel("Horizontal position (cm)")
-    ax.set_ylabel("Vertical position (cm)")
+    ax.set_xlabel("Horizontal positions (cm)")
+    ax.set_ylabel("Vertical positions (cm)")
     ax.grid(True)
     ax.legend(loc='upper left', bbox_to_anchor=(1.05, 1), fancybox=True, shadow=True)
 
@@ -317,8 +317,8 @@ def plot_mouse_exploration(params_path, position_file):
     label_type = seize_labels.get("label_type")
     
     # Read the CSV files
-    position = pd.read_csv(position_file)
-    labels = pd.read_csv(position_file.replace('position', f'{label_type}'))
+    positions = pd.read_csv(position_file)
+    labels = pd.read_csv(position_file.replace('positions', f'{label_type}'))
     labels = calculate_cumsum(labels, targets, fps)
     labels['Time'] = labels['Frame'] / fps
 
@@ -343,9 +343,9 @@ def plot_mouse_exploration(params_path, position_file):
     # Plot exploration time
     plot_target_exploration(labels, targets, axes[0], trace_color_list)
     # Plot positions with zoom and legend
-    plot_positions(position, targets, axes[1], scale, front, pivot, max_angle, distance, target_styles)
+    plot_positions(positions, targets, axes[1], scale, front, pivot, max_angle, distance, target_styles)
 
-    plt.suptitle(f"Analysis of {os.path.basename(position_file).replace('_position.csv', '')}", y=0.98)
+    plt.suptitle(f"Analysis of {os.path.basename(position_file).replace('_positions.csv', '')}", y=0.98)
     plt.tight_layout()
 
     # Create 'plots' folder inside the specified path
@@ -376,7 +376,7 @@ def create_reference_file(params_path:str):
 
     # Get a list of all CSV files in the labels folder
     for trial in trials:
-        labels_files = glob(os.path.join(folder,f"{trial}/position/*position.csv"))
+        labels_files = glob(os.path.join(folder,f"{trial}/positions/*positions.csv"))
         labels_files = sorted(labels_files)
         all_labels_files += labels_files
 
@@ -386,10 +386,10 @@ def create_reference_file(params_path:str):
         col_list = ['Video', 'Group'] + targets if targets else ['Video', 'Group']
         csv_writer.writerow(col_list)
 
-        # Write each position file name in the 'Videos' column
+        # Write each positions file name in the 'Videos' column
         for file in all_labels_files:
-            # Remove "_position.csv" from the file name
-            clean_name = os.path.basename(file).replace(f'_position.csv', '')
+            # Remove "_positions.csv" from the file name
+            clean_name = os.path.basename(file).replace(f'_positions.csv', '')
             csv_writer.writerow([clean_name])
 
     print(f"CSV file '{reference_path}' created successfully with the list of video files.")
@@ -579,12 +579,12 @@ def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = Tr
     if num_plots == 1:
         axes = [axes]
 
-    global aux_position # We will use a global variable to avoid repeating colors and positions between groups on the same plot.
+    global aux_positions # We will use a global variable to avoid repeating colors and positions between groups on the same plot.
     global aux_color
 
     # Loop through each plot function in plot_list and create a separate subplot for it
     for ax, plot_func in zip(axes, plots):
-        aux_position = 0
+        aux_positions = 0
         aux_color = 0
         # Loop through groups and plot each group separately on the current ax
         for group in groups:
@@ -990,9 +990,9 @@ def boxplot_exploration_cumulative_time(path: str, group: str, trial: str, targe
     bxplt = pd.DataFrame(bxplt, columns=targets)
 
     # Calculate x positions for each target within this group
-    global aux_position, aux_color
+    global aux_positions, aux_color
     space = 1/(len(targets)+1)
-    group_positions = [aux_position + i*space for i in range(len(targets))] # here we space them by 0.4 units.
+    group_positions = [aux_positions + i*space for i in range(len(targets))] # here we space them by 0.4 units.
 
     jitter = 0.02  # amount of horizontal jitter for individual scatter points
     
@@ -1031,8 +1031,8 @@ def boxplot_exploration_cumulative_time(path: str, group: str, trial: str, targe
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
-    # Update the global position variable
-    aux_position += 1
+    # Update the global positions variable
+    aux_positions += 1
 
 def boxplot_exploration_proportion(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
@@ -1069,9 +1069,9 @@ def boxplot_exploration_proportion(path: str, group: str, trial: str, targets: l
     bxplt = pd.DataFrame(bxplt, columns=targets)
 
     # Calculate x positions for each target within this group
-    global aux_position, aux_color
+    global aux_positions, aux_color
     space = 1/(len(targets)+1)
-    group_positions = [aux_position + i*space for i in range(len(targets))] # here we space them by 0.4 units.
+    group_positions = [aux_positions + i*space for i in range(len(targets))] # here we space them by 0.4 units.
 
     jitter = 0.02  # amount of horizontal jitter for individual scatter points
     
@@ -1110,8 +1110,8 @@ def boxplot_exploration_proportion(path: str, group: str, trial: str, targets: l
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
-    # Update the global position variable
-    aux_position += 1
+    # Update the global positions variable
+    aux_positions += 1
 
 # %% For a pair of targets
 
@@ -1235,9 +1235,9 @@ def boxplot_DI_area(path: str, group: str, trial: str, targets: list, fps: int =
     bxplt_df = pd.DataFrame(bxplt, columns=['DI'])
     
     # Calculate x positions for each target within this group.
-    # (Uses global aux_position and aux_color, as in your original function.)
-    global aux_position, aux_color, colors
-    group_positions = aux_position
+    # (Uses global aux_positions and aux_color, as in your original function.)
+    global aux_positions, aux_color, colors
+    group_positions = aux_positions
     jitter = 0.02  # Horizontal jitter for individual scatter points.
     
     # Plot a boxplot and scatter points for each target.
@@ -1264,8 +1264,8 @@ def boxplot_DI_area(path: str, group: str, trial: str, targets: list, fps: int =
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
     
-    # Update the global position variable.
-    aux_position += 1
+    # Update the global positions variable.
+    aux_positions += 1
 
 def plot_diff(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
     """
@@ -1392,9 +1392,9 @@ def boxplot_diff_area(path: str, group: str, trial: str, targets: list, fps: int
     bxplt_df = pd.DataFrame(bxplt, columns=['diff'])
     
     # Calculate x positions for each target within this group.
-    # (Uses global aux_position and aux_color, as in your original function.)
-    global aux_position, aux_color, colors
-    group_positions = aux_position
+    # (Uses global aux_positions and aux_color, as in your original function.)
+    global aux_positions, aux_color, colors
+    group_positions = aux_positions
     jitter = 0.02  # Horizontal jitter for individual scatter points.
     
     # Plot a boxplot and scatter points for each target.
@@ -1421,8 +1421,8 @@ def boxplot_diff_area(path: str, group: str, trial: str, targets: list, fps: int
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
     
-    # Update the global position variable.
-    aux_position += 1
+    # Update the global positions variable.
+    aux_positions += 1
 
 # %%
 
@@ -1613,8 +1613,8 @@ def plot_freezing_boxplot(path: str, group: str, trial: str, targets: list, fps:
     bxplt = pd.DataFrame(bxplt, columns = [behavior])
 
     # Dynamically calculate x-axis positions using a global auxiliary variable
-    global aux_position, aux_color
-    group_positions = [aux_position]
+    global aux_positions, aux_color
+    group_positions = [aux_positions]
     color = colors[aux_color]
 
     # Boxplot
@@ -1632,8 +1632,8 @@ def plot_freezing_boxplot(path: str, group: str, trial: str, targets: list, fps:
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
-    # Update the global position and color variables
-    aux_position += 1
+    # Update the global positions and color variables
+    aux_positions += 1
     aux_color += len(targets)
 
 def plot_freezing_histogram(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
@@ -1737,15 +1737,15 @@ class Vector:
 
         return angle
 
-def Extract_positions(position, scale, targets, maxAngle, maxDist, front, pivot):
+def Extract_positions(positions, scale, targets, maxAngle, maxDist, front, pivot):
 
-    position *= 1/scale
+    positions *= 1/scale
 
     # Extract positions of both targets and bodyparts
-    tgt1 = Point(position, targets[0])
-    tgt2 = Point(position, targets[1])
-    nose = Point(position, front)
-    head = Point(position, pivot)
+    tgt1 = Point(positions, targets[0])
+    tgt2 = Point(positions, targets[1])
+    nose = Point(positions, front)
+    head = Point(positions, pivot)
     
     # We now filter the frames where the mouse's nose is close to each target
     # Find distance from the nose to each target
@@ -1808,11 +1808,11 @@ def plot_all_individual_exploration(params_path, show = False):
                 df['body_dist_cumsum'] = df['body_dist'].cumsum() / fps
                 df['Time'] = df['Frame'] / fps
 
-                position_file = file.replace(f'summary\\{group}\\{trial}', f'{trial}\\position').replace('_summary', f'_position')
-                position = pd.read_csv(position_file)
+                position_file = file.replace(f'summary\\{group}\\{trial}', f'{trial}\\positions').replace('_summary', f'_positions')
+                positions = pd.read_csv(position_file)
 
                 # Extract positions
-                nose, towards1, towards2, tgt1, tgt2 = Extract_positions(position, scale, targets, max_angle, distance, front, pivot)
+                nose, towards1, towards2, tgt1, tgt2 = Extract_positions(positions, scale, targets, max_angle, distance, front, pivot)
 
                 # Prepare the figure
                 fig, axes = plt.subplots(2, 2, figsize=(12, 8))
@@ -1874,7 +1874,7 @@ def _plot_discrimination_index(file, ax):
     ax.grid(True)
 
 def _plot_positions(nose, towards1, towards2, tgt1, tgt2, ax):
-    ax.plot(*nose.positions.T, ".", color="grey", alpha=0.15, label="Nose Positions")
+    ax.plot(*nose.positions.T, ".", color="grey", alpha=0.15, label="Nose positions")
     ax.plot(*towards1.T, ".", color="brown", alpha=0.3)
     ax.plot(*towards2.T, ".", color="teal", alpha=0.3)
     ax.plot(*tgt1.positions[0], "s", lw=20, color="blue", markersize=9, markeredgecolor="blue")
@@ -1882,8 +1882,8 @@ def _plot_positions(nose, towards1, towards2, tgt1, tgt2, ax):
     ax.add_artist(Circle(tgt1.positions[0], 2.5, color="orange", alpha=0.3))
     ax.add_artist(Circle(tgt2.positions[0], 2.5, color="orange", alpha=0.3))
     ax.axis('equal')
-    ax.set_xlabel("Horizontal position (cm)")
-    ax.set_ylabel("Vertical position (cm)")
+    ax.set_xlabel("Horizontal positions (cm)")
+    ax.set_ylabel("Vertical positions (cm)")
     ax.legend(loc='upper left', ncol=2, fancybox=True, shadow=True)
     ax.grid(True)
 
@@ -1932,9 +1932,9 @@ def plot_roi_time(path: str, group: str, trial: str, targets: list, fps: int = 3
     print(f"Number of ROIs: {num_rois}")
 
     # Calculate x positions for each target within this group
-    global aux_position, aux_color
+    global aux_positions, aux_color
     space = 1/(len(targets)+1)
-    group_positions = [aux_position + i*space for i in range(len(targets))] # here we space them by 0.4 units.
+    group_positions = [aux_positions + i*space for i in range(len(targets))] # here we space them by 0.4 units.
 
     jitter = 0.02  # amount of horizontal jitter for individual scatter points
 
@@ -1957,8 +1957,8 @@ def plot_roi_time(path: str, group: str, trial: str, targets: list, fps: int = 3
     ax.legend(loc='best', fancybox=True, shadow=True, ncol=2)
     ax.grid(False)
 
-    # Update the global position variable
-    aux_position += 1
+    # Update the global positions variable
+    aux_positions += 1
 
 def count_alternations_and_entries(area_sequence):
     """
@@ -2025,9 +2025,9 @@ def plot_alternations(path: str, group: str, trial: str, targets: list, fps: int
             alternation_proportions.append(0)  # Avoid division by zero
 
     # Calculate x positions for each target within this group
-    global aux_position, aux_color
+    global aux_positions, aux_color
     space = 1/(len(targets)+1)
-    group_positions = [aux_position + i*space for i in range(len(targets))] # here we space them by 0.4 units.
+    group_positions = [aux_positions + i*space for i in range(len(targets))] # here we space them by 0.4 units.
     color = colors[aux_color]
 
     jitter = 0.02  # amount of horizontal jitter for individual scatter points
@@ -2045,8 +2045,8 @@ def plot_alternations(path: str, group: str, trial: str, targets: list, fps: int
     ax.legend(loc="best", fancybox=True, shadow=True)
     ax.grid(False)
 
-    # Update the global position and color variables
-    aux_position += 1
+    # Update the global positions and color variables
+    aux_positions += 1
     aux_color += len(targets)
 
 # %% Write csv with the results

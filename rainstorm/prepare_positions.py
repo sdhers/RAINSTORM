@@ -1,29 +1,33 @@
-# RAINSTORM - @author: Santiago D'hers
-# Functions for the notebook: 1-Prepare_positions.ipynb
+"""
+RAINSTORM - Prepare Positions 
+Author: Santiago D'hers
 
-# %% imports
+This script provides functions used in the notebook `1-Prepare_positions.ipynb`.
+"""
 
+# %% Imports
 import os
-import pandas as pd
-import numpy as np
+import stat
+import json
 import h5py
 import yaml
-import json
+import shutil
+import random
 from glob import glob
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import List, Optional
 
+import numpy as np
+import pandas as pd
+from scipy import signal
 import plotly.graph_objects as go
 
-import random
-import stat
-import shutil
+from .utils import load_yaml
 
+# Logging setup
 import logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
-from scipy import signal
 
 # %% functions
 
@@ -265,21 +269,6 @@ def create_params(folder_path: str, ROIs_path: str = None) -> str:
     logger.info(f"Parameters saved to {params_path}")
     return params_path
 
-def load_yaml(params_path: str) -> dict:
-    """Load a YAML file."""
-    try:
-        with open(params_path, "r", encoding="utf-8") as file:
-            data = yaml.safe_load(file)
-            if not isinstance(data, dict):
-                raise ValueError("YAML content must be a dictionary.")
-            return data
-    except FileNotFoundError:
-        logger.error(f"YAML file not found: {params_path}")
-        raise
-    except yaml.YAMLError as e:
-        logger.error(f"Error parsing YAML: {e}")
-        raise
-    
 def choose_example_h5(params_path, look_for: str = 'TS') -> str:
     """Picks an example file
 
@@ -608,7 +597,7 @@ def plot_raw_vs_smooth(params_path: str, df_raw, df_smooth, bodypart = 'nose'):
     # Show plot
     fig.show()
 
-def process_position_files(params_path: str, targetless_trials: Optional[List[str]] = None, output_suffix: str = ".csv"):
+def process_position_files(params_path: str, targetless_trials: Optional[List[str]] = None):
     """
     Batch‐process all HDF5 position files listed in params.yaml:
       1. Load raw data
@@ -620,7 +609,6 @@ def process_position_files(params_path: str, targetless_trials: Optional[List[st
     Args:
         params_path (str): Path to the YAML params file.
         targetless_trials (List[str], optional): Substrings of filenames to skip adding targets.
-        output_suffix (str): Suffix (including extension) for output files. Defaults to ".csv".
     """
     if targetless_trials is None:
         targetless_trials = []
@@ -660,7 +648,7 @@ def process_position_files(params_path: str, targetless_trials: Optional[List[st
             continue
 
         # Save
-        out_csv = os.path.join(folder, f"{base}{output_suffix}")
+        out_csv = os.path.join(folder, f"{base}_positions.csv")
         try:
             df_smooth.to_csv(out_csv, index=False)
         except Exception as e:

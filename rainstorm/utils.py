@@ -5,10 +5,31 @@
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from sklearn.metrics import classification_report, accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, mean_absolute_error, r2_score
 
+# Logging setup
+import logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 # %% Functions
+
+def load_yaml(params_path: str) -> dict:
+    """Load a YAML file."""
+    try:
+        with open(params_path, "r", encoding="utf-8") as file:
+            data = yaml.safe_load(file)
+            if not isinstance(data, dict):
+                raise ValueError("YAML content must be a dictionary.")
+            return data
+    except FileNotFoundError:
+        logger.error(f"YAML file not found: {params_path}")
+        raise
+    except yaml.YAMLError as e:
+        logger.error(f"Error parsing YAML: {e}")
+        raise
 
 def broaden(past: int = 3, future: int = 3, broad: float = 1.7) -> list:
     """Build the frame window for LSTM training

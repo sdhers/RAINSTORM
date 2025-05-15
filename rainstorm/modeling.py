@@ -8,6 +8,8 @@ import pandas as pd
 import numpy as np
 import datetime
 import yaml
+from typing import List, Dict, Optional
+import tempfile
 
 import seaborn as sns
 import plotly.graph_objects as go
@@ -17,16 +19,23 @@ from scipy import signal
 import h5py
 
 import tensorflow as tf
-from tensorflow.keras.layers import LSTM, Dense, Input, Bidirectional, Dropout, Lambda, BatchNormalization, GlobalAveragePooling1D
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.callbacks import EarlyStopping, LearningRateScheduler
+from tensorflow.keras.layers import (
+    Input, Dense, Layer, Dropout, Bidirectional, LSTM, Add,
+    Cropping1D, MultiHeadAttention, BatchNormalization, LayerNormalization)
 
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.decomposition import PCA
 
-from .utils import broaden, recenter, reshape, evaluate
+from .utils import load_yaml, broaden, recenter, reshape, evaluate
 
 print(f"rainstorm.modeling successfully imported. GPU devices detected: {tf.config.list_physical_devices('GPU')}")
+
+# Logging setup
+import logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # %% Functions
 
@@ -64,116 +73,105 @@ class Vector:
         return angle
 # %% Create colabels
 
-def create_colabels(path, labelers, targets):
-    """Creates colabels for a given folder of position files.
+def create_colabels(data_dir: str, labelers: List[str], targets: List[str]) -> None:
+    """
+    Create a combined dataset (colabels) with mouse position data, object positions, 
+    and behavior labels from multiple labelers.
 
     Args:
-        path (str): Path to the folder containing position files.
-        labelers (list): List of labelers names, each corresponding to a folder.
-        targets (list): List of targets.
+        data_dir (str): Path to the directory containing the 'positions' folder and labeler folders.
+        labelers (List[str]): Folder names for each labeler, relative to `data_dir`.
+        targets (List[str]): Names of the stationary exploration targets.
+
+    Output:
+        Saves a 'colabels.csv' file in the `data_dir`.
     """
-    # Get list of position files
-    position_files = [os.path.join(path, f) for f in os.listdir(path) if f.endswith('.csv')]
-    
-    # Initialize list to store concatenated data
-    all_data = []
-    
-    for pos_file in position_files:
-        # Load position data
-        pos_df = pd.read_csv(pos_file)
-        
-        # Identify body part columns (excluding object positions)
-        bodypart_cols = [col for col in pos_df.columns if not any(col.startswith(f'{obj}') for obj in targets)]
-        bodyparts = pos_df[bodypart_cols]
-        
-        for obj in targets:
-            # Extract object position columns
-            obj_x = pos_df[f'{obj}_x']
-            obj_y = pos_df[f'{obj}_y']
-            
-            # Load labeler data for this object
-            labels = []
+    position_dir = os.path.join(data_dir, 'positions')
+    if not os.path.isdir(position_dir):
+        raise FileNotFoundError(f"'positions' folder not found in {data_dir}")
+
+    position_files = [f for f in os.listdir(position_dir) if f.endswith('.csv')]
+    if not position_files:
+        raise FileNotFoundError(f"No .csv files found in {position_dir}")
+
+    all_entries = []
+
+    for filename in position_files:
+        pos_path = os.path.join(position_dir, filename)
+        pos_df = pd.read_csv(pos_path)
+
+        # Identify body part columns by excluding all target-related columns
+        bodypart_cols = [col for col in pos_df.columns if not any(col.startswith(f'{tgt}') for tgt in targets)]
+        bodyparts_df = pos_df[bodypart_cols]
+
+        for tgt in targets:
+            if f'{tgt}_x' not in pos_df.columns or f'{tgt}_y' not in pos_df.columns:
+                raise KeyError(f"Missing coordinates for target '{tgt}' in {filename}")
+
+            target_df = pos_df[[f'{tgt}_x', f'{tgt}_y']].rename(columns={f'{tgt}_x': 'obj_x', f'{tgt}_y': 'obj_y'})
+
+            # Load label data from each labeler
+            label_data = {}
             for labeler in labelers:
-                label_file = os.path.join(os.path.dirname(path), labeler, os.path.basename(pos_file).replace('_position.csv', '_labels.csv'))
+                label_file = os.path.join(data_dir, labeler, filename.replace('_position.csv', '_labels.csv'))
+                if not os.path.exists(label_file):
+                    raise FileNotFoundError(f"Label file missing: {label_file}")
+                
                 label_df = pd.read_csv(label_file)
-                labels.append(label_df[f'{obj}'])
-            
-            # Create a DataFrame with object positions, labels, and bodyparts
-            obj_data = pd.DataFrame({'obj_x': obj_x, 'obj_y': obj_y})
-            for i, label_col in enumerate(labels):
-                obj_data[f'{labelers[i]}'] = label_col
-            
-            # Repeat bodypart positions for each object
-            obj_data = pd.concat([bodyparts, obj_data], axis=1)
-            
-            all_data.append(obj_data)
-    
-    # Concatenate all targets' data vertically
-    colabels_df = pd.concat(all_data, ignore_index=True)
-    
+                if tgt not in label_df.columns:
+                    raise KeyError(f"Label column '{tgt}' not found in {label_file}")
+                
+                label_data[labeler] = label_df[tgt]
+
+            # Combine everything into one DataFrame
+            combined_df = pd.concat(
+                [bodyparts_df, target_df] + [label_data[labeler].rename(labeler) for labeler in labelers],
+                axis=1
+            )
+            all_entries.append(combined_df)
+
+    # Final DataFrame
+    colabels_df = pd.concat(all_entries, ignore_index=True)
+
     # Save to CSV
-    output_file = os.path.join(os.path.dirname(path), 'colabels.csv')
-    colabels_df.to_csv(output_file, index=False)
-    print(f'Colabels file saved as {output_file}')
+    output_path = os.path.join(data_dir, 'colabels.csv')
+    colabels_df.to_csv(output_path, index=False)
+    logger.info(f"Colabels saved to: {output_path}")
 
 # %% Create modeling.yaml
 
-def load_yaml(params_path: str) -> dict:
-    """Loads a YAML file."""
-    with open(params_path, "r") as file:
-        return yaml.safe_load(file)
-
-def create_modeling(folder_path:str):
-
-    """Creates a modeling.yaml file with structured data and comments."""
-
-    modeling_path = os.path.join(folder_path, 'modeling.yaml')
-
-    if os.path.exists(modeling_path):
-        print(f"modeling.yaml already exists: {modeling_path}\nSkipping creation.")
-        return modeling_path
-    
-    # Define configuration with a nested dictionary
-    parameters = {
+def _default_modeling_config(folder_path: str) -> Dict:
+    """Returns the default modeling configuration dictionary."""
+    return {
         "path": folder_path,
         "colabels": {
             "colabels_path": os.path.join(folder_path, 'colabels.csv'),
             "labelers": ['Labeler_A', 'Labeler_B', 'Labeler_C', 'Labeler_D', 'Labeler_E'],
             "target": 'tgt',
-            },
+        },
         "focus_distance": 25,
         "bodyparts": ["nose", "left_ear", "right_ear", "head", "neck", "body"],
         "split": {
             "validation": 0.15,
-            "test": 0.15
-            },
+            "test": 0.15,
+        },
         "RNN": {
             "width": {
                 "past": 3,
                 "future": 3,
-                "broad": 1.7
-                },
-            "units": [32, 24, 16, 8],
-            "batch_size": 64,
+                "broad": 1.7,
+            },
+            "units": [64, 48, 32, 16],
+            "batch_size": 8,
             "lr": 0.0001,
+            "dropout": 0.2,
             "epochs": 60,
-            }
         }
+    }
 
-    # Ensure directory exists
-    os.makedirs(folder_path, exist_ok=True)
-
-    # Write YAML data to a temporary file
-    temp_filepath = modeling_path + ".tmp"
-    with open(temp_filepath, "w") as file:
-        yaml.dump(parameters, file, default_flow_style=False, sort_keys=False)
-
-    # Read the generated YAML and insert comments
-    with open(temp_filepath, "r") as file:
-        yaml_lines = file.readlines()
-
-    # Define comments to insert
-    comments = {
+def _modeling_comments() -> Dict[str, str]:
+    """Returns a dictionary mapping YAML keys to explanatory comments."""
+    return {
         "path": "# Path to the models folder",
         "colabels": "# The colabels file is used to store and organize positions and labels for model training",
         "colabels_path": "  # Path to the colabels file",
@@ -192,70 +190,93 @@ def create_modeling(folder_path:str):
         "units": "  # Number of neurons on each layer",
         "batch_size": "  # Number of training samples the model processes before updating its weights",
         "lr": "  # Learning rate",
+        "dropout": "  # randomly turn off a fraction of neurons in the network",
         "epochs": "  # Each epoch is a complete pass through the entire training dataset"
-        }
+    }
 
-    # Insert comments before corresponding keys
-    with open(modeling_path, "w") as file:
-        file.write("# Rainstorm Modeling file\n")
+def create_modeling(folder_path: str) -> str:
+    """
+    Creates a modeling.yaml file with a default configuration and explanatory comments.
+
+    Args:
+        folder_path (str): Directory where modeling.yaml will be saved.
+    
+    Returns:
+        str: Path to the created or existing modeling.yaml file.
+    """
+    modeling_path = os.path.join(folder_path, 'modeling.yaml')
+    
+    if os.path.exists(modeling_path):
+        logger.info(f"✅ modeling.yaml already exists: {modeling_path}\nSkipping creation.")
+        return modeling_path
+
+    os.makedirs(folder_path, exist_ok=True)
+
+    config = _default_modeling_config(folder_path)
+    comments = _modeling_comments()
+
+    # Write YAML to temporary file
+    with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".yaml") as temp_file:
+        yaml.dump(config, temp_file, default_flow_style=False, sort_keys=False)
+        temp_file_path = temp_file.name
+
+    # Read and inject comments
+    with open(temp_file_path, "r") as file:
+        yaml_lines = file.readlines()
+
+    with open(modeling_path, "w") as out_file:
+        out_file.write("# Rainstorm Modeling file\n")
         for line in yaml_lines:
-            stripped_line = line.lstrip()
-            key = stripped_line.split(":")[0].strip()  # Extract key (ignores indentation)
-            if key in comments and not stripped_line.startswith("-"):  # Avoid adding before list items
-                file.write("\n" + comments[key] + "\n")  # Insert comment
-            file.write(line)  # Write the original line
+            stripped = line.lstrip()
+            key = stripped.split(":")[0].strip()
+            if key in comments and not stripped.startswith("-"):
+                out_file.write("\n" + comments[key] + "\n")
+            out_file.write(line)
 
-    # Remove temporary file
-    os.remove(temp_filepath)
-
-    print(f"Modeling parameters saved to {modeling_path}")
+    os.remove(temp_file_path)
+    logger.info(f"✅ Modeling parameters saved to {modeling_path}")
     return modeling_path
 
 # %% Create models
 
-def smooth_columns(df: pd.DataFrame, columns: list = [], kernel_size: int = 3, gauss_std: float = 0.6) -> pd.DataFrame:
-    """Applies smoothing to a DataFrame column.
+def smooth_columns(df: pd.DataFrame, columns: Optional[List[str]] = None, kernel_size: int = 3, gauss_std: float = 0.6) -> pd.DataFrame:
+    """
+    Applies median and Gaussian smoothing to selected columns in a DataFrame.
 
     Args:
-        df (pd.DataFrame): DataFrame to apply smoothing to.
-        columns (list, optional): List of columns to apply smoothing to. Defaults to [].
-        kernel_size (int, optional): Size of the smoothing kernel. Defaults to 3.
-        gauss_std (float, optional): Standard deviation of the Gaussian kernel. Defaults to 0.6.
+        df (pd.DataFrame): Input DataFrame.
+        columns (List[str], optional): Columns to smooth. If None, all columns are used.
+        kernel_size (int): Size of the Gaussian kernel.
+        gauss_std (float): Standard deviation of the Gaussian kernel.
 
     Returns:
-        pd.DataFrame: Smoothed & transformed DataFrame.
+        pd.DataFrame: Smoothed DataFrame.
     """
-    
-    df = df.copy()  # Avoid modifying the original DataFrame
-
-    if not columns:
+    df = df.copy()
+    if columns is None or not columns:
         columns = df.columns
 
-    for column in columns:
-        print(f'Smoothing column: {column}')
-
-        # Apply median filter
-        df['med_filt'] = signal.medfilt(df[column], kernel_size=kernel_size)
-        
-        # Gaussian kernel
+    for col in columns:
+        logger.info(f"🧹 Smoothing column: {col}")
+        df['med_filt'] = signal.medfilt(df[col], kernel_size=kernel_size)
         gauss_kernel = signal.windows.gaussian(kernel_size, gauss_std)
-        gauss_kernel /= gauss_kernel.sum()  # Normalize
-        
-        # Pad to mitigate edge effects
-        pad_width = (len(gauss_kernel) - 1) // 2
-        padded = np.pad(df['med_filt'], pad_width, mode='edge')
-        
-        # Apply convolution
-        df['smooth'] = signal.convolve(padded, gauss_kernel, mode='valid')[:len(df[column])]
-
-        df[column] = df['smooth']
+        gauss_kernel /= gauss_kernel.sum()
+        pad = (len(gauss_kernel) - 1) // 2
+        padded = np.pad(df['med_filt'], pad, mode='edge')
+        df['smooth'] = signal.convolve(padded, gauss_kernel, mode='valid')[:len(df[col])]
+        df[col] = df['smooth']
 
     return df.drop(columns=['med_filt', 'smooth'])
 
 def apply_sigmoid_transformation(data):
     """
-    Apply a sigmoid function to scale values between 0 and 1.
-    Values ≤ 0.3 are set to 0, and values ≥ 0.9 are set to 1.
+    Applies a clipped sigmoid transformation to a pandas Series.
+
+    Args:
+        data (pd.Series): Input label values.
+
+    Returns:
+        pd.Series: Transformed values between 0 and 1.
     """
     sigmoid = 1 / (1 + np.exp(-9 * (data - 0.6)))
     sigmoid = np.round(sigmoid, 3)
@@ -265,230 +286,210 @@ def apply_sigmoid_transformation(data):
 
     return sigmoid
 
-def prepare_data(modeling_path) -> pd.DataFrame:
-    """Read the positions and labels into a DataFrame
+def prepare_data(modeling_path: str) -> pd.DataFrame:
+    """
+    Loads and prepares behavioral data for training.
 
     Args:
-        modeling_path (str): Path to the parameters file
+        modeling_path (str): Path to modeling.yaml with colabel settings.
 
     Returns:
-        pd.DataFrame: Data ready to use
+        pd.DataFrame: DataFrame containing smoothed position columns and normalized labels.
     """
-    # Load parameters
+    # Load modeling config
     modeling = load_yaml(modeling_path)
-    colabels = modeling.get("colabels",{})
-    colabels_path = colabels.get("colabels_path")
-    labelers = colabels.get("labelers", [])
+    colabels_conf = modeling.get("colabels", {})
+    colabels_path = colabels_conf.get("colabels_path")
+    labelers = colabels_conf.get("labelers", [])
+
+    if not os.path.exists(colabels_path):
+        raise FileNotFoundError(f"Colabels file not found: {colabels_path}")
 
     df = pd.read_csv(colabels_path)
 
-    # We extract the position as all the columns that end in _x and _y, except for the tail
+    # Extract positions (exclude tail_x/y)
     position = df.filter(regex='_x|_y').filter(regex='^(?!.*tail)').copy()
-    
-    # Dynamically create labeler DataFrames based on the provided names
-    all_labelers = {name: df.filter(regex=name).copy() for name in labelers}
 
-    # Concatenate the dataframes along the columns axis (axis=1) and calculate the mean of each row
-    combined_df = pd.concat(all_labelers, axis=1)
-    avrg = pd.DataFrame(combined_df.mean(axis=1), columns=['labels'])
+    # Average labels from multiple labelers
+    labeler_data = {name: df.filter(regex=name).copy() for name in labelers}
+    combined = pd.concat(labeler_data, axis=1)
+    averaged = pd.DataFrame(combined.mean(axis=1), columns=["labels"])
 
-    # Smooth the columns
-    avrg = smooth_columns(avrg, ['labels'])
+    # Smooth and normalize labels
+    averaged = smooth_columns(averaged, ["labels"])
+    averaged["labels"] = apply_sigmoid_transformation(averaged["labels"])
 
-    # Apply sigmoid transformation
-    avrg['labels'] = apply_sigmoid_transformation(avrg['labels'])
+    return pd.concat([position, averaged["labels"]], axis=1)
 
-    ready_data = pd.concat([position, avrg['labels']], axis = 1)
+def focus(modeling_path: str, df: pd.DataFrame, filter_by: str = 'labels') -> pd.DataFrame:
+    """
+    Filters a DataFrame to include only rows within a window around non-zero activity.
 
-    return ready_data
+    Args:
+        modeling_path (str): Path to modeling.yaml file containing 'focus_distance'.
+        df (pd.DataFrame): The full DataFrame with positional and label data.
+        filter_by (str): Column name to base the filtering on (default is 'labels').
 
-def focus(modeling_path, df: pd.DataFrame, filter_by: str = 'labels'):
-
-    # Load parameters
+    Returns:
+        pd.DataFrame: Filtered DataFrame focused around labeled events.
+    """
+    # Load distance from config
     modeling = load_yaml(modeling_path)
     distance = modeling.get("focus_distance", 25)
 
-    # Extract the column of interest
-    column = df.loc[:, filter_by]
+    if filter_by not in df.columns:
+        raise ValueError(f"Column '{filter_by}' not found in DataFrame.")
 
-    print(f'Starting with {len(column)} rows')
+    logger.info(f"🔍 Focusing based on '{filter_by}', with distance ±{distance} frames")
 
-    # Find the indices of the non-zero rows in the column
+    column = df[filter_by]
     non_zero_indices = column[column > 0.3].index
 
-    # Create a boolean mask to keep rows that are within 'distance' rows of a non-zero row
+    logger.info(f"  ▶ Original rows: {len(df)}")
+    logger.info(f"  ▶ Found {len(non_zero_indices)} event rows")
+
+    # Create mask with False everywhere
     mask = pd.Series(False, index=df.index)
 
     for idx in non_zero_indices:
-        # Mark rows within 'distance' rows before and after the non-zero row
-        lower_bound = max(0, idx - distance)
-        upper_bound = min(len(df) - 1, idx + distance)
-        mask[lower_bound:upper_bound + 1] = True
+        lower = max(0, idx - distance)
+        upper = min(len(df) - 1, idx + distance)
+        mask.iloc[lower:upper + 1] = True
 
-    # Filter the dataframe using the mask
-    df_filtered = df[mask]
-
-    # Optional: Reset index if you want a clean dataframe without gaps in the indices
-    df_filtered.reset_index(drop=True, inplace=True)
-    
-    print(f"Reduced to {len(df_filtered)} rows. Number of exploration rows: {len(non_zero_indices)}")
+    df_filtered = df[mask].reset_index(drop=True)
+    logger.info(f"  ✅ Filtered rows: {len(df_filtered)}")
 
     return df_filtered
 
-def load_split(saved_data):
-    # Load arrays
-    with h5py.File(saved_data, 'r') as hf:
+def load_split(filepath: str) -> Dict[str, np.ndarray]:
+    """
+    Load train/validation/test split data from an HDF5 file.
 
-        X_tr_wide = hf['X_tr_wide'][:]
-        X_tr = hf['X_tr'][:]
-        y_tr = hf['y_tr'][:]
-        X_ts_wide = hf['X_ts_wide'][:]
-        X_ts = hf['X_ts'][:]
-        y_ts = hf['y_ts'][:]
-        X_val_wide = hf['X_val_wide'][:]
-        X_val = hf['X_val'][:]
-        y_val = hf['y_val'][:]
-    
-    model_dict = {
-        'X_tr_wide': X_tr_wide,
-        'X_tr': X_tr,
-        'y_tr': y_tr,
-        'X_ts_wide': X_ts_wide,
-        'X_ts': X_ts,
-        'y_ts': y_ts,
-        'X_val_wide': X_val_wide,
-        'X_val': X_val,
-        'y_val': y_val
-    }
-        
-    print("Data is ready to train")
-    
+    Args:
+        filepath (str): Path to the saved split `.h5` file.
+
+    Returns:
+        dict: Dictionary containing arrays for training, validation, and testing.
+    """
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"Split file not found: {filepath}")
+
+    with h5py.File(filepath, 'r') as hf:
+        model_dict = {
+            key: hf[key][:] for key in [
+                'X_tr_wide', 'X_tr', 'y_tr',
+                'X_ts_wide', 'X_ts', 'y_ts',
+                'X_val_wide', 'X_val', 'y_val'
+            ]
+        }
+
+    logger.info(f"✅ Loaded split data from {filepath}")
     return model_dict
 
-def save_split(modeling_path, model_dict):
-
-    # Load parameters
-    modeling = load_yaml(modeling_path)
-    models_folder = modeling.get("path")
-    
-    # Load the time
-    time = datetime.datetime.now()
-    filename = f'split_{time.date()}.h5'
-
-    # Save arrays
-    with h5py.File(os.path.join(models_folder, f'splits/{filename}'), 'w') as hf:
-        hf.create_dataset('X_tr_wide', data=model_dict['X_tr_wide'])
-        hf.create_dataset('X_tr', data=model_dict['X_tr'])
-        hf.create_dataset('y_tr', data=model_dict['y_tr'])
-        hf.create_dataset('X_ts_wide', data=model_dict['X_ts_wide'])
-        hf.create_dataset('X_ts', data=model_dict['X_ts'])
-        hf.create_dataset('y_ts', data=model_dict['y_ts'])
-        hf.create_dataset('X_val_wide', data=model_dict['X_val_wide'])
-        hf.create_dataset('X_val', data=model_dict['X_val'])
-        hf.create_dataset('y_val', data=model_dict['y_val'])
-        
-        print(f'Saved data to {filename}')
-
-def split_tr_ts_val(modeling_path, df: pd.DataFrame):
-    """Splits the data into training, testing, and validation sets:
+def save_split(modeling_path: str, model_dict: Dict[str, np.ndarray]):
     """
-    # Load parameters
-    modeling = load_yaml(modeling_path)
-    colabels = modeling.get("colabels",{})
-    labelers = colabels.get("labelers", [])
-    target = colabels.get("target", 'tgt')
+    Save train/validation/test split data to an HDF5 file.
 
+    Args:
+        modeling_path (str): Path to modeling.yaml containing the save folder.
+        model_dict (dict): Dictionary with training/validation/test arrays.
+
+    Returns:
+        str: Full path to the saved split file.
+    """
+    modeling = load_yaml(modeling_path)
+    models_folder = modeling.get("path", ".")
+    split_folder = os.path.join(models_folder, "splits")
+    os.makedirs(split_folder, exist_ok=True)
+
+    time = datetime.datetime.now().date()
+    filename = f"split_{time}.h5"
+    split_path = os.path.join(split_folder, filename)
+
+    with h5py.File(split_path, 'w') as hf:
+        for key, array in model_dict.items():
+            hf.create_dataset(key, data=array)
+
+    logger.info(f"💾 Saved split data to: {split_path}")
+
+def split_tr_ts_val(modeling_path: str, df: pd.DataFrame) -> Dict[str, np.ndarray]:
+    """
+    Splits the dataset into training, testing, and validation sets per individual mouse.
+    Grouping is based on the target's x-coordinate (i.e., per video or per subject).
+
+    Args:
+        modeling_path (str): Path to the modeling YAML file.
+        df (pd.DataFrame): The full dataset.
+
+    Returns:
+        Dict[str, np.ndarray]: Dictionary with keys for training, validation, and testing splits,
+                               including both wide and simple position arrays and labels.
+    """
+    # Load parameters from modeling.yaml
+    modeling = load_yaml(modeling_path)
+    colabels = modeling.get("colabels", {})
+    target = colabels.get("target", "tgt")
     bodyparts = modeling.get("bodyparts", [])
     split_params = modeling.get("split", {})
     val_size = split_params.get("validation", 0.15)
     ts_size = split_params.get("test", 0.15)
 
-    # Recurrent Neural Network
-    RNN_params = modeling.get("RNN", {})
-    width = RNN_params.get("width", {})
+    rnn_params = modeling.get("RNN", {})
+    width = rnn_params.get("width", {})
     past = width.get("past", 3)
     future = width.get("future", 3)
     broad = width.get("broad", 1.7)
 
-    # Since each mouse will have a different place for the target, we can use the target position to separate all the videos
-    mice = df.groupby(df[f'{target}_x'])
-    
-    # Split the DataFrame into multiple DataFrames and labels
+    # Group by unique video or mouse identifier using the target_x as a proxy
+    grouped = df.groupby(df[f'{target}_x'])
+
     final_dataframes = {}
     wide_dataframes = {}
-    
-    for category, mouse in mice:
 
-        recentered_data = recenter(mouse, target, bodyparts)
+    for key, group in grouped:
+        recentered = recenter(group, target, bodyparts)
+        labels = group['labels']
 
-        labels = mouse['labels']
+        final_dataframes[key] = {
+            'position': recentered,
+            'labels': labels
+        }
 
-        final_dataframes[category] = {'position': recentered_data, 'labels': labels}
-
-        reshaped_data = reshape(recentered_data, past, future, broad)
-        wide_dataframes[category] = {'position': reshaped_data, 'labels': labels}
+        wide = reshape(recentered, past, future, broad)
+        wide_dataframes[key] = {
+            'position': wide,
+            'labels': labels
+        }
         
-    # Get a list of the keys (categories)
+    # Shuffle and split keys
     keys = list(wide_dataframes.keys())
-    
-    # Shuffle the keys
     np.random.shuffle(keys)
     
-    # Calculate the lengths for each part
-    len_val = int(len(keys) * val_size)
-    len_ts = int(len(keys) * ts_size)
+    n_val = int(len(keys) * val_size)
+    n_ts = int(len(keys) * ts_size)
+    val_keys = keys[:n_val]
+    ts_keys = keys[n_val:n_val + n_ts]
+    tr_keys = keys[n_val + n_ts:]
     
-    # Use slicing to divide the list
-    val_keys = keys[:len_val]
-    ts_keys = keys[len_val:(len_val + len_ts)]
-    tr_keys = keys[(len_val + len_ts):]
-    
-    # Initialize empty lists to collect dataframes
-    X_tr_wide = []
-    X_ts_wide = []
-    X_val_wide = []
+    # Collect data
+    def gather(keys_list, which):
+        return (
+            np.concatenate([which[key]['position'] for key in keys_list], axis=0),
+            np.concatenate([final_dataframes[key]['position'] for key in keys_list], axis=0),
+            np.concatenate([final_dataframes[key]['labels'] for key in keys_list], axis=0)
+        )
 
-    X_tr = []
-    X_ts = []
-    X_val = []
+    X_tr_wide, X_tr, y_tr = gather(tr_keys, wide_dataframes)
+    X_ts_wide, X_ts, y_ts = gather(ts_keys, wide_dataframes)
+    X_val_wide, X_val, y_val = gather(val_keys, wide_dataframes)
 
-    y_tr = []
-    y_ts = []
-    y_val = []
-    
-    # first the simple data 
-    for key in tr_keys:
-        X_tr_wide.append(wide_dataframes[key]['position'])
-        X_tr.append(final_dataframes[key]['position'])
-        y_tr.append(final_dataframes[key]['labels'])
-    for key in ts_keys:
-        X_ts_wide.append(wide_dataframes[key]['position'])
-        X_ts.append(final_dataframes[key]['position'])
-        y_ts.append(final_dataframes[key]['labels'])
-    for key in val_keys:
-        X_val_wide.append(wide_dataframes[key]['position'])
-        X_val.append(final_dataframes[key]['position'])
-        y_val.append(final_dataframes[key]['labels'])
-    
-    X_tr_wide = np.concatenate(X_tr_wide, axis=0)
-    X_ts_wide = np.concatenate(X_ts_wide, axis=0)
-    X_val_wide = np.concatenate(X_val_wide, axis=0)
+    # Logging
+    logger.info(f"Training set:    {len(X_tr)} samples")
+    logger.info(f"Validation set:  {len(X_val)} samples")
+    logger.info(f"Testing set:     {len(X_ts)} samples")
+    logger.info(f"Total samples:   {len(X_tr) + len(X_val) + len(X_ts)}")
 
-    X_tr = np.concatenate(X_tr, axis=0)
-    X_ts = np.concatenate(X_ts, axis=0)
-    X_val = np.concatenate(X_val, axis=0)
-        
-    y_tr = np.concatenate(y_tr, axis=0)
-    y_ts = np.concatenate(y_ts, axis=0)
-    y_val = np.concatenate(y_val, axis=0)
-
-    # Print the sizes of each set
-    print(f"Training set size: {len(X_tr)} samples")
-    print(f"Validation set size: {len(X_val)} samples")
-    print(f"Testing set size: {len(X_ts)} samples")
-    print(f"Total samples: {len(X_tr)+len(X_val)+len(X_ts)}")
-
-    model_dict = {
+    return {
         'X_tr_wide': X_tr_wide,
         'X_tr': X_tr,
         'y_tr': y_tr,
@@ -499,21 +500,37 @@ def split_tr_ts_val(modeling_path, df: pd.DataFrame):
         'X_val': X_val,
         'y_val': y_val
     }
-    
-    return model_dict
 
-def plot_example_data(X, y):
+def plot_example_data(X: np.ndarray, y: np.ndarray, *,
+                      event_label_threshold: float = 0.5,
+                      position_label: str = 'Nose distance to target (cm)',
+                      position_range: tuple = (-2, 25)) -> None:
+    """
+    Plots an example trial showing the target distance over time, highlighting periods of exploration.
 
-    # Select data to plot
-    position = np.sqrt(X[:, 0]**2 + X[:, 1]**2).copy()
-    exploration = pd.DataFrame((y>=0.5).astype(int), columns=['exploration'])
+    Args:
+        X (np.ndarray): Input data of shape (n_samples, n_features). Position should be in first two columns.
+        y (np.ndarray): Binary or continuous labels for exploration (e.g., 1 for exploring, 0 otherwise).
+        event_label_threshold (float): Threshold to binarize y for exploration detection.
+        position_label (str): Label for the y-axis.
+        position_range (tuple): Y-axis range for the plot.
 
-    # Create the plot using Plotly
-    fig = go.Figure()
+    Returns:
+        None. Displays an interactive Plotly figure.
+    """
+    # Calculate radial distance to target
+    position = np.sqrt(X[:, 0]**2 + X[:, 1]**2)
 
+    # Threshold labels to create binary exploration indicators
+    exploration = pd.DataFrame((y >= event_label_threshold).astype(int), columns=['exploration'])
+
+    # Create time index
     time = np.arange(len(position))
 
-    # Add position trace
+    # Create base plot
+    fig = go.Figure()
+
+    # Add nose-target position trace
     fig.add_trace(go.Scatter(
         x=time,
         y=position,
@@ -522,43 +539,50 @@ def plot_example_data(X, y):
         line=dict(color='blue')
     ))
 
-    # Identify the start and end of exploration events
+    # Detect changes and assign exploration event IDs
     exploration['change'] = exploration['exploration'].diff()
-    exploration['event_id'] = (exploration['change'] == 1).cumsum()  # Create groups of consecutive 1's
-
-    # Filter for events where exploration is 1
+    exploration['event_id'] = (exploration['change'] == 1).cumsum()
     events = exploration[exploration['exploration'] == 1]
 
-    # Iterate over each event and add shapes
+    # Add rectangles for each continuous exploration event
     for event_id, group in events.groupby('event_id'):
-        start_index = group.index[0]
-        end_index = group.index[-1]
-        # Add the rectangle from the start to the end of the event
-        fig.add_shape(
-            type='rect',
-            x0=time[start_index], x1=time[end_index + 1],  # Adjust x1 to include the last time point
-            y0=-2, y1=25,
-            fillcolor='rgba(255,0,0,0.5)',
-            line=dict(width=0.4),
-        )
+        if not group.empty:
+            start_idx = group.index[0]
+            end_idx = group.index[-1] + 1  # Inclusive range
 
-    # Add a horizontal line for the freezing threshold
-    fig.add_hline(y=0, line=dict(color='black', dash='dash'),
-              annotation_text='Target position', annotation_position='bottom left')
+            fig.add_shape(
+                type='rect',
+                x0=time[start_idx],
+                x1=time[min(end_idx, len(time) - 1)],
+                y0=position_range[0],
+                y1=position_range[1],
+                fillcolor='rgba(255,0,0,0.3)',
+                line=dict(width=0.4),
+                layer='below'
+            )
 
-    # Customize layout
+    # Add target distance reference line
+    fig.add_hline(
+        y=0,
+        line=dict(color='black', dash='dash'),
+        annotation_text='Target position',
+        annotation_position='bottom left'
+    )
+
+    # Final layout tuning
     fig.update_layout(
-        title='Exploration events',
+        title='Exploration Events Visualization',
         xaxis_title='Frames',
-        yaxis_title='Nose distance to target (cm)',
-        yaxis=dict(range=[-2, 25]),  # Zoom in on y-axis
-        legend=dict(yanchor="bottom",
-                    y=1,
-                    xanchor="center",
-                    x=0.5,
-                    orientation="h", 
-                    bgcolor='rgba(255,255,255,0.5)'),
-        showlegend=True,
+        yaxis_title=position_label,
+        yaxis=dict(range=position_range),
+        legend=dict(
+            orientation='h',
+            x=0.5,
+            y=1.05,
+            xanchor='center',
+            yanchor='bottom',
+            bgcolor='rgba(255,255,255,0.6)'
+        )
     )
 
     fig.show()
@@ -601,87 +625,142 @@ def save_model(modeling_path, model, model_name):
     
     model.save(os.path.join(path, 'trained_models', f"{model_name}.keras"))
 
-def build_RNN(modeling_path, model_dict):
+class AttentionPooling(Layer):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.score_dense = None
 
-    # Load parameters
+    def build(self, input_shape):
+        self.score_dense = Dense(1)
+        super().build(input_shape)
+
+    def call(self, inputs):
+        # inputs shape: (batch, timesteps, features)
+        score = self.score_dense(inputs)  # (batch, timesteps, 1)
+        weights = tf.nn.softmax(score, axis=1)  # attention weights
+        weighted_sum = tf.reduce_sum(inputs * weights, axis=1)  # (batch, features)
+        return weighted_sum
+
+def build_RNN(modeling_path: str, model_dict: dict) -> tf.keras.Model:
+    """
+    Builds a robust Bidirectional RNN with attention, controlled slicing, and configurable pooling.
+
+    Args:
+        modeling_path (str): Path to YAML config with RNN parameters.
+        model_dict (dict): Dictionary with 'X_tr_wide' as a 3D tensor.
+
+    Returns:
+        tf.keras.Model: Compiled model.
+    """
     modeling = load_yaml(modeling_path)
     RNN_params = modeling.get("RNN", {})
-    width = RNN_params.get("width", {})
-    past = width.get("past", 3)
-    future = width.get("future", 3)
-    broad = width.get("broad", 1.7)
-
-    units = RNN_params.get("units", [])
+    units = RNN_params.get("units", [64, 48, 32, 16])
     lr = RNN_params.get("lr", 0.0001)
+    dropout_rate = RNN_params.get("dropout", 0.2)
 
-    input_shape = (model_dict['X_tr_wide'].shape[1], model_dict['X_tr_wide'].shape[2])
+    # Validate input
+    if 'X_tr_wide' not in model_dict:
+        raise ValueError("model_dict must contain 'X_tr_wide'")
+    x_data = model_dict['X_tr_wide']
+    if x_data.ndim != 3:
+        raise ValueError("'X_tr_wide' must be a 3D tensor (batch, time, features)")
 
-    inputs = Input(shape=input_shape)
-
-    # Stacked Bidirectional RNNs with conditional slicing
+    timesteps, features = x_data.shape[1], x_data.shape[2]
+    inputs = Input(shape=(timesteps, features), name="input_sequence")
     x = inputs
-    current_timesteps = input_shape[0]  # Initialize with the number of timesteps
+    current_timesteps = timesteps
+    total_layers = len(units)
 
-    for unit in units:
-        x = Bidirectional(LSTM(unit, return_sequences=True))(x)
-        x = BatchNormalization()(x)
-        x = Dropout(0.2)(x)
+    # Compute total slicing plan (reduce to 1 timestep by end)
+    total_to_remove = max(0, current_timesteps - 1)
+    slice_plan = [0] * total_layers
+    for i in range(total_to_remove):
+        slice_plan[i % total_layers] += 1
 
-        # Conditional slicing: Apply slicing only if timesteps > 1
-        if current_timesteps > 2:
-            x = Lambda(lambda t: t[:, 1:-1, :])(x)  # Remove first and last timesteps
-            current_timesteps -= 2
+    # Build RNN stack
+    for i, unit in enumerate(units):
+        x = Bidirectional(LSTM(unit, return_sequences=True), name=f"bilstm_{i}")(x)
+        x = BatchNormalization(name=f"bn_{i}")(x)
+        x = Dropout(dropout_rate, name=f"dropout_{i}")(x)
 
-    x = GlobalAveragePooling1D()(x)
+        # Temporal attention
+        residual = x
+        x = LayerNormalization(name=f"attn_norm_{i}")(x)
+        x = MultiHeadAttention(num_heads=2, key_dim=unit, name=f"attn_{i}")(x, x)
+        x = Add(name=f"attn_add_{i}")([x, residual])
 
-    # Dense Output
-    output = Dense(1, activation='sigmoid')(x)
+        # Controlled slicing
+        if slice_plan[i] > 0 and current_timesteps > 1:
+            to_remove = min(slice_plan[i], current_timesteps - 1)
+            left = to_remove // 2
+            right = to_remove - left
+            x = Cropping1D(cropping=(left, right), name=f"crop_{i}")(x)
+            current_timesteps -= to_remove
 
-    model = Model(inputs, output)
+    # Pooling
+    x = AttentionPooling(name="attention_pooling")(x)
 
-    # Compile model
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate = lr), 
-                    loss='binary_crossentropy', metrics=['accuracy'])
+    # Final output
+    output = Dense(1, activation='sigmoid', name="binary_out")(x)
+    model = Model(inputs, output, name="BidirectionalRNN")
+
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
+        loss='binary_crossentropy',
+        metrics=['accuracy']
+    )
 
     model.summary()
-
     return model
 
-# Define a learning rate schedule function
 def lr_schedule(epoch):
-    warmup_epochs = 6  # Number of warm-up epochs
-    initial_lr = 6e-5  # Starting learning rate
-    peak_lr = 2e-4     # Peak learning rate
-    decay_factor = 0.9 # Decay factor
+    warmup_epochs = 6
+    initial_lr = 6e-5
+    peak_lr = 2e-4
+    total_epochs = 60  # Could also be passed dynamically
+    decay_type = "cosine"  # Or "exponential"
 
     if epoch < warmup_epochs:
-        # Exponential warm-up: increase learning rate exponentially
         return initial_lr * (peak_lr / initial_lr) ** (epoch / warmup_epochs)
     else:
-        # Start decay after warm-up
-        return peak_lr * (decay_factor ** (epoch - warmup_epochs))
+        decay_epoch = epoch - warmup_epochs
+        if decay_type == "exponential":
+            decay_factor = 0.9
+            return peak_lr * (decay_factor ** decay_epoch)
+        elif decay_type == "cosine":
+            cosine_decay = 0.5 * (1 + np.cos(np.pi * decay_epoch / (total_epochs - warmup_epochs)))
+            return peak_lr * cosine_decay
+        else:
+            return peak_lr
 
 def train_RNN(modeling_path, model_dict, model):
     # Load parameters
     modeling = load_yaml(modeling_path)
     RNN_params = modeling.get("RNN", {})
     epochs = RNN_params.get("epochs", 60)
-    batch_size = RNN_params.get("batch_size", 64)
+    batch_size = RNN_params.get("batch_size", 8)
+
+    # Callbacks
+    callbacks = []
 
     # Define the EarlyStopping callback
-    early_stopping = EarlyStopping(monitor='val_loss', patience=6, restore_best_weights=True, mode='min', verbose=1)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True, mode='min', verbose=1)
+    callbacks.append(early_stopping)
 
     # Define the LearningRateScheduler callback
     lr_scheduler = LearningRateScheduler(lr_schedule)
+    callbacks.append(lr_scheduler)
 
-    # Train the model
-    history = model.fit(model_dict['X_tr_wide'], model_dict['y_tr'],
-                                epochs = epochs,
-                                batch_size = batch_size,
-                                validation_data=(model_dict['X_val_wide'], model_dict['y_val']),
-                                verbose = 2,
-                                callbacks=[early_stopping, lr_scheduler])
-    
+    # Train
+    history = model.fit(
+        model_dict['X_tr_wide'], model_dict['y_tr'],
+        epochs=epochs,
+        batch_size=batch_size,
+        validation_data=(model_dict['X_val_wide'], model_dict['y_val']),
+        verbose=2,
+        callbacks=callbacks
+    )
+
     return history
 
 # %% Evaluation

@@ -91,11 +91,6 @@ def choose_example_csv(params_path, look_for: str = 'TS') -> str:
 
     return example
 
-import os
-import numpy as np
-import pandas as pd
-import plotly.graph_objects as go
-
 def plot_positions(params_path: str, file: str, scale: bool = True) -> None:
     """Plot mouse exploration around multiple targets.
 

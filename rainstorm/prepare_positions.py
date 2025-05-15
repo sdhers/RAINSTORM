@@ -10,75 +10,131 @@ import h5py
 import yaml
 import json
 from glob import glob
+from pathlib import Path
+from typing import List, Optional, Dict
 
 import plotly.graph_objects as go
 
 import random
+import stat
 import shutil
+
+import logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 from scipy import signal
 
 # %% functions
 
-def backup_folder(folder_path, suffix="_backup"):
+def handle_remove_readonly(func, path, exc):
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+def backup_folder(folder_path: str, suffix: str = "_backup", overwrite: bool = False) -> str:
     """
     Makes a backup copy of a folder.
 
     Parameters:
-    folder_path (str): Path to the original folder.
-    suffix (str): Suffix to add to the copied folder's name. Default is "_backup".
+        folder_path (str): Path to the original folder.
+        suffix (str): Suffix to add to the copied folder's name.
+        overwrite (bool): If True, will overwrite the existing backup folder.
+
+    Returns:
+        str: Path to the copied folder.
+
+    Raises:
+        ValueError: If folder_path does not exist or is not a directory.
+        FileExistsError: If the backup folder already exists and overwrite is False.
     """
     if not os.path.isdir(folder_path):
         raise ValueError(f"The path '{folder_path}' does not exist or is not a directory.")
 
-    # Get the parent directory and the original folder name
-    parent_dir, original_folder_name = os.path.split(folder_path.rstrip("/\\"))
-
-    # Define the new folder name with the suffix
+    parent_dir, original_folder_name = os.path.split(os.path.normpath(folder_path))
     copied_folder_name = f"{original_folder_name}{suffix}"
     copied_folder_path = os.path.join(parent_dir, copied_folder_name)
 
-    # Check if the folder already exists
     if os.path.exists(copied_folder_path):
-        print(f"The folder '{copied_folder_path}' already exists.")
-    else:
-        # Copy the folder
-        shutil.copytree(folder_path, copied_folder_path)
-        print(f"Copied files to '{copied_folder_path}'.")
+        if overwrite:
+            shutil.rmtree(copied_folder_path, onerror=handle_remove_readonly)
+            logger.warning(f"Overwriting existing folder: '{copied_folder_path}'")
+        else:
+            logger.warning(f"The folder '{copied_folder_path}' already exists. Use overwrite=True to replace it.")
+            return copied_folder_path
+
+    shutil.copytree(folder_path, copied_folder_path)
+    logger.info(f"Backup created at '{copied_folder_path}'")
+    return copied_folder_path
 
 def rename_files(folder, before, after):
+    """
+    Renames files in a folder, replacing 'before' with 'after' in file names.
+    """
     # Get a list of all files in the specified folder
-    files = os.listdir(folder)
+    if not os.path.isdir(folder):
+        raise ValueError(f"'{folder}' is not a valid directory.")
     
-    for file_name in files:
-        # Check if 'before' is in the file name
+    modified = False
+
+    for file_name in os.listdir(folder):
+        old_file = os.path.join(folder, file_name)
+
+        # Process only regular files
+        if not os.path.isfile(old_file):
+            continue
+
         if before in file_name:
-            # Construct the new file name
+            modified = True
             new_name = file_name.replace(before, after)
-            # Construct full file paths
-            old_file = os.path.join(folder, file_name)
             new_file = os.path.join(folder, new_name)
-            # Rename the file
-            os.rename(old_file, new_file)
-            print(f'Renamed: {old_file} to {new_file}')
+
+            if os.path.exists(new_file):
+                logging.warning(f"Skipping rename to existing file: {new_file}")
+                continue
+
+            try:
+                os.rename(old_file, new_file)
+                logging.info(f"Renamed: {old_file} → {new_file}")
+            except Exception as e:
+                logging.error(f"Failed to rename '{old_file}' to '{new_file}': {e}")
+    
+    if not modified:
+        logging.info(f"No files modified in '{folder}' with '{before}'.")
 
 
-def create_params(folder_path:str, ROIs_path = None):
+def load_roi_data(ROIs_path: str) -> dict:
+    if ROIs_path and os.path.exists(ROIs_path):
+        try:
+            with open(ROIs_path, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load ROI data: {e}")
+    return {"frame_shape": [], "scale": 1, "areas": [], "points": []}
 
-    """Creates a params.yaml file with structured data and comments."""
+def collect_filenames(folder_path: str) -> list:
+    return [
+        Path(file).stem.replace("_positions", "")
+        for file in glob(os.path.join(folder_path, "*positions.h5"))
+    ]
 
+def create_params(folder_path: str, ROIs_path: str = None) -> str:
+    """
+    Creates a `params.yaml` file with structured configuration and inline comments.
+
+    Args:
+        folder_path (str): Destination folder where params.yaml will be saved.
+        ROIs_path (str, optional): Path to a JSON file with ROI information.
+
+    Returns:
+        str: Path to the created params.yaml file.
+    """
     params_path = os.path.join(folder_path, 'params.yaml')
-
     if os.path.exists(params_path):
-        print(f"params.yaml already exists in '{folder_path}'.\nSkipping creation.")
+        logger.info(f"params.yaml already exists: {params_path}")
         return params_path
     
-    roi_data = {
-            "frame_shape": [],
-            "scale": 1,
-            "areas": [],
-            "points": []
-            }
+    roi_data = load_roi_data(ROIs_path)
+    filenames = collect_filenames(folder_path)
 
     if ROIs_path is not None:
         if os.path.exists(ROIs_path):  # Check if file exists
@@ -86,19 +142,18 @@ def create_params(folder_path:str, ROIs_path = None):
                 with open(ROIs_path, "r") as json_file:
                     roi_data = json.load(json_file) # Overwrite null roi_data
             except Exception as e:
-                print(f"Error loading ROI data: {e}.\nEdit the params.yaml file manually to add frame_shape, scaling factor, and ROIs.")
+                logger.warning(f"Error loading ROI data: {e}.\nEdit the params.yaml file manually to add frame_shape, scaling factor, and ROIs.")
         else:
-            print(f"Error loading ROI data: ROIs_path '{ROIs_path}' does not exist.\nEdit the params.yaml file manually to add frame_shape, scaling factor, and ROIs.")
-        
-    all_h5_files = glob(os.path.join(folder_path,"*positions.h5"))
-    filenames = [os.path.basename(file).replace('_positions.h5', '') for file in all_h5_files]
-    
+            logger.warning(f"Error loading ROI data: ROIs_path '{ROIs_path}' does not exist.\nEdit the params.yaml file manually to add frame_shape, scaling factor, and ROIs.")
+
+    DEFAULT_MODEL_PATH = r'c:\Users\dhers\Desktop\Rainstorm\docs\models\trained_models\example_wide.keras'
+
     # Define configuration with a nested dictionary
     parameters = {
         "path": folder_path,
         "filenames": filenames,
         "software": "DLC",
-        "fps": 25,
+        "fps": 30,
         "bodyparts": ['body', 'head', 'left_ear', 'left_hip', 'left_midside', 'left_shoulder', 'neck', 'nose', 'right_ear', 'right_hip', 'right_midside', 'right_shoulder', 'tail_base', 'tail_end', 'tail_mid'],
         "targets": ["obj_1", "obj_2"],
 
@@ -117,7 +172,7 @@ def create_params(folder_path:str, ROIs_path = None):
             "freezing_threshold": 0.01
             },
         "automatic_analysis": {
-            "model_path": r"C:\Users\dhers\Desktop\Rainstorm\docs\models\trained_models\example_wide.keras",
+            "model_path": DEFAULT_MODEL_PATH,
             "model_bodyparts": ["nose", "left_ear", "right_ear", "head", "neck", "body"],
             "rescaling": True,
             "reshaping": True,
@@ -207,13 +262,23 @@ def create_params(folder_path:str, ROIs_path = None):
     # Remove temporary file
     os.remove(temp_filepath)
 
-    print(f"Parameters saved to {params_path}")
+    logger.info(f"Parameters saved to {params_path}")
     return params_path
 
 def load_yaml(params_path: str) -> dict:
-    """Loads a YAML file."""
-    with open(params_path, "r") as file:
-        return yaml.safe_load(file)
+    """Load a YAML file."""
+    try:
+        with open(params_path, "r", encoding="utf-8") as file:
+            data = yaml.safe_load(file)
+            if not isinstance(data, dict):
+                raise ValueError("YAML content must be a dictionary.")
+            return data
+    except FileNotFoundError:
+        logger.error(f"YAML file not found: {params_path}")
+        raise
+    except yaml.YAMLError as e:
+        logger.error(f"Error parsing YAML: {e}")
+        raise
     
 def choose_example_h5(params_path, look_for: str = 'TS') -> str:
     """Picks an example file
@@ -223,32 +288,72 @@ def choose_example_h5(params_path, look_for: str = 'TS') -> str:
         look_for (str, optional): Word to filter files by. Defaults to 'TS'.
 
     Returns:
-        str: Name of the chosen file.
+        str: Full path to the chosen file.
 
     Raises:
-        ValueError: If the files list is empty.
+        ValueError: If no filenames are available.
     """
     params = load_yaml(params_path)
     folder_path = params.get("path")
     filenames = params.get("filenames")
-    files = [os.path.join(folder_path, file + '_positions.h5') for file in filenames]
-    
-    if not files:
-        raise ValueError("The list of files is empty. Please provide a non-empty list.")
+    POSITION_SUFFIX = "_positions.h5"
 
-    filtered_files = [file for file in files if look_for in file]
+    if not filenames:
+        raise ValueError("No filenames found in the YAML file.")
 
-    if not filtered_files:
-        print("No files found with the specified word")
-        example = random.choice(files)
-        print(f"Plotting coordinates from {os.path.basename(example)}")
+    files = [os.path.join(folder_path, f + POSITION_SUFFIX) for f in filenames]
+    filtered = [f for f in files if look_for in f]
+
+    if filtered:
+        example = random.choice(filtered)
+        logger.info(f"Found {len(filtered)} filtered file(s). Using: {os.path.basename(example)}")
     else:
-        # Choose one file at random to use as example
-        example = random.choice(filtered_files)
-        print(f"Plotting coordinates from {os.path.basename(example)}")
+        example = random.choice(files)
+        logger.warning(f"No files matched '{look_for}'. Using random file: {os.path.basename(example)}")
 
     return example
 
+def open_DLC_file(file_path):
+    """
+    Opens a DeepLabCut HDF5 file and returns the scorer, bodyparts, and data.
+    """
+    df = pd.read_hdf(file_path)
+    scorer = df.columns.levels[0][0]
+    bodyparts = df.columns.levels[1].to_list()
+    df = df[scorer]
+
+    # Flatten MultiIndex columns
+    df_raw = pd.DataFrame()
+    for key in df.keys():
+        col_name = f"{key[0]}_{key[1]}"
+        df_raw[col_name] = df[key]
+    
+    return scorer, bodyparts, df_raw
+
+def open_SLEAP_file(file_path):
+    """
+    Opens a SLEAP HDF5 file and returns the scorer, bodyparts, and data.
+    """
+    with h5py.File(file_path, "r") as f:
+        scorer = "SLEAP"
+        locations = f["tracks"][:].T
+        bodyparts = [n.decode() for n in f["node_names"][:]]
+
+    squeezed = np.squeeze(locations, axis=-1)
+    reshaped = squeezed.reshape(squeezed.shape[0], -1)
+
+    base_cols = [f"{bp}_{coord}" for bp in bodyparts for coord in ["x", "y"]]
+    df = pd.DataFrame(reshaped, columns=base_cols)
+
+    for bp in bodyparts:
+        x_col, y_col = f"{bp}_x", f"{bp}_y"
+        likelihood_col = f"{bp}_likelihood"
+        df[likelihood_col] = (~df[x_col].isna() & ~df[y_col].isna()).astype(int)
+
+    ordered_cols = [f"{bp}_{coord}" for bp in bodyparts for coord in ["x", "y", "likelihood"]]
+    df_raw = df[ordered_cols]
+
+    return scorer, bodyparts, df_raw
 
 def open_h5_file(params_path: str, file_path, print_data: bool = False) -> pd.DataFrame:
     """Opens an h5 file and returns the data as a pandas dataframe.
@@ -260,189 +365,171 @@ def open_h5_file(params_path: str, file_path, print_data: bool = False) -> pd.Da
     Returns:
         DataFrame with columns [x, y, likelihood] for each body part
     """
-
     # Load parameters
     params = load_yaml(params_path)
     software = params.get("software", "DLC")
     num_sd = params.get("prepare_positions", {}).get("confidence", 2)
 
     if software == "DLC":
-        df = pd.read_hdf(file_path)
-        scorer = df.columns.levels[0][0]
-        bodyparts = df.columns.levels[1].to_list()
-        df = df[scorer]
-
-        df_raw = pd.DataFrame()
-
-        for key in df.keys():
-            df_raw[str(key[0]) + "_" + str(key[1])] = df[key]
+        scorer, bodyparts, df_raw = open_DLC_file(file_path)
 
     elif software == "SLEAP":
-        with h5py.File(file_path, "r") as f:
-            scorer = "SLEAP"
-            locations = f["tracks"][:].T
-            bodyparts = [n.decode() for n in f["node_names"][:]]
-
-        # Remove singleton dimension and reshape
-        squeezed_data = np.squeeze(locations, axis=-1)
-        flattened_data = squeezed_data.reshape(squeezed_data.shape[0], -1)
-
-        # Create base DataFrame with x/y columns
-        base_columns = [f"{name}_{coord}" for name in bodyparts for coord in ["x", "y"]]
-        df = pd.DataFrame(flattened_data, columns=base_columns)
-
-        # Add likelihood columns
-        for name in bodyparts:
-            x_col = f"{name}_x"
-            y_col = f"{name}_y"
-            likelihood_col = f"{name}_likelihood"
-            
-            # Calculate likelihood (0 if any coordinate is NaN, else 1)
-            df[likelihood_col] = (~df[x_col].isna() & ~df[y_col].isna()).astype(int)
-
-        # Reorder columns to include likelihood after coordinates
-        ordered_columns = []
-        for name in bodyparts:
-            ordered_columns.extend([f"{name}_x", f"{name}_y", f"{name}_likelihood"])
-            
-        df_raw = df[ordered_columns]
+        scorer, bodyparts, df_raw = open_SLEAP_file(file_path)
 
     else:
-        raise ValueError(f"Invalid software: {software}")
+        raise ValueError(f"Unsupported software type in YAML: {software}")
     
     if print_data:
-        print(f"Positions obtained by: {scorer}")
-        print(f"Points in df: {bodyparts}")
-        print(f"Frame count: {df_raw.shape[0]}")
-        for point in bodyparts:
-            # median = df_raw[f'{point}_likelihood'].median()
-            mean = df_raw[f'{point}_likelihood'].mean()
-            std_dev = df_raw[f'{point}_likelihood'].std()
-            print(f'{point} \t\t mean_likelihood: {mean:.2f} \t std_dev: {std_dev:.2f} \t tolerance: {mean - num_sd*std_dev:.2f}')
+        logger.info(f"Positions obtained by: {scorer}")
+        logger.info(f"Tracked points: {bodyparts}")
+        logger.info(f"Total frames: {df_raw.shape[0]}")
+        for bp in bodyparts:
+            likelihood_col = f"{bp}_likelihood"
+            mean = df_raw[likelihood_col].mean()
+            std = df_raw[likelihood_col].std()
+            tolerance = mean - num_sd * std
+            logger.info(f"{bp}\t mean_likelihood: {mean:.2f}\t std_dev: {std:.2f}\t tolerance: {tolerance:.2f}")
 
     return df_raw
 
-def add_targets(params_path: str, df: pd.DataFrame, verbose: bool = False):
-    """Add target columns to the DataFrame based on ROIs.json.
-    
+def add_targets(params_path: str, df: pd.DataFrame, verbose: bool = False) -> pd.DataFrame:
+    """
+    Add target columns (x, y, likelihood) to the DataFrame based on ROI definitions in params.
+
     Args:
         params_path (str): Path to the YAML parameters file.
         df (pd.DataFrame): Input DataFrame with tracking data.
-        
+        verbose (bool): If True, print each added target.
+
     Returns:
-        DataFrame with added target columns
+        pd.DataFrame: DataFrame with added target columns.
     """
-    # Load parameters
     params = load_yaml(params_path)
     targets = params.get("targets", [])
     points = params.get("geometric_analysis", {}).get("roi_data", {}).get("points", [])
-    
-    # Filter ROIs based on the targets list
-    if points:
-        for point in points:
-            if point['name'] in targets:  # Check if the ROI name is in the targets list
-                name = point['name']
-                center_x, center_y = point['center']
-                
-                # Add columns for x and y coordinates
-                df[f"{name}_x"] = center_x
-                df[f"{name}_y"] = center_y
-                df[f"{name}_likelihood"] = 1
 
-                if verbose:
-                    print(f"Added columns for {name}")
+    if not points:
+        logger.warning("No ROI points found in parameters.")
+        return df
     
+    added = 0
+    for point in points:
+        name = point.get("name")
+        center = point.get("center")
+
+        if name in targets and center and len(center) == 2:
+            center_x, center_y = center
+            df[f"{name}_x"] = center_x
+            df[f"{name}_y"] = center_y
+            df[f"{name}_likelihood"] = 1  # Assign full confidence for fixed ROIs
+            added += 1
+
+            if verbose:
+                logger.info(f"Added target columns for: {name}")
+        elif name in targets:
+            logger.warning(f"Skipping {name}: invalid or missing center coordinates.")
+
+    logger.info(f"{added} target(s) added to DataFrame.")
     return df
 
+def _build_gaussian_kernel(sigma: float, n_sigmas: float) -> np.ndarray:
+    """Build and normalize a 1D Gaussian kernel."""
+    N = int(2 * n_sigmas * sigma + 1)
+    kernel = signal.windows.gaussian(N, sigma)
+    return kernel / kernel.sum()
+
+def _smooth_series(series: pd.Series, median_window: int, gauss_kernel: np.ndarray) -> pd.Series:
+    """Interpolate, median filter, then Gaussian smooth a single series."""
+    # Preserve the index
+    idx = series.index
+
+    # PCHIP interpolation, forward‐fill
+    interp = series.interpolate(method="pchip", limit_area="inside").ffill()
+
+    # Median filter (this returns a NumPy array)
+    med = signal.medfilt(interp.to_numpy(), kernel_size=median_window)
+
+    # Gaussian convolution with edge padding
+    pad = (len(gauss_kernel) - 1) // 2
+    padded = np.pad(med, pad, mode="edge")
+    smoothed = signal.convolve(padded, gauss_kernel, mode="valid")
+
+    # Re‐assemble as Series using the original index
+    return pd.Series(smoothed, index=idx)
+
 def filter_and_smooth_df(params_path: str, df_raw: pd.DataFrame) -> pd.DataFrame:
-    """Filters and smooths a DataFrame of coordinates.
+    """
+    Filters out low likelihood points and smooths coordinates.
+
+    Steps per bodypart:
+      1. Mask x/y to NaN where likelihood < mean - num_sd*std_dev
+      2. Interpolate + forward fill
+      3. Median filter
+      4. Gaussian smoothing
+
+    Targets (ROIs) get a constant coordinate (their median).
 
     Args:
-        params_path (str): Path to the YAML parameters file.
-        df_raw (pd.DataFrame): Input DataFrame with tracking data.
+        params_path (str): Path to YAML config.
+        df_raw (pd.DataFrame): Raw tracking DataFrame.
 
     Returns:
-        pd.DataFrame: Filtered and smoothed DataFrame of coordinates.
+        pd.DataFrame: Cleaned & smoothed coordinates.
     """
+    params = load_yaml(params_path)
     df = df_raw.copy()
 
-    # Load parameters
-    params = load_yaml(params_path)
-    bodyparts = params.get("bodyparts", [])
-    targets = params.get("targets", [])
-    filter_params = params.get("prepare_positions", {})
-    num_sd = filter_params.get("confidence", 2)
-    med_filt_window = filter_params.get("median_filter", 3)
+    # Fetch params
+    bodyparts: List[str] = params.get("bodyparts", [])
+    targets: List[str] = params.get("targets", [])
+    prep = params.get("prepare_positions", {})
+    num_sd: float = prep.get("confidence", 2)
+    med_window: int = prep.get("median_filter", 3)
+    # Ensure median window is odd
+    if med_window % 2 == 0:
+        med_window += 1
+        logger.warning(f"Adjusted median_filter to odd: {med_window}")
 
+    # Build Gaussian kernel from hardcoded or future‐configurable values
+    gauss_kernel = _build_gaussian_kernel(sigma=0.6, n_sigmas=2.0)
+
+    # If no bodyparts defined, infer them (excluding targets)
     if not bodyparts:
-        # Remove suffixes (_x, _y, _likelihood) and get unique body parts
-        columns = set(col.rsplit('_', 1)[0] for col in df.columns)
-        
-        # Filter out body parts that are in the targets list
-        bodyparts = [bp for bp in columns if bp not in targets]
-    
-    # Try different filtering parameters
-    sigma, n_sigmas = 0.6, 2
-    N = int(2 * n_sigmas * sigma + 1)
+        inferred = {col.rsplit("_", 1)[0] for col in df.columns}
+        bodyparts = [bp for bp in inferred if bp not in targets]
 
-    # Gaussian kernel
-    gauss_kernel = signal.windows.gaussian(N, sigma)
-    gauss_kernel = gauss_kernel / sum(gauss_kernel)
-    pad_width = (len(gauss_kernel) - 1) // 2
+    # Process each bodypart
+    for bp in bodyparts:
+        lik = f"{bp}_likelihood"
+        xcol, ycol = f"{bp}_x", f"{bp}_y"
 
-    for point in bodyparts:
+        if lik not in df or xcol not in df or ycol not in df:
+            logger.warning(f"Missing columns for bodypart '{bp}', skipping.")
+            continue
 
-        median = df[f'{point}_likelihood'].median()
-        mean = df[f'{point}_likelihood'].mean()
-        std_dev = df[f'{point}_likelihood'].std()
-            
-        limit = mean - num_sd*std_dev
+        mean, std = df[lik].mean(), df[lik].std()
+        threshold = mean - num_sd * std
+        # Mask low‐likelihood
+        mask = df[lik] < threshold
+        df.loc[mask, [xcol, ycol]] = np.nan
 
-        # Set x and y coordinates to NaN where the likelihood is below the tolerance limit
-        df.loc[df[f'{point}_likelihood'] < limit, [f'{point}_x', f'{point}_y']] = np.nan
-        
-        for axis in ['x','y']:
-            column = f'{point}_{axis}'
+        # Smooth each axis
+        df[xcol] = _smooth_series(df[xcol], med_window, gauss_kernel)
+        df[ycol] = _smooth_series(df[ycol], med_window, gauss_kernel)
 
-            # Interpolate using the pchip method
-            df[column] = df[column].interpolate(method='pchip', limit_area='inside')
-            
-            # Forward fill the remaining NaN values
-            df[column] = df[column].ffill() #.bfill()
-            
-            # Apply median filter
-            df[column] = signal.medfilt(df[column], kernel_size = med_filt_window)
-            
-            # Pad the median filtered data to mitigate edge effects
-            padded = np.pad(df[column], pad_width, mode='edge')
-            
-            # Apply convolution
-            smooth = signal.convolve(padded, gauss_kernel, mode='valid')
-            
-            # Trim the padded edges to restore original length
-            df[column] = smooth[:len(df[column])]
-
-    if targets:
-        for tgt in targets:
-            likelihood_col = f'{tgt}_likelihood'
-            x_col = f'{tgt}_x'
-            y_col = f'{tgt}_y'
-            
-            # Check if the required columns exist in df
-            if likelihood_col in df.columns and x_col in df.columns and y_col in df.columns:
-                median = df[likelihood_col].median()
-                mean = df[likelihood_col].mean()
-                std_dev = df[likelihood_col].std()
-                    
-                limit = mean - num_sd * std_dev
-                
-                # Set x and y coordinates to NaN where the likelihood is below the tolerance limit
-                df.loc[df[likelihood_col] < limit, [x_col, y_col]] = np.nan
-                
-                for axis in ['x', 'y']:
-                    column = f'{tgt}_{axis}'
-                    if column in df.columns:
-                        df[column] = df[column].median()
+    # For any target ROIs, set coordinates to their median (constant)
+    for tgt in targets:
+        xcol, ycol, lik = f"{tgt}_x", f"{tgt}_y", f"{tgt}_likelihood"
+        if all(c in df.columns for c in (xcol, ycol, lik)):
+            mean, std = df[lik].mean(), df[lik].std()
+            threshold = mean - num_sd * std
+            # Mask unlikely points (though ROI likelihood is always 1)
+            df.loc[df[lik] < threshold, [xcol, ycol]] = np.nan
+            # Fill with median
+            df[xcol] = df[xcol].fillna(df[xcol].median())
+            df[ycol] = df[ycol].fillna(df[ycol].median())
+        else:
+            logger.debug(f"Skipping target '{tgt}': missing columns.")
 
     return df
 
@@ -476,7 +563,7 @@ def plot_raw_vs_smooth(params_path: str, df_raw, df_smooth, bodypart = 'nose'):
             if 'likelihood' not in column:
                 fig.add_trace(go.Scatter(x=df_smooth.index, y=df_smooth[column], name=f'smooth {column}', line=dict(width=3)))
 
-    median = df_raw[f'{bodypart}_likelihood'].median()
+    # median = df_raw[f'{bodypart}_likelihood'].median()
     mean = df_raw[f'{bodypart}_likelihood'].mean()
     std_dev = df_raw[f'{bodypart}_likelihood'].std()
         
@@ -521,95 +608,123 @@ def plot_raw_vs_smooth(params_path: str, df_raw, df_smooth, bodypart = 'nose'):
     # Show plot
     fig.show()
 
-def process_position_files(params_path: str, targetless_trials:list = []):
-    """Processes a list of HDF5 files and saves the smoothed data as a CSV file.
+def process_position_files(params_path: str, targetless_trials: Optional[List[str]] = None, output_suffix: str = ".csv"):
+    """
+    Batch‐process all HDF5 position files listed in params.yaml:
+      1. Load raw data
+      2. Add ROI targets (unless in targetless_trials)
+      3. Filter & smooth
+      4. Drop likelihood & NaN rows
+      5. Save to CSV
 
     Args:
-        params_path (str): Path to the YAML parameters file.
+        params_path (str): Path to the YAML params file.
+        targetless_trials (List[str], optional): Substrings of filenames to skip adding targets.
+        output_suffix (str): Suffix (including extension) for output files. Defaults to ".csv".
     """
+    if targetless_trials is None:
+        targetless_trials = []
+
     params = load_yaml(params_path)
-    folder_path = params.get("path")
-    fps = params.get("fps")
-    filenames = params.get("filenames")
-    files = [os.path.join(folder_path, file + '_positions.h5') for file in filenames]
-    
-    for file in files:
+    folder = params["path"]
+    fps = params.get("fps", 1)
+    filenames = params.get("filenames", [])
 
-        df_raw = open_h5_file(params_path, file)
+    for base in filenames:
+        src_h5 = os.path.join(folder, f"{base}_positions.h5")
+        if not os.path.exists(src_h5):
+            logger.warning(f"Source file not found, skipping: {src_h5}")
+            continue
 
-        if not any(trial in file for trial in targetless_trials):
+        # Load
+        try:
+            df_raw = open_h5_file(params_path, src_h5)
+        except Exception as e:
+            logger.error(f"Failed to load {src_h5}: {e}")
+            continue
+
+        # Add targets
+        if not any(trial in base for trial in targetless_trials):
             df_raw = add_targets(params_path, df_raw)
 
+        # Filter & smooth
         df_smooth = filter_and_smooth_df(params_path, df_raw)
 
-        # Drop the likelihood columns
-        df_smooth = df_smooth.drop(columns=df_smooth.filter(like='likelihood').columns)
+        # Clean up
+        likelihood_cols = [c for c in df_smooth.columns if c.endswith("_likelihood")]
+        df_smooth = df_smooth.drop(columns=likelihood_cols)
 
-        # Drop frames where the mouse is not in the video
-        df_smooth.dropna(inplace=True)
-        
+        df_smooth = df_smooth.dropna()
         if df_smooth.empty:
-            print(f"Warning: {os.path.basename(file)} has no valid data after processing. Skipping.")
-            continue  # Skip saving and move to the next file
+            logger.warning(f"{os.path.basename(src_h5)} has no valid data after processing. Skipping.")
+            continue
 
-        # Determine output CSV path
-        input_dir, input_filename = os.path.split(file)
-        filename_without_extension = os.path.splitext(input_filename)[0]
-        output_csv_path = os.path.join(input_dir, filename_without_extension + '.csv')
+        # Save
+        out_csv = os.path.join(folder, f"{base}{output_suffix}")
+        try:
+            df_smooth.to_csv(out_csv, index=False)
+        except Exception as e:
+            logger.error(f"Failed to write {out_csv}: {e}")
+            continue
 
-        # Save processed data
-        df_smooth.to_csv(output_csv_path, index=False)
-        
-        # Calculate the moment when the mouse enters the video
-        mouse_enters = (len(df_raw) - len(df_smooth)) / fps
+        # Report
+        enter_time = (len(df_raw) - len(df_smooth)) / fps
+        logger.info(
+            f"Processed {os.path.basename(src_h5)} → {os.path.basename(out_csv)}: "
+            f"{df_smooth.shape[1]} cols, mouse enters at {enter_time:.2f}s"
+        )
 
-        print(f"{input_filename} has {df_smooth.shape[1]} columns. Mouse entered after {mouse_enters:.2f} sec.")
 
-def filter_and_move_files(params_path: str):
-    """Filters and moves files to a subfolder.
+def filter_and_move_files(params_path: str, trials_subfolder: str = "positions", h5_subfolder: str = "h5_files"):
+    """
+    Filters CSVs by trial name into per-trial subfolders, and moves all .h5 files into an archive subfolder.
 
     Args:
         params_path (str): Path to the YAML parameters file.
+        trials_subfolder (str): Name of the subfolder under each trial to store CSVs.
+        h5_subfolder (str): Name of the subfolder under the main folder to store .h5 files.
     """
     params = load_yaml(params_path)
-    folder_path = params.get("path")
+    folder = params.get("path")
     trials = params.get("seize_labels", {}).get("trials", [])
 
+    if not os.path.isdir(folder):
+        logger.error(f"Invalid folder path in params: {folder}")
+        return {}
+
+    # Move CSVs into trial-specific subfolders
     for trial in trials:
-        # Create a new subfolder
-        output_folder = os.path.join(folder_path, trial, "positions")
-        os.makedirs(output_folder, exist_ok=True)
+        dest_dir = os.path.join(folder, trial, trials_subfolder)
+        os.makedirs(dest_dir, exist_ok=True)
 
-        # Get a list of all files in the input folder
-        files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+        for fname in os.listdir(folder):
+            if not fname.lower().endswith(".csv"):
+                continue
+            if trial not in fname:
+                continue
 
-        # Iterate through files, move those without the word "positions" to the "extra" subfolder
-        for file in files:
-            if trial in file and ".csv" in file:
-                file_path = os.path.join(folder_path, file)
-                output_path = os.path.join(output_folder, file)
+            src = os.path.join(folder, fname)
+            dst = os.path.join(dest_dir, fname)
+            try:
+                shutil.move(src, dst)
+                logger.info(f"Moved CSV {fname} → {trial}/{trials_subfolder}/")
+            except Exception as e:
+                logger.error(f"Failed to move {src} → {dst}: {e}")
 
-                # Move the file to the "extra" subfolder
-                shutil.move(file_path, output_path)
+    # Archive all remaining .h5 files
+    h5_dir = os.path.join(folder, h5_subfolder)
+    os.makedirs(h5_dir, exist_ok=True)
 
-    print("Files filtered and moved successfully.")
+    for fname in os.listdir(folder):
+        if not fname.lower().endswith(".h5"):
+            continue
 
-    """
-    It also cleans all other files in the folder into a subfolder
-    """
+        src = os.path.join(folder, fname)
+        dst = os.path.join(h5_dir, fname)
+        try:
+            shutil.move(src, dst)
+            logger.info(f"Archived H5 {fname} → {h5_subfolder}/")
+        except Exception as e:
+            logger.error(f"Failed to archive {src} → {dst}: {e}")
 
-    # Get a list of all files in the input folder
-    other_files = [f for f in os.listdir(folder_path) if ".h5" in f]
-
-    subfolder = os.path.join(folder_path, "h5 files")
-    os.makedirs(subfolder, exist_ok=True)
-
-    # Iterate through files, move those without the word "positions" to the "extra" subfolder
-    for file in other_files:
-        file_path = os.path.join(folder_path, file)
-        output_path = os.path.join(subfolder, file)
-        
-        # Move the file to the "extra" subfolder
-        shutil.move(file_path, output_path)
-
-    print("All .H5 files are stored away.")
+    logger.info("File filtering and moving complete.")

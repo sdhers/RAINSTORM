@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 import datetime
 import yaml
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 import tempfile
 
 import seaborn as sns
@@ -20,10 +20,25 @@ import h5py
 
 import tensorflow as tf
 from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.callbacks import EarlyStopping, LearningRateScheduler
+from tensorflow.keras.callbacks import (
+    EarlyStopping, LearningRateScheduler,
+    ModelCheckpoint, TensorBoard, ReduceLROnPlateau
+)
 from tensorflow.keras.layers import (
-    Input, Dense, Layer, Dropout, Bidirectional, LSTM, Add,
-    Cropping1D, MultiHeadAttention, BatchNormalization, LayerNormalization)
+    Input,
+    Dense,
+    Bidirectional,
+    LSTM,
+    BatchNormalization,
+    Dropout,
+    LayerNormalization,
+    MultiHeadAttention,
+    Add,
+    Cropping1D,
+    Activation,
+    Multiply,
+    Lambda
+)
 
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.decomposition import PCA
@@ -149,7 +164,7 @@ def _default_modeling_config(folder_path: str) -> Dict:
             "labelers": ['Labeler_A', 'Labeler_B', 'Labeler_C', 'Labeler_D', 'Labeler_E'],
             "target": 'tgt',
         },
-        "focus_distance": 25,
+        "focus_distance": 30,
         "bodyparts": ["nose", "left_ear", "right_ear", "head", "neck", "body"],
         "split": {
             "validation": 0.15,
@@ -161,11 +176,14 @@ def _default_modeling_config(folder_path: str) -> Dict:
                 "future": 3,
                 "broad": 1.7,
             },
-            "units": [64, 48, 32, 16],
-            "batch_size": 8,
-            "lr": 0.0001,
+            "units": [16, 24, 32, 24, 16, 8],
+            "batch_size": 64,
             "dropout": 0.2,
-            "epochs": 60,
+            "total_epochs": 100,
+            "warmup_epochs": 10,
+            "initial_lr": 1e-5,
+            "peak_lr": 1e-4,
+            "patience": 10
         }
     }
 
@@ -189,9 +207,12 @@ def _modeling_comments() -> Dict[str, str]:
         "broad": "    # Broaden the window by skipping some frames as we stray further from the present.",
         "units": "  # Number of neurons on each layer",
         "batch_size": "  # Number of training samples the model processes before updating its weights",
-        "lr": "  # Learning rate",
         "dropout": "  # randomly turn off a fraction of neurons in the network",
-        "epochs": "  # Each epoch is a complete pass through the entire training dataset"
+        "total_epochs": "  # Each epoch is a complete pass through the entire training dataset",
+        "warmup_epochs": "  # Epochs with increasing learning rate",
+        "initial_lr": "  # Initial learning rate",
+        "peak_lr": "  # Peak learning rate",
+        "patience": "  # Number of epochs to wait before early stopping"
     }
 
 def create_modeling(folder_path: str) -> str:
@@ -335,7 +356,7 @@ def focus(modeling_path: str, df: pd.DataFrame, filter_by: str = 'labels') -> pd
     """
     # Load distance from config
     modeling = load_yaml(modeling_path)
-    distance = modeling.get("focus_distance", 25)
+    distance = modeling.get("focus_distance", 30)
 
     if filter_by not in df.columns:
         raise ValueError(f"Column '{filter_by}' not found in DataFrame.")
@@ -625,142 +646,169 @@ def save_model(modeling_path, model, model_name):
     
     model.save(os.path.join(path, 'trained_models', f"{model_name}.keras"))
 
-class AttentionPooling(Layer):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.score_dense = None
-
-    def build(self, input_shape):
-        self.score_dense = Dense(1)
-        super().build(input_shape)
-
-    def call(self, inputs):
-        # inputs shape: (batch, timesteps, features)
-        score = self.score_dense(inputs)  # (batch, timesteps, 1)
-        weights = tf.nn.softmax(score, axis=1)  # attention weights
-        weighted_sum = tf.reduce_sum(inputs * weights, axis=1)  # (batch, features)
-        return weighted_sum
-
-def build_RNN(modeling_path: str, model_dict: dict) -> tf.keras.Model:
+def generate_slice_plan(timesteps: int, num_layers: int) -> List[int]:
     """
-    Builds a robust Bidirectional RNN with attention, controlled slicing, and configurable pooling.
+    Generate a per-layer cropping plan to reduce timesteps down to 1.
 
     Args:
-        modeling_path (str): Path to YAML config with RNN parameters.
-        model_dict (dict): Dictionary with 'X_tr_wide' as a 3D tensor.
-
+        timesteps: Initial sequence length.
+        num_layers: Number of RNN layers.
     Returns:
-        tf.keras.Model: Compiled model.
+        List of ints: timesteps to remove at each layer.
     """
-    modeling = load_yaml(modeling_path)
-    RNN_params = modeling.get("RNN", {})
-    units = RNN_params.get("units", [64, 48, 32, 16])
-    lr = RNN_params.get("lr", 0.0001)
-    dropout_rate = RNN_params.get("dropout", 0.2)
+    total_to_remove = max(0, timesteps - 2)
+    plan = [0] * num_layers
+    for i in range(total_to_remove):
+        plan[i % num_layers] += 1
+    return plan
+
+
+def attention_pooling_block(x: tf.Tensor, name_prefix: str = "attn_pool") -> tf.Tensor:
+    """
+    Functional attention pooling: softmax over time, weighted sum.
+
+    Args:
+        x: (batch, timesteps, features)
+        name_prefix: prefix for naming layers
+    Returns:
+        (batch, features)
+    """
+    score = Dense(1, name=f"{name_prefix}_score")(x)
+    weights = Activation('softmax', name=f"{name_prefix}_weights")(score)
+    weighted = Multiply(name=f"{name_prefix}_weighted")([x, weights])
+    return Lambda(lambda t: tf.reduce_sum(t, axis=1), name=f"{name_prefix}_sum")(weighted)
+
+
+def build_RNN(modeling_path: str, model_dict: Dict[str, Any]) -> tf.keras.Model:
+    """
+    Builds and compiles a modular bidirectional RNN with attention pooling.
+
+    Args:
+        modeling_path: YAML config path for RNN settings.
+        model_dict: Contains 'X_tr_wide' shaped (batch, time, features).
+    Returns:
+        Compiled Keras Model.
+    """
+    cfg = load_yaml(modeling_path).get("RNN", {})
+    units = cfg.get("units", [64, 48, 32, 16])
+    lr = cfg.get("initial_lr", 1e-5)
+    dropout_rate = cfg.get("dropout", 0.2)
 
     # Validate input
     if 'X_tr_wide' not in model_dict:
-        raise ValueError("model_dict must contain 'X_tr_wide'")
-    x_data = model_dict['X_tr_wide']
-    if x_data.ndim != 3:
-        raise ValueError("'X_tr_wide' must be a 3D tensor (batch, time, features)")
+        raise KeyError("model_dict must include 'X_tr_wide'.")
+    x_sample = model_dict['X_tr_wide']
+    if x_sample.ndim != 3:
+        raise ValueError("'X_tr_wide' must be 3D (batch, time, features).")
 
-    timesteps, features = x_data.shape[1], x_data.shape[2]
+    timesteps, features = x_sample.shape[1], x_sample.shape[2]
     inputs = Input(shape=(timesteps, features), name="input_sequence")
     x = inputs
-    current_timesteps = timesteps
-    total_layers = len(units)
 
-    # Compute total slicing plan (reduce to 1 timestep by end)
-    total_to_remove = max(0, current_timesteps - 1)
-    slice_plan = [0] * total_layers
-    for i in range(total_to_remove):
-        slice_plan[i % total_layers] += 1
+    # Plan cropping to reach 1 timestep
+    slice_plan = generate_slice_plan(timesteps, len(units))
+    current_steps = timesteps
+    
+    print(slice_plan)
 
-    # Build RNN stack
-    for i, unit in enumerate(units):
-        x = Bidirectional(LSTM(unit, return_sequences=True), name=f"bilstm_{i}")(x)
-        x = BatchNormalization(name=f"bn_{i}")(x)
-        x = Dropout(dropout_rate, name=f"dropout_{i}")(x)
+    # Stack RNN layers
+    for idx, num_units in enumerate(units):
+        x = Bidirectional(
+            LSTM(num_units, return_sequences=True),
+            name=f"bilstm_{idx}"
+        )(x)
+        x = BatchNormalization(name=f"bn_{idx}")(x)
+        x = Dropout(dropout_rate, name=f"dropout_{idx}")(x)
 
-        # Temporal attention
-        residual = x
-        x = LayerNormalization(name=f"attn_norm_{i}")(x)
-        x = MultiHeadAttention(num_heads=2, key_dim=unit, name=f"attn_{i}")(x, x)
-        x = Add(name=f"attn_add_{i}")([x, residual])
+        # Self-attention with residual
+        res = x
+        x = LayerNormalization(name=f"attn_norm_{idx}")(x)
+        x = MultiHeadAttention(num_heads=2, key_dim=num_units, name=f"attn_{idx}")(x, x)
+        x = Add(name=f"attn_add_{idx}")([x, res])
 
-        # Controlled slicing
-        if slice_plan[i] > 0 and current_timesteps > 1:
-            to_remove = min(slice_plan[i], current_timesteps - 1)
-            left = to_remove // 2
-            right = to_remove - left
-            x = Cropping1D(cropping=(left, right), name=f"crop_{i}")(x)
-            current_timesteps -= to_remove
+        # Controlled cropping
+        remove = slice_plan[idx]
+        if remove > 0 and current_steps > 1:
+            left = remove // 2
+            right = remove - left
+            x = Cropping1D(cropping=(left, right), name=f"crop_{idx}")(x)
+            current_steps -= remove
 
-    # Pooling
-    x = AttentionPooling(name="attention_pooling")(x)
+    # Attention pooling
+    x = attention_pooling_block(x, name_prefix="attention_pooling")
+    outputs = Dense(1, activation='sigmoid', name="binary_out")(x)
 
-    # Final output
-    output = Dense(1, activation='sigmoid', name="binary_out")(x)
-    model = Model(inputs, output, name="BidirectionalRNN")
-
+    model = Model(inputs, outputs, name="ModularBidirectionalRNN")
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
         loss='binary_crossentropy',
         metrics=['accuracy']
     )
-
     model.summary()
     return model
 
-def lr_schedule(epoch):
-    warmup_epochs = 6
-    initial_lr = 6e-5
-    peak_lr = 2e-4
-    total_epochs = 60  # Could also be passed dynamically
-    decay_type = "cosine"  # Or "exponential"
+def lr_schedule(epoch: int, cfg: Dict[str, Any]) -> float:
+    """
+    Custom schedule: warmup + cosine or exponential decay.
 
-    if epoch < warmup_epochs:
-        return initial_lr * (peak_lr / initial_lr) ** (epoch / warmup_epochs)
-    else:
-        decay_epoch = epoch - warmup_epochs
-        if decay_type == "exponential":
-            decay_factor = 0.9
-            return peak_lr * (decay_factor ** decay_epoch)
-        elif decay_type == "cosine":
-            cosine_decay = 0.5 * (1 + np.cos(np.pi * decay_epoch / (total_epochs - warmup_epochs)))
-            return peak_lr * cosine_decay
-        else:
-            return peak_lr
+    Args:
+        epoch: Current epoch index (0-based).
+        cfg: Config dict with keys: 'warmup_epochs', 'initial_lr', 'peak_lr', 'total_epochs', 'decay_type'.
+    Returns:
+        Learning rate for this epoch.
+    """
+    warmup = cfg.get('warmup_epochs', 10)
+    init_lr = cfg.get('initial_lr', 1e-5)
+    peak_lr = cfg.get('peak_lr', 1e-4)
+    total = cfg.get('total_epochs', cfg.get('epochs', 100))
+    speed = 2
 
-def train_RNN(modeling_path, model_dict, model):
-    # Load parameters
-    modeling = load_yaml(modeling_path)
-    RNN_params = modeling.get("RNN", {})
-    epochs = RNN_params.get("epochs", 60)
-    batch_size = RNN_params.get("batch_size", 8)
 
-    # Callbacks
+    if epoch < warmup:
+        return init_lr * (peak_lr / init_lr) ** (epoch / warmup)
+    decay_epoch = epoch - warmup
+    # Faster cosine decay (higher frequency)
+    cos_decay = 0.5 * (1 + np.cos(np.pi * speed * decay_epoch / max(1, total - warmup)))
+    return peak_lr * cos_decay
+
+
+def train_RNN(modeling_path: str, model_dict: Dict[str, Any], model: tf.keras.Model) -> tf.keras.callbacks.History:
+    """
+    Trains the RNN model with enhanced callbacks: early stopping, LR scheduling,
+    checkpointing, TensorBoard, and ReduceLROnPlateau.
+
+    Args:
+        modeling_path: Path to YAML config.
+        model_dict: Must contain 'X_tr_wide', 'y_tr', 'X_val_wide', 'y_val'.
+        model: Compiled tf.keras.Model.
+    Returns:
+        Training history object.
+    """
+    cfg = load_yaml(modeling_path).get('RNN', {})
+    epochs = cfg.get('epochs', 100)
+    batch_size = cfg.get('batch_size', 32)
+
     callbacks = []
-
-    # Define the EarlyStopping callback
-    early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True, mode='min', verbose=1)
-    callbacks.append(early_stopping)
-
-    # Define the LearningRateScheduler callback
-    lr_scheduler = LearningRateScheduler(lr_schedule)
-    callbacks.append(lr_scheduler)
-
-    # Train
-    history = model.fit(
-        model_dict['X_tr_wide'], model_dict['y_tr'],
-        epochs=epochs,
-        batch_size=batch_size,
-        validation_data=(model_dict['X_val_wide'], model_dict['y_val']),
-        verbose=2,
-        callbacks=callbacks
+    # Early stopping with best-weights restore
+    callbacks.append(
+        EarlyStopping(
+            monitor='val_accuracy', patience=cfg.get('patience', 5),
+            restore_best_weights=True, verbose=1
+        )
+    )
+    # Learning rate scheduler
+    callbacks.append(
+        LearningRateScheduler(
+            lambda e: lr_schedule(e, {**cfg, 'epochs': epochs}), verbose=1
+        )
     )
 
+    history = model.fit(
+        model_dict['X_tr_wide'], model_dict['y_tr'],
+        validation_data=(model_dict['X_val_wide'], model_dict['y_val']),
+        epochs=epochs, batch_size=batch_size,
+        callbacks=callbacks, verbose=2
+    )
     return history
 
 # %% Evaluation

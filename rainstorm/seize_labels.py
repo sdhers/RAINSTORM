@@ -546,7 +546,7 @@ def calculate_durations(series, fps):
 
 # %% plots
 
-def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = True) -> None:
+def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = True, outliers=[]) -> None:
     """
     Plot multiple analyses for a single trial side by side as subplots.
 
@@ -591,7 +591,7 @@ def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = Tr
             novelty = data[trial] if data[trial] else targets
             try:
                 # Call the plotting function for each group on the current subplot axis
-                plot_func(path, group, trial, novelty, fps, ax=ax)
+                plot_func(path, group, trial, novelty, fps, ax=ax, outliers=outliers)
             except Exception as e:
                 print(f"Error plotting {plot_func.__name__} for group {group} and trial {trial}: {e}")
                 ax.set_title(f"Error in {plot_func.__name__}")
@@ -632,7 +632,7 @@ def plot_multiple_analyses(params_path: str, trial, plots: list, show: bool = Tr
 
 # %% Movement
 
-def lineplot_cumulative_distance(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def lineplot_cumulative_distance(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
     """
     Plot the distance traveled by the mouse.
 
@@ -659,6 +659,9 @@ def lineplot_cumulative_distance(path: str, group: str, trial: str, targets: lis
         raise FileNotFoundError(f"Folder {folder} does not exist.")
 
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         df[f'{body}_cumsum'] = df[body].cumsum() / fps
         dfs.append(df)
@@ -699,7 +702,7 @@ def lineplot_cumulative_distance(path: str, group: str, trial: str, targets: lis
 
 # %% Exploration
 
-def lineplot_exploration_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def lineplot_exploration_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
     """
     Plot the exploration time (cumulative sums) for each target for a single trial.
 
@@ -721,6 +724,9 @@ def lineplot_exploration_time(path: str, group: str, trial: str, targets: list, 
         raise FileNotFoundError(f"Folder {folder} does not exist.")
 
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         dfs.append(df)
 
@@ -761,7 +767,7 @@ def lineplot_exploration_time(path: str, group: str, trial: str, targets: list, 
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
-def plot_binned_exploration_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def plot_binned_exploration_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
     """
     Plot the exploration time (cumulative sums) for each target for a single trial, aggregated in time bins.
 
@@ -785,6 +791,9 @@ def plot_binned_exploration_time(path: str, group: str, trial: str, targets: lis
         raise FileNotFoundError(f"Folder {folder} does not exist.")
 
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         dfs.append(df)
 
@@ -839,7 +848,7 @@ def plot_binned_exploration_time(path: str, group: str, trial: str, targets: lis
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
-def histogram_exploration_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, bins: int = 20) -> None:
+def histogram_exploration_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[], bins: int = 20) -> None:
     """
     Plot a histogram of exploration times (distribution of mean exploration time across frames) for each target for a single trial.
     
@@ -863,6 +872,9 @@ def histogram_exploration_time(path: str, group: str, trial: str, targets: list,
         raise FileNotFoundError(f"Folder {folder} does not exist.")
 
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         dfs.append(df)
 
@@ -895,7 +907,7 @@ def histogram_exploration_time(path: str, group: str, trial: str, targets: list,
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
-def lineplot_exploration_cumulative_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def lineplot_exploration_cumulative_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
     """
     Plot the exploration time (cumulative sums) for each target for a single trial.
 
@@ -917,6 +929,9 @@ def lineplot_exploration_cumulative_time(path: str, group: str, trial: str, targ
         raise FileNotFoundError(f"Folder {folder} does not exist.")
 
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         df = calculate_cumsum(df, targets, fps)
         dfs.append(df)
@@ -958,7 +973,7 @@ def lineplot_exploration_cumulative_time(path: str, group: str, trial: str, targ
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)
 
-def boxplot_exploration_cumulative_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def boxplot_exploration_cumulative_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
     """
     Plot a boxplot of exploration time for each target at the end of the session
 
@@ -980,6 +995,9 @@ def boxplot_exploration_cumulative_time(path: str, group: str, trial: str, targe
         raise FileNotFoundError(f"Folder {folder} does not exist.")
     
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         df = calculate_cumsum(df, targets, fps)
         # Select only the last frame for each target
@@ -1034,7 +1052,7 @@ def boxplot_exploration_cumulative_time(path: str, group: str, trial: str, targe
     # Update the global positions variable
     aux_positions += 1
 
-def boxplot_exploration_proportion(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def boxplot_exploration_proportion(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
     """
     Plot a boxplot of exploration time for each target at the end of the session
 
@@ -1056,6 +1074,9 @@ def boxplot_exploration_proportion(path: str, group: str, trial: str, targets: l
         raise FileNotFoundError(f"Folder {folder} does not exist.")
     
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         df = calculate_cumsum(df, targets, fps)
         # Create a time vector based on the frame column.
@@ -1115,7 +1136,7 @@ def boxplot_exploration_proportion(path: str, group: str, trial: str, targets: l
 
 # %% For a pair of targets
 
-def plot_DI(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def plot_DI(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
     """
     Plot the Discrimination Index (DI) for a single trial on a given axis.
 
@@ -1137,6 +1158,9 @@ def plot_DI(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=
         raise FileNotFoundError(f"Folder {folder} does not exist.")
 
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         df = calculate_cumsum(df, targets, fps)
         df = calculate_DI(df, targets)
@@ -1182,7 +1206,7 @@ def plot_DI(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=
     # Update the global color variable
     aux_color += len(targets)
 
-def boxplot_DI_area(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def boxplot_DI_area(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
     """
     Plot a boxplot of the areas under the cumulative sum curves for each target in a trial.
     
@@ -1215,6 +1239,9 @@ def boxplot_DI_area(path: str, group: str, trial: str, targets: list, fps: int =
         raise ValueError("No valid data files were found.")
     
     for file_path in csv_files:
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         df = calculate_cumsum(df, targets, fps)
         df = calculate_DI(df, targets)
@@ -1267,7 +1294,7 @@ def boxplot_DI_area(path: str, group: str, trial: str, targets: list, fps: int =
     # Update the global positions variable.
     aux_positions += 1
 
-def plot_diff(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def plot_diff(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
     """
     Plot the Difference in target exploration (diff) for a single trial on a given axis.
 
@@ -1289,6 +1316,9 @@ def plot_diff(path: str, group: str, trial: str, targets: list, fps: int = 30, a
         raise FileNotFoundError(f"Folder {folder} does not exist.")
 
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         df = calculate_cumsum(df, targets, fps)
         df = calculate_diff(df, targets)
@@ -1334,7 +1364,7 @@ def plot_diff(path: str, group: str, trial: str, targets: list, fps: int = 30, a
     # Update the global color variable
     aux_color += len(targets)
 
-def boxplot_diff_area(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def boxplot_diff_area(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
     """
     Plot a boxplot of the areas under the cumulative sum curves for each target in a trial.
     
@@ -1372,6 +1402,9 @@ def boxplot_diff_area(path: str, group: str, trial: str, targets: list, fps: int
         raise ValueError("No valid data files were found.")
     
     for file_path in csv_files:
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         df = calculate_cumsum(df, targets, fps)
         df = calculate_diff(df, targets)
@@ -1426,7 +1459,7 @@ def boxplot_diff_area(path: str, group: str, trial: str, targets: list, fps: int
 
 # %%
 
-def scatterplot_exploration_cumulative_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def scatterplot_exploration_cumulative_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
     """
     Plot a scatter plot of exploration time for each target at the end of the session
 
@@ -1454,6 +1487,9 @@ def scatterplot_exploration_cumulative_time(path: str, group: str, trial: str, t
         raise FileNotFoundError(f"Folder {folder} does not exist.")
     
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         df = calculate_cumsum(df, targets, fps)
         df = calculate_DI(df, targets)
@@ -1510,7 +1546,7 @@ def scatterplot_exploration_cumulative_time(path: str, group: str, trial: str, t
 
 # %% Freezing
 
-def lineplot_freezing_cumulative_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def lineplot_freezing_cumulative_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
 
     """
     Plot the time the mouse spent freezing.
@@ -1538,6 +1574,9 @@ def lineplot_freezing_cumulative_time(path: str, group: str, trial: str, targets
         raise FileNotFoundError(f"Folder {folder} does not exist.")
 
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         df[f'{behavior}_cumsum'] = df[behavior].cumsum() / fps
         dfs.append(df)
@@ -1578,7 +1617,7 @@ def lineplot_freezing_cumulative_time(path: str, group: str, trial: str, targets
     # Update the global color variable
     aux_color += len(targets)
 
-def plot_freezing_boxplot(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def plot_freezing_boxplot(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
     """
     Plot a boxplot of freezing time at the end of the session
 
@@ -1605,6 +1644,9 @@ def plot_freezing_boxplot(path: str, group: str, trial: str, targets: list, fps:
         raise FileNotFoundError(f"Folder {folder} does not exist.")
     
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         df[f"{behavior}_cumsum"] = df[f"{behavior}"].cumsum() / fps
 
@@ -1636,7 +1678,7 @@ def plot_freezing_boxplot(path: str, group: str, trial: str, targets: list, fps:
     aux_positions += 1
     aux_color += len(targets)
 
-def plot_freezing_histogram(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def plot_freezing_histogram(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
 
     """
     Plot an histogram of the durations of each freezing event.
@@ -1664,6 +1706,9 @@ def plot_freezing_histogram(path: str, group: str, trial: str, targets: list, fp
         raise FileNotFoundError(f"Folder {folder} does not exist.")
 
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
         dfs.append(df)
 
@@ -1889,7 +1934,7 @@ def _plot_positions(nose, towards1, towards2, tgt1, tgt2, ax):
 
 # %% ROI activity
 
-def plot_roi_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def plot_roi_time(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
     """
     Plot the average time spent in each ROI area.
 
@@ -1914,6 +1959,9 @@ def plot_roi_time(path: str, group: str, trial: str, targets: list, fps: int = 3
     all_roi_times = {}
 
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
 
         # Count total time spent in each area (convert frames to seconds)
@@ -1929,7 +1977,6 @@ def plot_roi_time(path: str, group: str, trial: str, targets: list, fps: int = 3
     roi_labels = sorted(all_roi_times.keys())  
     num_rois = len(roi_labels)
     space = 1/(num_rois+1)
-    print(f"Number of ROIs: {num_rois}")
 
     # Calculate x positions for each target within this group
     global aux_positions, aux_color
@@ -1985,7 +2032,7 @@ def count_alternations_and_entries(area_sequence):
 
     return alternations, total_entries
 
-def plot_alternations(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None) -> None:
+def plot_alternations(path: str, group: str, trial: str, targets: list, fps: int = 30, ax=None, outliers=[]) -> None:
     """
     Plot a boxplot of the proportion of alternations over total area entrances.
 
@@ -2010,6 +2057,9 @@ def plot_alternations(path: str, group: str, trial: str, targets: list, fps: int
     alternation_proportions = []
 
     for file_path in glob(os.path.join(folder, "*summary.csv")):
+        filename = os.path.basename(file_path)
+        if any(outlier in filename for outlier in outliers):
+            continue  # Skip files matching any outlier name
         df = pd.read_csv(file_path)
 
         if "location" not in df.columns:
@@ -2017,7 +2067,7 @@ def plot_alternations(path: str, group: str, trial: str, targets: list, fps: int
 
         area_sequence = df["location"].tolist()
         alternations, total_entries = count_alternations_and_entries(area_sequence)
-        print(f"Alternations: {alternations}, Total Entries: {total_entries}")
+        # print(f"Alternations: {alternations}, Total Entries: {total_entries}")
 
         if total_entries > 2:
             alternation_proportions.append(alternations / (total_entries-2)) # Exclude the first two entries

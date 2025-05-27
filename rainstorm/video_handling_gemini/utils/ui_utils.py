@@ -45,30 +45,47 @@ def ask_float(title: str, prompt: str, parent=None) -> Optional[float]:
     root.destroy()
     return result
 
-def ask_open_filenames(title: str, filetypes: List[Tuple[str, str]]) -> Tuple[str, ...]: # Adjusted filetypes hint
+def ask_open_filenames(title: str, filetypes: List[Tuple[str, str]], parent=None) -> Tuple[str, ...]:
     """Opens a file dialog to select multiple files."""
-    root = _get_root()
-    files = filedialog.askopenfilenames(title=title, filetypes=filetypes)
-    root.destroy()
-    return files if files else tuple() # Ensure always a tuple
+    if parent:
+        files = filedialog.askopenfilenames(title=title, filetypes=filetypes, parent=parent)
+        return files if files else tuple()
+    else:
+        root = _get_root()
+        files = filedialog.askopenfilenames(title=title, filetypes=filetypes)
+        root.destroy()
+        return files if files else tuple()
 
-def ask_save_as_filename(title: str, filetypes: List[Tuple[str, str]], defaultextension: str) -> Optional[str]: # Adjusted filetypes hint
+def ask_save_as_filename(title: str, filetypes: List[Tuple[str, str]], defaultextension: str, parent=None) -> Optional[str]:
     """Opens a file dialog to save a file."""
-    root = _get_root()
-    file_path = filedialog.asksaveasfilename(
-        title=title,
-        filetypes=filetypes,
-        defaultextension=defaultextension
-    )
-    root.destroy()
-    return file_path
+    if parent:
+        file_path = filedialog.asksaveasfilename(
+            title=title,
+            filetypes=filetypes,
+            defaultextension=defaultextension,
+            parent=parent
+        )
+        return file_path
+    else:
+        root = _get_root()
+        file_path = filedialog.asksaveasfilename(
+            title=title,
+            filetypes=filetypes,
+            defaultextension=defaultextension
+        )
+        root.destroy()
+        return file_path
 
-def ask_open_filename(title: str, filetypes: List[Tuple[str, str]]) -> Optional[str]: # Adjusted filetypes hint
+def ask_open_filename(title: str, filetypes: List[Tuple[str, str]], parent=None) -> Optional[str]:
     """Opens a file dialog to select a single file."""
-    root = _get_root()
-    file_path = filedialog.askopenfilename(title=title, filetypes=filetypes)
-    root.destroy()
-    return file_path
+    if parent:
+        file_path = filedialog.askopenfilename(title=title, filetypes=filetypes, parent=parent)
+        return file_path
+    else: # Fallback if no parent is given (though for GUI, parent is preferred)
+        root = _get_root()
+        file_path = filedialog.askopenfilename(title=title, filetypes=filetypes)
+        root.destroy()
+        return file_path
 
 def ask_directory(title: str, initialdir: Optional[str] = None, parent=None) -> Optional[str]:
     """Opens a dialog to select a directory."""

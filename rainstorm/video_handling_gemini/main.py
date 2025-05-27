@@ -4,8 +4,8 @@ import os
 
 # Import your existing modules
 from utils import ui_utils # This will be used by the GUI itself
-from tools import video_manager, trimming, video_processor
-from components import aligner, roi_selector, cropping_selector
+from tools import video_manager, video_processor
+from components import aligner, cropper, trimmer
 import config # For file types, etc.
 import logging
 
@@ -78,8 +78,6 @@ class VideoProcessorGUI:
         self.align_button.grid(row=1, column=0, padx=5, pady=5, sticky=tk.W+tk.E)
         self.crop_button = ttk.Button(params_frame, text="Define Cropping", command=self._define_cropping)
         self.crop_button.grid(row=2, column=0, padx=5, pady=5, sticky=tk.W+tk.E)
-        self.roi_button = ttk.Button(params_frame, text="Define ROIs & Scale", command=self._define_rois)
-        self.roi_button.grid(row=3, column=0, padx=5, pady=5, sticky=tk.W+tk.E)
 
         # --- Video Processing Frame ---
         process_frame = ttk.LabelFrame(main_frame, text="Video Processing", padding="10")
@@ -153,7 +151,6 @@ class VideoProcessorGUI:
         self.trim_button.config(state=param_button_state)
         self.align_button.config(state=param_button_state)
         self.crop_button.config(state=param_button_state)
-        self.roi_button.config(state=param_button_state)
         self.process_videos_button.config(state=param_button_state)
         
         if project_loaded and self.project_file_path:
@@ -237,7 +234,7 @@ class VideoProcessorGUI:
         if not self.video_dict: return
         self._log_status("Opening trimming selection...")
         # Pass self.root so the Toplevel dialog is modal to the main app
-        applied = trimming.select_trimming(self.video_dict, parent_tk_instance=self.root)
+        applied = trimmer.select_trimming(self.video_dict, parent_tk_instance=self.root)
         if applied:
             self._log_status("Trimming parameters updated. Consider saving the project.")
         else:
@@ -259,31 +256,13 @@ class VideoProcessorGUI:
         if not self.video_dict: return
         self._log_status("Opening cropping tool...")
         try:
-            cropper_instance = cropping_selector.CroppingSelector(self.video_dict)
+            cropper_instance = cropper.Cropper(self.video_dict)
             self.video_dict = cropper_instance.start()
             self._log_status("Cropping definition complete. Consider saving the project.")
         except Exception as e:
             self._log_status(f"Error during cropping: {e}", is_error=True)
             ui_utils.show_info("Cropping Error", f"An error occurred: {e}", parent=self.root)
         self._update_ui_state()
-
-    def _define_rois(self):
-        if not self.video_dict: return
-        self._log_status("Opening ROI definition tool...")
-        video_files_for_roi = list(self.video_dict.keys())
-        if not video_files_for_roi:
-            self._log_status("No video files in project for ROI definition.", is_error=True)
-            return
-        try:
-            roi_selector_instance = roi_selector.ROISelector(video_files_for_roi)
-            roi_metadata = roi_selector_instance.start() # Saves its own JSON
-            if roi_metadata:
-                self._log_status(f"ROI definition complete. Metadata file 'ROIs_metadata.json' may have been updated.")
-            else:
-                self._log_status("ROI definition canceled or no metadata saved.")
-        except Exception as e:
-            self._log_status(f"Error during ROI definition: {e}", is_error=True)
-            ui_utils.show_info("ROI Error", f"An error occurred: {e}", parent=self.root)
 
     def _select_output_folder(self):
         initial_dir = os.path.dirname(self.project_file_path) if self.project_file_path else os.getcwd()

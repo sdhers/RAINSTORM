@@ -1,0 +1,7 @@
+# requirements.txt
+
+opencv-python
+numpy
+pandas
+keyboard
+Pillow # Tkinter might implicitly use it, good to be explicit for packaging

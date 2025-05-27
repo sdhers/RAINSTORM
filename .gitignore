@@ -1,1 +1,7 @@
 package/
+rainstorm/DrawROIs/build/
+rainstorm/DrawROIs/dist/
+rainstorm/DrawROIs/main.spec
+rainstorm/BehavioralLabeler/build/
+rainstorm/BehavioralLabeler/dist/
+rainstorm/BehavioralLabeler/main.spec

@@ -1,0 +1,445 @@
+2025-05-27 08:19:35,863 - root - INFO - Logging configured. Console level: INFO, File level: DEBUG
+2025-05-27 08:19:35,863 - root - INFO - Full log output available at: C:\Users\dhers\Desktop\Rainstorm\rainstorm\ROI_Selector\logs\roi_selector_20250527_081935.log
+2025-05-27 08:19:35,983 - __main__ - INFO - Starting ROI Selector Application.
+2025-05-27 08:19:35,983 - app - DEBUG - ROISelectorApp initialized.
+2025-05-27 08:19:35,983 - app - INFO - Starting application run.
+2025-05-27 08:19:36,022 - src.ui.dialogs - DEBUG - Dialogs: Tkinter root initialized (transparent and hidden).
+2025-05-27 08:19:36,044 - app - INFO - Displaying instructions.
+2025-05-27 08:19:36,070 - src.ui.dialogs - DEBUG - Dialogs: Prepared parent root for dialog.
+2025-05-27 08:19:39,449 - src.ui.dialogs - DEBUG - Dialogs: Hid parent root after dialog.
+2025-05-27 08:19:39,449 - src.ui.dialogs - DEBUG - Dialogs: Instructions window closed.
+2025-05-27 08:19:39,449 - app - DEBUG - Instructions closed.
+2025-05-27 08:19:39,449 - app - INFO - Calling _select_and_process_videos.
+2025-05-27 08:19:39,449 - app - INFO - Asking user to select video files.
+2025-05-27 08:19:39,472 - src.ui.dialogs - DEBUG - Dialogs: Prepared parent root for dialog.
+2025-05-27 08:19:45,370 - src.ui.dialogs - DEBUG - Dialogs: Hid parent root after dialog.
+2025-05-27 08:19:45,386 - src.ui.dialogs - DEBUG - Dialogs: Selected 30 video files.
+2025-05-27 08:19:45,386 - app - INFO - Selected 30 video(s). Attempting to merge frames.
+2025-05-27 08:19:45,386 - src.core.video_processor - INFO - VideoProcessor: Attempting to merge frames from 30 video(s).
+2025-05-27 08:19:45,959 - src.core.video_processor - INFO - VideoProcessor: Successfully extracted 30 uniform frames. Averaging.
+2025-05-27 08:19:46,023 - src.ui.dialogs - DEBUG - Dialogs: Prepared parent root for dialog.
+2025-05-27 08:19:49,284 - src.ui.dialogs - DEBUG - Dialogs: Hid parent root after dialog.
+2025-05-27 08:19:49,284 - src.ui.dialogs - INFO - Dialogs: Info message: Videos Loaded - Successfully loaded and merged 30 video(s).
+2025-05-27 08:19:49,284 - app - DEBUG - Video frames merged successfully.
+2025-05-27 08:19:49,284 - app - INFO - Calling _load_existing_rois.
+2025-05-27 08:19:49,284 - app - INFO - Asking user if they want to load existing ROIs.
+2025-05-27 08:19:49,331 - src.ui.dialogs - DEBUG - Dialogs: Prepared parent root for dialog.
+2025-05-27 08:19:51,636 - src.ui.dialogs - DEBUG - Dialogs: Hid parent root after dialog.
+2025-05-27 08:19:51,636 - src.ui.dialogs - DEBUG - Dialogs: Asked yes/no 'Do you want to load ROIs from a previous session?', response: False
+2025-05-27 08:19:51,636 - app - INFO - User chose NOT to load existing ROIs.
+2025-05-27 08:19:51,636 - app - INFO - Initializing ROIManager.
+2025-05-27 08:19:51,636 - src.core.roi_manager - DEBUG - ROIManager: Initialized with frame_shape (600, 400). Loaded 0 areas, 0 points, 0 circles.
+2025-05-27 08:19:51,636 - app - INFO - Initializing MainWindow (OpenCV window).
+2025-05-27 08:19:51,685 - src.ui.main_window - DEBUG - MainWindow: OpenCV window 'Draw ROIs' created.
+2025-05-27 08:19:51,685 - app - INFO - MainWindow initialized. Entering main loop.
+2025-05-27 08:19:53,968 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:19:54,016 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:19:57,412 - src.ui.main_window - DEBUG - Mouse: LBUTTONDOWN at (189, 113) with flags 1
+2025-05-27 08:19:57,412 - src.ui.main_window - DEBUG - Mouse: Started drawing rectangle (default).
+2025-05-27 08:19:57,509 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP at (189, 113).
+2025-05-27 08:19:57,509 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP detected as a Point click.
+2025-05-27 08:20:00,361 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=1) with flags 7864336
+2025-05-27 08:20:00,361 - src.ui.main_window - DEBUG - Mouse: Zoom scale changed to 2.
+2025-05-27 08:20:00,473 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=1) with flags 7864336
+2025-05-27 08:20:00,473 - src.ui.main_window - DEBUG - Mouse: Zoom scale changed to 3.
+2025-05-27 08:20:02,075 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=1) with flags 7864336
+2025-05-27 08:20:02,075 - src.ui.main_window - DEBUG - Mouse: Zoom scale changed to 4.
+2025-05-27 08:20:03,710 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864304
+2025-05-27 08:20:03,710 - src.ui.main_window - DEBUG - Mouse: Zoom scale changed to 3.
+2025-05-27 08:20:04,015 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864304
+2025-05-27 08:20:04,015 - src.ui.main_window - DEBUG - Mouse: Zoom scale changed to 2.
+2025-05-27 08:20:05,378 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=1) with flags 7864336
+2025-05-27 08:20:05,378 - src.ui.main_window - DEBUG - Mouse: Zoom scale changed to 3.
+2025-05-27 08:20:07,274 - src.ui.main_window - DEBUG - Mouse: LBUTTONDOWN at (190, 113) with flags 1
+2025-05-27 08:20:07,274 - src.ui.main_window - DEBUG - Mouse: Started drawing rectangle (default).
+2025-05-27 08:20:07,402 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP at (190, 113).
+2025-05-27 08:20:07,402 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP detected as a Point click.
+2025-05-27 08:20:08,091 - src.ui.main_window - DEBUG - Mouse: LBUTTONDOWN at (190, 113) with flags 1
+2025-05-27 08:20:08,091 - src.ui.main_window - DEBUG - Mouse: Started drawing rectangle (default).
+2025-05-27 08:20:08,186 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP at (190, 113).
+2025-05-27 08:20:08,186 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP detected as a Point click.
+2025-05-27 08:20:10,129 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:20:10,177 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:20:10,225 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:20:10,274 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:20:10,322 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:20:10,499 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=1) with flags 7864320
+2025-05-27 08:20:10,515 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=1) with flags 7864320
+2025-05-27 08:20:10,547 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=1) with flags 7864320
+2025-05-27 08:20:10,579 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=1) with flags 7864320
+2025-05-27 08:20:10,644 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=1) with flags 7864320
+2025-05-27 08:20:13,322 - src.ui.main_window - DEBUG - Mouse: LBUTTONDOWN at (162, 85) with flags 1
+2025-05-27 08:20:13,322 - src.ui.main_window - DEBUG - Mouse: Started drawing rectangle (default).
+2025-05-27 08:20:16,338 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP at (220, 138).
+2025-05-27 08:20:18,019 - src.ui.main_window - DEBUG - Mouse: LBUTTONDOWN at (142, 88) with flags 17
+2025-05-27 08:20:18,019 - src.ui.main_window - DEBUG - Mouse: Started drawing circle.
+2025-05-27 08:20:19,367 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP at (171, 109).
+2025-05-27 08:20:19,831 - src.ui.main_window - DEBUG - Mouse: RBUTTONDOWN at (151, 105).
+2025-05-27 08:20:19,831 - src.ui.main_window - DEBUG - Mouse: Started moving active (newly drawn) ROI.
+2025-05-27 08:20:19,911 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 1).
+2025-05-27 08:20:19,911 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 1).
+2025-05-27 08:20:19,927 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 1).
+2025-05-27 08:20:19,927 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 1).
+2025-05-27 08:20:19,943 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:19,943 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:19,959 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (3, 2).
+2025-05-27 08:20:19,959 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (3, 2).
+2025-05-27 08:20:19,975 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (4, 2).
+2025-05-27 08:20:19,975 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (4, 2).
+2025-05-27 08:20:19,991 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (4, 2).
+2025-05-27 08:20:19,991 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (4, 2).
+2025-05-27 08:20:20,007 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (4, 0).
+2025-05-27 08:20:20,007 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (4, 0).
+2025-05-27 08:20:20,023 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (2, 2).
+2025-05-27 08:20:20,023 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (2, 2).
+2025-05-27 08:20:20,023 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (2, 0).
+2025-05-27 08:20:20,023 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (2, 0).
+2025-05-27 08:20:20,039 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (2, 1).
+2025-05-27 08:20:20,039 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (2, 1).
+2025-05-27 08:20:20,039 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 1).
+2025-05-27 08:20:20,039 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 1).
+2025-05-27 08:20:20,055 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 0).
+2025-05-27 08:20:20,055 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 0).
+2025-05-27 08:20:20,055 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 2).
+2025-05-27 08:20:20,055 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 2).
+2025-05-27 08:20:20,070 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (2, 0).
+2025-05-27 08:20:20,070 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (2, 0).
+2025-05-27 08:20:20,086 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (3, 0).
+2025-05-27 08:20:20,086 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (3, 0).
+2025-05-27 08:20:20,088 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 0).
+2025-05-27 08:20:20,088 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 0).
+2025-05-27 08:20:20,102 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 1).
+2025-05-27 08:20:20,102 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 1).
+2025-05-27 08:20:20,118 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (2, 1).
+2025-05-27 08:20:20,118 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (2, 1).
+2025-05-27 08:20:20,134 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (2, 0).
+2025-05-27 08:20:20,134 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (2, 0).
+2025-05-27 08:20:20,150 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (3, 0).
+2025-05-27 08:20:20,150 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (3, 0).
+2025-05-27 08:20:20,166 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 0).
+2025-05-27 08:20:20,166 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 0).
+2025-05-27 08:20:20,182 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 0).
+2025-05-27 08:20:20,182 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 0).
+2025-05-27 08:20:20,198 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,198 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,214 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 0).
+2025-05-27 08:20:20,214 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 0).
+2025-05-27 08:20:20,214 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,214 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,230 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,230 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,232 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 0).
+2025-05-27 08:20:20,232 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 0).
+2025-05-27 08:20:20,262 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 1).
+2025-05-27 08:20:20,262 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 1).
+2025-05-27 08:20:20,278 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 1).
+2025-05-27 08:20:20,278 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 1).
+2025-05-27 08:20:20,294 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 1).
+2025-05-27 08:20:20,294 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 1).
+2025-05-27 08:20:20,310 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 0).
+2025-05-27 08:20:20,310 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 0).
+2025-05-27 08:20:20,310 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 1).
+2025-05-27 08:20:20,310 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 1).
+2025-05-27 08:20:20,326 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,326 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,326 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,326 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,343 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 1).
+2025-05-27 08:20:20,343 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 1).
+2025-05-27 08:20:20,358 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 1).
+2025-05-27 08:20:20,358 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 1).
+2025-05-27 08:20:20,374 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 1).
+2025-05-27 08:20:20,374 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 1).
+2025-05-27 08:20:20,390 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 1).
+2025-05-27 08:20:20,390 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 1).
+2025-05-27 08:20:20,406 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 1).
+2025-05-27 08:20:20,406 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 1).
+2025-05-27 08:20:20,406 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 1).
+2025-05-27 08:20:20,406 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 1).
+2025-05-27 08:20:20,422 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,422 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,422 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 1).
+2025-05-27 08:20:20,422 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 1).
+2025-05-27 08:20:20,438 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 1).
+2025-05-27 08:20:20,438 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 1).
+2025-05-27 08:20:20,438 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,438 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,454 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,454 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,565 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 0).
+2025-05-27 08:20:20,565 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 0).
+2025-05-27 08:20:20,581 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,581 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,598 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,598 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,614 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (-1, -2).
+2025-05-27 08:20:20,614 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (-1, -2).
+2025-05-27 08:20:20,630 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,630 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,646 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,646 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,662 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,662 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,678 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, -2).
+2025-05-27 08:20:20,678 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, -2).
+2025-05-27 08:20:20,694 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,694 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,726 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,726 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,871 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:20,871 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:20,967 - src.ui.main_window - DEBUG - Mouse: RBUTTONUP.
+2025-05-27 08:20:21,176 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:20:21,176 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 34.
+2025-05-27 08:20:21,531 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:20:21,531 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 33.
+2025-05-27 08:20:22,127 - src.ui.main_window - DEBUG - Mouse: RBUTTONDOWN at (199, 129).
+2025-05-27 08:20:22,128 - src.ui.main_window - DEBUG - Mouse: Started moving active (newly drawn) ROI.
+2025-05-27 08:20:22,318 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:22,318 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:22,350 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, -1).
+2025-05-27 08:20:22,350 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, -1).
+2025-05-27 08:20:22,624 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (-1, 0).
+2025-05-27 08:20:22,624 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (-1, 0).
+2025-05-27 08:20:22,656 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (-1, 0).
+2025-05-27 08:20:22,656 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (-1, 0).
+2025-05-27 08:20:22,672 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:22,672 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:22,688 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (-1, 1).
+2025-05-27 08:20:22,688 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (-1, 1).
+2025-05-27 08:20:22,736 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:22,736 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:23,042 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 0).
+2025-05-27 08:20:23,042 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 0).
+2025-05-27 08:20:23,058 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:23,058 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:23,073 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:20:23,073 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:20:23,105 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, -1).
+2025-05-27 08:20:23,105 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, -1).
+2025-05-27 08:20:23,105 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, -1).
+2025-05-27 08:20:23,105 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, -1).
+2025-05-27 08:20:23,524 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 1).
+2025-05-27 08:20:23,524 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 1).
+2025-05-27 08:20:24,439 - src.ui.main_window - DEBUG - Mouse: RBUTTONUP.
+2025-05-27 08:20:33,096 - src.ui.main_window - DEBUG - Mouse: LBUTTONDOWN at (189, 111) with flags 1
+2025-05-27 08:20:33,096 - src.ui.main_window - DEBUG - Mouse: Started drawing rectangle (default).
+2025-05-27 08:20:33,224 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP at (189, 111).
+2025-05-27 08:20:33,224 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP detected as a Point click.
+2025-05-27 08:20:38,145 - app - DEBUG - Key pressed: 115 (Action: None)
+2025-05-27 08:20:38,145 - app - DEBUG - Nudged element by (0, 1).
+2025-05-27 08:20:40,808 - src.ui.main_window - DEBUG - Mouse: LBUTTONDOWN at (190, 113) with flags 1
+2025-05-27 08:20:40,808 - src.ui.main_window - DEBUG - Mouse: Started drawing rectangle (default).
+2025-05-27 08:20:40,921 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP at (190, 113).
+2025-05-27 08:20:40,921 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP detected as a Point click.
+2025-05-27 08:20:42,959 - app - DEBUG - Key pressed: 119 (Action: None)
+2025-05-27 08:20:42,959 - app - DEBUG - Nudged element by (0, -1).
+2025-05-27 08:20:43,505 - app - DEBUG - Key pressed: 97 (Action: None)
+2025-05-27 08:20:43,505 - app - DEBUG - Nudged element by (-1, 0).
+2025-05-27 08:20:43,859 - app - DEBUG - Key pressed: 115 (Action: None)
+2025-05-27 08:20:43,859 - app - DEBUG - Nudged element by (0, 1).
+2025-05-27 08:20:44,261 - app - DEBUG - Key pressed: 100 (Action: None)
+2025-05-27 08:20:44,261 - app - DEBUG - Nudged element by (1, 0).
+2025-05-27 08:20:45,802 - src.ui.main_window - DEBUG - Mouse: LBUTTONDOWN at (190, 113) with flags 1
+2025-05-27 08:20:45,802 - src.ui.main_window - DEBUG - Mouse: Started drawing rectangle (default).
+2025-05-27 08:20:45,945 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP at (190, 113).
+2025-05-27 08:20:45,945 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP detected as a Point click.
+2025-05-27 08:20:48,640 - app - DEBUG - Key pressed: 119 (Action: None)
+2025-05-27 08:20:48,640 - app - DEBUG - Nudged element by (0, -1).
+2025-05-27 08:20:49,410 - app - DEBUG - Key pressed: 97 (Action: None)
+2025-05-27 08:20:49,410 - app - DEBUG - Nudged element by (-1, 0).
+2025-05-27 08:20:55,154 - app - DEBUG - Key pressed: 13 (Action: confirm)
+2025-05-27 08:20:55,154 - app - INFO - Confirming active ROI.
+2025-05-27 08:20:55,170 - src.ui.dialogs - DEBUG - Dialogs: Prepared parent root for dialog.
+2025-05-27 08:20:59,049 - src.ui.dialogs - DEBUG - Dialogs: Hid parent root after dialog.
+2025-05-27 08:20:59,049 - src.ui.dialogs - DEBUG - Dialogs: Asked string 'Enter name for this Point:', got 'obj_1'
+2025-05-27 08:20:59,049 - src.core.roi_manager - INFO - ROIManager: Added point: obj_1 (center=[189, 112])
+2025-05-27 08:20:59,068 - src.ui.dialogs - DEBUG - Dialogs: Prepared parent root for dialog.
+2025-05-27 08:21:00,112 - src.ui.dialogs - DEBUG - Dialogs: Hid parent root after dialog.
+2025-05-27 08:21:00,112 - src.ui.dialogs - INFO - Dialogs: Info message: Point Saved - Point 'obj_1' saved.
+2025-05-27 08:21:00,112 - app - INFO - Saved point: obj_1.
+2025-05-27 08:21:00,122 - app - INFO - Confirmed active ROI.
+2025-05-27 08:21:05,588 - src.ui.main_window - DEBUG - Mouse: RBUTTONDOWN at (211, 125).
+2025-05-27 08:21:05,588 - app - DEBUG - No saved ROI found at (211, 125).
+2025-05-27 08:21:05,588 - src.ui.main_window - DEBUG - Mouse: RBUTTONDOWN did not select a saved ROI.
+2025-05-27 08:21:06,579 - src.ui.main_window - DEBUG - Mouse: RBUTTONUP.
+2025-05-27 08:21:12,875 - src.ui.main_window - DEBUG - Mouse: LBUTTONDOWN at (408, 111) with flags 1
+2025-05-27 08:21:12,875 - src.ui.main_window - DEBUG - Mouse: Started drawing rectangle (default).
+2025-05-27 08:21:12,971 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP at (408, 111).
+2025-05-27 08:21:12,971 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP detected as a Point click.
+2025-05-27 08:21:15,859 - app - DEBUG - Key pressed: 97 (Action: None)
+2025-05-27 08:21:15,859 - app - DEBUG - Nudged element by (-1, 0).
+2025-05-27 08:21:20,178 - app - DEBUG - Key pressed: 115 (Action: None)
+2025-05-27 08:21:20,178 - app - DEBUG - Nudged element by (0, 1).
+2025-05-27 08:21:24,341 - src.ui.main_window - DEBUG - Mouse: LBUTTONDOWN at (407, 112) with flags 1
+2025-05-27 08:21:24,342 - src.ui.main_window - DEBUG - Mouse: Started drawing rectangle (default).
+2025-05-27 08:21:24,470 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP at (407, 112).
+2025-05-27 08:21:24,470 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP detected as a Point click.
+2025-05-27 08:21:31,215 - app - DEBUG - Key pressed: 13 (Action: confirm)
+2025-05-27 08:21:31,215 - app - INFO - Confirming active ROI.
+2025-05-27 08:21:31,231 - src.ui.dialogs - DEBUG - Dialogs: Prepared parent root for dialog.
+2025-05-27 08:21:35,081 - src.ui.dialogs - DEBUG - Dialogs: Hid parent root after dialog.
+2025-05-27 08:21:35,081 - src.ui.dialogs - DEBUG - Dialogs: Asked string 'Enter name for this Point:', got 'obj_2'
+2025-05-27 08:21:35,081 - src.core.roi_manager - INFO - ROIManager: Added point: obj_2 (center=[407, 112])
+2025-05-27 08:21:35,095 - src.ui.dialogs - DEBUG - Dialogs: Prepared parent root for dialog.
+2025-05-27 08:21:36,353 - src.ui.dialogs - DEBUG - Dialogs: Hid parent root after dialog.
+2025-05-27 08:21:36,353 - src.ui.dialogs - INFO - Dialogs: Info message: Point Saved - Point 'obj_2' saved.
+2025-05-27 08:21:36,353 - app - INFO - Saved point: obj_2.
+2025-05-27 08:21:36,363 - app - INFO - Confirmed active ROI.
+2025-05-27 08:21:40,755 - src.ui.main_window - DEBUG - Mouse: LBUTTONDOWN at (141, 69) with flags 17
+2025-05-27 08:21:40,756 - src.ui.main_window - DEBUG - Mouse: Started drawing circle.
+2025-05-27 08:21:41,843 - src.ui.main_window - DEBUG - Mouse: LBUTTONUP at (191, 111).
+2025-05-27 08:21:42,115 - src.ui.main_window - DEBUG - Mouse: RBUTTONDOWN at (152, 107).
+2025-05-27 08:21:42,115 - src.ui.main_window - DEBUG - Mouse: Started moving active (newly drawn) ROI.
+2025-05-27 08:21:42,131 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 1).
+2025-05-27 08:21:42,131 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 1).
+2025-05-27 08:21:42,131 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 1).
+2025-05-27 08:21:42,131 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 1).
+2025-05-27 08:21:42,147 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:42,147 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:42,148 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 2).
+2025-05-27 08:21:42,148 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 2).
+2025-05-27 08:21:42,163 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 2).
+2025-05-27 08:21:42,163 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 2).
+2025-05-27 08:21:42,163 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 1).
+2025-05-27 08:21:42,163 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 1).
+2025-05-27 08:21:42,179 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 2).
+2025-05-27 08:21:42,179 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 2).
+2025-05-27 08:21:42,181 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (2, 3).
+2025-05-27 08:21:42,183 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (2, 3).
+2025-05-27 08:21:42,195 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 2).
+2025-05-27 08:21:42,195 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 2).
+2025-05-27 08:21:42,211 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (5, 7).
+2025-05-27 08:21:42,211 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (5, 7).
+2025-05-27 08:21:42,227 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (6, 7).
+2025-05-27 08:21:42,227 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (6, 7).
+2025-05-27 08:21:42,243 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (7, 6).
+2025-05-27 08:21:42,243 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (7, 6).
+2025-05-27 08:21:42,259 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (6, 4).
+2025-05-27 08:21:42,259 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (6, 4).
+2025-05-27 08:21:42,275 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (5, 4).
+2025-05-27 08:21:42,275 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (5, 4).
+2025-05-27 08:21:42,291 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (5, 4).
+2025-05-27 08:21:42,291 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (5, 4).
+2025-05-27 08:21:42,307 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (4, 2).
+2025-05-27 08:21:42,307 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (4, 2).
+2025-05-27 08:21:42,323 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (2, 2).
+2025-05-27 08:21:42,323 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (2, 2).
+2025-05-27 08:21:42,339 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 0).
+2025-05-27 08:21:42,339 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 0).
+2025-05-27 08:21:42,356 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:42,356 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:42,372 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 0).
+2025-05-27 08:21:42,372 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 0).
+2025-05-27 08:21:42,388 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:42,389 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:42,469 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (1, 0).
+2025-05-27 08:21:42,469 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (1, 0).
+2025-05-27 08:21:42,485 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:42,485 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:42,533 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:42,533 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:42,533 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:42,535 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:42,549 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:42,549 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:42,549 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, -1).
+2025-05-27 08:21:42,549 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, -1).
+2025-05-27 08:21:42,565 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:42,565 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:42,565 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, -1).
+2025-05-27 08:21:42,565 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, -1).
+2025-05-27 08:21:42,581 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:42,582 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:42,597 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, -1).
+2025-05-27 08:21:42,598 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, -1).
+2025-05-27 08:21:42,613 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:42,613 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:42,645 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, -1).
+2025-05-27 08:21:42,645 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, -1).
+2025-05-27 08:21:42,645 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:42,645 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:42,693 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, -1).
+2025-05-27 08:21:42,693 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, -1).
+2025-05-27 08:21:42,725 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, -1).
+2025-05-27 08:21:42,725 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, -1).
+2025-05-27 08:21:42,741 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (-1, 0).
+2025-05-27 08:21:42,741 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (-1, 0).
+2025-05-27 08:21:42,918 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:42,918 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:42,934 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:42,934 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:42,934 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, -1).
+2025-05-27 08:21:42,934 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, -1).
+2025-05-27 08:21:43,063 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:43,063 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:43,079 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, -1).
+2025-05-27 08:21:43,079 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, -1).
+2025-05-27 08:21:43,561 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:43,561 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:43,883 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 1).
+2025-05-27 08:21:43,883 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 1).
+2025-05-27 08:21:43,947 - src.ui.main_window - DEBUG - MainWindow: Updated current ROI position by (0, 0).
+2025-05-27 08:21:43,947 - src.ui.main_window - DEBUG - Mouse: Moving active ROI by (0, 0).
+2025-05-27 08:21:44,219 - src.ui.main_window - DEBUG - Mouse: RBUTTONUP.
+2025-05-27 08:21:47,585 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:47,585 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 64.
+2025-05-27 08:21:47,954 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:47,954 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 63.
+2025-05-27 08:21:48,002 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:48,002 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 62.
+2025-05-27 08:21:48,082 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:48,082 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 61.
+2025-05-27 08:21:48,146 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:48,146 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 60.
+2025-05-27 08:21:49,172 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:49,172 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 59.
+2025-05-27 08:21:49,220 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:49,220 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 58.
+2025-05-27 08:21:49,284 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:49,284 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 57.
+2025-05-27 08:21:49,316 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:49,316 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 56.
+2025-05-27 08:21:49,396 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:49,396 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 55.
+2025-05-27 08:21:49,975 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:49,975 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 54.
+2025-05-27 08:21:50,103 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:50,103 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 53.
+2025-05-27 08:21:50,199 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:50,199 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 52.
+2025-05-27 08:21:50,697 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:50,697 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 51.
+2025-05-27 08:21:50,809 - src.ui.main_window - DEBUG - Mouse: MOUSEWHEEL (delta=-1) with flags -7864320
+2025-05-27 08:21:50,809 - src.ui.main_window - DEBUG - Mouse: Circle radius changed to 50.
+2025-05-27 08:24:55,285 - app - DEBUG - Key pressed: 13 (Action: confirm)
+2025-05-27 08:24:55,285 - app - INFO - Confirming active ROI.
+2025-05-27 08:24:55,300 - src.ui.dialogs - DEBUG - Dialogs: Prepared parent root for dialog.
+2025-05-27 08:24:57,265 - src.ui.dialogs - DEBUG - Dialogs: Hid parent root after dialog.
+2025-05-27 08:24:57,265 - src.ui.dialogs - DEBUG - Dialogs: Asked string 'Enter name for this Circle ROI:', got 'dsfg'
+2025-05-27 08:24:57,265 - src.core.roi_manager - INFO - ROIManager: Added circle ROI: dsfg (center=[189, 112], R=50)
+2025-05-27 08:24:57,280 - src.ui.dialogs - DEBUG - Dialogs: Prepared parent root for dialog.
+2025-05-27 08:24:58,429 - src.ui.dialogs - DEBUG - Dialogs: Hid parent root after dialog.
+2025-05-27 08:24:58,429 - src.ui.dialogs - INFO - Dialogs: Info message: ROI Saved - Circle ROI 'dsfg' saved.
+2025-05-27 08:24:58,429 - app - INFO - Saved circle ROI: dsfg.
+2025-05-27 08:24:58,429 - app - INFO - Confirmed active ROI.
+2025-05-27 08:24:59,738 - app - DEBUG - Key pressed: 113 (Action: quit)
+2025-05-27 08:24:59,738 - app - INFO - Handling quit action.
+2025-05-27 08:24:59,751 - src.ui.dialogs - DEBUG - Dialogs: Prepared parent root for dialog.
+2025-05-27 08:25:00,758 - src.ui.dialogs - DEBUG - Dialogs: Hid parent root after dialog.
+2025-05-27 08:25:00,758 - src.ui.dialogs - DEBUG - Dialogs: Asked yes/no 'Quit drawing?', response: True
+2025-05-27 08:25:00,773 - src.ui.dialogs - DEBUG - Dialogs: Prepared parent root for dialog.
+2025-05-27 08:25:01,877 - src.ui.dialogs - DEBUG - Dialogs: Hid parent root after dialog.
+2025-05-27 08:25:01,877 - src.ui.dialogs - DEBUG - Dialogs: Asked yes/no 'Save ROIs?', response: True
+2025-05-27 08:25:01,889 - src.core.roi_manager - INFO - ROIManager: ROIs saved to C:/Users/dhers/OneDrive/PhD/Experiments/3xTg/B1/2024_09-NOR_12m\ROIs.json
+2025-05-27 08:25:01,889 - app - INFO - ROIs saved to C:/Users/dhers/OneDrive/PhD/Experiments/3xTg/B1/2024_09-NOR_12m\ROIs.json.
+2025-05-27 08:25:01,913 - src.ui.dialogs - DEBUG - Dialogs: Prepared parent root for dialog.
+2025-05-27 08:25:03,234 - src.ui.dialogs - DEBUG - Dialogs: Hid parent root after dialog.
+2025-05-27 08:25:03,234 - src.ui.dialogs - INFO - Dialogs: Info message: Exiting - Application is closing.
+2025-05-27 08:25:03,234 - app - INFO - User chose to exit. Stopping main loop.
+2025-05-27 08:25:03,234 - app - DEBUG - Entering finally block for cleanup.
+2025-05-27 08:25:03,234 - app - DEBUG - Destroying MainWindow.
+2025-05-27 08:25:03,246 - src.ui.main_window - DEBUG - MainWindow: Window 'Draw ROIs' destroyed.
+2025-05-27 08:25:03,246 - app - DEBUG - Destroying Dialogs root.
+2025-05-27 08:25:03,246 - src.ui.dialogs - DEBUG - Dialogs: Tkinter root destroyed.
+2025-05-27 08:25:03,246 - app - INFO - Application finished.

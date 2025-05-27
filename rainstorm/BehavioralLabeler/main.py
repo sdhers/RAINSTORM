@@ -3,6 +3,7 @@
 import sys
 import os
 import logging
+from tkinter import messagebox, Tk
 
 # Add the src directory to the Python path
 # This is crucial when running the script directly or as an executable
@@ -11,7 +12,6 @@ sys.path.append(os.path.join(script_dir, 'src'))
 
 from src.app import LabelingApp
 from src.logger import setup_logging
-from src.config import DEFAULT_BEHAVIORS, DEFAULT_KEYS, OPERANT_KEYS
 
 if __name__ == "__main__":
     # Set up logging before any other operations
@@ -21,18 +21,12 @@ if __name__ == "__main__":
 
     try:
         # Initialize and run the labeling application
-        app = LabelingApp(
-            behaviors=DEFAULT_BEHAVIORS,
-            keys=DEFAULT_KEYS,
-            operant_keys=OPERANT_KEYS
-        )
+        app = LabelingApp()
         app.run()
     except Exception as e:
         logger.critical(f"An unhandled error occurred: {e}", exc_info=True)
-        # Optionally, show a message box for critical errors
-        import tkinter as tk
-        from tkinter import messagebox
-        root = tk.Tk()
+        # Show a message box for critical errors
+        root = Tk()
         root.withdraw()
         messagebox.showerror("Critical Error", f"An unexpected error occurred: {e}\nPlease check the logs for more details.")
         root.destroy()

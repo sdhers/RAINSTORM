@@ -3,7 +3,7 @@
 import os
 import logging
 import cv2
-import pandas as pd
+from tkinter import Tk # Import Tk here for the temporary root in _select_or_create_labels
 
 from src import gui
 from src import video_processor
@@ -17,18 +17,13 @@ class LabelingApp:
     Main application class for video frame labeling.
     Manages the overall flow, user interaction, and data persistence.
     """
-    def __init__(self, behaviors: list = None, keys: list = None, operant_keys: dict = None):
+    def __init__(self):
         """
-        Initializes the LabelingApp with default or provided behaviors and keys.
-
-        Args:
-            behaviors (list, optional): List of behavior names. Defaults to config.DEFAULT_BEHAVIORS.
-            keys (list, optional): List of keys corresponding to behaviors. Defaults to config.DEFAULT_KEYS.
-            operant_keys (dict, optional): Dictionary of operant keys. Defaults to config.OPERANT_KEYS.
+        Initializes the LabelingApp. Behaviors and keys will be set via the config window.
         """
-        self.behaviors = behaviors if behaviors is not None else config.DEFAULT_BEHAVIORS
-        self.keys = keys if keys is not None else config.DEFAULT_KEYS
-        self.operant_keys = operant_keys if operant_keys is not None else config.OPERANT_KEYS
+        self.behaviors = [] # Will be populated by main menu window
+        self.keys = []      # Will be populated by main menu window
+        self.operant_keys = config.OPERANT_KEYS # Operant keys are fixed from config
 
         self.video_path = None
         self.csv_path = None
@@ -42,86 +37,7 @@ class LabelingApp:
 
         logger.info("LabelingApp initialized.")
 
-    def _select_video_file(self) -> bool:
-        """
-        Prompts the user to select a video file.
-
-        Returns:
-            bool: True if a video file is selected, False otherwise.
-        """
-        self.video_path = gui.ask_file_path(
-            "Select Video File",
-            [("Video files", "*.mp4;*.avi;*.mov")]
-        )
-        if not self.video_path:
-            gui.show_messagebox("No Video Selected", "No video file was selected. Exiting.", type="info")
-            logger.info("Video file selection cancelled.")
-            return False
-        self.video_name = os.path.basename(self.video_path)
-        logger.info(f"Selected video: {self.video_path}")
-        return True
-
-    def _select_or_create_labels(self) -> bool:
-        """
-        Asks the user whether to load an existing CSV or start a new one.
-        Handles behavior and key input for new sessions.
-
-        Returns:
-            bool: True if labels are successfully loaded/initialized, False otherwise.
-        """
-        response = gui.show_messagebox(
-            "Load existing labels",
-            "Do you want to load an existing CSV file?\n\nChoose 'yes' to load an existing CSV file or 'no' to start a new one.",
-            type="question"
-        )
-
-        if response: # User chose 'yes' to load existing CSV
-            self.csv_path = gui.ask_file_path("Select CSV Labels File", [("CSV files", "*.csv")])
-            if not self.csv_path:
-                gui.show_messagebox("No CSV Selected", "No CSV file was selected. Exiting.", type="error")
-                logger.error("CSV file selection cancelled when loading existing.")
-                return False
-            try:
-                # Read behaviors from the CSV header
-                labels_df = pd.read_csv(self.csv_path)
-                # Ensure 'Frame' column exists and skip it for behaviors
-                if 'Frame' in labels_df.columns:
-                    self.behaviors = [col for col in labels_df.columns if col != 'Frame']
-                else:
-                    self.behaviors = list(labels_df.columns) # Assume all columns are behaviors if 'Frame' is missing
-                
-                # If keys are not provided, we can't infer them from CSV.
-                # User will have to input them.
-                if not self.keys or len(self.keys) != len(self.behaviors):
-                    gui.show_messagebox("Keys Missing", "Behaviors loaded from CSV, but keys are missing or don't match. Please enter keys.", type="info")
-                    self.keys = gui.ask_keys(self.behaviors, config.DEFAULT_KEYS[:len(self.behaviors)])
-                    if not self.keys:
-                        gui.show_messagebox("Keys Error", "Keys not provided. Exiting.", type="error")
-                        logger.error("Keys input cancelled after loading behaviors from CSV.")
-                        return False
-                logger.info(f"Loaded behaviors from CSV: {self.behaviors}")
-
-            except Exception as e:
-                gui.show_messagebox("CSV Load Error", f"Error reading CSV: {e}. Please select a valid CSV or start new.", type="error")
-                logger.error(f"Error reading CSV {self.csv_path}: {e}")
-                return False
-        else: # User chose 'no' to start a new CSV
-            new_behaviors = gui.ask_behaviors(preset_behaviors=self.behaviors)
-            if new_behaviors is None: # User cancelled behavior input
-                gui.show_messagebox("Behaviors Not Entered", "No behaviors entered. Exiting.", type="error")
-                logger.error("Behavior input cancelled for new session.")
-                return False
-            self.behaviors = new_behaviors
-
-            new_keys = gui.ask_keys(self.behaviors, preset_keys=self.keys[:len(self.behaviors)])
-            if new_keys is None: # User cancelled key input
-                gui.show_messagebox("Keys Not Entered", "No keys entered. Exiting.", type="error")
-                logger.error("Key input cancelled for new session.")
-                return False
-            self.keys = new_keys
-            self.csv_path = None # Ensure no old CSV path is used for new session
-            logger.info(f"Starting new labeling session with behaviors: {self.behaviors} and keys: {self.keys}")
-        return True
+    # Removed _select_video_file and _select_or_create_labels as their logic is now in MainMenuWindow
 
     def run(self):
         """
@@ -129,9 +45,29 @@ class LabelingApp:
         """
         logger.info("Starting LabelingApp.run()")
 
-        # 1. Select Video File
-        if not self._select_video_file():
+        # 0. Configure Behaviors and Keys (Main Menu)
+        root = Tk()
+        root.withdraw() # Hide the main Tkinter root window initially
+        main_menu_window = gui.MainMenuWindow(root, config.DEFAULT_BEHAVIORS, config.DEFAULT_KEYS)
+        app_config = main_menu_window.get_config()
+        # root.destroy() # The MainMenuWindow already destroys its master (root)
+
+        if app_config['cancelled']:
+            gui.show_messagebox("Configuration Cancelled", "Application startup cancelled by user.", type="info")
+            logger.info("Application startup cancelled by user from main menu.")
             return
+
+        # Apply configuration from MainMenuWindow
+        self.behaviors = app_config['behaviors']
+        self.keys = app_config['keys']
+        self.video_path = app_config['video_path']
+        self.csv_path = app_config['csv_path']
+        continue_from_checkpoint = app_config['continue_from_checkpoint']
+
+        self.video_name = os.path.basename(self.video_path)
+        logger.info(f"Configuration loaded: Video='{self.video_path}', CSV='{self.csv_path}', Continue='{continue_from_checkpoint}'")
+        logger.info(f"Behaviors: {self.behaviors}, Keys: {self.keys}")
+
 
         # Open video using VideoHandler
         if not self.video_handler.open_video(self.video_path):
@@ -146,31 +82,18 @@ class LabelingApp:
             self.video_handler.release_video()
             return
 
-        # 2. Select or Create Labels
-        if not self._select_or_create_labels():
-            self.video_handler.release_video()
-            return
-
         # Load or initialize frame labels and get the suggested start frame
         self.frame_labels, suggested_start_frame = label_manager.load_labels(
             self.csv_path, self.total_frames, self.behaviors
         )
         
-        # If loading an existing CSV and a checkpoint was found, ask the user
-        if self.csv_path and suggested_start_frame > 0:
-            response = gui.show_messagebox(
-                "Continue Session", 
-                f"A checkpoint was found at frame {suggested_start_frame + 1}. Do you want to continue from there?", 
-                type="question"
-            )
-            if response: # User chose 'yes' to continue from checkpoint
-                self.current_frame = suggested_start_frame
-                logger.info(f"User chose to continue labeling from frame {self.current_frame + 1}.")
-            else: # User chose 'no', start from beginning
-                self.current_frame = 0
-                logger.info("User chose to restart labeling from frame 1.")
+        # Determine starting frame based on user's choice in MainMenuWindow
+        if self.csv_path and continue_from_checkpoint:
+            self.current_frame = suggested_start_frame
+            logger.info(f"Continuing labeling from frame {self.current_frame + 1} (from checkpoint).")
         else:
-            self.current_frame = 0 # Start from beginning if no CSV or no checkpoint
+            self.current_frame = 0 # Start from beginning if no CSV, or user chose not to continue
+            logger.info("Starting labeling from frame 1.")
 
         # Initialize last_processed_frame. If starting from a checkpoint, all frames before it are considered processed.
         self.last_processed_frame = self.current_frame - 1 # Initialize to the frame *before* the current starting frame
@@ -275,6 +198,7 @@ class LabelingApp:
             logger.debug(f"Determined move: {move}")
 
             # Apply the move, ensuring current_frame stays within bounds
+            # The frame will be fetched at the new self.current_frame in the next loop iteration
             self.current_frame += move
             self.current_frame = max(0, min(self.current_frame, self.total_frames - 1))
 
@@ -289,3 +213,4 @@ class LabelingApp:
         self.video_handler.release_video() # Release video capture when done
         cv2.destroyAllWindows()
         logger.info("LabelingApp finished. OpenCV windows closed.")
+

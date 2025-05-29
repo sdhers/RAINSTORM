@@ -1,6 +1,6 @@
 # src/core/roi_manager.py
+
 import json
-import os
 import logging # Import logging
 
 logger = logging.getLogger(__name__) # Get logger for this module

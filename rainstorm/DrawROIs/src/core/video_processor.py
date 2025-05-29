@@ -1,6 +1,7 @@
 # src/core/video_processor.py
-import numpy as np
+
 import cv2
+import numpy as np
 import logging # Import logging
 
 logger = logging.getLogger(__name__) # Get logger for this module

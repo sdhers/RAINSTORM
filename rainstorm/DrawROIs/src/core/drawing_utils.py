@@ -1,9 +1,10 @@
 # src/core/drawing_utils.py
+
 import cv2
 import numpy as np
-from config import (
-    OVERLAY_FRAC, MARGIN, CROSS_LENGTH_FRAC,
-    COLOR_ROI_SAVED, COLOR_ROI_PREVIEW, COLOR_SCALE_LINE,
+from src.config import (
+    OVERLAY_FRAC, MARGIN, CROSS_LENGTH_FRAC, CROSS_COLOR,
+    COLOR_ROI_SAVED, COLOR_SCALE_LINE,
     COLOR_TEXT_BG, COLOR_TEXT_FG
 )
 
@@ -99,7 +100,11 @@ class DrawingUtils:
 
     @staticmethod
     def zoom_in_display(frame: np.ndarray, x: int, y: int,
-                        zoom_scale: int, overlay_frac: float = OVERLAY_FRAC, margin: int = MARGIN):
+                        zoom_scale: int,
+                        overlay_frac: float = OVERLAY_FRAC,
+                        margin: int = MARGIN,
+                        cross_length_frac: float = CROSS_LENGTH_FRAC,
+                        cross_color: tuple = CROSS_COLOR):
         """
         Create a zoomed inset at (x,y) and return it plus its placement coords.
 
@@ -117,48 +122,38 @@ class DrawingUtils:
         """
         H, W = frame.shape[:2]
         overlay_w = int(W * overlay_frac)
-        half_crop = overlay_w // (2 * zoom_scale)
+        overlay_h = overlay_w # Assuming square inset for simplicity
 
-        # Ensure crop coordinates are within frame boundaries
-        x1 = max(0, x - half_crop)
-        x2 = min(W, x + half_crop)
-        y1 = max(0, y - half_crop)
-        y2 = min(H, y + half_crop)
+        half_crop_w = overlay_w // (2 * zoom_scale)
+        half_crop_h = overlay_h // (2 * zoom_scale)
 
-        # Adjust x2, y2 if crop extends beyond boundaries to maintain size for resize
-        if (x2 - x1) < (2 * half_crop):
-            if x1 == 0: x2 = min(W, 2 * half_crop)
-            if x2 == W: x1 = max(0, W - 2 * half_crop)
-        if (y2 - y1) < (2 * half_crop):
-            if y1 == 0: y2 = min(H, 2 * half_crop)
-            if y2 == H: y1 = max(0, H - 2 * half_crop)
+        x1_crop, x2_crop = max(0, x - half_crop_w), min(W, x + half_crop_w)
+        y1_crop, y2_crop = max(0, y - half_crop_h), min(H, y + half_crop_h)
         
-        # Ensure crop has positive dimensions
-        if (x2 <= x1) or (y2 <= y1):
-            return np.zeros((overlay_w, overlay_w, 3), dtype=np.uint8), (0, overlay_w, 0, overlay_w)
+        crop = frame[y1_crop:y2_crop, x1_crop:x2_crop]
+        
+        # Ensure crop is not empty
+        if crop.size == 0:
+            # Fallback: create a small black patch if crop is empty
+            inset = np.zeros((overlay_h, overlay_w, frame.shape[2] if frame.ndim == 3 else 1), dtype=frame.dtype)
+        else:
+            inset = cv2.resize(crop, (overlay_w, overlay_h), interpolation=cv2.INTER_LINEAR)
 
+        cx, cy = overlay_w // 2, overlay_h // 2
+        ll = int(min(overlay_w, overlay_h) * cross_length_frac) # Use min for safety
+        cv2.line(inset, (cx, cy - ll), (cx, cy + ll), cross_color, 1)
+        cv2.line(inset, (cx - ll, cy), (cx + ll, cy), cross_color, 1)
 
-        crop = frame[y1:y2, x1:x2]
-        if crop.size == 0: # Handle cases where crop might be empty
-            return np.zeros((overlay_w, overlay_w, 3), dtype=np.uint8), (0, overlay_w, 0, overlay_w)
-
-        inset = cv2.resize(crop, (overlay_w, overlay_w), interpolation=cv2.INTER_LINEAR)
-
-        cx, cy = overlay_w // 2, overlay_w // 2
-        ll = int(overlay_w * CROSS_LENGTH_FRAC)
-        cv2.line(inset, (cx, cy - ll), (cx, cy + ll), COLOR_ROI_SAVED, 1)
-        cv2.line(inset, (cx - ll, cy), (cx + ll, cy), COLOR_ROI_SAVED, 1)
-
-        # Determine optimal placement for the inset to avoid overlapping the cursor
+        # Determine placement of the inset (top-right by default)
         ox1 = W - overlay_w - margin
         oy1 = margin
-        
-        # If the cursor is within the potential top-right inset area, move inset to bottom-right
-        if (x > (W - overlay_w - margin) and x < W - margin and
-            y > margin and y < (overlay_w + margin)):
-            oy1 = H - overlay_w - margin
 
-        return inset, (ox1, ox1 + overlay_w, oy1, oy1 + overlay_w)
+        # Smart placement: if cursor is near top-right, move inset to bottom-left
+        if x > (W - overlay_w - 2 * margin) and y < (overlay_h + 2 * margin):
+            oy1 = H - overlay_h - margin*3
+            ox1 = margin
+
+        return inset, (ox1, ox1 + overlay_w, oy1, oy1 + overlay_h)
 
     @staticmethod
     def define_rectangle_params(x1: int, y1: int, x2: int, y2: int) -> tuple:

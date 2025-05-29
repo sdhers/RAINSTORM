@@ -1,12 +1,12 @@
 # src/app.py
+
 import os
 import numpy as np
-import cv2
 import logging # Import logging
 
-from config import KEY_MAP, NUDGE_MAP
-from src.ui.dialogs import Dialogs
-from src.ui.main_window import MainWindow
+from src.config import KEY_MAP, NUDGE_MAP
+from gui.dialogs import Dialogs
+from gui.main_window import MainWindow
 from src.core.roi_manager import ROIManager
 from src.core.video_processor import VideoProcessor
 from src.core.drawing_utils import DrawingUtils
@@ -277,17 +277,10 @@ class ROISelectorApp:
             center_x, center_y = roi['center']
             
             if roi['type'] == 'rectangle':
-                # For rectangles, a proper check for point in rotated rectangle is complex.
-                # For simplicity, we can check proximity to center or within an expanded bounding box.
-                # For real world use, consider cv2.rotatedRectIntersection or point_in_polygon check.
-                # For this simple example, we'll check against a slightly expanded bounding box.
                 half_w = roi['width'] / 2
                 half_h = roi['height'] / 2
                 
-                # Create a simple axis-aligned bounding box (ignoring rotation for simplicity)
-                # This is a heuristic. For true rotated rectangle collision, more complex geometry is needed.
-                # Here, we simply check if the mouse click is within a buffer zone around the ROI's visible area.
-                # A buffer of 10 pixels is added for easier selection.
+                # Check if point is within the bounding box of the rectangle with a buffer of 10 pixels
                 if (center_x - half_w - 10 <= x <= center_x + half_w + 10) and \
                    (center_y - half_h - 10 <= y <= center_y + half_h + 10):
                     logger.debug(f"Selected saved rectangle ROI '{roi.get('name', 'Unnamed')}' at ({x}, {y}).")

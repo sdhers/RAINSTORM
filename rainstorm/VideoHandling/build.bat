@@ -26,8 +26,9 @@ REM --hidden-import: Tells PyInstaller to include modules that it might not dete
 pyinstaller ^
     --onefile ^
     --windowed ^
-    --name "BehavioralLabeler" ^
-    --add-data "src;src" ^
+    --name "VideoHandling" ^
+    --add-data "components;components" ^
+    --add-data "tools;tools" ^
     --add-data "gui;gui" ^
     --hidden-import="tkinter" ^
     --hidden-import="pandas._libs.interval" ^
@@ -35,7 +36,8 @@ pyinstaller ^
     --hidden-import="pandas._libs.tslibs.timestamps" ^
     --hidden-import="cv2" ^
     --hidden-import="keyboard" ^
-    BehavioralLabeler.py
+    --hidden-import="tqdm" ^
+    VideoHandling.py
 
 echo Build complete. The executable should be in the 'dist' folder.
 pause

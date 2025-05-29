@@ -1,7 +1,12 @@
-package/
-rainstorm/DrawROIs/build/
-rainstorm/DrawROIs/dist/
-rainstorm/DrawROIs/main.spec
-rainstorm/BehavioralLabeler/build/
-rainstorm/BehavioralLabeler/dist/
-rainstorm/BehavioralLabeler/main.spec
+# Rainstorm .gitignore file
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# PyInstaller
+*.spec

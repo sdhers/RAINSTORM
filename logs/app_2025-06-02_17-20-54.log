@@ -1,0 +1,37 @@
+2025-06-02 17:20:54,751 - root - INFO - Logging setup complete.
+2025-06-02 17:20:54,751 - rainstorm.BehavioralLabeler.BehavioralLabeler - INFO - BehavioralLabeler application started.
+2025-06-02 17:20:54,752 - rainstorm.BehavioralLabeler.src.video_processor - INFO - VideoHandler initialized.
+2025-06-02 17:20:54,752 - rainstorm.BehavioralLabeler.src.app - INFO - LabelingApp initialized.
+2025-06-02 17:20:54,753 - rainstorm.BehavioralLabeler.src.app - INFO - Starting LabelingApp.run()
+2025-06-02 17:21:03,812 - rainstorm.BehavioralLabeler.gui.main_menu_window - INFO - Selected video: C:/Users/dhers/OneDrive/PhD/Experiments/3xTg/B1/modified/2024-03_Tg-6m_Hab_R05_C04-d_B_R_rst.mp4
+2025-06-02 17:21:05,112 - rainstorm.BehavioralLabeler.gui.main_menu_window - INFO - Operant keys validated: {'next': '5', 'prev': '2', 'ffw': '8', 'erase': '0'}
+2025-06-02 17:21:05,114 - rainstorm.BehavioralLabeler.gui.main_menu_window - INFO - Behavior keys validated.
+2025-06-02 17:21:05,115 - rainstorm.BehavioralLabeler.gui.main_menu_window - INFO - Main menu configuration confirmed: {'behaviors': ['exp_1', 'exp_2', 'freezing', 'front_grooming', 'back_grooming', 'rearing', 'head_dipping', 'protected_hd'], 'keys': ['4', '6', 'f', 'g', 'b', 'r', 'h', 'p'], 'operant_keys': {'next': '5', 'prev': '2', 'ffw': '8', 'erase': '0'}, 'video_path': 'C:/Users/dhers/OneDrive/PhD/Experiments/3xTg/B1/modified/2024-03_Tg-6m_Hab_R05_C04-d_B_R_rst.mp4', 'csv_path': None, 'continue_from_checkpoint': False, 'cancelled': False}
+2025-06-02 17:21:05,129 - rainstorm.BehavioralLabeler.src.app - INFO - Loaded config: Video='C:/Users/dhers/OneDrive/PhD/Experiments/3xTg/B1/modified/2024-03_Tg-6m_Hab_R05_C04-d_B_R_rst.mp4', CSV='None', Continue='False'
+2025-06-02 17:21:05,129 - rainstorm.BehavioralLabeler.src.app - INFO - Behaviors: ['exp_1', 'exp_2', 'freezing', 'front_grooming', 'back_grooming', 'rearing', 'head_dipping', 'protected_hd'], Keys: ['4', '6', 'f', 'g', 'b', 'r', 'h', 'p'], OperantKeys: {'next': '5', 'prev': '2', 'ffw': '8', 'erase': '0'}
+2025-06-02 17:21:05,143 - rainstorm.BehavioralLabeler.src.video_processor - INFO - Opened video: C:/Users/dhers/OneDrive/PhD/Experiments/3xTg/B1/modified/2024-03_Tg-6m_Hab_R05_C04-d_B_R_rst.mp4. Total frames: 22500, FPS: 25.0
+2025-06-02 17:21:05,144 - rainstorm.BehavioralLabeler.src.label_manager - INFO - No CSV path provided or file does not exist (None). Initializing new labels.
+2025-06-02 17:21:05,211 - rainstorm.BehavioralLabeler.gui.frame_display - INFO - Detected screen width: 1920
+2025-06-02 17:21:16,038 - rainstorm.BehavioralLabeler.gui.main_menu_window - INFO - Messagebox 'Exit' displayed. User response: True
+2025-06-02 17:21:16,654 - rainstorm.BehavioralLabeler.gui.main_menu_window - INFO - Messagebox 'Save Changes' displayed. User response: False
+2025-06-02 17:21:16,659 - rainstorm.BehavioralLabeler.src.video_processor - INFO - Video capture released.
+2025-06-02 17:21:16,663 - rainstorm.BehavioralLabeler.src.app - INFO - LabelingApp finished.
+2025-06-02 17:21:16,666 - rainstorm.BehavioralLabeler.BehavioralLabeler - INFO - BehavioralLabeler application finished or terminated due to error.
+2025-06-02 17:22:00,805 - root - INFO - Logging setup complete.
+2025-06-02 17:22:00,806 - rainstorm.BehavioralLabeler.BehavioralLabeler - INFO - BehavioralLabeler application started.
+2025-06-02 17:22:00,807 - rainstorm.BehavioralLabeler.src.video_processor - INFO - VideoHandler initialized.
+2025-06-02 17:22:00,807 - rainstorm.BehavioralLabeler.src.app - INFO - LabelingApp initialized.
+2025-06-02 17:22:00,808 - rainstorm.BehavioralLabeler.src.app - INFO - Starting LabelingApp.run()
+2025-06-02 17:22:02,408 - rainstorm.BehavioralLabeler.gui.main_menu_window - INFO - Main menu cancelled.
+2025-06-02 17:22:03,790 - rainstorm.BehavioralLabeler.gui.main_menu_window - INFO - Messagebox 'Configuration Cancelled' displayed. User response: True
+2025-06-02 17:22:03,793 - rainstorm.BehavioralLabeler.src.app - INFO - Application startup cancelled by user from main menu.
+2025-06-02 17:22:03,795 - rainstorm.BehavioralLabeler.BehavioralLabeler - INFO - BehavioralLabeler application finished or terminated due to error.
+2025-06-02 17:22:15,437 - root - INFO - Logging setup complete.
+2025-06-02 17:22:15,438 - rainstorm.BehavioralLabeler.BehavioralLabeler - INFO - BehavioralLabeler application started.
+2025-06-02 17:22:15,439 - rainstorm.BehavioralLabeler.src.video_processor - INFO - VideoHandler initialized.
+2025-06-02 17:22:15,439 - rainstorm.BehavioralLabeler.src.app - INFO - LabelingApp initialized.
+2025-06-02 17:22:15,440 - rainstorm.BehavioralLabeler.src.app - INFO - Starting LabelingApp.run()
+2025-06-02 17:22:16,953 - rainstorm.BehavioralLabeler.gui.main_menu_window - INFO - Main menu cancelled.
+2025-06-02 17:22:18,479 - rainstorm.BehavioralLabeler.gui.main_menu_window - INFO - Messagebox 'Configuration Cancelled' displayed. User response: True
+2025-06-02 17:22:18,482 - rainstorm.BehavioralLabeler.src.app - INFO - Application startup cancelled by user from main menu.
+2025-06-02 17:22:18,484 - rainstorm.BehavioralLabeler.BehavioralLabeler - INFO - BehavioralLabeler application finished or terminated due to error.

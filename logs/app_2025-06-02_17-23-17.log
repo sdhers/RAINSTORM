@@ -1,0 +1,9 @@
+2025-06-02 17:23:17,481 - root - INFO - Logging setup complete.
+2025-06-02 17:23:17,482 - rainstorm.BehavioralLabeler.BehavioralLabeler - INFO - BehavioralLabeler application started.
+2025-06-02 17:23:17,483 - rainstorm.BehavioralLabeler.src.video_processor - INFO - VideoHandler initialized.
+2025-06-02 17:23:17,483 - rainstorm.BehavioralLabeler.src.app - INFO - LabelingApp initialized.
+2025-06-02 17:23:17,484 - rainstorm.BehavioralLabeler.src.app - INFO - Starting LabelingApp.run()
+2025-06-02 17:23:18,824 - rainstorm.BehavioralLabeler.gui.main_menu_window - INFO - Main menu cancelled.
+2025-06-02 17:23:19,974 - rainstorm.BehavioralLabeler.gui.main_menu_window - INFO - Messagebox 'Configuration Cancelled' displayed. User response: True
+2025-06-02 17:23:19,976 - rainstorm.BehavioralLabeler.src.app - INFO - Application startup cancelled by user from main menu.
+2025-06-02 17:23:19,978 - rainstorm.BehavioralLabeler.BehavioralLabeler - INFO - BehavioralLabeler application finished or terminated due to error.

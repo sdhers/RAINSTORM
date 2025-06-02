@@ -5,7 +5,7 @@ import numpy as np
 from tkinter import Tk
 import logging
 import os
-from src import config # Import the config module
+from ..src import config # Import the config module
 
 # Initialize logger for this module
 logger = logging.getLogger(__name__)

@@ -3,7 +3,8 @@
 from tkinter import Tk, simpledialog, messagebox, filedialog, Frame, Label, Entry, Button, StringVar, BooleanVar, Checkbutton, Canvas, Scrollbar, Text
 import logging
 import os
-from src import config # Import the config module
+from typing import Union
+from ..src import config # Import the config module
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +163,7 @@ Note: Keys should be unique, single characters, different from the operant and f
         Button(button_frame, text="Start Labeling", command=self._start_labeling).pack(side='left', padx=10)
         Button(button_frame, text="Cancel", command=self.on_cancel).pack(side='left', padx=10)
 
-    def _validate_operant_keys(self) -> tuple[bool, dict | None]:
+    def _validate_operant_keys(self) -> Union[tuple[bool, dict], tuple[bool, None]]:
         op_keys_values = {
             'next': self.next_key_var.get().strip().lower(),
             'prev': self.prev_key_var.get().strip().lower(),

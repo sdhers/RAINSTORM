@@ -1,0 +1,25 @@
+2025-06-02 17:18:10,010 - root - INFO - Logging setup complete.
+2025-06-02 17:18:10,010 - rainstorm.BehavioralLabeler.BehavioralLabeler - INFO - BehavioralLabeler application started.
+2025-06-02 17:18:10,011 - rainstorm.BehavioralLabeler.src.video_processor - INFO - VideoHandler initialized.
+2025-06-02 17:18:10,011 - rainstorm.BehavioralLabeler.src.app - INFO - LabelingApp initialized.
+2025-06-02 17:18:10,012 - rainstorm.BehavioralLabeler.src.app - INFO - Starting LabelingApp.run()
+2025-06-02 17:18:10,075 - rainstorm.BehavioralLabeler.BehavioralLabeler - CRITICAL - An unhandled error occurred: __init__() takes 3 positional arguments but 5 were given
+Traceback (most recent call last):
+  File "c:\Users\dhers\Desktop\Rainstorm\rainstorm\BehavioralLabeler\BehavioralLabeler.py", line 46, in run_app
+    app.run()
+  File "c:\Users\dhers\Desktop\Rainstorm\rainstorm\BehavioralLabeler\src\app.py", line 48, in run
+    main_menu_window = mmw.MainMenuWindow(
+TypeError: __init__() takes 3 positional arguments but 5 were given
+2025-06-02 17:18:21,349 - rainstorm.BehavioralLabeler.BehavioralLabeler - INFO - BehavioralLabeler application finished or terminated due to error.
+2025-06-02 17:20:46,072 - root - INFO - Logging setup complete.
+2025-06-02 17:20:46,072 - rainstorm.BehavioralLabeler.BehavioralLabeler - INFO - BehavioralLabeler application started.
+2025-06-02 17:20:46,073 - rainstorm.BehavioralLabeler.src.video_processor - INFO - VideoHandler initialized.
+2025-06-02 17:20:46,074 - rainstorm.BehavioralLabeler.src.app - INFO - LabelingApp initialized.
+2025-06-02 17:20:46,074 - rainstorm.BehavioralLabeler.src.app - INFO - Starting LabelingApp.run()
+2025-06-02 17:20:46,145 - rainstorm.BehavioralLabeler.BehavioralLabeler - CRITICAL - An unhandled error occurred: __init__() takes 3 positional arguments but 5 were given
+Traceback (most recent call last):
+  File "c:\Users\dhers\Desktop\Rainstorm\rainstorm\BehavioralLabeler\BehavioralLabeler.py", line 46, in run_app
+    app.run()
+  File "c:\Users\dhers\Desktop\Rainstorm\rainstorm\BehavioralLabeler\src\app.py", line 48, in run
+    main_menu_window = mmw.MainMenuWindow(
+TypeError: __init__() takes 3 positional arguments but 5 were given

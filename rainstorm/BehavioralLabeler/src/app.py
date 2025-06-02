@@ -5,11 +5,15 @@ import logging
 import cv2
 from tkinter import Tk
 
-from gui import main_menu_window as mmw
-from gui import frame_display as fd
-from src import video_processor
-from src import label_manager
-from src import config
+# Use relative imports for modules within the same package structure
+# '..' means go up one level from 'src' (to 'BehavioralLabeler'), then into 'gui'
+from ..gui import main_menu_window as mmw
+from ..gui import frame_display as fd
+
+# '.' means within the current package ('src')
+from . import video_processor
+from . import label_manager
+from . import config
 
 logger = logging.getLogger(__name__)
 

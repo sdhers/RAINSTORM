@@ -2,7 +2,7 @@
 
 from tkinter import Label, Entry, Button, Toplevel, Tk
 from typing import Optional, Dict
-from gui import gui_utils as gui
+from rainstorm.VideoHandling.gui import gui_utils as gui
 
 def convert_time_to_seconds(time_str: str) -> Optional[int]:
     """Convert mm:ss format to seconds."""

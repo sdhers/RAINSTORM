@@ -4,8 +4,8 @@ import cv2
 import numpy as np
 from typing import Optional, Dict, List, Tuple
 
-from tools import config, image_utils
-from gui import gui_utils as gui
+from rainstorm.VideoHandling.tools import config, image_utils
+from rainstorm.VideoHandling.gui import gui_utils as gui
 
 class Cropper:
     """

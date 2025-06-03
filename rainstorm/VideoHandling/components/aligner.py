@@ -5,8 +5,8 @@ import numpy as np
 import os
 from typing import Optional
 
-from tools import config, image_utils
-from gui import gui_utils as gui
+from rainstorm.VideoHandling.tools import config, image_utils
+from rainstorm.VideoHandling.gui import gui_utils as gui
 
 class Aligner:
     """

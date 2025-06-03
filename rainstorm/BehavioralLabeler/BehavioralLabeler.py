@@ -25,8 +25,8 @@ except ImportError:
         sys.path.append(gui_path)
 
     # Now, perform absolute imports, assuming 'src' and 'gui' are discoverable
-    from app import LabelingApp
-    from logger import setup_logging
+    from src.app import LabelingApp
+    from src.logger import setup_logging
 # --- End Conditional Imports ---
 
 
@@ -50,10 +50,8 @@ def run_app():
         root = Tk(); root.withdraw() # Create a root window but hide it
         messagebox.showerror("Critical Error", f"An unexpected error occurred: {e}\nPlease check the logs for more details.")
         root.destroy() # Destroy the hidden root window
-    finally:
-        logger.info("BehavioralLabeler application finished or terminated due to error.")
 
 if __name__ == "__main__":
     # This block will run when BehavioralLabeler.py is executed directly
-    print("Running BehavioralLabeler directly...")
+    print("Running BehavioralLabeler...")
     run_app()

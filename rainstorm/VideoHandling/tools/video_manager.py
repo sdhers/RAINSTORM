@@ -6,8 +6,8 @@ import cv2
 import logging
 from typing import Optional, Dict
 
-from gui import gui_utils as gui
-import config
+from rainstorm.VideoHandling.gui import gui_utils as gui
+from rainstorm.VideoHandling.tools import config
 
 logger = logging.getLogger(__name__)
 

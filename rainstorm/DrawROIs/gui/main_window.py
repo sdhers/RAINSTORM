@@ -1,14 +1,15 @@
-# src/ui/main_window.py
+# gui/main_window.py
+
 import cv2
 import numpy as np
 import logging # Import logging
 
-from src.config import (
+from rainstorm.DrawROIs.src.config import (
     INITIAL_ZOOM, MIN_ZOOM, MAX_ZOOM, 
     ROTATE_FACTOR, RESIZE_FACTOR, CIRCLE_RESIZE_FACTOR, 
     COLOR_ROI_PREVIEW, COLOR_SCALE_LINE
 )
-from src.core.drawing_utils import DrawingUtils
+from rainstorm.DrawROIs.src.core.drawing_utils import DrawingUtils
 
 logger = logging.getLogger(__name__) # Get logger for this module
 

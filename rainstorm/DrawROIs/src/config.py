@@ -1,4 +1,4 @@
-# config.py
+# src/config.py
 
 # ====================
 # Display Configuration

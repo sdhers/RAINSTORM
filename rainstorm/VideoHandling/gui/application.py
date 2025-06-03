@@ -5,9 +5,9 @@ import logging
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 
-from gui import gui_utils as gui
-from tools import video_manager, video_processor, config
-from components import aligner, cropper, trimmer
+from rainstorm.VideoHandling.gui import gui_utils as gui
+from rainstorm.VideoHandling.tools import video_manager, video_processor, config
+from rainstorm.VideoHandling.components import aligner, cropper, trimmer
 
 logger = logging.getLogger(__name__) # Use module-specific logger
 

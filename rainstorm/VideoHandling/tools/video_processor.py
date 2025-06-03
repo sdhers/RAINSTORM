@@ -6,7 +6,7 @@ import os
 import cv2
 import numpy as np
 import logging
-from typing import Dict, List, Tuple, Optional, Iterator
+from typing import Dict, List, Tuple, Optional, Iterator, Union
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
@@ -133,9 +133,9 @@ def crop_frame_rotated(frame: np.ndarray,
 def _iterate_video_frames(
     cap: cv2.VideoCapture,
     start_frame_idx: int,
-    end_frame_idx: float | int, # Can be float('inf')
+    end_frame_idx: Union[float, int], # Can be float('inf')
     apply_trim: bool,
-    num_frames_expected_in_segment: int | None, # num_frames_expected_in_segment is used to determine if an EOF is premature when end_frame_idx might be inf (e.g. no trim to end of unknown length video)
+    num_frames_expected_in_segment: Optional[int], # num_frames_expected_in_segment is used to determine if an EOF is premature when end_frame_idx might be inf (e.g. no trim to end of unknown length video)
     frame_pbar: tqdm, # tqdm instance for updating
     video_basename: str # For logging
 ) -> Iterator[np.ndarray]:

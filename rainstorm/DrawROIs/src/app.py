@@ -4,12 +4,12 @@ import os
 import numpy as np
 import logging # Import logging
 
-from src.config import KEY_MAP, NUDGE_MAP
-from gui.dialogs import Dialogs
-from gui.main_window import MainWindow
-from src.core.roi_manager import ROIManager
-from src.core.video_processor import VideoProcessor
-from src.core.drawing_utils import DrawingUtils
+from rainstorm.DrawROIs.gui.dialogs import Dialogs
+from rainstorm.DrawROIs.gui.main_window import MainWindow
+from rainstorm.DrawROIs.src.core.roi_manager import ROIManager
+from rainstorm.DrawROIs.src.core.video_processor import VideoProcessor
+from rainstorm.DrawROIs.src.core.drawing_utils import DrawingUtils
+from rainstorm.DrawROIs.src.config import KEY_MAP, NUDGE_MAP
 
 logger = logging.getLogger(__name__) # Get logger for this module
 

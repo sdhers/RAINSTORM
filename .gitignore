@@ -1,4 +1,6 @@
 # Rainstorm .gitignore file
+logs/
+*.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -2,7 +2,7 @@
 
 import cv2
 import numpy as np
-from src.config import (
+from rainstorm.DrawROIs.src.config import (
     OVERLAY_FRAC, MARGIN, CROSS_LENGTH_FRAC, CROSS_COLOR,
     COLOR_ROI_SAVED, COLOR_SCALE_LINE,
     COLOR_TEXT_BG, COLOR_TEXT_FG

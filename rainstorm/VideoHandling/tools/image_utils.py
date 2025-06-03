@@ -2,7 +2,7 @@
 
 import cv2
 import numpy as np
-import config
+from rainstorm.VideoHandling.tools import config
 
 def merge_frames(video_files: list) -> np.ndarray:
     """

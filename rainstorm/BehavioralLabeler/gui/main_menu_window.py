@@ -4,7 +4,7 @@ from tkinter import Tk, simpledialog, messagebox, filedialog, Frame, Label, Entr
 import logging
 import os
 from typing import Union
-from rainstorm.DrawROIs.src import config # Import the config module
+from rainstorm.BehavioralLabeler.src import config # Import the config module
 
 logger = logging.getLogger(__name__)
 

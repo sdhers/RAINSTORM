@@ -1,0 +1,69 @@
+{
+  "frame_shape": [
+    700,
+    500
+  ],
+  "scale": 18.93,
+  "areas": [
+    {
+      "name": "left",
+      "type": "rectangle",
+      "center": [
+        209,
+        222
+      ],
+      "width": 283,
+      "height": 409,
+      "angle": 0
+    },
+    {
+      "name": "right",
+      "type": "rectangle",
+      "center": [
+        493,
+        222
+      ],
+      "width": 283,
+      "height": 409,
+      "angle": 0
+    }
+  ],
+  "points": [
+    {
+      "name": "obj_1",
+      "type": "point",
+      "center": [
+        218,
+        133
+      ]
+    },
+    {
+      "name": "obj_2",
+      "type": "point",
+      "center": [
+        480,
+        134
+      ]
+    }
+  ],
+  "circles": [
+    {
+      "name": "rad_1",
+      "type": "circle",
+      "center": [
+        218,
+        133
+      ],
+      "radius": 60
+    },
+    {
+      "name": "rad_2",
+      "type": "circle",
+      "center": [
+        480,
+        134
+      ],
+      "radius": 60
+    }
+  ]
+}

@@ -1,35 +1,99 @@
-# RAINSTORM - @author: Santiago D'hers
-# Auxiliary functions for modeling.py
+"""
+RAINSTORM - Utility Functions
+
+This script contains various utility functions used across the Rainstorm project,
+such as loading YAML files and selecting example files.
+"""
 
 # %% Imports
+import logging
+import random
+from pathlib import Path
+from typing import Optional
 
+import yaml
 import numpy as np
 import pandas as pd
-import yaml
-
 from sklearn.metrics import classification_report, accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, mean_absolute_error, r2_score
 
+
 # Logging setup
-import logging
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
 
 # %% Functions
 
-def load_yaml(params_path: str) -> dict:
-    """Load a YAML file."""
+def load_yaml(file_path: Path) -> dict:
+    """
+    Loads data from a YAML file.
+
+    Parameters:
+        file_path (Path): Path to the YAML file.
+
+    Returns:
+        dict: Loaded data from the YAML file.
+
+    Raises:
+        FileNotFoundError: If the YAML file does not exist.
+        yaml.YAMLError: If there's an error parsing the YAML file.
+    """
+    if not file_path.is_file():
+        logger.error(f"YAML file not found: '{file_path}'")
+        raise FileNotFoundError(f"YAML file not found at '{file_path}'")
     try:
-        with open(params_path, "r", encoding="utf-8") as file:
-            data = yaml.safe_load(file)
-            if not isinstance(data, dict):
-                raise ValueError("YAML content must be a dictionary.")
-            return data
-    except FileNotFoundError:
-        logger.error(f"YAML file not found: {params_path}")
-        raise
+        with open(file_path, 'r') as f:
+            data = yaml.safe_load(f)
+        logger.info(f"Successfully loaded YAML file: '{file_path}'")
+        return data
     except yaml.YAMLError as e:
-        logger.error(f"Error parsing YAML: {e}")
+        logger.error(f"Error parsing YAML file '{file_path}': {e}")
         raise
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while loading YAML file '{file_path}': {e}")
+        raise
+
+def choose_example(params_path: Path, look_for: str = 'TS', suffix: str = '_positions.h5') -> Optional[Path]:
+    """
+    Picks an example file from the specified folder based on a substring and suffix.
+
+    Args:
+        params_path (Path): Path to the YAML parameters file (e.g., folder_path / 'params.yaml').
+        look_for (str, optional): Substring to filter files by. Defaults to 'TS'.
+        suffix (str, optional): The full file suffix including the dot (e.g., '_positions.h5').
+                                Defaults to '_positions.h5'.
+
+    Returns:
+        Optional[Path]: Full path to the chosen file, or None if no suitable file is found.
+    """
+    params = load_yaml(params_path)
+    folder_path = Path(params.get("path")) # Ensure folder_path is a Path object
+    filenames = params.get("filenames")
+
+    if not folder_path.is_dir():
+        logger.error(f"Invalid folder path: '{folder_path}'")
+        print(f"Error: Provided folder path '{folder_path}' is not a valid directory.")
+        return None
+
+    if not filenames:
+        logger.warning("No filenames found in the params.yaml file.")
+        print(f"Warning: No filenames found in the params.yaml file. Check if '{folder_path}' contains the desired files and create params file again.")
+        return None
+    
+    # Construct full paths based on the filenames list and the specified suffix
+    all_files = [(folder_path / (f + suffix)) for f in filenames]
+
+    # Filter files based on the 'look_for' substring
+    filtered = [f for f in all_files if look_for in f.name] # Check in filename only
+
+    if filtered:
+        example_file = random.choice(filtered)
+        logger.info(f"Found {len(filtered)} file(s) matching '{look_for}'. Using: '{example_file.name}'")
+        print(f"Found {len(filtered)} file(s) matching '{look_for}'. Using: '{example_file.name}'")
+        return example_file
+    else:
+        logger.warning(f"No files matched '{look_for}'. Using a random file from the list instead.")
+        print(f"Warning: No files matched '{look_for}'. Using a random file from the list instead.")
+        return random.choice(all_files)
 
 def broaden(past: int = 3, future: int = 3, broad: float = 1.7) -> list:
     """Build the frame window for LSTM training

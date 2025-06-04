@@ -155,7 +155,7 @@ geometric_analysis:
 automatic_analysis:
 
   # Path to the model file
-  model_path: c:\Users\dhers\Desktop\Rainstorm\docs\models\trained_models\example_wide.keras
+  model_path: c:\Users\dhers\Desktop\Rainstorm\examples\models\trained_models\example_wide.keras
 
   # List of bodyparts used to train the model
   model_bodyparts:

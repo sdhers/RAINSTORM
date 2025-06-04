@@ -11,12 +11,10 @@ import pandas as pd
 import plotly.graph_objects as go
 from pathlib import Path
 
-from .utils import load_yaml
+from .utils import load_yaml, configure_logging
+configure_logging()
 
-# Logging setup
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
-
 
 # %% Core functions
 def plot_raw_vs_smooth(params_path: Path, df_raw: pd.DataFrame, df_smooth: pd.DataFrame, bodypart: str):

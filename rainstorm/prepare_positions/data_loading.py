@@ -14,13 +14,12 @@ import random
 
 import h5py
 import pandas as pd
+import numpy as np
 
-from .utils import load_yaml
+from .utils import load_yaml, configure_logging
+configure_logging()
 
-# Logging setup
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
-
 
 # %% Core functions
 def load_roi_data(rois_path: Optional[Path]) -> dict:
@@ -117,68 +116,92 @@ def choose_example(params_path: Path, look_for: str = 'TS', suffix: str = '_posi
         logger.warning(f"No files matched '{look_for}'. Using a random file from the list instead.")
         print(f"Warning: No files matched '{look_for}'. Using a random file from the list instead.")
         return random.choice(all_files)
+
+def open_DLC_file(file_path: Path): 
+    """
+    Opens a DeepLabCut HDF5 file and returns the scorer, bodyparts, and data.
+    """
+    df = pd.read_hdf(file_path)
+    scorer = df.columns.levels[0][0]
+    bodyparts = df.columns.levels[1].to_list()
+    df = df[scorer]
+
+    # Flatten MultiIndex columns
+    df_raw = pd.DataFrame()
+    for key in df.keys():
+        col_name = f"{key[0]}_{key[1]}"
+        df_raw[col_name] = df[key]
     
+    return scorer, bodyparts, df_raw
+
+def open_SLEAP_file(file_path: Path):
+    """
+    Opens a SLEAP HDF5 file and returns the scorer, bodyparts, and data.
+    """
+    with h5py.File(file_path, "r") as f:
+        scorer = "SLEAP"
+        locations = f["tracks"][:].T
+        bodyparts = [n.decode() for n in f["node_names"][:]]
+
+    squeezed = np.squeeze(locations, axis=-1)
+    reshaped = squeezed.reshape(squeezed.shape[0], -1)
+
+    base_cols = [f"{bp}_{coord}" for bp in bodyparts for coord in ["x", "y"]]
+    df = pd.DataFrame(reshaped, columns=base_cols)
+
+    for bp in bodyparts:
+        x_col, y_col = f"{bp}_x", f"{bp}_y"
+        likelihood_col = f"{bp}_likelihood"
+        df[likelihood_col] = (~df[x_col].isna() & ~df[y_col].isna()).astype(int)
+
+    ordered_cols = [f"{bp}_{coord}" for bp in bodyparts for coord in ["x", "y", "likelihood"]]
+    df_raw = df[ordered_cols]
+
+    return scorer, bodyparts, df_raw
+
 def open_h5_file(params_path: Path, file_path: Path, print_data: bool = False) -> pd.DataFrame:
-    """
-    Opens an H5 file and extracts pose estimation data.
+    """Opens an h5 file and returns the data as a pandas dataframe.
 
-    Parameters:
+    Args:
         params_path (Path): Path to the YAML parameters file.
-        file_path (Path): Path to the H5 file.
-        print_data (bool): If True, prints summary statistics of the data.
-
+        file_path (Path): Path to the h5 file.
+        
     Returns:
-        pd.DataFrame: DataFrame containing pose estimation data.
+        DataFrame with columns [x, y, likelihood] for each body part
     """
+    # Load parameters
     params = load_yaml(params_path)
+    software = params.get("software", "DLC")
+    num_sd = params.get("prepare_positions", {}).get("confidence", 2)
 
-    if not file_path.is_file():
-        logger.error(f"File not found: '{file_path}'")
-        print(f"Error: H5 file not found at '{file_path}'.")
-        return pd.DataFrame()
+    if software == "DLC":
+        scorer, bodyparts, df = open_DLC_file(file_path)
 
-    try:
-        with h5py.File(file_path, 'r') as f:
-            # Assuming DeepLabCut or SLEAP format where data is under 'df_with_likelihood' or similar
-            # Adjust these keys based on your actual H5 file structure
-            if 'df_with_likelihood' in f:
-                df = pd.read_hdf(file_path, key='df_with_likelihood')
-            elif 'tracks' in f: # Example for SLEAP, might need adjustment
-                df = pd.read_hdf(file_path, key='tracks')
-                # SLEAP data might need further processing to match DLC format (e.g., flatten multi-index)
-                if isinstance(df.columns, pd.MultiIndex):
-                    df.columns = ['_'.join(col).strip() for col in df.columns.values]
+    elif software == "SLEAP":
+        scorer, bodyparts, df = open_SLEAP_file(file_path)
+
+    else:
+        raise ValueError(f"Unsupported software type in YAML: {software}")
+    
+    total_frames = len(df)
+
+    if print_data:
+        print(f"\n--- Data Summary for '{file_path.name}' ---")
+        print(f"Positions obtained by: {scorer}")
+        print(f"Tracked points: {bodyparts}")
+        print(f"Total frames: {total_frames}")
+        print("Likelihood statistics (mean, std_dev, tolerance):")
+        for bp in bodyparts:
+            if f"{bp}_likelihood" in df.columns:
+                likelihood_data = df[f"{bp}_likelihood"]
+                mean_lh = likelihood_data.mean()
+                std_lh = likelihood_data.std()
+                tolerance = mean_lh - num_sd * std_lh
+                print(f"{bp}\t mean_likelihood: {mean_lh:.2f}\t std_dev: {std_lh:.2f}\t tolerance: {tolerance:.2f}")
             else:
-                # Attempt to load the first group if specific key not found
-                first_group_key = next(iter(f.keys()))
-                df = pd.read_hdf(file_path, key=first_group_key)
-                if isinstance(df.columns, pd.MultiIndex):
-                    df.columns = ['_'.join(col).strip() for col in df.columns.values]
+                print(f"Warning: Likelihood data for '{bp}' not found.")
+        print("------------------------------------------")
 
-        scorer = df.columns.get_level_values('scorer')[0] if isinstance(df.columns, pd.MultiIndex) else "unknown_scorer"
-        bodyparts = params.get('bodyparts', [])
-        total_frames = len(df)
+    logger.info(f"Successfully opened H5 file: '{file_path.name}'")
+    return df
 
-        if print_data:
-            print(f"\n--- Data Summary for '{file_path.name}' ---")
-            print(f"Positions obtained by: {scorer}")
-            print(f"Tracked points: {bodyparts}")
-            print(f"Total frames: {total_frames}")
-            print("Likelihood statistics (mean, std_dev, tolerance):")
-            for bp in bodyparts:
-                if f"{bp}_likelihood" in df.columns:
-                    likelihood_data = df[f"{bp}_likelihood"]
-                    mean_lh = likelihood_data.mean()
-                    std_lh = likelihood_data.std()
-                    tolerance = mean_lh - 2 * std_lh # Example tolerance
-                    print(f"{bp}\t mean_likelihood: {mean_lh:.2f}\t std_dev: {std_lh:.2f}\t tolerance: {tolerance:.2f}")
-                else:
-                    print(f"Warning: Likelihood data for '{bp}' not found.")
-            print("------------------------------------------")
-
-        logger.info(f"Successfully opened H5 file: '{file_path.name}'")
-        return df
-    except Exception as e:
-        logger.error(f"Error opening H5 file '{file_path.name}': {e}")
-        print(f"Error: Could not open H5 file '{file_path.name}'. {e}")
-        return pd.DataFrame()

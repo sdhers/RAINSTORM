@@ -12,7 +12,27 @@ import yaml
 
 # Logging setup
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
+
+# %% Logging Configuration
+def configure_logging(level=logging.WARNING):
+    """
+    Configures the basic logging settings for the Rainstorm project.
+    This function should be called once at the start of your application
+    or in each module that uses logging.
+
+    Parameters:
+        level: The minimum logging level to display (e.g., logging.INFO, logging.WARNING, logging.ERROR).
+    """
+    # Prevent re-configuration if handlers are already present
+    if not logger.handlers:
+        logging.basicConfig(level=level, format='%(levelname)s:%(name)s:%(message)s')
+        # Set the level for the root logger as well, to ensure all loggers respect it
+        logging.getLogger().setLevel(level)
+        logger.info(f"Logging configured to level: {logging.getLevelName(level)}")
+
+
+# Configure logging for utils.py itself
+configure_logging()
 
 # %% Functions
 

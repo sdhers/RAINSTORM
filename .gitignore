@@ -4,6 +4,7 @@ logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
+examples/NOR*/
 
 # Distribution / packaging
 build/

@@ -1,0 +1,171 @@
+# src/app.py
+
+import os
+import logging
+import cv2
+from tkinter import Tk
+
+# Use relative imports for modules within the same package structure
+# '..' means go up one level from 'src' (to 'BehavioralLabeler'), then into 'gui'
+from ..gui import main_menu_window as mmw
+from ..gui import frame_display as fd
+
+# '.' means within the current package ('src')
+from . import video_processor
+from . import label_manager
+from . import config
+
+logger = logging.getLogger(__name__)
+
+class LabelingApp:
+    def __init__(self):
+        self.behaviors = []
+        self.keys = [] 
+        
+        # Operant keys will be initialized from config, then potentially updated by GUI
+        self.operant_keys_map = config.OPERANT_KEYS.copy() 
+        # Fixed control keys are directly from config
+        self.fixed_control_keys = config.FIXED_CONTROL_KEYS.copy()
+
+        self.video_path = None
+        self.csv_path = None
+        self.frame_labels = None
+        self.current_frame = 0
+        self.total_frames = 0
+        self.video_name = ""
+        self.screen_width = 1200 # Using as default, will be updated
+        self.video_handler = video_processor.VideoHandler()
+        self.last_processed_frame = -1
+        self.margin_display_location = "right"
+        logger.info("LabelingApp initialized.")
+
+    def run(self):
+        logger.info("Starting LabelingApp.run()")
+        root = Tk()
+        root.withdraw()
+        
+        # Pass initial operant keys from config to the MainMenuWindow
+        main_menu_window = mmw.MainMenuWindow(
+            root, 
+            config.DEFAULT_BEHAVIORS, 
+            config.DEFAULT_KEYS,
+            self.operant_keys_map
+        )
+        app_config = main_menu_window.get_config()
+
+        if app_config['cancelled']:
+            mmw.show_messagebox("Configuration Cancelled", "Application startup cancelled by user.", type="info")
+            logger.info("Application startup cancelled by user from main menu.")
+            return
+
+        self.behaviors = app_config['behaviors']
+        self.keys = app_config['keys']
+        self.operant_keys_map = app_config['operant_keys'] # Update operant_keys_map with values configured in the GUI
+        self.video_path = app_config['video_path']
+        self.csv_path = app_config['csv_path']
+
+        continue_from_checkpoint = app_config['continue_from_checkpoint']
+
+        self.video_name = os.path.basename(self.video_path)
+        logger.info(f"Loaded config: Video='{self.video_path}', CSV='{self.csv_path}', Continue='{continue_from_checkpoint}'")
+        logger.info(f"Behaviors: {self.behaviors}, Keys: {self.keys}, OperantKeys: {self.operant_keys_map}")
+
+        if not self.video_handler.open_video(self.video_path):
+            mmw.show_messagebox("Video Error", "Could not open video file. Exiting.", type="error")
+            return
+        
+        self.total_frames = self.video_handler.get_total_frames()
+        if self.total_frames == 0:
+            mmw.show_messagebox("Video Error", "Video has no frames. Exiting.", type="error")
+            self.video_handler.release_video()
+            return
+
+        self.frame_labels, suggested_start_frame = label_manager.load_labels(
+            self.csv_path, self.total_frames, self.behaviors
+        )
+        
+        self.current_frame = suggested_start_frame if self.csv_path and continue_from_checkpoint else 0
+        self.last_processed_frame = self.current_frame -1
+        
+        self.screen_width = fd.get_screen_width()
+
+        save_on_exit = False
+        while self.current_frame < self.total_frames:
+            self.last_processed_frame = max(self.last_processed_frame, self.current_frame)
+            frame = self.video_handler.get_frame_at_index(self.current_frame)
+            if frame is None: break
+
+            behavior_sums = label_manager.calculate_behavior_sums(self.frame_labels, self.behaviors)
+            current_behavior_status = {
+                b_name: self.frame_labels[b_name][self.current_frame] for b_name in self.behaviors
+            }
+            behavior_info = label_manager.build_behavior_info(
+                self.behaviors, self.keys, behavior_sums, current_behavior_status
+            )
+
+            fd.show_frame(
+                self.video_name, frame, self.current_frame, self.total_frames,
+                behavior_info, self.screen_width, self.operant_keys_map, self.fixed_control_keys,
+                margin_location=self.margin_display_location
+            )
+            
+            key = cv2.waitKey(0) & 0xFF
+            move = 0
+            
+            if key == ord(self.fixed_control_keys['quit']):
+                if mmw.show_messagebox("Exit", "Do you want to exit?", type="question"):
+                    if mmw.show_messagebox("Save Changes", "Save changes?", type="question"):
+                        save_on_exit = True
+                    break 
+                continue
+            elif key == ord(self.fixed_control_keys['zoom_out']):
+                self.screen_width = int(self.screen_width * 0.95)
+                logger.info(f"Zoom out. New screen width: {self.screen_width}")
+                continue
+            elif key == ord(self.fixed_control_keys['zoom_in']):
+                self.screen_width = int(self.screen_width * 1.05)
+                logger.info(f"Zoom in. New screen width: {self.screen_width}")
+                continue
+            elif key == ord(self.fixed_control_keys['margin_toggle']):
+                self.margin_display_location = "bottom" if self.margin_display_location == "right" else "right"
+                logger.info(f"Toggled margin location to: {self.margin_display_location}")
+                continue
+            
+            elif key == ord(self.operant_keys_map['erase']):
+                for behavior_name in self.behaviors:
+                    self.frame_labels[behavior_name][self.current_frame] = 0
+                move = 1
+                logger.info(f"Frame {self.current_frame+1}: Erased labels.")
+            elif key == ord(self.operant_keys_map['next']):
+                for behavior_name in self.behaviors:
+                    if self.frame_labels[behavior_name][self.current_frame] == '-':
+                        self.frame_labels[behavior_name][self.current_frame] = 0
+                move = 1
+            elif key == ord(self.operant_keys_map['prev']):
+                move = -1
+            elif key == ord(self.operant_keys_map['ffw']):
+                move = 3 # We could make the FFW step configurable too 
+            else:
+                selected_behavior_index = -1
+                for i, behavior_key_char in enumerate(self.keys):
+                    if key == ord(behavior_key_char):
+                        selected_behavior_index = i
+                        break
+                if selected_behavior_index != -1:
+                    for i, behavior_name in enumerate(self.behaviors):
+                        self.frame_labels[behavior_name][self.current_frame] = 1 if i == selected_behavior_index else 0
+                    move = 1
+                    logger.info(f"Frame {self.current_frame+1}: Labeled '{self.behaviors[selected_behavior_index]}'.")
+                else:
+                    logger.debug(f"Unhandled key: {key} (char: {chr(key) if 0 < key < 256 else 'N/A'})")
+
+            self.current_frame += move
+            self.current_frame = max(0, min(self.current_frame, self.total_frames - 1 if self.total_frames > 0 else 0))
+
+        if save_on_exit or (self.current_frame == self.total_frames -1 and self.total_frames > 0 and move > 0) : # Auto-save if last frame is processed by moving forward
+             if self.frame_labels:
+                label_manager.save_labels_to_csv(self.video_path, self.frame_labels, self.behaviors, self.last_processed_frame)
+
+        self.video_handler.release_video()
+        cv2.destroyAllWindows()
+        logger.info("LabelingApp finished.")

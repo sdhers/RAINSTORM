@@ -3,7 +3,7 @@
 # **RAINSTORM**
 ### Real & Artificial Intelligence for Neuroscience – Simple Tracker for Object Recognition Memory
 
-![RAINSTORM Logo](docs/images/logo.png)
+![RAINSTORM Logo](examples/images/logo.png)
 
 </div>
 
@@ -41,7 +41,7 @@ Pose estimation software (e.g. DeepLabCut) analyzes video files and returns the 
 
 ### 1. Install **Miniconda** (or Anaconda), **Visual Studio Code** and **Git**
 
-Download and install from the official installation site: [Miniconda](https://docs.anaconda.com/miniconda/install/), [VS Code](https://code.visualstudio.com/Download) & [Git](https://git-scm.com/downloads).
+Download and install from the official installation site: [Miniconda](https://examples.anaconda.com/miniconda/install/), [VS Code](https://code.visualstudio.com/Download) & [Git](https://git-scm.com/downloads).
 During installation, select the option to add Miniconda and VS code to your computer's PATH.
 Once finished, it is best to reboot your computer (this way we make sure everything is set up and running).
 
@@ -122,7 +122,7 @@ python -m rainstorm.labeler
 
 ### 3. **Navigate to the video we want to label and select it**
 
-- If you dont have a video available on your computer, you can find a demo inside the RAINSTORM repository on ```docs/examples/colabeled_video/Example_video.mp4```.
+- If you dont have a video available on your computer, you can find a demo inside the RAINSTORM repository on ```examples/examples/colabeled_video/Example_video.mp4```.
 
 ### 4. **(Optional) Pick a labeled csv file.**
 
@@ -163,7 +163,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 - Conveniently scale the video from pixels to cm.
 - Return: We obtain .csv files with the correct, scaled positions of the mice.
 
-![1-Prepare_positions](docs/images/1-Prepare_positions.png)
+![1-Prepare_positions](examples/images/1-Prepare_positions.png)
 
 ---
 
@@ -173,7 +173,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
   - If the mouse is close to the object (distance < 2.5 cm).
   - If the mouse is oriented towards the object (angle < 45°).
 
-![2-Geometric_analysis](docs/images/2-Geometric_analysis.png)
+![2-Geometric_analysis](examples/images/2-Geometric_analysis.png)
 
 ---
 
@@ -181,7 +181,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 - Another way of finding out when the mouse is exploring is to train an artificial neural network with manually labeled data:
 
-![3-Create_Models](docs/images/3-Create_models.png)
+![3-Create_Models](examples/images/3-Create_models.png)
 
 - Using TensorFlow, we were able to train models that are able to clasify a mouse's position into exploration.
 - Among the models, we train a more complex LSTM network that is aware of frame sequences, and performs better as exploration is time dependant.
@@ -189,11 +189,11 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 - Models can now be used to label all the data that was manually labeled, and the results can be compared in terms of accuracy.
 - To evaluate the similarity of the models to the mean human labeler, we can also run a Principal Components Analysis:
 
-![4-Evaluate_models_a](docs/images/4-Evaluate_models_a.png)
+![4-Evaluate_models_a](examples/images/4-Evaluate_models_a.png)
 
 - Finally, we can plot the dynamic labeling of models against labelers in an example video timelime:
 
-![4-Evaluate_models_b](docs/images/4-Evaluate_models_b.png)
+![4-Evaluate_models_b](examples/images/4-Evaluate_models_b.png)
 
 ---
 
@@ -203,7 +203,7 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 - Once we have the manual, geometric and automatic labels, we can compare the performance of each on an example video
 - Using a polar graph, we can see for each position the angle of approach and distance in which the mice is exploring the objects
 
-![6-Compare_Labels](docs/images/6-Compare_labels.png)
+![6-Compare_Labels](examples/images/6-Compare_labels.png)
 
 ---
 
@@ -211,16 +211,16 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 - Use the best labels to find differences in the exploration of familiar and novel objects for groups of trained mice (which was the obective all along):
 
-![7-Seize_Labels_ts](docs/images/7-Seize_labels_ts.png)
+![7-Seize_Labels_ts](examples/images/7-Seize_labels_ts.png)
 
 - We can visually compare these two groups of trained mice, and see that those who were tested 24 hours after training have a higher Discrimination Index (they spend more time exploring the novel object)
 - Lets also plot the training session, to make sure there are no differences between groups there:
 
-![7-Seize_Labels_tr](docs/images/7-Seize_labels_tr.png)
+![7-Seize_Labels_tr](examples/images/7-Seize_labels_tr.png)
 
 - And why not? lets see how they behaved during their initial habituation to the arena:
 
-![7-Seize_Labels_hab](docs/images/7-Seize_labels_hab.png)
+![7-Seize_Labels_hab](examples/images/7-Seize_labels_hab.png)
 
 ---
 ---
@@ -232,4 +232,4 @@ The repository contains a series of Jupyter notebooks to go from raw pose estima
 
 ### Thanks for exploring us!
 
-![mouse_exploring](docs/images/mouse_exploring.gif)
+![mouse_exploring](examples/images/mouse_exploring.gif)

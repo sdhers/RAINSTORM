@@ -1,3 +1,18 @@
-package/
-rainstorm/
-setup.py
+# Rainstorm .gitignore file
+logs/
+*.log
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# PyInstaller
+*.spec
+
+# Big files
+examples/NOR*/

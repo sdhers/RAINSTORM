@@ -1,13 +1,13 @@
 # Rainstorm Modeling file
 
 # Path to the models folder
-path: C:\Users\dhers\Desktop\Rainstorm\examples\models
+path: c:\Users\dhers\Desktop\Rainstorm\examples\models
 
 # The colabels file is used to store and organize positions and labels for model training
 colabels:
 
   # Path to the colabels file
-  colabels_path: C:\Users\dhers\Desktop\Rainstorm\examples\models\colabels.csv
+  colabels_path: c:\Users\dhers\Desktop\Rainstorm\examples\models\colabels.csv
 
   # List of labelers on the colabels file (as found in the columns)
   labelers:

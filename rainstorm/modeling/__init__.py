@@ -1,20 +1,25 @@
-# rainstorm/__init__.py
+"""
+RAINSTORM - Modeling
 
-# Import core functions/classes from submodules to make them accessible
-# directly from the 'rainstorm.modeling' package.
-from .data_preparation import create_colabels, prepare_data, focus
-from .geometry_utils import Point, Vector
-from .model_management import create_modeling, load_split, save_split, build_and_run_models, load_modeling_config, save_model
-from .model_building import build_RNN
-from .model_training import split_tr_ts_val, train_RNN
-from .model_evaluating import evaluate, build_evaluation_dict, create_chimera_and_loo_mean, calculate_cosine_sim, plot_PCA, plot_history, plot_performance_on_video
+This __init__.py file makes the functions from the submodules directly accessible
+when importing the 'rainstorm.modeling' package.
+"""
 
-# You might want to add a __version__ here for package versioning
-__version__ = "0.1.0"
+# Import and configure logging first
+from .utils import load_yaml, configure_logging
+configure_logging()
 
-# Optional: Configure logging for the rainstorm package
-import logging
-logger = logging.getLogger(__name__)
-# Prevent duplicate handlers if this is imported multiple times
-if not logger.handlers:
-    logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
+from .geometric_classes import Point, Vector
+from .create_colabels import create_colabels
+from .create_modeling_file import create_modeling
+from .data_handling import prepare_data, focus, split_tr_ts_val, save_split, load_split
+from .plotting import plot_example_data, plot_history, plot_cosine_sim, plot_PCA, plot_performance_on_video
+from .model_building import save_model, build_RNN, train_RNN, build_and_run_models
+from .model_evaluating import evaluate, build_evaluation_dict, create_chimera_and_loo_mean
+
+import tensorflow as tf
+print(f"rainstorm.modeling successfully imported. GPU devices detected: {tf.config.list_physical_devices('GPU')}")
+
+# Define __all__ for explicit export (optional but good practice)
+__all__ = [
+]

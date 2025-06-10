@@ -14,6 +14,7 @@ import yaml
 logger = logging.getLogger(__name__)
 
 # %% Logging Configuration
+
 def configure_logging(level=logging.WARNING):
     """
     Configures the basic logging settings for the Rainstorm project.

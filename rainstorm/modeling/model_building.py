@@ -9,21 +9,17 @@ from tensorflow.keras.layers import (
     LSTM,
     BatchNormalization,
     Dropout,
-    LayerNormalization,
-    MultiHeadAttention,
-    Add,
-    Cropping1D,
     Activation,
     Multiply,
     Lambda
 )
 from tensorflow.keras.callbacks import (
     EarlyStopping, LearningRateScheduler,
-    ModelCheckpoint, TensorBoard, ReduceLROnPlateau
+    ModelCheckpoint, TensorBoard
 )
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, List
+from typing import Dict, Any
 import logging
 from pathlib import Path
 import datetime
@@ -35,109 +31,100 @@ logger = logging.getLogger(__name__)
 
 # %% Model Building Functions
 
-def generate_slice_plan(timesteps: int, num_layers: int) -> List[int]:
-    """
-    Generate a per-layer cropping plan to reduce timesteps down to 1.
-
-    Args:
-        timesteps: Initial sequence length.
-        num_layers: Number of RNN layers.
-    Returns:
-        List of ints: timesteps to remove at each layer.
-    """
-    total_to_remove = max(0, timesteps - 2)
-    plan = [0] * num_layers
-    for i in range(total_to_remove):
-        plan[i % num_layers] += 1
-    return plan
-
 def attention_pooling_block(x: tf.Tensor, name_prefix: str = "attn_pool") -> tf.Tensor:
     """
     Functional attention pooling: softmax over time, weighted sum.
+    This block takes a sequence (batch, timesteps, features) and returns
+    a single vector per batch element (batch, features) by
+    applying an attention mechanism to weigh the importance of each timestep.
 
     Args:
-        x: (batch, timesteps, features)
-        name_prefix: prefix for naming layers
+        x: Input tensor with shape (batch_size, timesteps, features).
+        name_prefix: Prefix for naming the Keras layers within this block.
     Returns:
-        (batch, features)
+        tf.Tensor: Output tensor with shape (batch_size, features).
     """
+    # Compute scores for each timestep (how important is this timestep?)
     score = Dense(1, name=f"{name_prefix}_score")(x)
+    
+    # Apply softmax to get attention weights that sum to 1 across timesteps
     weights = Activation('softmax', name=f"{name_prefix}_weights")(score)
+    
+    # Multiply the original features by the attention weights
     weighted = Multiply(name=f"{name_prefix}_weighted")([x, weights])
+    
+    # Sum along the timesteps dimension to get a single context vector
     return Lambda(lambda t: tf.reduce_sum(t, axis=1), name=f"{name_prefix}_sum")(weighted)
 
-def build_RNN(modeling: Path, model_dict: Dict[str, np.ndarray]) -> tf.keras.Model:
+def build_RNN(modeling_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.keras.Model:
     """
-    Builds a Bidirectional LSTM (RNN) model with optional attention mechanism.
+    Builds a Bidirectional LSTM (RNN) model for binary classification.
+    The model processes sequences and uses an attention pooling mechanism
+    to derive a single vector representation for classification.
 
     Args:
-        modeling (Path): Path to dictionary containing modeling parameters, especially 'RNN' configuration.
-        model_dict (Dict[str, np.ndarray]): Contains 'X_tr_wide' shaped (batch, time, features).
+        modeling_path (Path): Path to a YAML file containing modeling parameters,
+                              specifically the 'RNN' configuration.
+        model_dict (Dict[str, np.ndarray]): Dictionary containing 'X_tr_wide'
+                                            which is a sample of the training data
+                                            shaped (batch, time, features) to infer
+                                            input dimensions.
 
     Returns:
-        tf.keras.Model: Compiled Keras RNN model.
+        tf.keras.Model: Compiled Keras RNN model ready for training.
     """
-    modeling = load_yaml(modeling)
-    rnn_conf = modeling.get("RNN", {})
-    units = rnn_conf.get("units", [16, 24, 32, 24, 16, 8])
-    dropout_rate = rnn_conf.get("dropout", 0.2)
-    initial_lr = rnn_conf.get("initial_lr", 1e-5)
+    modeling_conf = load_yaml(modeling_path)
+    rnn_conf = modeling_conf.get("RNN", {})
 
-    # Validate input
+    # Model configuration parameters
+    units = rnn_conf.get("units", [16, 24, 32, 24, 16, 8]) # Number of units in each LSTM layer
+    dropout_rate = rnn_conf.get("dropout", 0.2) # Dropout rate for regularization
+    initial_lr = rnn_conf.get("initial_lr", 1e-5) # Initial learning rate for the optimizer
+
+    # Validate input data shape
     if 'X_tr_wide' not in model_dict:
-        raise KeyError("model_dict must include 'X_tr_wide'.")
+        logger.error("model_dict must include 'X_tr_wide' to infer input shape.")
+        return None
     x_sample = model_dict['X_tr_wide']
     if x_sample.ndim != 3:
-        raise ValueError("'X_tr_wide' must be 3D (batch, time, features).")
+        logger.error("'X_tr_wide' must be 3D (batch, time, features) to define input shape.")
+        return None
 
     timesteps, features = x_sample.shape[1], x_sample.shape[2]
+    
+    # Define the input layer of the model
     inputs = Input(shape=(timesteps, features), name="input_sequence")
     x = inputs
 
-    # Plan cropping to reach 1 timestep
-    slice_plan = generate_slice_plan(timesteps, len(units))
-    current_steps = timesteps
-
-    # RNN layers with Batch Normalization and Dropout
+    # Build stacked Bidirectional LSTM layers
+    # Each LSTM layer returns sequences, allowing the next layer to process them.
     for i, u in enumerate(units):
-        bilstm = Bidirectional(LSTM(u, return_sequences=True), name=f"bilstm_{i}")(x)
+        # Bidirectional LSTM to capture dependencies in both forward and backward directions
+        bilstm = Bidirectional(LSTM(u, return_sequences=True, name=f"bilstm_{i}"))(x)
+        
+        # Batch Normalization to stabilize activations and speed up training
         bn = BatchNormalization(name=f"bn_{i}")(bilstm)
+        
+        # Dropout for regularization to prevent overfitting
         drop = Dropout(dropout_rate, name=f"dropout_{i}")(bn)
         
-        # Add a self-attention mechanism after the LSTM layer
-        # Layer Normalization before attention
-        norm_attn = LayerNormalization(name=f"attn_norm_{i}")(drop)
-        
-        # Multi-Head Attention
-        # num_heads should be a factor of units, default to 1 if units is small or not divisible
-        num_heads = max(1, u // 8) # A common heuristic for attention heads
-        attention_output = MultiHeadAttention(num_heads=num_heads, key_dim=u, name=f"attn_{i}")(
-            norm_attn, norm_attn
-        )
-        
-        # Add and Normalize (Skip connection for attention)
-        add_attn = Add(name=f"attn_add_{i}")([drop, attention_output])
+        x = drop # Output of current layer becomes input for the next
 
-        # Controlled cropping
-        remove = slice_plan[i]
-        if remove > 0 and current_steps > 1:
-            left = remove // 2
-            right = remove - left
-            x = Cropping1D(cropping=(left, right), name=f"crop_{i}")(add_attn)
-            current_steps -= remove
+    # Apply global attention pooling to convert the sequence of features from the last LSTM layer into a single fixed-size vector.
+    attention_pooled = attention_pooling_block(x, name_prefix="final_attention_pooling")
 
-    # Global attention pooling to convert sequence to a single vector
-    attention_pooled = attention_pooling_block(x, name_prefix="attention_pooling")
-
-    # Output layer
+    # Output layer for binary classification
+    # Uses a sigmoid activation to output a probability between 0 and 1.
     binary_out = Dense(1, activation='sigmoid', name="binary_out")(attention_pooled)
 
-    model = Model(inputs, binary_out, name="ModularBidirectionalRNN")
+    # Create the Keras Model
+    model = Model(inputs, binary_out, name="CleanedBidirectionalRNN")
 
     # Compile the model
-    optimizer = tf.keras.optimizers.Adam(learning_rate=initial_lr) # Learning rate is set by LearningRateScheduler, so this is just a default.
+    optimizer = tf.keras.optimizers.Adam(learning_rate=initial_lr) # Initial LR for optimizer, will be overridden by scheduler
     model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
+    logger.info("✅ RNN model built successfully.")
     model.summary()
     return model
 
@@ -145,86 +132,103 @@ def build_RNN(modeling: Path, model_dict: Dict[str, np.ndarray]) -> tf.keras.Mod
 
 def train_RNN(modeling_path: Path, model: tf.keras.Model, model_dict: Dict[str, np.ndarray], model_name: str) -> Any:
     """
-    Trains the given RNN model using the provided data splits and saves the training history.
+    Trains the given RNN model using the provided data splits.
+    It incorporates a learning rate schedule, early stopping,
+    model checkpointing, and TensorBoard logging.
 
     Args:
-        modeling_path (Path): Path to modeling.yaml with training configuration.
+        modeling_path (Path): Path to a YAML file containing training configuration
+                              parameters under the 'RNN' key.
         model (tf.keras.Model): The compiled Keras RNN model to train.
-        model_dict (Dict[str, np.ndarray]): Dictionary containing split data arrays
-                                            ('X_tr_wide', 'y_tr', 'X_val_wide', 'y_val').
-        model_name (str): Name for the model, used for TensorBoard logs and checkpoints.
+        model_dict (Dict[str, np.ndarray]): Dictionary containing the data splits:
+                                            'X_tr_wide', 'y_tr' (training data),
+                                            'X_val_wide', 'y_val' (validation data).
+        model_name (str): A name for the model, used for organizing TensorBoard logs
+                          and saved model checkpoints.
 
     Returns:
-        tf.keras.callbacks.History: The training history object.
+        tf.keras.callbacks.History: The training history object, containing
+                                    loss and metric values per epoch.
     """
     rnn_conf = load_yaml(modeling_path).get("RNN", {})
-    total_epochs = rnn_conf.get("total_epochs", 100)
-    warmup_epochs = rnn_conf.get("warmup_epochs", 10)
-    initial_lr = rnn_conf.get("initial_lr", 1e-5)
-    peak_lr = rnn_conf.get("peak_lr", 1e-4)
-    batch_size = rnn_conf.get("batch_size", 64)
-    patience = rnn_conf.get("patience", 10)
-    
+
+    # Training configuration parameters
+    total_epochs = rnn_conf.get("total_epochs", 100) # Maximum number of training epochs
+    warmup_epochs = rnn_conf.get("warmup_epochs", 10) # Number of epochs for learning rate warmup
+    initial_lr = rnn_conf.get("initial_lr", 1e-5) # Starting learning rate for warmup
+    peak_lr = rnn_conf.get("peak_lr", 1e-4) # Maximum learning rate during warmup
+    batch_size = rnn_conf.get("batch_size", 64) # Number of samples per gradient update
+    patience = rnn_conf.get("patience", 10) # Number of epochs with no improvement after which training will be stopped
+
+    # Define the save folder for logs and checkpoints
     save_folder = Path(load_yaml(modeling_path).get("path"))
 
     logger.info(f"🚀 Starting training for model: {model_name}")
-    print(f"🚀 Starting training for model: {model_name}")
 
-    # Learning Rate Schedule (linear warmup, then decay)
-    def lr_schedule(epoch, lr):
+    # Learning Rate Schedule: Linear Warmup followed by Cosine Decay
+    def lr_schedule(epoch: int, lr: float) -> float:
+        """
+        Custom learning rate scheduler function.
+        Linearly increases LR during warmup_epochs, then decays with a cosine annealing.
+        """
         if epoch < warmup_epochs:
-            # Linear warmup
+            # Linear warmup phase
             return initial_lr + (peak_lr - initial_lr) * (epoch / warmup_epochs)
         else:
-            decay_epochs = total_epochs - warmup_epochs
+            # Cosine decay phase
+            decay_epochs = warmup_epochs # decay and warmup share the same duration (for simplicity)
             cosine_decay = 0.5 * (1 + np.cos(np.pi * (epoch - warmup_epochs) / decay_epochs))
             return peak_lr * cosine_decay
 
+    # Callbacks for training process control and monitoring
+    
+    # 1. Learning Rate Scheduler: Adjusts the learning rate based on the custom schedule.
     lr_scheduler = LearningRateScheduler(lr_schedule, verbose=0)
 
-    # Callbacks
+    # 2. Early Stopping: Stops training if validation loss does not improve for 'patience' epochs.
+    #    Restores the weights from the epoch with the best validation loss.
     early_stopping = EarlyStopping(
-        monitor='val_loss',
-        patience=patience,
-        restore_best_weights=True,
-        verbose=1
+        monitor='val_loss', # Metric to monitor
+        patience=patience, # Number of epochs with no improvement after which training will be stopped
+        restore_best_weights=True, # Restores model weights from the epoch with the best value of the monitored quantity
+        verbose=1 # Prints messages when triggered
     )
 
+    # 3. TensorBoard Callback: Logs metrics and graph information for visualization in TensorBoard.
     log_dir = save_folder / "logs" / datetime.datetime.now().strftime("%Y%m%d-%H%M%S") / model_name
-    log_dir.mkdir(parents=True, exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True) # Create log directory if it doesn't exist
     tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
 
+    # 4. Model Checkpoint: Saves the model's weights (or full model) only when
+    #    'val_loss' improves, ensuring only the best performing model is kept.
     checkpoint_path = save_folder / "checkpoints" / f"{model_name}_best_model.keras"
-    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True) # Create checkpoint directory if it doesn't exist
     model_checkpoint = ModelCheckpoint(
-        filepath=checkpoint_path,
-        monitor='val_loss',
-        save_best_only=True,
-        verbose=0
+        filepath=checkpoint_path, # Path to save the model
+        monitor='val_loss', # Metric to monitor for saving
+        save_best_only=True, # Only save when the monitored quantity improves
+        verbose=0 # Suppress verbose output during saving
     )
 
-    # ReduceLROnPlateau can be an alternative or complement to LearningRateScheduler
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, verbose=1, min_lr=1e-7)
-
+    # List of all callbacks to be used during training
     callbacks = [
         lr_scheduler,
         early_stopping,
         tensorboard_callback,
-        model_checkpoint,
-        reduce_lr
+        model_checkpoint
     ]
 
+    # Start training the model
     history = model.fit(
-        model_dict['X_tr_wide'], model_dict['y_tr'],
-        epochs=total_epochs,
-        batch_size=batch_size,
-        validation_data=(model_dict['X_val_wide'], model_dict['y_val']),
-        callbacks=callbacks,
-        verbose=1
+        model_dict['X_tr_wide'], model_dict['y_tr'], # Training data and labels
+        epochs=total_epochs, # Maximum number of epochs to train
+        batch_size=batch_size, # Number of samples per batch
+        validation_data=(model_dict['X_val_wide'], model_dict['y_val']), # Validation data
+        callbacks=callbacks, # List of callbacks to apply during training
+        verbose=1 # Show progress bar and epoch details
     )
 
     logger.info(f"✅ Training for model '{model_name}' completed.")
-    print(f"✅ Training for model '{model_name}' completed.")
     return history
 
 # %% Model Management Functions

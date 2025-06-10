@@ -2,17 +2,13 @@
 
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.decomposition import PCA
+import tensorflow as tf
 from typing import Dict, List
 from pathlib import Path
 import logging
 from sklearn.metrics import classification_report, accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, mean_absolute_error, r2_score
 
-from .utils import load_yaml, configure_logging
+from .utils import load_yaml, configure_logging, use_model
 configure_logging()
 
 logger = logging.getLogger(__name__)
@@ -156,268 +152,43 @@ def create_chimera_and_loo_mean(df: pd.DataFrame, seed: int = None) -> Dict[str,
     return {"chimera": chimera, "loo_mean": loo_mean}
 
 
-def calculate_cosine_sim(data_dict: Dict[str, np.ndarray]) -> pd.DataFrame:
+def build_and_run_models(modeling_path: Path, model_paths: Dict[str, Path], position_df: pd.DataFrame) -> Dict[str, np.ndarray]:
     """
-    Calculates cosine similarity between all pairs of arrays in the input dictionary.
+    Loads specified models, prepares input data for each, and generates predictions.
 
     Args:
-        data_dict (Dict[str, np.ndarray]): Dictionary of arrays (e.g., model outputs, labeler data).
+        modeling_path (Path): Path to the modeling.yaml file.
+        model_paths (Dict[str, Path]): Dictionary mapping model names to their file paths.
+        position_df (pd.DataFrame): DataFrame containing the full position data.
 
     Returns:
-        pd.DataFrame: DataFrame containing the cosine similarity matrix.
+        Dict[str, np.ndarray]: Dictionary mapping model names (prefixed with 'model_')
+                               to their prediction arrays.
     """
-    keys = list(data_dict.keys())
-    num_items = len(keys)
+    modeling = load_yaml(modeling_path)
+    bodyparts = modeling.get("bodyparts", [])
+    target = modeling.get("colabels", {}).get("target", 'tgt')
+    targets = [target] # Because 'use_model' only accepts a list of targets
+
+    X_all = position_df.copy()
+    models_dict = {}
     
-    if num_items < 2:
-        logger.warning("Need at least two items to calculate cosine similarity.")
-        return pd.DataFrame()
+    for key, path in model_paths.items():
+        logger.info(f"Loading model from: {path}")
+        print(f"Loading model from: {path}")
+        model = tf.keras.models.load_model(path)
 
-    similarity_matrix = np.zeros((num_items, num_items))
+        # Determine if reshaping is needed
+        reshaping = len(model.input_shape) == 3  # True if input is 3D
 
-    for i in range(num_items):
-        for j in range(num_items):
-            # Reshape to 2D array for cosine_similarity function (each sample is a row)
-            vec1 = data_dict[keys[i]].reshape(1, -1)
-            vec2 = data_dict[keys[j]].reshape(1, -1)
-            
-            # cosine_similarity returns a 2D array [[similarity_score]]
-            similarity_matrix[i, j] = cosine_similarity(vec1, vec2)[0, 0]
-
-    cosine_df = pd.DataFrame(similarity_matrix, index=keys, columns=keys)
-    return cosine_df
-
-
-def plot_PCA(data_dict: Dict[str, np.ndarray], n_components: int = 2) -> None:
-    """
-    Performs PCA on the input data and plots the results.
-
-    Args:
-        data_dict (Dict[str, np.ndarray]): Dictionary of arrays (e.g., model outputs, labeler data).
-        n_components (int): Number of PCA components to calculate.
-    """
-    if len(data_dict) < 2:
-        logger.warning("Not enough data series to perform PCA and plot meaningfully (need at least 2).")
-        return
-
-    # Prepare data: each array becomes a row in the input for PCA
-    keys = list(data_dict.keys())
-    data_for_pca = np.array([arr for arr in data_dict.values()])
-
-    # Ensure data is 2D: (n_samples, n_features)
-    if data_for_pca.ndim == 1: # If only one sample or all are 1D lists
-        data_for_pca = data_for_pca.reshape(1, -1)
-    elif data_for_pca.ndim > 2: # If arrays are 2D or more, flatten them
-        data_for_pca = data_for_pca.reshape(data_for_pca.shape[0], -1)
-
-    if data_for_pca.shape[1] < n_components:
-        logger.warning(f"Number of features ({data_for_pca.shape[1]}) is less than n_components ({n_components}). Adjusting n_components.")
-        n_components = data_for_pca.shape[1]
-        if n_components < 1:
-            logger.error("Cannot perform PCA with less than 1 component.")
-            return
-
-    pca = PCA(n_components=n_components)
-    principal_components = pca.fit_transform(data_for_pca)
-
-    explained_variance = pca.explained_variance_ratio_ * 100
-    logger.info(f"Explained variance by {n_components} components: {explained_variance.sum():.2f}%")
-
-    if n_components == 2:
-        pca_df = pd.DataFrame(data=principal_components, columns=['PC1', 'PC2'], index=keys)
-        plt.figure(figsize=(8, 6))
-        sns.scatterplot(x='PC1', y='PC2', data=pca_df, hue=pca_df.index, s=100, style=pca_df.index)
+        if reshaping:
+            past = future = model.input_shape[1] // 2
+            output = use_model(X_all, model, targets, bodyparts, recentering=True, reshaping=True, past=past, future=future)
         
-        # Annotate points
-        for i, txt in enumerate(keys):
-            plt.annotate(txt, (pca_df['PC1'][i], pca_df['PC2'][i]), textcoords="offset points", xytext=(5,5), ha='center')
+        else:
+            output = use_model(X_all, model, targets, bodyparts, recentering=True)
 
-        plt.title('PCA of Model and Labeler Outputs')
-        plt.xlabel(f'Principal Component 1 ({explained_variance[0]:.2f}%)')
-        plt.ylabel(f'Principal Component 2 ({explained_variance[1]:.2f}%)')
-        plt.grid(True)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.tight_layout()
-        plt.show()
-    elif n_components == 3:
-        pca_df = pd.DataFrame(data=principal_components, columns=['PC1', 'PC2', 'PC3'], index=keys)
-        fig = plt.figure(figsize=(10, 8))
-        ax = fig.add_subplot(111, projection='3d')
-        
-        ax.scatter(pca_df['PC1'], pca_df['PC2'], pca_df['PC3'], s=100)
-        
-        for i, txt in enumerate(keys):
-            ax.text(pca_df['PC1'][i], pca_df['PC2'][i], pca_df['PC3'][i], txt, fontsize=9)
+        # Store the result in the dictionary
+        models_dict[f"model_{key}"] = output
 
-        ax.set_xlabel(f'Principal Component 1 ({explained_variance[0]:.2f}%)')
-        ax.set_ylabel(f'Principal Component 2 ({explained_variance[1]:.2f}%)')
-        ax.set_zlabel(f'Principal Component 3 ({explained_variance[2]:.2f}%)')
-        ax.set_title('3D PCA of Model and Labeler Outputs')
-        plt.show()
-    else:
-        logger.info(f"PCA with {n_components} components calculated. For visualization, n_components should be 2 or 3.")
-
-
-def plot_performance_on_video(
-    folder_path: Path,
-    model_paths: Dict[str, Path],
-    labelers: Dict[str, Path],
-    fps: int = 25,
-    bodyparts: List[str] = ['nose', 'left_ear', 'right_ear', 'head', 'neck', 'body'],
-    targets: List[str] = ['obj_1', 'obj_2'],
-    plot_tgt: str = 'obj_1'
-) -> go.Figure:
-    """
-    Plots the performance of models against human labelers for a specific video/target.
-
-    Args:
-        folder_path (Path): Path to the folder containing position files and labeler data.
-                            Assumes `positions` and labeler subdirectories exist.
-        model_paths (Dict[str, Path]): Dictionary mapping model names to their saved model file paths.
-        labelers (Dict[str, Path]): Dictionary mapping labeler names to their label CSV file paths
-                                    (e.g., 'Example_Marian.csv').
-        fps (int): Frames per second of the video.
-        bodyparts (List[str]): List of body parts used in the position data.
-        targets (List[str]): List of target object names.
-        plot_tgt (str): The specific target column name to plot (e.g., 'obj_1').
-
-    Returns:
-        go.Figure: A Plotly figure object displaying the performance.
-    """
-    if not folder_path.is_dir():
-        raise FileNotFoundError(f"Folder path not found: {folder_path}")
-
-    # Load labeler outputs
-    labeler_outputs = {}
-    for labeler_name, labeler_file in labelers.items():
-        labeler_filepath = folder_path / labeler_file # Assuming labeler_file is relative to folder_path
-        if not labeler_filepath.is_file():
-            logger.warning(f"Labeler file not found: {labeler_filepath}. Skipping {labeler_name}.")
-            continue
-        df_label = pd.read_csv(labeler_filepath)
-        if plot_tgt not in df_label.columns:
-            logger.warning(f"Target '{plot_tgt}' not found in labeler file {labeler_filepath}. Skipping {labeler_name}.")
-            continue
-        labeler_outputs[labeler_name] = df_label[plot_tgt]
-
-    if not labeler_outputs:
-        logger.error("No valid labeler files found or target column missing. Cannot plot performance.")
-        return go.Figure()
-
-    # Load position data for models
-    # This requires knowing which position file corresponds to the labeler files.
-    # A robust solution would involve matching filenames or passing the specific position file.
-    # For now, let's assume the labeler_file base name matches a position file base name.
-    # Take the first labeler file as a reference to find the corresponding position file.
-    first_labeler_filename = next(iter(labelers.values()))
-    # Assuming labeler file is 'Example_Marian.csv' and position file is 'Example_Marian_position.csv'
-    # Or, if the position file is more general, like 'video_X_position.csv'
-    # We need a more robust way to link labeler files to a specific position file.
-    # For this example, let's assume `folder_path` contains the actual position file
-    # and the labeler files are just the labels for *that* video.
-    
-    # IMPROVEMENT: The `plot_performance_on_video` function in the original
-    # notebook is designed to take a *single* example_path, implying a single video's data.
-    # Let's adjust this to take `position_filepath` as a direct argument.
-    
-    # Since the original notebook was using `example_path` to load the position,
-    # let's find the position file associated with the first labeler.
-    
-    # This needs clarification in the original notebook's context.
-    # For now, let's assume `folder_path` *is* the path to a specific video's data.
-    # And we need to derive the position file name from one of the labeler files.
-    
-    # A safer approach is to pass the explicit position file path to this function.
-    # As per 3a-Create_models.ipynb: example_path refers to a directory containing "positions"
-    # and labeler files. This means we need to find the specific position file that matches
-    # the label files being used.
-    
-    # Let's infer position filename from a labeler filename.
-    # If a labeler file is 'video1_labels.csv', position file might be 'video1_position.csv'.
-    # This is a heuristic and might need to be more explicit.
-    
-    # For demonstration, let's assume a generic `position_data.csv` in `folder_path/positions`.
-    # This might need to be made dynamic if each labeler file corresponds to a unique video.
-    # Based on the example in 3a-Create_models.ipynb where `example_path` was a directory,
-    # and `labelers_example` had `Example_Marian.csv`, the corresponding position file
-    # would be something like `positions/Example_Marian_position.csv`.
-
-    # Let's assume the `example_path` from the notebook is passed as `folder_path`
-    # and we need to find a single, representative position file.
-    # This is a bit of a hack, but matches the notebook's implied usage.
-    
-    position_data_dir = folder_path / "positions"
-    position_file_base_name = Path(next(iter(labelers.values()))).stem.replace('_labels', '_position')
-    position_filepath = position_data_dir / f"{position_file_base_name}.csv"
-
-    if not position_filepath.is_file():
-        # Fallback if the direct mapping doesn't work, maybe it's just a general position file
-        # or needs to be specified more clearly.
-        # For now, if the specific one isn't found, raise an error to indicate problem.
-        raise FileNotFoundError(f"Corresponding position file not found for plotting: {position_filepath}. "
-                                "Ensure the position file naming convention matches labeler files or specify it directly.")
-    
-    position_df = pd.read_csv(position_filepath)
-
-    # Run models on the full position data
-    model_outputs = build_and_run_models(
-        modeling_path=folder_path / "modeling.yaml", # Assuming modeling.yaml is in folder_path
-        model_paths=model_paths,
-        position_df=position_df.filter(regex='_x|_y').filter(regex='^(?!.*tail)').copy() # Ensure only relevant position columns are passed
-    )
-
-    # Create time axis
-    # Use the length of one of the labeler outputs to determine total frames
-    num_frames = len(next(iter(labeler_outputs.values())))
-    time = np.arange(num_frames) / fps
-
-    # Create a figure
-    fig = go.Figure()
-
-    # Add traces for labelers
-    # Apply a small offset for better visibility of overlapping binary labels
-    for idx, (labeler_name, labeler_data) in enumerate(labeler_outputs.items()):
-        offset = 1 + 0.025 * (idx + 1) # Incremental offset for visualization
-        fig.add_trace(
-            go.Scatter(
-                x=time,
-                y=[x * offset for x in labeler_data], # Scale by offset
-                mode='markers', # Markers for discrete labels
-                name=labeler_name,
-                marker=dict(color=f"hsl({idx * 60}, 70%, 50%)", size=5)
-            )
-        )
-
-    # Add traces for models
-    for model_name, model_output in model_outputs.items():
-        # Ensure model output is 1D and matches length of labeler data
-        if len(model_output) != num_frames:
-            logger.warning(f"Model '{model_name}' output length ({len(model_output)}) does not match labeler length ({num_frames}). Cropping/padding may be needed.")
-            # For plotting, clip to the minimum length to avoid errors
-            model_output = model_output[:num_frames]
-        
-        fig.add_trace(
-            go.Scatter(
-                x=time,
-                y=model_output,
-                mode='lines', # Lines for continuous model predictions
-                name=model_name,
-                line=dict(width=2)
-            )
-        )
-
-    # Update layout
-    fig.update_layout(
-        title=f"Model and Labeler Performance on Video for Target: {plot_tgt}",
-        xaxis_title="Time (s)",
-        yaxis_title="Activity / Label Offset",
-        hovermode="x unified",
-        template="plotly_white",
-        legend_title="Legend",
-        height=600,
-        margin=dict(l=50, r=50, t=80, b=50)
-    )
-
-    fig.show()
-    return fig
-
+    return models_dict

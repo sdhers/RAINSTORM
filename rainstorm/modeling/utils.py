@@ -7,12 +7,12 @@ such as loading YAML files and selecting example files.
 
 # %% Imports
 import logging
-import random
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import List
 import yaml
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 from sklearn.metrics import classification_report, accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, mean_absolute_error, r2_score
 
 # Logging setup
@@ -152,3 +152,62 @@ def reshape(df: pd.DataFrame, past: int = 3, future: int = 3, broad: float = 1.7
     reshaped_array = np.array(reshaped_df)
     
     return reshaped_array
+
+def use_model(positions_df: pd.DataFrame, 
+              model: tf.keras.Model, 
+              targets: List[str] = ['tgt'], 
+              bodyparts: List[str] = ['nose', 'left_ear', 'right_ear', 'head', 'neck', 'body'], 
+              recentering: bool = False, 
+              reshaping: bool = False, 
+              past: int = 3, 
+              future: int = 3, 
+              broad: float = 1.7) -> pd.Series:
+    """
+    Prepares input data for a given model and generates predictions (autolabels).
+
+    Args:
+        positions_df (pd.DataFrame): DataFrame containing raw position data for a single video.
+        model (tf.keras.Model): The loaded TensorFlow model.
+        objects (List[str]): List of targets (e.g., 'tgt')
+        bodyparts (List[str]): List of body parts (e.g., 'nose', 'head') that the model uses as features.
+                               These should correspond to columns like 'nose_x', 'nose_y'.
+        recentering (bool): If True, body part positions are recentered relative to the 'body' part.
+        reshaping (bool): If True, data is reshaped into a 3D array (samples, timesteps, features)
+                          suitable for RNNs, using `past`, `future`, and `broad` parameters.
+        past (int): Number of past frames to consider for reshaping.
+        future (int): Number of future frames to consider for reshaping.
+        broad (float): Broadening factor for reshaping, controlling density of frames.
+
+    Returns:
+        pd.Series: A pandas Series containing the predicted autolabel values (probabilities).
+    """
+    
+    if recentering:
+        positions_df = pd.concat([recenter(positions_df, t, bodyparts) for t in targets], ignore_index=True)
+
+    if reshaping:
+        positions_df = np.array(reshape(positions_df, past, future, broad))
+    
+    pred = model.predict(positions_df) # Use the model to predict the labels
+    pred = pred.flatten()
+    pred = pd.DataFrame(pred, columns=['predictions'])
+
+    # Smooth the predictions
+    pred.loc[pred['predictions'] < 0.1, 'predictions'] = 0  # Set values below 0.3 to 0
+    # pred.loc[pred['predictions'] > 0.98, 'predictions'] = 1
+    # pred = smooth_columns(pred, ['predictions'], gauss_std=0.2)
+
+    # Calculate the length of each fragment
+    n_objects = len(targets)
+    fragment_length = len(pred) // n_objects
+
+    # Create a list to hold each fragment
+    fragments = [pred.iloc[i*fragment_length:(i+1)*fragment_length].reset_index(drop=True) for i in range(n_objects)]
+
+    # Concatenate fragments along columns
+    labels = pd.concat(fragments, axis=1)
+
+    # Rename columns
+    labels.columns = [f'{t}' for t in targets]
+    
+    return labels

@@ -9,13 +9,11 @@ from tensorflow.keras.layers import (
     LSTM,
     BatchNormalization,
     Dropout,
-    Activation,
-    Multiply,
-    Lambda
+    GlobalMaxPooling1D
 )
 from tensorflow.keras.callbacks import (
     EarlyStopping, LearningRateScheduler,
-    ModelCheckpoint, TensorBoard
+    ModelCheckpoint, TensorBoard, ReduceLROnPlateau
 )
 import numpy as np
 import pandas as pd
@@ -31,36 +29,9 @@ logger = logging.getLogger(__name__)
 
 # %% Model Building Functions
 
-def attention_pooling_block(x: tf.Tensor, name_prefix: str = "attn_pool") -> tf.Tensor:
-    """
-    Functional attention pooling: softmax over time, weighted sum.
-    This block takes a sequence (batch, timesteps, features) and returns
-    a single vector per batch element (batch, features) by
-    applying an attention mechanism to weigh the importance of each timestep.
-
-    Args:
-        x: Input tensor with shape (batch_size, timesteps, features).
-        name_prefix: Prefix for naming the Keras layers within this block.
-    Returns:
-        tf.Tensor: Output tensor with shape (batch_size, features).
-    """
-    # Compute scores for each timestep (how important is this timestep?)
-    score = Dense(1, name=f"{name_prefix}_score")(x)
-    
-    # Apply softmax to get attention weights that sum to 1 across timesteps
-    weights = Activation('softmax', name=f"{name_prefix}_weights")(score)
-    
-    # Multiply the original features by the attention weights
-    weighted = Multiply(name=f"{name_prefix}_weighted")([x, weights])
-    
-    # Sum along the timesteps dimension to get a single context vector
-    return Lambda(lambda t: tf.reduce_sum(t, axis=1), name=f"{name_prefix}_sum")(weighted)
-
 def build_RNN(modeling_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.keras.Model:
     """
     Builds a Bidirectional LSTM (RNN) model for binary classification.
-    The model processes sequences and uses an attention pooling mechanism
-    to derive a single vector representation for classification.
 
     Args:
         modeling_path (Path): Path to a YAML file containing modeling parameters,
@@ -83,12 +54,10 @@ def build_RNN(modeling_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.kera
 
     # Validate input data shape
     if 'X_tr_wide' not in model_dict:
-        logger.error("model_dict must include 'X_tr_wide' to infer input shape.")
-        return None
+        raise KeyError("model_dict must include 'X_tr_wide' to infer input shape.")
     x_sample = model_dict['X_tr_wide']
     if x_sample.ndim != 3:
-        logger.error("'X_tr_wide' must be 3D (batch, time, features) to define input shape.")
-        return None
+        raise ValueError("'X_tr_wide' must be 3D (batch, time, features) to define input shape.")
 
     timesteps, features = x_sample.shape[1], x_sample.shape[2]
     
@@ -110,21 +79,26 @@ def build_RNN(modeling_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.kera
         
         x = drop # Output of current layer becomes input for the next
 
-    # Apply global attention pooling to convert the sequence of features from the last LSTM layer into a single fixed-size vector.
-    attention_pooled = attention_pooling_block(x, name_prefix="final_attention_pooling")
+    # Apply GlobalMaxPooling1D to convert the sequence of features
+    # from the last LSTM layer into a single fixed-size vector.
+    # This layer takes the maximum value across the time dimension for each feature.
+    pooled_output = GlobalMaxPooling1D(name="global_max_pooling")(x)
 
     # Output layer for binary classification
     # Uses a sigmoid activation to output a probability between 0 and 1.
-    binary_out = Dense(1, activation='sigmoid', name="binary_out")(attention_pooled)
+    binary_out = Dense(1, activation='sigmoid', name="binary_out")(pooled_output)
 
     # Create the Keras Model
     model = Model(inputs, binary_out, name="CleanedBidirectionalRNN")
 
     # Compile the model
+    # Adam optimizer is a good default for many tasks.
+    # 'binary_crossentropy' is the standard loss for binary classification.
+    # 'accuracy' is a common metric to monitor performance.
     optimizer = tf.keras.optimizers.Adam(learning_rate=initial_lr) # Initial LR for optimizer, will be overridden by scheduler
     model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
-    logger.info("✅ RNN model built successfully.")
+    # Print a summary of the model architecture
     model.summary()
     return model
 
@@ -133,8 +107,9 @@ def build_RNN(modeling_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.kera
 def train_RNN(modeling_path: Path, model: tf.keras.Model, model_dict: Dict[str, np.ndarray], model_name: str) -> Any:
     """
     Trains the given RNN model using the provided data splits.
-    It incorporates a learning rate schedule, early stopping,
-    model checkpointing, and TensorBoard logging.
+    It incorporates a custom sigmoid-shaped learning rate schedule,
+    early stopping, model checkpointing, TensorBoard logging, and
+    ReduceLROnPlateau for further learning rate adjustments after warmup.
 
     Args:
         modeling_path (Path): Path to a YAML file containing training configuration
@@ -154,9 +129,9 @@ def train_RNN(modeling_path: Path, model: tf.keras.Model, model_dict: Dict[str, 
 
     # Training configuration parameters
     total_epochs = rnn_conf.get("total_epochs", 100) # Maximum number of training epochs
-    warmup_epochs = rnn_conf.get("warmup_epochs", 10) # Number of epochs for learning rate warmup
-    initial_lr = rnn_conf.get("initial_lr", 1e-5) # Starting learning rate for warmup
-    peak_lr = rnn_conf.get("peak_lr", 1e-4) # Maximum learning rate during warmup
+    warmup_epochs = rnn_conf.get("warmup_epochs", 10) # Number of epochs for learning rate warmup/cooldown phase
+    initial_lr = rnn_conf.get("initial_lr", 1e-5) # Starting and final learning rate during warmup phase
+    peak_lr = rnn_conf.get("peak_lr", 1e-4) # Maximum learning rate during warmup phase
     batch_size = rnn_conf.get("batch_size", 64) # Number of samples per gradient update
     patience = rnn_conf.get("patience", 10) # Number of epochs with no improvement after which training will be stopped
 
@@ -165,25 +140,45 @@ def train_RNN(modeling_path: Path, model: tf.keras.Model, model_dict: Dict[str, 
 
     logger.info(f"🚀 Starting training for model: {model_name}")
 
-    # Learning Rate Schedule: Linear Warmup followed by Cosine Decay
+    # Learning Rate Schedule: Sigmoid-shaped warmup to peak_lr, then back to initial_lr
+    # within warmup_epochs. After warmup_epochs, learning rate remains at initial_lr.
     def lr_schedule(epoch: int, lr: float) -> float:
         """
-        Custom learning rate scheduler function.
-        Linearly increases LR during warmup_epochs, then decays with a cosine annealing.
+        Custom learning rate scheduler function with a sigmoid-shaped increase and
+        decrease within the warmup period, followed by a constant initial_lr.
         """
+        sigmoid_sharpness = 10.0 # Controls the steepness of the sigmoid curve
+
         if epoch < warmup_epochs:
-            # Linear warmup phase
-            return initial_lr + (peak_lr - initial_lr) * (epoch / warmup_epochs)
+            if warmup_epochs == 0: # Handle case where warmup_epochs is 0
+                return initial_lr
+
+            if epoch <= warmup_epochs / 2:
+                # Rising sigmoid curve from initial_lr to peak_lr
+                # Normalize epoch to [0, 1] for sigmoid input
+                progress = epoch / (warmup_epochs / 2)
+                # Apply sigmoid function. Shifted by -0.5 to center the steep part at 0.5.
+                sigmoid_val = 1 / (1 + np.exp(-sigmoid_sharpness * (progress - 0.5)))
+                return initial_lr + (peak_lr - initial_lr) * sigmoid_val
+            else:
+                # Falling sigmoid curve from peak_lr back to initial_lr
+                # Normalize epoch from the midpoint to the end of warmup to [0, 1]
+                progress = (epoch - (warmup_epochs / 2)) / (warmup_epochs / 2)
+                # Apply sigmoid function and invert for decreasing curve
+                sigmoid_val = 1 / (1 + np.exp(-sigmoid_sharpness * (progress - 0.5)))
+                return initial_lr + (peak_lr - initial_lr) * (1 - sigmoid_val)
         else:
-            # Cosine decay phase
-            decay_epochs = warmup_epochs # decay and warmup share the same duration (for simplicity)
-            cosine_decay = 0.5 * (1 + np.cos(np.pi * (epoch - warmup_epochs) / decay_epochs))
-            return peak_lr * cosine_decay
+            # After the warmup phase, allow ReduceLROnPlateau to manage the LR.
+            # If ReduceLROnPlateau has already changed the LR, respect that change.
+            # Otherwise, keep it at initial_lr.
+            # We assume 'lr' argument passed to lr_schedule is the LR from the previous epoch.
+            # If ReduceLROnPlateau reduced it, 'lr' will be the reduced value.
+            return lr if lr < initial_lr else initial_lr
 
     # Callbacks for training process control and monitoring
     
     # 1. Learning Rate Scheduler: Adjusts the learning rate based on the custom schedule.
-    lr_scheduler = LearningRateScheduler(lr_schedule, verbose=0)
+    lr_scheduler = LearningRateScheduler(lr_schedule, verbose=1) # Set verbose to 1 to log LR
 
     # 2. Early Stopping: Stops training if validation loss does not improve for 'patience' epochs.
     #    Restores the weights from the epoch with the best validation loss.
@@ -210,12 +205,23 @@ def train_RNN(modeling_path: Path, model: tf.keras.Model, model_dict: Dict[str, 
         verbose=0 # Suppress verbose output during saving
     )
 
+    # 5. ReduceLROnPlateau: Reduces learning rate when a metric has stopped improving.
+    #    It will primarily act after the initial LR schedule stabilizes at initial_lr.
+    reduce_lr_on_plateau = ReduceLROnPlateau(
+        monitor='val_loss', # Metric to monitor
+        factor=0.5, # Factor by which the learning rate will be reduced. new_lr = lr * factor
+        patience=patience // 2, # Number of epochs with no improvement after which learning rate will be reduced
+        verbose=1, # Prints messages when triggered
+        min_lr=1e-7 # Lower bound on the learning rate
+    )
+
     # List of all callbacks to be used during training
     callbacks = [
         lr_scheduler,
         early_stopping,
         tensorboard_callback,
-        model_checkpoint
+        model_checkpoint,
+        reduce_lr_on_plateau
     ]
 
     # Start training the model
@@ -251,76 +257,3 @@ def save_model(modeling_path: Path, model: tf.keras.Model, model_name: str) -> N
     logger.info(f"✅ Model '{model_name}' saved to: {filepath}")
     print(f"Model '{model_name}' saved to: {filepath}")
 
-def use_model(position, model, objects = ['tgt'], bodyparts = ['nose', 'left_ear', 'right_ear', 'head', 'neck', 'body'], recentering = False, reshaping = False, past: int = 3, future: int = 3, broad: float = 1.7):
-    
-    if recentering:
-        position = pd.concat([recenter(position, obj, bodyparts) for obj in objects], ignore_index=True)
-
-    if reshaping:
-        position = np.array(reshape(position, past, future, broad))
-    
-    pred = model.predict(position) # Use the model to predict the labels
-    pred = pred.flatten()
-    pred = pd.DataFrame(pred, columns=['predictions'])
-
-    # Smooth the predictions
-    pred.loc[pred['predictions'] < 0.1, 'predictions'] = 0  # Set values below 0.3 to 0
-    #pred.loc[pred['predictions'] > 0.98, 'predictions'] = 1
-    #pred = smooth_columns(pred, ['predictions'], gauss_std=0.2)
-
-    n_objects = len(objects)
-
-    # Calculate the length of each fragment
-    fragment_length = len(pred) // n_objects
-
-    # Create a list to hold each fragment
-    fragments = [pred.iloc[i*fragment_length:(i+1)*fragment_length].reset_index(drop=True) for i in range(n_objects)]
-
-    # Concatenate fragments along columns
-    labels = pd.concat(fragments, axis=1)
-
-    # Rename columns
-    labels.columns = [f'{obj}' for obj in objects]
-    
-    return labels
-
-def build_and_run_models(modeling_path: Path, model_paths: Dict[str, Path], position_df: pd.DataFrame) -> Dict[str, np.ndarray]:
-    """
-    Loads specified models, prepares input data for each, and generates predictions.
-
-    Args:
-        modeling_path (Path): Path to the modeling.yaml file.
-        model_paths (Dict[str, Path]): Dictionary mapping model names to their file paths.
-        position_df (pd.DataFrame): DataFrame containing the full position data.
-
-    Returns:
-        Dict[str, np.ndarray]: Dictionary mapping model names (prefixed with 'model_')
-                               to their prediction arrays.
-    """
-    modeling = load_yaml(modeling_path)
-    bodyparts = modeling.get("bodyparts", [])
-    target = modeling.get("colabels", {}).get("target", 'tgt')
-    targets = [target] # Because 'use_model' only accepts a list of targets
-
-    X_all = position_df.copy()
-    models_dict = {}
-    
-    for key, path in model_paths.items():
-        logger.info(f"Loading model from: {path}")
-        print(f"Loading model from: {path}")
-        model = tf.keras.models.load_model(path)
-
-        # Determine if reshaping is needed
-        reshaping = len(model.input_shape) == 3  # True if input is 3D
-
-        if reshaping:
-            past = future = model.input_shape[1] // 2
-            output = use_model(X_all, model, targets, bodyparts, recentering=True, reshaping=True, past=past, future=future)
-        
-        else:
-            output = use_model(X_all, model, targets, bodyparts, recentering=True)
-
-        # Store the result in the dictionary
-        models_dict[f"model_{key}"] = output
-
-    return models_dict

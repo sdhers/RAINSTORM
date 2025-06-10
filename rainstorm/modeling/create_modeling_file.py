@@ -39,7 +39,7 @@ def _default_modeling_config(folder_path: Path) -> Dict:
                 "future": 3,
                 "broad": 1.7,
             },
-            "units": [16, 24, 32, 24, 16, 8],
+            "units": [32, 16, 8],
             "batch_size": 64,
             "dropout": 0.2,
             "total_epochs": 100,

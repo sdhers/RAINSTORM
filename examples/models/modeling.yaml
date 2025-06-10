@@ -58,10 +58,7 @@ RNN:
 
   # Number of neurons on each layer
   units:
-  - 16
-  - 24
   - 32
-  - 24
   - 16
   - 8
 

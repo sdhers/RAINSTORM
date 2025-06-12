@@ -13,6 +13,13 @@ import yaml
 # Logging setup
 logger = logging.getLogger(__name__)
 
+# Define the color pairs for plotting
+# Global variable for color palette, accessible by other modules
+colors = [
+    'dodgerblue', 'darkorange', 'green', 'orchid', 'orangered', 
+    'turquoise', 'indigo', 'gray', 'sienna', 'limegreen', 'black', 'pink'
+]
+
 # %% Logging Configuration
 
 def configure_logging(level=logging.WARNING):

@@ -9,6 +9,7 @@ such as creating reference files and summary folders.
 import logging
 from pathlib import Path
 import pandas as pd
+from typing import Optional
 
 from .utils import load_yaml, configure_logging
 from .data_processing import calculate_cumsum, calculate_DI, calculate_diff
@@ -16,7 +17,7 @@ from .data_processing import calculate_cumsum, calculate_DI, calculate_diff
 configure_logging()
 logger = logging.getLogger(__name__)
 
-def create_results_file(params_path: Path) -> Path:
+def create_results_file(params_path: Path, end_time: Optional[int] = None) -> Path:
     """
     Creates a 'results.csv' file summarizing data from processed summary files.
     Includes exploration times for targets, DI, diff, freezing time,
@@ -24,38 +25,42 @@ def create_results_file(params_path: Path) -> Path:
 
     Parameters:
         params_path (Path): Path to the YAML parameters file.
+        end_time (Optional[int]): The specific time to extract data from
+                                  the summary DataFrame. If None, the last row (-1)
+                                  will be used.
 
     Returns:
         Path: The path to the created 'results.csv' file.
     """
     logger.info(f"Starting creation of results file using parameters from: {params_path}")
+    if end_time is not None:
+        logger.info(f"Data will be extracted from time: {end_time} sec")
+    else:
+        logger.info("Data will be extracted from the last row (iloc[-1]).")
 
     params = load_yaml(params_path)
     base_folder = Path(params.get("path"))
     fps = params.get("fps", 30)
-    targets = params.get("targets", [])
 
     seize_labels = params.get("seize_labels", {})
     target_roles = seize_labels.get("target_roles", {})
+    label_type = seize_labels.get("label_type", "labels")
 
     results = []
 
     if not base_folder.exists():
         logger.error(f"Base path '{base_folder}' does not exist. Cannot create results file.")
-        print(f"Error: Base path '{base_folder}' does not exist.")
         return base_folder / 'results.csv' # Return a dummy path for error consistency
 
     reference_path = base_folder / 'reference.csv'
     if not reference_path.exists():
         logger.error(f"Reference file '{reference_path}' not found. Cannot create results file without it.")
-        print(f"Error: Reference file '{reference_path}' not found.")
         return base_folder / 'results.csv'
 
     try:
         reference_df = pd.read_csv(reference_path)
     except Exception as e:
         logger.error(f"Error reading reference file '{reference_path}': {e}")
-        print(f"Error: Could not read reference file '{reference_path}'.")
         return base_folder / 'results.csv'
 
     # Collect all unique renamed ROI names from the reference file to ensure consistent columns
@@ -101,6 +106,16 @@ def create_results_file(params_path: Path) -> Path:
                     video_name = file_path.stem.replace('_summary','')
                     logger.info(f"Processing summary file: {file_path}")
 
+                    # Determine the effective row index to use
+                    effective_row_index = -1 # Default to last row
+                    if end_time is not None:
+                        row_number = end_time*fps
+                        if 0 <= row_number < len(summary_df):
+                            effective_row_index = row_number
+                        else:
+                            logger.warning(f"Provided time ({end_time}) sec is out of bounds for video '{video_name}' (max index: {len(summary_df) - 1}). Falling back to last row.")
+
+
                     # Get the specific reference row for the current video
                     current_reference_row = reference_df[reference_df['Video'] == video_name]
                     if current_reference_row.empty:
@@ -109,10 +124,13 @@ def create_results_file(params_path: Path) -> Path:
                     current_reference_row = current_reference_row.iloc[0] # Get the first (and likely only) row
 
                     # Determine novelty based on trial, fallback to targets
-                    novelty_targets = target_roles.get(trial_name, targets)
-                    if not novelty_targets:
-                        logger.warning(f"No novelty targets defined for trial '{trial_name}' and no global targets. Skipping target-based calculations for video '{video_name}'.")
-
+                    novelties = target_roles.get(trial_name)
+                    if not novelties:
+                        logger.warning(f"No novelty targets defined for trial '{trial_name}'. Skipping target-based calculations for video '{video_name}'.")
+                        novelty_targets = None
+                    else:
+                        novelty_targets = [f'{t}_{label_type}' for t in novelties]
+                    
                     row_result = {
                         "Video": video_name,
                         "Group": group_name,
@@ -121,58 +139,60 @@ def create_results_file(params_path: Path) -> Path:
 
                     # Initialize all possible ROI time columns to 0.0 for consistent DataFrame structure
                     for roi_col_name in all_renamed_roi_columns:
-                        row_result[f"time_in_roi_{roi_col_name}"] = None
+                        row_result[f"time_in_{roi_col_name}"] = None
+
+                    # Create one working copy of the summary_df to add all calculated columns to
+                    working_df = summary_df.copy()
 
                     # --- Calculate and add exploration time for targets ---
                     if novelty_targets:
-                        # Ensure 'Frame' column is consistent for cumsum calculations if needed by helper
-                        if 'Frame' not in summary_df.columns and not summary_df.index.name == 'Frame':
-                            summary_df.insert(0, "Frame", summary_df.index + 1)
-
-                        df_with_cumsum = calculate_cumsum(summary_df.copy(), novelty_targets, fps) # Use copy to avoid modifying original df
+                        # calculate_cumsum should return a new DataFrame or modify in-place
+                        working_df = calculate_cumsum(working_df, novelty_targets, fps)
                         for target in novelty_targets:
                             cumsum_col_name = f'{target}_cumsum'
-                            if cumsum_col_name in df_with_cumsum.columns and not df_with_cumsum[cumsum_col_name].empty:
-                                row_result[f"exploration_time_{target}"] = df_with_cumsum[cumsum_col_name].iloc[-1]
+                            if cumsum_col_name in working_df.columns and not working_df[cumsum_col_name].empty:
+                                # Apply the effective_row_index here
+                                row_result[f"exploration_time_{target}"] = working_df[cumsum_col_name].iloc[effective_row_index]
                             else:
                                 row_result[f"exploration_time_{target}"] = None
-                                logger.warning(f"Cumulative sum for target '{target}' not found or empty for video '{video_name}'. Setting to 0.0.")
+                                logger.warning(f"Cumulative sum for target '{target}' not found or empty for video '{video_name}'. Setting to None.")
                     else:
                         logger.info(f"No targets defined for video '{video_name}'. Skipping exploration time calculations.")
 
-
                     # --- Calculate and add DI ---
                     if novelty_targets and len(novelty_targets) >= 2: # DI typically requires at least two targets
-                        # Pass df_with_cumsum to avoid recalculating cumsums if it's already done
-                        df_with_di = calculate_DI(df_with_cumsum.copy(), novelty_targets)
-                        if 'DI' in df_with_di.columns and not df_with_di['DI'].empty:
-                            row_result[f"DI"] = df_with_di["DI"].iloc[-1]
+                        # calculate_DI should operate on the already processed working_df
+                        working_df = calculate_DI(working_df, novelty_targets)
+                        if 'DI' in working_df.columns and not working_df['DI'].empty:
+                            # Apply the effective_row_index here
+                            row_result[f"DI"] = working_df["DI"].iloc[effective_row_index]
                         else:
                             row_result[f"DI"] = None # Default value if DI could not be calculated
-                            logger.warning(f"Discrimination Index (DI) could not be calculated for video '{video_name}'. Setting to 0.0.")
+                            logger.warning(f"Discrimination Index (DI) could not be calculated for video '{video_name}'. Setting to None.")
                     else:
                         row_result[f"DI"] = None
-                        logger.info(f"Not enough targets to calculate DI for video '{video_name}'. Setting DI to 0.0.")
+                        logger.info(f"Not enough targets to calculate DI for video '{video_name}'. Setting DI to None.")
 
                     # --- Calculate and add diff ---
                     if novelty_targets and len(novelty_targets) >= 2: # Diff typically requires at least two targets
-                        df_with_diff = calculate_diff(df_with_cumsum.copy(), novelty_targets)
-                        if 'diff' in df_with_diff.columns and not df_with_diff['diff'].empty:
-                            row_result[f"diff"] = df_with_diff["diff"].iloc[-1]
+                        # calculate_diff should operate on the already processed working_df
+                        working_df = calculate_diff(working_df, novelty_targets)
+                        if 'diff' in working_df.columns and not working_df['diff'].empty:
+                            # Apply the effective_row_index here
+                            row_result[f"diff"] = working_df["diff"].iloc[effective_row_index]
                         else:
                             row_result[f"diff"] = None # Default value if diff could not be calculated
-                            logger.warning(f"Difference ('diff') could not be calculated for video '{video_name}'. Setting to 0.0.")
+                            logger.warning(f"Difference ('diff') could not be calculated for video '{video_name}'. Setting to None.")
                     else:
                         row_result[f"diff"] = None
-                        logger.info(f"Not enough targets to calculate difference for video '{video_name}'. Setting diff to 0.0.")
-
+                        logger.info(f"Not enough targets to calculate difference for video '{video_name}'. Setting diff to None.")
 
                     # --- Calculate freezing time ---
                     if 'freezing' in summary_df.columns and not summary_df['freezing'].empty:
                         row_result['freezing_time'] = (summary_df['freezing'].sum() / fps) # Sum up all freezing frames
                     else:
                         row_result['freezing_time'] = None
-                        logger.warning(f"'freezing' column not found or empty for video '{video_name}'. Setting freezing_time to 0.0.")
+                        logger.warning(f"'freezing' column not found or empty for video '{video_name}'. Setting freezing_time to None.")
 
                     # --- Calculate time spent in each ROI location ---
                     if 'location' in summary_df.columns and not summary_df['location'].empty:
@@ -182,7 +202,7 @@ def create_results_file(params_path: Path) -> Path:
                             frames_in_roi = (summary_df['location'] == roi_loc).sum()
                             time_in_roi = frames_in_roi / fps
                             # The roi_loc here is already the renamed one from create_summary
-                            row_result[f"time_in_roi_{roi_loc}"] = time_in_roi
+                            row_result[f"time_in_{roi_loc}"] = time_in_roi
                             logger.debug(f"Video {video_name}: Time in ROI '{roi_loc}': {time_in_roi:.2f} seconds")
                     else:
                         logger.warning(f"'location' column not found or empty for video '{video_name}'. Skipping time in ROI calculation.")
@@ -218,7 +238,7 @@ def create_results_file(params_path: Path) -> Path:
             return (2, col_name) # Then diff
         elif col_name == "freezing_time":
             return (3, col_name) # Then freezing time
-        elif col_name.startswith("time_in_roi_"):
+        elif col_name.startswith("time_in_"):
             return (4, col_name) # Then ROI times
         else:
             return (5, col_name) # Any other columns last
@@ -226,13 +246,13 @@ def create_results_file(params_path: Path) -> Path:
     other_cols.sort(key=custom_sort_key)
 
     final_columns = fixed_cols + other_cols
-    # Ensure all columns exist before reindexing. fillna(0) for any missing ROIs in some videos
+    # Ensure all columns exist before reindexing.
     for col in final_columns:
         if col not in results_df.columns:
-            results_df[col] = 0.0 # Add missing columns and fill with 0.0
+            results_df[col] = None # Add missing columns and fill with None
 
     results_df = results_df[final_columns]
-    results_df.dropna(axis=1, how='all', inplace=True) # Drop columns that are entirely NaN after reindexing
+    results_df.dropna(axis=1, how='all', inplace=True) # Drop columns that are entirely None after reindexing
 
     results_path = base_folder / 'results.csv'
     results_df.to_csv(results_path, index=False)

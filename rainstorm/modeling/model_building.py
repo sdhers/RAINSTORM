@@ -22,7 +22,7 @@ import logging
 from pathlib import Path
 import datetime
 
-from .utils import load_yaml, configure_logging, reshape, recenter
+from .utils import load_yaml, configure_logging
 configure_logging()
 
 logger = logging.getLogger(__name__)
@@ -147,7 +147,7 @@ def train_RNN(modeling_path: Path, model: tf.keras.Model, model_dict: Dict[str, 
         Custom learning rate scheduler function with a sigmoid-shaped increase and
         decrease within the warmup period, followed by a constant initial_lr.
         """
-        sigmoid_sharpness = 10.0 # Controls the steepness of the sigmoid curve
+        sigmoid_sharpness = 8 # Controls the steepness of the sigmoid curve
 
         if epoch < warmup_epochs:
             if warmup_epochs == 0: # Handle case where warmup_epochs is 0

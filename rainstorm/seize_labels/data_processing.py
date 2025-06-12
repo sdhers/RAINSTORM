@@ -30,12 +30,12 @@ def calculate_cumsum(df: pd.DataFrame, targets: list, fps: float = 30) -> pd.Dat
         pd.DataFrame: DataFrame with additional cumulative sum columns for each target.
     """
     df_copy = df.copy() # Work on a copy to avoid SettingWithCopyWarning
-    for obj in targets:
-        if obj in df_copy.columns:
-            df_copy[f'{obj}_cumsum'] = df_copy[obj].cumsum() / fps
+    for tgt in targets:
+        if tgt in df_copy.columns:
+            df_copy[f'{tgt}_cumsum'] = df_copy[tgt].cumsum() / fps
         else:
-            logger.warning(f"Target '{obj}' not found in DataFrame for cumulative sum calculation. Column will be None.")
-            df_copy[f'{obj}_cumsum'] = None # Assign None directly if column not found
+            logger.warning(f"Target '{tgt}' not found in DataFrame for cumulative sum calculation. Column will be None.")
+            df_copy[f'{tgt}_cumsum'] = None # Assign None directly if column not found
     return df_copy
 
 def calculate_DI(df: pd.DataFrame, targets: list) -> pd.DataFrame:
@@ -53,7 +53,7 @@ def calculate_DI(df: pd.DataFrame, targets: list) -> pd.DataFrame:
         pd.DataFrame: DataFrame with a new column for the DI value.
     """
     if len(targets) != 2:
-        logger.error("Invalid number of targets provided for DI calculation. Expected 2, got {len(targets)}.")
+        logger.error(f"Invalid number of targets provided for DI calculation. Expected 2, got {len(targets)}.")
         return df
 
     df_copy = df.copy() # Work on a copy
@@ -90,7 +90,7 @@ def calculate_diff(df: pd.DataFrame, targets: list) -> pd.DataFrame:
         pd.DataFrame: DataFrame with a new column for the diff value.
     """
     if len(targets) != 2:
-        logger.error("Invalid number of targets provided for DI calculation. Expected 2, got {len(targets)}.")
+        logger.error(f"Invalid number of targets provided for DI calculation. Expected 2, got {len(targets)}.")
         return df
 
     df_copy = df.copy() # Work on a copy

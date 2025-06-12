@@ -48,28 +48,30 @@ RNN:
   width:
 
     # Number of past frames to include
-    past: 3
+    past: 2
 
     # Number of future frames to include
-    future: 3
+    future: 2
 
     # Broaden the window by skipping some frames as we stray further from the present.
     broad: 1.7
 
   # Number of neurons on each layer
   units:
+  - 64
+  - 48
   - 32
+  - 24
   - 16
-  - 8
 
   # Number of training samples the model processes before updating its weights
-  batch_size: 64
+  batch_size: 8
 
   # randomly turn off a fraction of neurons in the network
   dropout: 0.2
 
   # Each epoch is a complete pass through the entire training dataset
-  total_epochs: 100
+  total_epochs: 1000
 
   # Epochs with increasing learning rate
   warmup_epochs: 10

@@ -40,7 +40,6 @@ def load_yaml(file_path: Path) -> dict:
         logger.error(f"An unexpected error occurred while loading YAML file '{file_path}': {e}")
         raise
 
-
 def calculate_cumsum(df: pd.DataFrame, columns_to_sum: list[str], fps: float = 30) -> pd.DataFrame:
     """
     Calculates the cumulative sum (in seconds) for each specified column in the list.
@@ -62,7 +61,6 @@ def calculate_cumsum(df: pd.DataFrame, columns_to_sum: list[str], fps: float = 3
             logger.warning(f"Column '{col}' not found in DataFrame for cumulative sum calculation. '{col}_cumsum' will be None.")
             df_copy[f'{col}_cumsum'] = None # Assign None directly if column not found
     return df_copy
-
 
 def calculate_DI(df: pd.DataFrame, cumsum_columns: list) -> pd.DataFrame:
     """
@@ -299,8 +297,6 @@ def _load_and_truncate_raw_summary_data(
 
     return trunc_dfs
 
-#%%
-
 def _generate_line_colors(base_color: str, num_lines: int) -> list[str]:
     """
     Generates a list of distinct colors for multiple lines based on a single base color.
@@ -335,8 +331,6 @@ def _generate_line_colors(base_color: str, num_lines: int) -> list[str]:
     logger.debug(f"Generated {num_lines} colors from base_color {base_color}: {generated_colors}")
     return generated_colors
 
-#%%
-
 def _plot_cumulative_lines_and_fill(
     ax: plt.Axes,
     df_agg: pd.DataFrame,
@@ -364,7 +358,7 @@ def _plot_cumulative_lines_and_fill(
         color = col_info['color']
 
         if col_mean in df_agg.columns:
-            ax.plot(df_agg['Time'], df_agg[col_mean], label=label, color=color, marker='_')
+            ax.plot(df_agg['Time'], df_agg[col_mean], label=label, color=color, linestyle='-')
             if col_std in df_agg.columns:
                 ax.fill_between(
                     df_agg['Time'],
@@ -377,8 +371,6 @@ def _plot_cumulative_lines_and_fill(
                 logger.warning(f"Standard deviation column '{col_std}' not found. Skipping fill_between for '{label}'.")
         else:
             logger.warning(f"Mean column '{col_mean}' not found. Skipping plot line for '{label}'.")
-
-#%%
 
 def _set_cumulative_plot_aesthetics(
     ax: plt.Axes,
@@ -526,8 +518,6 @@ def lineplot_cumulative_distance(
         plt.show()
         plt.close(ax.get_figure())
 
-#%%
-
 def lineplot_cumulative_exploration_time(
     base_path: Path,
     group: str,
@@ -651,8 +641,6 @@ def lineplot_cumulative_exploration_time(
         plt.show()
         plt.close(ax.get_figure())
 
-#%%
-
 def lineplot_cumulative_freezing_time(
     base_path: Path,
     group: str,
@@ -767,8 +755,6 @@ def lineplot_cumulative_freezing_time(
     if ax.get_figure() is not None and ax.get_figure().canvas.manager is None:
         plt.show()
         plt.close(ax.get_figure())
-
-#%%
 
 def plot_DI(
     base_path: Path,
@@ -907,7 +893,6 @@ def plot_DI(
     if ax.get_figure() is not None and ax.get_figure().canvas.manager is None:
         plt.show()
         plt.close(ax.get_figure())
-
 
 #%%
 

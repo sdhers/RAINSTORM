@@ -1,5 +1,5 @@
 """
-RAINSTORM - Utility Functions
+RAINSTORM - Utils
 
 This script contains various utility functions used across the Rainstorm project,
 such as loading YAML files and selecting example files.

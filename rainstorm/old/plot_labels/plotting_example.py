@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 
 from .geometric_classes import Point, Vector
-from .calculate_index import calculate_cumsum
+from .data_processing import calculate_cumsum
 from .utils import load_yaml, configure_logging
 configure_logging()
 logger = logging.getLogger(__name__)

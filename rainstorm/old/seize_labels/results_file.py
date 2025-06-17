@@ -12,7 +12,7 @@ import pandas as pd
 from typing import Optional
 
 from .utils import load_yaml, configure_logging
-from .calculate_index import calculate_cumsum, calculate_DI
+from .data_processing import calculate_cumsum, calculate_DI
 
 configure_logging()
 logger = logging.getLogger(__name__)

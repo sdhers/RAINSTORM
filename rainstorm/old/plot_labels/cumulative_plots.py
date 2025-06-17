@@ -118,7 +118,7 @@ def lineplot_cumulative_distance(
     _set_cumulative_plot_aesthetics(
         ax=ax,
         df_agg=df_agg,
-        y_label='Distance traveled (cm)',
+        y_label='Distance traveled (m)',
         plot_title='Cumulative Distance Traveled',
         group_name=group
     )

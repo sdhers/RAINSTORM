@@ -124,7 +124,7 @@ def _plot_cumulative_lines_and_fill(
         color = col_info['color']
 
         if col_mean in df_agg.columns:
-            ax.plot(df_agg['Time'], df_agg[col_mean], label=label, color=color, marker='_')
+            ax.plot(df_agg['Time'], df_agg[col_mean], label=label, color=color) # other parameters: marker='_', linestyle='-'
             if col_std in df_agg.columns:
                 ax.fill_between(
                     df_agg['Time'],

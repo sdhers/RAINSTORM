@@ -1,24 +1,9 @@
-"""
-RAINSTORM - Utility Functions
-
-This script contains various utility functions used across the Rainstorm project,
-such as loading YAML files and selecting example files.
-"""
-
-# %% Imports
 import logging
 from pathlib import Path
 import yaml
 
 # Logging setup
 logger = logging.getLogger(__name__)
-
-# Define the color pairs for plotting
-# Global variable for color palette, accessible by other modules
-colors = [
-    'dodgerblue', 'darkorange', 'green', 'orchid', 'orangered', 
-    'turquoise', 'indigo', 'gray', 'sienna', 'limegreen', 'black', 'pink'
-]
 
 # %% Logging Configuration
 
@@ -53,10 +38,6 @@ def load_yaml(file_path: Path) -> dict:
 
     Returns:
         dict: Loaded data from the YAML file.
-
-    Raises:
-        FileNotFoundError: If the YAML file does not exist.
-        yaml.YAMLError: If there's an error parsing the YAML file.
     """
     file_path = Path(file_path)
     if not file_path.is_file():

@@ -58,20 +58,18 @@ RNN:
 
   # Number of neurons on each layer
   units:
-  - 64
-  - 48
   - 32
-  - 24
   - 16
+  - 8
 
   # Number of training samples the model processes before updating its weights
-  batch_size: 8
+  batch_size: 64
 
   # randomly turn off a fraction of neurons in the network
   dropout: 0.2
 
   # Each epoch is a complete pass through the entire training dataset
-  total_epochs: 1000
+  total_epochs: 100
 
   # Epochs with increasing learning rate
   warmup_epochs: 10
@@ -80,7 +78,7 @@ RNN:
   initial_lr: 1.0e-05
 
   # Peak learning rate
-  peak_lr: 0.0001
+  peak_lr: 1.0e-04
 
   # Number of epochs to wait before early stopping
   patience: 10

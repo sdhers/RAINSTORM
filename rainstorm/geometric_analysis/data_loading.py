@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # %% Core functions
 
-def choose_example(params_path: Path, look_for: str = 'TS', suffix: str = '_positions.csv') -> Optional[Path]:
+def choose_example_positions(params_path: Path, look_for: str = 'TS', suffix: str = '_positions.csv') -> Optional[Path]:
     """
     Picks an example file from the specified folder based on a substring and suffix.
 

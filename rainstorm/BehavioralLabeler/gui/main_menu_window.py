@@ -2,7 +2,7 @@
 
 from tkinter import Tk, simpledialog, messagebox, filedialog, Frame, Label, Entry, Button, StringVar, BooleanVar, Checkbutton, Canvas, Scrollbar, Text
 import logging
-import os
+from pathlib import Path
 from typing import Union
 from rainstorm.BehavioralLabeler.src import config # Import the config module
 
@@ -204,11 +204,11 @@ Note: Keys should be unique, single characters, different from the operant and f
         operant_keys_valid, configured_operant_keys = self._validate_operant_keys()
         if not operant_keys_valid: return
         if not self._validate_behavior_keys(configured_operant_keys): return
-        video_path = self.video_path_var.get().strip()
+        video_path = Path(self.video_path_var.get().strip())
         if not video_path: show_messagebox("Validation Error", "Please select a video file.", type="error"); return
-        if not os.path.exists(video_path): show_messagebox("Validation Error", "Selected video file does not exist.", type="error"); return
-        csv_path = self.csv_path_var.get().strip()
-        if csv_path and not os.path.exists(csv_path): show_messagebox("Validation Error", "Selected CSV file does not exist.", type="error"); return
+        if not video_path.exists(): show_messagebox("Validation Error", "Selected video file does not exist.", type="error"); return
+        csv_path = Path(self.csv_path_var.get().strip())
+        if csv_path and not csv_path.exists(): show_messagebox("Validation Error", "Selected CSV file does not exist.", type="error"); return
         self.result_config.update({
             'behaviors': self.behaviors, 'keys': self.keys, 'operant_keys': configured_operant_keys,
             'video_path': video_path, 'csv_path': csv_path if csv_path else None,

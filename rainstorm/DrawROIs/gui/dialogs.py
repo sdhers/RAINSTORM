@@ -1,7 +1,7 @@
 # gui/dialogs.py
 
 import tkinter as tk
-from tkinter import filedialog, simpledialog, messagebox, Toplevel, Label, Entry, Button
+from tkinter import filedialog, simpledialog, messagebox, Toplevel, Label, Button
 import logging # Import logging
 
 logger = logging.getLogger(__name__) # Get logger for this module

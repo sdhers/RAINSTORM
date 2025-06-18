@@ -1,9 +1,7 @@
-# BehavioralLabeler.py
-
-import os
 import sys
 import logging
 from tkinter import messagebox, Tk
+from pathlib import Path
 
 # --- Conditional Imports ---
 # Try to import using relative paths first (for when this file is part of a package)
@@ -13,22 +11,19 @@ try:
 except ImportError:
     # If the relative import fails (meaning it's likely being run directly as a script),
     # then adjust sys.path to find 'src' and 'gui' as top-level modules.
-    script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # Ensure 'src' and 'gui' directories are on the Python path for direct execution
-    src_path = os.path.join(script_dir, 'src')
-    gui_path = os.path.join(script_dir, 'gui')
+    script_dir = Path(__file__).resolve().parent
+    src_path = script_dir / 'src'
+    gui_path = script_dir / 'gui'
 
-    if src_path not in sys.path:
-        sys.path.append(src_path)
-    if gui_path not in sys.path:
-        sys.path.append(gui_path)
-
-    # Now, perform absolute imports, assuming 'src' and 'gui' are discoverable
+    if str(src_path) not in sys.path:
+        sys.path.append(str(src_path))
+    if str(gui_path) not in sys.path:
+        sys.path.append(str(gui_path))
+    
+    # Perform absolute imports, assuming 'src' and 'gui' are discoverable
     from src.app import LabelingApp
     from src.logger import setup_logging
-# --- End Conditional Imports ---
-
 
 def run_app():
     """

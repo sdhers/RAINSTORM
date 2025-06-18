@@ -1,39 +1,36 @@
 # RAINSTORM: Real & Artificial Intelligence for Neuroscience – Simple Tracker for Object Recognition Memory
 # Authors: Santiago D'hers. 
-# © 2025. This project is openly licensed under the MIT License.
+# © 2025. This project is openly licensed.
 # https://github.com/sdhers/RAINSTORM
 
 from setuptools import setup, find_packages
 
-with open("README.md", "r", encoding="utf-8") as f:
-    long_description = f.read()
-
 setup(
     name="rainstorm",
     version="1.0.0",
-    url="https://github.com/sdhers/RAINSTORM",
-    author="Santiago D'hers",
-    author_email="dhers.santiago@gmail.com",
     description="Real & Artificial Intelligence for Neuroscience – Simple Tracker for Object Recognition Memory",
-    long_description=long_description,
+    long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
+    author="Santiago D'hers",
+    author_email="sdhers@fbmc.fcen.uba.ar",
+    url="https://github.com/sdhers/RAINSTORM",
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
-        "ipykernel==6.29.5",
-        "opencv-python==4.10.0.84",
-        "keyboard==0.13.5",
-        "plotly==5.24.1",
-        "matplotlib==3.9.3",
-        "scipy==1.13.1",
-        "tables==3.9.2",
-        "numpy==1.25.2",
-        "pandas==2.0.3",
-        "nbformat==5.10.4",
         "h5py==3.12.1",
+        "keras==2.10.0",
+        "keyboard==0.13.5",
+        "matplotlib==3.9.3",
+        "numpy==1.25.2",
+        "opencv-python==4.10.0.84",
+        "pandas==2.0.3",
+        "plotly==5.24.1",
+        "PyYAML==6.0.2",
         "scikit-learn==1.6.0",
+        "scipy==1.13.1",
         "seaborn==0.13.2",
-        "tensorflow>=2.10,<2.11",
+        "tensorflow==2.10.1",
+        "tqdm==4.67.1",
     ],
     classifiers=[
         "Programming Language :: Python :: 3.9",

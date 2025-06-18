@@ -1,9 +1,9 @@
 # src/app.py
 
-import os
 import logging
 import cv2
 from tkinter import Tk
+from pathlib import Path
 
 # Use relative imports for modules within the same package structure
 # '..' means go up one level from 'src' (to 'BehavioralLabeler'), then into 'gui'
@@ -82,10 +82,10 @@ class LabelingApp:
             self.behaviors = app_config['behaviors']
             self.keys = app_config['keys']
             self.operant_keys_map = app_config['operant_keys']
-            self.video_path = app_config['video_path']
+            self.video_path = Path(app_config['video_path'])
             self.csv_path = app_config['csv_path']
             continue_from_checkpoint = app_config['continue_from_checkpoint']
-            self.video_name = os.path.basename(self.video_path)
+            self.video_name = (self.video_path).name
             self.margin_display_location = "right"  # Reset margin to default for each new video
 
             logger.info(f"Starting new session with Video='{self.video_name}'")
@@ -129,9 +129,7 @@ class LabelingApp:
                 
                 if key == ord(self.fixed_control_keys['quit']):
                     do_save, do_exit = self._handle_exit_prompt()
-                    if do_exit:
-                        save_on_exit = do_save
-                        break 
+                    if do_exit: save_on_exit = do_save; break 
                     continue # If not exiting, continue loop
                 elif key == ord(self.fixed_control_keys['zoom_out']): self.screen_width = int(self.screen_width * 0.95); logger.info(f"Zoom out. New screen width: {self.screen_width}");continue
                 elif key == ord(self.fixed_control_keys['zoom_in']): self.screen_width = int(self.screen_width * 1.05); logger.info(f"Zoom in. New screen width: {self.screen_width}"); continue
@@ -155,8 +153,11 @@ class LabelingApp:
                     for i, bh_key in enumerate(self.keys):
                         if key == ord(bh_key): selected_behavior_index = i; break
                     if selected_behavior_index != -1: move=1; [self.frame_labels[b].__setitem__(self.current_frame, 1 if i == selected_behavior_index else 0) for i,b in enumerate(self.behaviors)]
+                
+                # Check if the intended move will land on or jump past the last frame.
+                will_finish_video = self.total_frames > 0 and (self.current_frame + move >= self.total_frames - 1) and (move > 0)
 
-                if (self.current_frame == self.total_frames - 1) and (move > 0):
+                if will_finish_video:
                     mmw.show_messagebox("Video Complete", "You have labeled the final frame.", type="info")
                     do_save, do_exit = self._handle_exit_prompt()
                     if do_exit:
@@ -164,7 +165,8 @@ class LabelingApp:
                         self.current_frame += move
                         break # Break the inner (session) loop
                     else:
-                        move = 0
+                        logger.info(f"Capping move to land on the last frame.")
+                        move = (self.total_frames - 1) - self.current_frame
 
                 self.current_frame += move
                 self.current_frame = max(0, min(self.current_frame, self.total_frames))

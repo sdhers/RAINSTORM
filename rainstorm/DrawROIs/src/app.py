@@ -1,6 +1,6 @@
 # src/app.py
 
-import os
+from pathlib import Path
 import numpy as np
 import logging # Import logging
 
@@ -162,9 +162,9 @@ class ROISelectorApp:
         logger.info("Handling quit action.")
         if Dialogs.ask_yes_no("Exit", "Quit drawing?"):
             if Dialogs.ask_yes_no("Save", "Save ROIs?"):
-                output_dir = os.path.dirname(self.video_files[0]) if self.video_files else './data'
-                os.makedirs(output_dir, exist_ok=True)
-                output_path = os.path.join(output_dir, 'ROIs.json')
+                output_dir = Path(self.video_files[0]).parent if self.video_files else Path('./data')
+                output_dir.mkdir(parents=True, exist_ok=True)
+                output_path = output_dir / 'ROIs.json'
                 self.roi_manager.save_rois_to_file(output_path)
                 logger.info(f"ROIs saved to {output_path}.")
             Dialogs.show_info("Exiting", "Application is closing.")

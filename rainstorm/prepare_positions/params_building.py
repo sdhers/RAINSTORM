@@ -51,7 +51,7 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None) -> str:
         else:
             logger.warning(f"Error loading ROI data: ROIs_path {ROIs_path} does not exist.\nEdit the params.yaml file manually to add frame_shape, scaling factor, and ROIs.")
 
-    DEFAULT_MODEL_PATH = r'c:\Users\dhers\Desktop\Rainstorm\examples\models\trained_models\example_wide.keras'
+    DEFAULT_MODEL_PATH = str(folder_path.parent / r'models\trained_models\example_wide.keras')
 
     # Define configuration with a nested dictionary
     parameters = {

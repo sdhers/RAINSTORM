@@ -2,7 +2,7 @@
 
 import pandas as pd
 import csv
-import os
+from pathlib import Path
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,12 +13,8 @@ def converter(value):
     Used for reading CSV columns that might contain mixed types (numbers or '-').
     """
     try:
-        # Try to convert the value to an integer (via float to handle string floats like '1.0')
-        # This will convert '0.0' to 0, '1.0' to 1.
-        # It will gracefully handle '-' by returning it as a string.
         return int(float(value))
     except (ValueError, TypeError):
-        # If it's not possible (e.g., it's '-'), return the original value
         return value
 
 def find_checkpoint(df: pd.DataFrame, behaviors: list) -> int:
@@ -49,12 +45,12 @@ def find_checkpoint(df: pd.DataFrame, behaviors: list) -> int:
     logger.info("No incomplete frames found. All frames appear labeled or dataframe is empty.")
     return 0 # If no '-' is found, the file is fully labeled, return 0
 
-def load_labels(csv_path: str, total_frames: int, behaviors: list) -> tuple:
+def load_labels(csv_path: Path, total_frames: int, behaviors: list) -> tuple:
     """
     Load or initialize frame labels for each behavior.
 
     Args:
-        csv_path (str): Path to the CSV file. Can be None if starting new.
+        csv_path (Path): Path to the CSV file. Can be None if starting new.
         total_frames (int): Total number of frames in the video.
         behaviors (list): List of behaviors to track.
 
@@ -67,7 +63,7 @@ def load_labels(csv_path: str, total_frames: int, behaviors: list) -> tuple:
     frame_labels = {}
     initial_frame = 0 # Default to start from 0
 
-    if csv_path and os.path.exists(csv_path):
+    if csv_path.exists():
         try:
             # Load the CSV file, using the converter for behavior columns
             labels_df = pd.read_csv(csv_path, converters={j: converter for j in behaviors})
@@ -160,45 +156,45 @@ def build_behavior_info(behaviors: list, keys: list, behavior_sums: dict, curren
     logger.debug(f"Built behavior info: {behavior_info}")
     return behavior_info
 
-def save_labels_to_csv(video_path: str, frame_labels: dict, behaviors: list, last_processed_frame_index: int) -> None:
+def save_labels_to_csv(video_path: Path, frame_labels: dict, behaviors: list, last_processed_frame_index: int) -> None:
     """
-    Saves the frame labels for each behavior to a CSV file.
+    Saves the frame labels to a CSV file.
+    If the target file already exists, it creates a new file with a numbered suffix.
     Converts '-' to 0 for all frames up to last_processed_frame_index.
-    Preserves '-' for frames beyond last_processed_frame_index.
 
     Args:
-        video_path (str): Path to the video file (used to derive output CSV path).
+        video_path (Path): Path to the video file.
         frame_labels (dict): Dictionary of labels for each frame.
         behaviors (list): List of behavior names.
-        last_processed_frame_index (int): The highest 0-indexed frame number that was visited or labeled.
+        last_processed_frame_index (int): The highest 0-indexed frame number that was visited.
     """
-    output_csv = video_path.rsplit('.', 1)[0] + '_labels.csv'
+    output_path = video_path.with_name(f"{video_path.stem}_labels.csv")
+
+    counter = 2
+    while output_path.exists():
+        new_filename = f"{video_path.stem}_labels({counter}).csv"
+        output_path = video_path.with_name(new_filename)
+        counter += 1
     
-    # Create a deep copy to modify for saving without affecting in-memory state
     labels_to_save = {beh: list(labels) for beh, labels in frame_labels.items()}
 
-    # Convert '-' to 0 for all frames up to and including last_processed_frame_index
     for behavior in behaviors:
         if behavior in labels_to_save:
-            for i in range(min(last_processed_frame_index + 1, len(labels_to_save[behavior]))):
+            limit = min(last_processed_frame_index + 2, len(labels_to_save[behavior]))
+            for i in range(limit):
                 if labels_to_save[behavior][i] == '-':
-                    labels_to_save[behavior][i] = 0 # Convert any remaining '-' to 0 for saving
+                    labels_to_save[behavior][i] = 0
 
-    # Convert frame_labels dictionary to DataFrame for easier CSV writing
     df_labels = pd.DataFrame(labels_to_save)
     
-    # Ensure the 'Frame' column is the first column and is 1-indexed
     if 'Frame' not in df_labels.columns:
         df_labels.insert(0, 'Frame', range(1, len(df_labels) + 1))
     
-    # Reorder columns to ensure 'Frame' is first, then behaviors
     ordered_columns = ['Frame'] + behaviors
-    # Filter to only include columns that actually exist in df_labels
     df_labels = df_labels[[col for col in ordered_columns if col in df_labels.columns]]
 
-    # Write the DataFrame to a CSV file
     try:
-        df_labels.to_csv(output_csv, index=False, quoting=csv.QUOTE_NONNUMERIC) # Use QUOTE_NONNUMERIC to avoid quoting numbers
-        logger.info(f"Labels saved to {output_csv}")
+        df_labels.to_csv(output_path, index=False, quoting=csv.QUOTE_NONNUMERIC)
+        logger.info(f"Labels saved to {output_path}")
     except Exception as e:
-        logger.error(f"Error saving labels to CSV {output_csv}: {e}")
+        logger.error(f"Error saving labels to CSV {output_path}: {e}")

@@ -24,12 +24,12 @@ def run_app():
         logger.critical(f"An unhandled error occurred: {e}", exc_info=True)
         Dialogs.show_error("Application Error", f"An unhandled error occurred: {e}\nThe application will close. Check logs for details.")
 
-if __name__ == "__main__": # This block will run when DrawROIs.py is executed directly
-    import os; import sys
+if __name__ == "__main__":  # This block will run when DrawROIs.py is executed directly
+    from pathlib import Path; import sys
     # Add the parent directory of 'rainstorm' to sys.path. This is crucial for running directly if 'rainstorm' isn't installed or its parent isn't already on sys.path.
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    rainstorm_parent_dir = os.path.abspath(os.path.join(current_dir, '..', '..')) # Go up two levels from DrawROIs.py to reach the 'rainstorm' directory's parent
-    if rainstorm_parent_dir not in sys.path:
-        sys.path.insert(0, rainstorm_parent_dir)
+    current_dir = Path(__file__).resolve().parent
+    rainstorm_parent_dir = current_dir.parent.parent  # Go up two levels from DrawROIs.py
+    if str(rainstorm_parent_dir) not in sys.path:
+        sys.path.insert(0, str(rainstorm_parent_dir))
     print("Running DrawROIs...")
     run_app()

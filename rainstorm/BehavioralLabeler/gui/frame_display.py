@@ -4,8 +4,7 @@ import cv2
 import numpy as np
 from tkinter import Tk
 import logging
-import os
-from ..src import config # Import the config module
+from pathlib import Path
 
 # Initialize logger for this module
 logger = logging.getLogger(__name__)
@@ -224,7 +223,7 @@ def show_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames
               text_color=(255, 255, 255))
     current_y += line_k_spacing
 
-    draw_text(display_frame, f"{os.path.basename(video_name)}",
+    draw_text(display_frame, f"{video_name}",
               pos=(text_start_x, current_y),
               font_scale=default_font_scale, font_thickness=default_font_thickness)
     current_y += line_k_spacing

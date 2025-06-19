@@ -161,7 +161,7 @@ def boxplot_roi_time(
     ax.set_ylabel('Time Spent (s)')
     ax.set_title('Time in Each ROI')
     ax.set_xticks([]) # X-ticks are meaningless here, legend provides info
-    ax.legend(title='ROI', loc='best', fancybox=True, shadow=True)
+    ax.legend(loc='best', fancybox=True, shadow=True, framealpha=0.7)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
 
 
@@ -251,9 +251,8 @@ def boxplot_alternation_proportion(
     # 4. Finalize plot aesthetics
     ax.set_ylabel("Alternation Proportion")
     ax.set_title("Y-Maze Alternation")
-    ax.set_xticks(range(num_groups))
-    ax.set_xticklabels([f'Group {i+1}' for i in range(num_groups)]) # Generic labels, legend is key
-    ax.legend(title='Group', loc='best', fancybox=True, shadow=True)
+    ax.set_xticks([])
+    ax.legend(loc='best', fancybox=True, shadow=True, framealpha=0.7)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
     ax.set_ylim(0, 1.05) # Proportion is between 0 and 1
 
@@ -366,5 +365,5 @@ def boxplot_roi_distance(
     ax.set_ylabel('Distance Traveled (m)')
     ax.set_title('Distance Traveled in Each ROI')
     ax.set_xticks([])
-    ax.legend(title='ROI', loc='best', fancybox=True, shadow=True)
+    ax.legend(loc='best', fancybox=True, shadow=True, framealpha=0.7)
     ax.grid(axis='y', linestyle='--', alpha=0.7)

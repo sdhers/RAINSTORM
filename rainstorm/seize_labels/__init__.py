@@ -15,7 +15,7 @@ from .summary_files import create_reference_file, create_summary_files
 from .multiplot import plot_multiple_analyses
 from .lineplot_cumulative import lineplot_cumulative_distance, lineplot_cumulative_exploration_time, lineplot_cumulative_freezing_time
 from .lineplot_index import lineplot_DI, lineplot_diff
-from .boxplot import boxplot_total_exploration_time
+from .boxplot import boxplot_total_exploration_time, boxplot_DI_auc, boxplot_avg_time_bias
 from .plot_roi_activity import boxplot_roi_time, boxplot_roi_distance, boxplot_alternation_proportion
 
 from .results_file import create_results_file
@@ -34,6 +34,8 @@ __all__ = [
     'lineplot_DI',
     'lineplot_diff',
     'boxplot_total_exploration_time',
+    'boxplot_DI_auc',
+    'boxplot_avg_time_bias',
     'boxplot_roi_time',
     'boxplot_roi_distance',
     'boxplot_alternation_proportion',

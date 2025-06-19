@@ -519,7 +519,9 @@ def plot_mouse_exploration(params_path: Path, position_file: Path) -> None:
             logger.info(f"Loaded labels data from: {labels_file_path.name}")
 
             # Calculate cumulative sum and add 'Time' column
-            labels_df = calculate_cumsum(labels_df, targets, fps)
+            labels_df = calculate_cumsum(labels_df, targets)
+            for tgt in targets:
+                labels_df[f'{tgt}_cumsum'] = labels_df[f'{tgt}_cumsum'] / fps  # Convert frame count to seconds
             labels_df['Time'] = labels_df['Frame'] / fps
 
         except FileNotFoundError:

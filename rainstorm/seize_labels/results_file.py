@@ -147,9 +147,10 @@ def create_results_file(params_path: Path, end_time: Optional[int] = None) -> Pa
                     # --- Calculate and add exploration time for targets ---
                     if novelty_targets:
                         # calculate_cumsum should return a new DataFrame or modify in-place
-                        working_df = calculate_cumsum(working_df, novelty_targets, fps)
+                        working_df = calculate_cumsum(working_df, novelty_targets)
                         for target in novelty_targets:
                             cumsum_col_name = f'{target}_cumsum'
+                            working_df[cumsum_col_name] = working_df[cumsum_col_name] / fps  # Convert frame count to seconds
                             if cumsum_col_name in working_df.columns and not working_df[cumsum_col_name].empty:
                                 # Apply the effective_row_index here
                                 row_result[f"exploration_time_{target}"] = working_df[cumsum_col_name].iloc[effective_row_index]

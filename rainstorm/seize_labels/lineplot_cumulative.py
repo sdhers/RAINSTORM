@@ -69,7 +69,7 @@ def lineplot_cumulative_distance(
     for df in raw_dfs:
         # Calculate cumulative sum for the distance column
         if behavior_column_name in df.columns:
-            df_with_cumsum = calculate_cumsum(df, [behavior_column_name], fps)
+            df_with_cumsum = calculate_cumsum(df, [behavior_column_name])
             processed_dfs.append(df_with_cumsum)
         else:
             logger.warning(f"Column '{behavior_column_name}' not found in a file for {group}/{trial}. Skipping this file.")
@@ -184,7 +184,9 @@ def lineplot_cumulative_exploration_time(
     for df in raw_dfs:
         # Check if all full target columns exist in the dataframe before processing
         if all(col in df.columns for col in full_target_names):
-            df_with_cumsum = calculate_cumsum(df, full_target_names, fps)
+            df_with_cumsum = calculate_cumsum(df, full_target_names)
+            for col in full_target_names:
+                df_with_cumsum[f'{col}_cumsum'] = df_with_cumsum[f'{col}_cumsum'] / fps  # Convert frame count to seconds
             processed_dfs.append(df_with_cumsum)
         else:
             missing_cols = [col for col in full_target_names if col not in df.columns]
@@ -300,7 +302,8 @@ def lineplot_cumulative_freezing_time(
     for df in raw_dfs:
         # Calculate cumulative sum for the freezing column
         if behavior_column_name in df.columns:
-            df_with_cumsum = calculate_cumsum(df, [behavior_column_name], fps)
+            df_with_cumsum = calculate_cumsum(df, [behavior_column_name])
+            df_with_cumsum[f'{behavior_column_name}_cumsum'] = df_with_cumsum[f'{behavior_column_name}_cumsum'] / fps # Convert frame count to seconds
             processed_dfs.append(df_with_cumsum)
         else:
             logger.warning(f"Column '{behavior_column_name}' not found in a file for {group}/{trial}. Skipping this file.")

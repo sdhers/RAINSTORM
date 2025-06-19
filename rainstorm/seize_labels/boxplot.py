@@ -67,8 +67,8 @@ def boxplot_total_exploration_time(
     # This structure is similar to the 'old version' to facilitate plotting individual lines
     subject_data = []
     for df in raw_dfs:
-        df_with_cumsum = calculate_cumsum(df.copy(), full_target_names, fps)
-        final_values = [df_with_cumsum.iloc[-1][f'{name}_cumsum'] for name in full_target_names]
+        df_with_cumsum = calculate_cumsum(df.copy(), full_target_names)
+        final_values = [df_with_cumsum.iloc[-1][f'{name}_cumsum'] / fps for name in full_target_names]
         subject_data.append(final_values)
     
     # Create a DataFrame where each row is a subject and each column is a target

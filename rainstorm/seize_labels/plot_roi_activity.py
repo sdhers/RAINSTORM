@@ -6,7 +6,6 @@ import logging
 from matplotlib.colors import to_rgb
 from typing import List, Tuple
 
-# Assuming these helpers exist in your other modules, based on the provided scripts.
 from .plot_aux import (
     _load_and_truncate_raw_summary_data,
     _generate_subcolors
@@ -55,14 +54,13 @@ def boxplot_roi_time(
     base_path: Path,
     group: str,
     trial: str,
-    targets: list[str], # Included for signature consistency, though not used directly here
     fps: int = 30,
     ax: plt.Axes = None,
     outliers: list[str] = None,
     group_color: str = 'blue',
     group_position: int = 0,
-    label_type: str = 'labels', # Included for signature consistency
     num_groups: int = 1,
+    **kwargs
 ) -> None:
     """
     Creates a boxplot of the total time spent in each Region of Interest (ROI).
@@ -171,14 +169,12 @@ def boxplot_alternation_proportion(
     base_path: Path,
     group: str,
     trial: str,
-    targets: list[str], # Included for signature consistency
-    fps: int = 30, # Included for signature consistency
     ax: plt.Axes = None,
     outliers: list[str] = None,
     group_color: str = 'blue',
     group_position: int = 0,
-    label_type: str = 'labels', # Included for signature consistency
     num_groups: int = 1,
+    **kwargs
 ) -> None:
     """
     Creates a boxplot of the Y-maze alternation proportion.
@@ -266,14 +262,12 @@ def boxplot_roi_distance(
     base_path: Path,
     group: str,
     trial: str,
-    targets: list[str], # Included for signature consistency
-    fps: int = 30,      # Included for signature consistency
     ax: plt.Axes = None,
     outliers: list[str] = None,
     group_color: str = 'blue',
     group_position: int = 0,
-    label_type: str = 'labels', # Included for signature consistency
     num_groups: int = 1,
+    **kwargs
 ) -> None:
     """
     Creates a boxplot of the total distance traveled in each Region of Interest (ROI).

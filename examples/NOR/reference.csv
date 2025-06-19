@@ -1,31 +1,31 @@
 Video,Group,obj_1,obj_2,left_roi,right_roi
-NOR_Hab_01,24 hs,None,None,Left_side,Right_side
-NOR_Hab_02,24 hs,None,None,Left_side,Right_side
-NOR_Hab_03,1 week,None,None,Left_side,Right_side
-NOR_Hab_04,1 week,None,None,Left_side,Right_side
-NOR_Hab_05,24 hs,None,None,Left_side,Right_side
-NOR_Hab_06,24 hs,None,None,Left_side,Right_side
-NOR_Hab_07,1 week,None,None,Left_side,Right_side
-NOR_Hab_08,24 hs,None,None,Left_side,Right_side
-NOR_Hab_09,1 week,None,None,Left_side,Right_side
-NOR_Hab_10,1 week,None,None,Left_side,Right_side
-NOR_TR_01,24 hs,Left,Right,Left_side,Right_side
-NOR_TR_02,24 hs,Left,Right,Left_side,Right_side
-NOR_TR_03,1 week,Left,Right,Left_side,Right_side
-NOR_TR_04,1 week,Left,Right,Left_side,Right_side
-NOR_TR_05,24 hs,Left,Right,Left_side,Right_side
-NOR_TR_06,24 hs,Left,Right,Left_side,Right_side
-NOR_TR_07,1 week,Left,Right,Left_side,Right_side
-NOR_TR_08,24 hs,Left,Right,Left_side,Right_side
-NOR_TR_09,1 week,Left,Right,Left_side,Right_side
-NOR_TR_10,1 week,Left,Right,Left_side,Right_side
-NOR_TS_01,24 hs,Novel,Known,Novel_side,Known_side
-NOR_TS_02,24 hs,Known,Novel,Known_side,Novel_side
-NOR_TS_03,1 week,Known,Novel,Known_side,Novel_side
-NOR_TS_04,1 week,Novel,Known,Novel_side,Known_side
-NOR_TS_05,24 hs,Novel,Known,Novel_side,Known_side
-NOR_TS_06,24 hs,Novel,Known,Novel_side,Known_side
-NOR_TS_07,1 week,Known,Novel,Known_side,Novel_side
-NOR_TS_08,24 hs,Novel,Known,Novel_side,Known_side
-NOR_TS_09,1 week,Known,Novel,Known_side,Novel_side
-NOR_TS_10,1 week,Known,Novel,Known_side,Novel_side
+NOR_Hab_01,24_hs,None,None,Left_side,Right_side
+NOR_Hab_02,24_hs,None,None,Left_side,Right_side
+NOR_Hab_03,1_week,None,None,Left_side,Right_side
+NOR_Hab_04,1_week,None,None,Left_side,Right_side
+NOR_Hab_05,24_hs,None,None,Left_side,Right_side
+NOR_Hab_06,24_hs,None,None,Left_side,Right_side
+NOR_Hab_07,1_week,None,None,Left_side,Right_side
+NOR_Hab_08,24_hs,None,None,Left_side,Right_side
+NOR_Hab_09,1_week,None,None,Left_side,Right_side
+NOR_Hab_10,1_week,None,None,Left_side,Right_side
+NOR_TR_01,24_hs,Left,Right,Left_side,Right_side
+NOR_TR_02,24_hs,Left,Right,Left_side,Right_side
+NOR_TR_03,1_week,Left,Right,Left_side,Right_side
+NOR_TR_04,1_week,Left,Right,Left_side,Right_side
+NOR_TR_05,24_hs,Left,Right,Left_side,Right_side
+NOR_TR_06,24_hs,Left,Right,Left_side,Right_side
+NOR_TR_07,1_week,Left,Right,Left_side,Right_side
+NOR_TR_08,24_hs,Left,Right,Left_side,Right_side
+NOR_TR_09,1_week,Left,Right,Left_side,Right_side
+NOR_TR_10,1_week,Left,Right,Left_side,Right_side
+NOR_TS_01,24_hs,Novel,Known,Novel_side,Known_side
+NOR_TS_02,24_hs,Known,Novel,Known_side,Novel_side
+NOR_TS_03,1_week,Known,Novel,Known_side,Novel_side
+NOR_TS_04,1_week,Novel,Known,Novel_side,Known_side
+NOR_TS_05,24_hs,Novel,Known,Novel_side,Known_side
+NOR_TS_06,24_hs,Novel,Known,Novel_side,Known_side
+NOR_TS_07,1_week,Known,Novel,Known_side,Novel_side
+NOR_TS_08,24_hs,Novel,Known,Novel_side,Known_side
+NOR_TS_09,1_week,Known,Novel,Known_side,Novel_side
+NOR_TS_10,1_week,Known,Novel,Known_side,Novel_side

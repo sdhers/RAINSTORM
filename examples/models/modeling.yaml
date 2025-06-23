@@ -1,0 +1,84 @@
+# Rainstorm Modeling file
+
+# Path to the models folder
+path: c:\Users\dhers\Desktop\RAINSTORM\examples\models
+
+# The colabels file is used to store and organize positions and labels for model training
+colabels:
+
+  # Path to the colabels file
+  colabels_path: c:\Users\dhers\Desktop\RAINSTORM\examples\models\colabels.csv
+
+  # List of labelers on the colabels file (as found in the columns)
+  labelers:
+  - Labeler_A
+  - Labeler_B
+  - Labeler_C
+  - Labeler_D
+  - Labeler_E
+
+  # Name of the target on the colabels file
+  target: tgt
+
+# Window of frames to consider around an exploration event
+focus_distance: 30
+
+# List of bodyparts used to train the model
+bodyparts:
+- nose
+- left_ear
+- right_ear
+- head
+- neck
+- body
+
+# Parameters for splitting the data into training, validation, and testing sets
+split:
+
+  # Percentage of the data to use for validation
+  validation: 0.15
+
+  # Percentage of the data to use for testing
+  test: 0.15
+
+# Set up the Recurrent Neural Network
+RNN:
+
+  # Defines the temporal width of the RNN model
+  width:
+
+    # Number of past frames to include
+    past: 3
+
+    # Number of future frames to include
+    future: 3
+
+    # Broaden the window by skipping some frames as we stray further from the present.
+    broad: 1.7
+
+  # Number of neurons on each layer
+  units:
+  - 32
+  - 16
+  - 8
+
+  # Number of training samples the model processes before updating its weights
+  batch_size: 64
+
+  # randomly turn off a fraction of neurons in the network
+  dropout: 0.2
+
+  # Each epoch is a complete pass through the entire training dataset
+  total_epochs: 100
+
+  # Epochs with increasing learning rate
+  warmup_epochs: 10
+
+  # Initial learning rate
+  initial_lr: 1.0e-05
+
+  # Peak learning rate
+  peak_lr: 0.0001
+
+  # Number of epochs to wait before early stopping
+  patience: 10

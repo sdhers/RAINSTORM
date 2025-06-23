@@ -154,6 +154,20 @@ def create_video(
             logger.warning(f"Error loading labels data from {labels_file_path}: {e}. Proceeding without labels.")
     else:
         logger.info("No 'label_type' specified in parameters. Proceeding without labels.")
+    
+    # Open movement
+    movement_df = pd.DataFrame() # Initialize an empty DataFrame
+    try:
+        movement_dir = position_file.parent.parent / 'movement'
+        movement_filename = position_file.name.replace('_positions', '_movement')
+        movement_file_path = movement_dir / movement_filename
+
+        movement_df = pd.read_csv(movement_file_path)
+        logger.info(f"Loaded movement data from: {movement_file_path.name}")
+    except FileNotFoundError:
+        logger.warning(f"Could not find movement file: {movement_file_path}. Proceeding without movement.")
+    except Exception as e:
+        logger.warning(f"Error loading movement data from {movement_file_path}: {e}. Proceeding without movement.")
 
     cap = None  # Initialize video capture object
     if video_path:
@@ -174,14 +188,16 @@ def create_video(
                 empty_rows_pos = pd.DataFrame({col: [np.nan] * diff for col in position_df.columns})
                 position_df = pd.concat([empty_rows_pos, position_df], ignore_index=True).reset_index(drop=True)
 
-                # Pad labels_df if it's not empty
+                # Pad labels_df and movement_df if not empty
                 if not labels_df.empty:
                     empty_rows_lab = pd.DataFrame({col: [np.nan] * diff for col in labels_df.columns})
                     labels_df = pd.concat([empty_rows_lab, labels_df], ignore_index=True).reset_index(drop=True)
+                
+                if not movement_df.empty:
+                    empty_rows_lab = pd.DataFrame({col: [np.nan] * diff for col in movement_df.columns})
+                    movement_df = pd.concat([empty_rows_lab, movement_df], ignore_index=True).reset_index(drop=True)
 
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Reset video to start
-
-    mouse_color = (0, 0, 0) if cap is None else (250, 250, 250) # Black if no video, white if video
 
     # --- Initialize video writer ---
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -207,9 +223,11 @@ def create_video(
                 logger.warning(f"Video stream ended prematurely at frame {i}. Stopping video creation.")
                 break
             frame = cv2.resize(frame, (width, height))  # Ensure frame matches expected dimensions
+            mouse_color = (250, 250, 250)
         else:
             # Create a blank frame with a white background if no video is provided
             frame = np.ones((height, width, 3), dtype=np.uint8) * 255 # White background
+            mouse_color = (0, 0, 0)
 
         # Build dictionaries mapping bodypart/target names to their (x, y) coordinates
         bodyparts_coords = {}
@@ -278,6 +296,10 @@ def create_video(
                 color = (0, 255, 0) # Default green if no label or index out of bounds
                 thickness = 3
             cv2.circle(frame, pos, obj_size - thickness // 2, color, thickness)
+
+        # Change mouse color if it is freezing
+        if movement_df.loc[i, 'freezing'] == 1:
+            mouse_color = (255,150,50)
 
         # Draw skeleton lines connecting specified bodyparts
         for pt1, pt2 in skeleton_links:

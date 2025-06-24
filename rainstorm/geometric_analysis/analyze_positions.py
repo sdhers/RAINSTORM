@@ -128,8 +128,12 @@ def calculate_movement(params_path: Path, file: Path, nose_bp: str = 'nose', bod
     df *= 1 / scale
 
     # Filter for position columns, excluding 'tail' and other specified targets
-    exclude_targets_pattern = '|'.join([re.escape(t) for t in targets])
-    pattern = f'^(?!.*tail)(?!.*(?:{exclude_targets_pattern})).*'
+    valid_targets = [t for t in targets if t]  # filter out empty or None
+    if valid_targets:
+        exclude_targets_pattern = '|'.join(re.escape(t) for t in valid_targets)
+        pattern = f'^(?!.*tail)(?!.*(?:{exclude_targets_pattern})).*'
+    else:
+        pattern = r'^(?!.*tail).*'  # only exclude 'tail'
     position = df.filter(regex='_x|_y').filter(regex=pattern).copy()
 
     # Define the window size for rolling calculations

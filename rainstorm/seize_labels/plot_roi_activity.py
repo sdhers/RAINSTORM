@@ -132,6 +132,9 @@ def boxplot_alternation_proportion(
     ax.plot([pos - box_width/2, pos + box_width/2], [mean_val, mean_val],
             color=group_color, linestyle='--', linewidth=2, zorder=2)
 
+    areas = list({area for area in area_sequence if area != 'other'})
+    expected_mean = (len(areas)-2)/(len(areas)-1)
+
     # 4. Finalize plot aesthetics
     ax.set_ylabel("Alternation Proportion")
     ax.set_title("Y-Maze Alternation")
@@ -139,7 +142,7 @@ def boxplot_alternation_proportion(
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
     # ax.set_ylim(0, 1.05) # Proportion is between 0 and 1
-    ax.axhline(0.5, color='k', linestyle='--', linewidth=1)
+    ax.axhline(expected_mean, color='k', linestyle='--', linewidth=1)
 
 def boxplot_roi_time(
     base_path: Path,
@@ -184,28 +187,39 @@ def boxplot_roi_time(
         return
 
     # 2. Process data: Calculate time spent in each ROI for each subject
-    all_roi_times = {}
-    for df in raw_dfs:
-        if 'location' not in df.columns:
-            logger.warning(f"A summary file for group '{group}' is missing the 'location' column. Skipping file.")
-            continue
-        
-        # Calculate time (in seconds) for each ROI
-        roi_times = df.groupby('location').size() / fps
-        
-        for roi, time in roi_times.items():
-            if roi not in all_roi_times:
-                all_roi_times[roi] = []
-            all_roi_times[roi].append(time)
+    all_roi_times = []
 
-    # Sort ROIs alphabetically for consistent plot order
-    roi_labels = sorted([roi for roi in all_roi_times.keys() if roi != 'other'])
+    # First, get a set of all possible ROIs from all files
+    all_possible_rois = set()
+    for df in raw_dfs:
+        if 'location' in df.columns:
+            all_possible_rois.update(df['location'].unique())
+    
+    # Sort ROIs alphabetically for consistent plot order, excluding 'other'
+    roi_labels = sorted([roi for roi in all_possible_rois if roi != 'other'])
     if not roi_labels:
         logger.warning(f"No ROI data to plot for group '{group}'.")
         return
 
-    # Convert to DataFrame: subjects are rows, ROIs are columns
-    df_plot = pd.DataFrame(all_roi_times).reindex(columns=roi_labels)
+    for i, df in enumerate(raw_dfs):
+        if 'location' not in df.columns:
+            logger.warning(f"A summary file for group '{group}' is missing the 'location' column. Skipping file.")
+            continue
+
+        # Calculate time (in seconds) for each ROI
+        roi_times = df.groupby('location').size() / fps
+        
+        # Ensure all possible ROIs are present, filling missing ones with 0
+        roi_times = roi_times.reindex(roi_labels, fill_value=0)
+        
+        all_roi_times.append(roi_times)
+
+    if not all_roi_times:
+        logger.warning(f"No valid data to plot for group '{group}'.")
+        return
+    
+    # Convert to DataFrame
+    df_plot = pd.DataFrame(all_roi_times)
 
     # 3. Generate colors and positions for plotting
     base_rgb = to_rgb(group_color)
@@ -304,27 +318,42 @@ def boxplot_roi_distance(
         return
 
     # 2. Process data: Calculate distance traveled in each ROI for each subject
-    all_roi_distances = {}
-    for df in raw_dfs:
-        if 'location' not in df.columns or 'body_dist' not in df.columns:
-            logger.warning(f"Summary file for group '{group}' is missing 'location' or 'body_dist' column. Skipping file.")
-            continue
-        
-        # Calculate total distance for each ROI
-        roi_distances = df.groupby('location')['body_dist'].sum()
-        
-        for roi, distance in roi_distances.items():
-            if roi not in all_roi_distances:
-                all_roi_distances[roi] = []
-            all_roi_distances[roi].append(distance)
+    all_distances_data = []
+    subject_ids = [] # Optional: to keep track of subjects
 
-    # Sort ROIs for consistent plotting
-    roi_labels = sorted([roi for roi in all_roi_distances.keys() if roi != 'other'])
+    # First, get a set of all possible ROIs from all files
+    all_possible_rois = set()
+    for df in raw_dfs:
+        if 'location' in df.columns:
+            all_possible_rois.update(df['location'].unique())
+    
+    # Sort ROIs alphabetically for consistent plot order, excluding 'other'
+    roi_labels = sorted([roi for roi in all_possible_rois if roi != 'other'])
     if not roi_labels:
         logger.warning(f"No ROI distance data to plot for group '{group}'.")
         return
 
-    df_plot = pd.DataFrame(all_roi_distances).reindex(columns=roi_labels)
+    for i, df in enumerate(raw_dfs):
+        if 'location' not in df.columns or 'body_dist' not in df.columns:
+            logger.warning(f"Summary file for group '{group}' is missing 'location' or 'body_dist' column. Skipping file.")
+            continue
+        
+        subject_ids.append(f"Subject_{i+1}") # Example subject identifier
+
+        # Calculate total distance for each ROI
+        roi_distances = df.groupby('location')['body_dist'].sum()
+        
+        # Ensure all possible ROIs are present, filling missing ones with 0
+        roi_distances = roi_distances.reindex(roi_labels, fill_value=0)
+        
+        all_distances_data.append(roi_distances)
+
+    if not all_distances_data:
+        logger.warning(f"No valid distance data to plot for group '{group}'.")
+        return
+
+    # Convert the list of Series to a DataFrame. Each Series becomes a row.
+    df_plot = pd.DataFrame(all_distances_data, index=subject_ids)
 
     # 3. Generate colors and positions
     base_rgb = to_rgb(group_color)

@@ -50,6 +50,97 @@ def _count_alternations_and_entries(area_sequence: List[str]) -> Tuple[int, int]
     return alternations, total_entries
 
 
+def boxplot_alternation_proportion(
+    base_path: Path,
+    group: str,
+    trial: str,
+    ax: plt.Axes = None,
+    outliers: list[str] = None,
+    group_color: str = 'blue',
+    group_position: int = 0,
+    **kwargs
+) -> None:
+    """
+    Creates a boxplot of the Y-maze alternation proportion.
+
+    Args:
+        base_path (Path): The base path of the project.
+        group (str): The name of the experimental group.
+        trial (str): The name of the trial.
+        targets (list[str]): Included for standard signature.
+        fps (int): Included for standard signature.
+        ax (plt.Axes): The axes to plot on.
+        outliers (list[str]): A list of outlier file identifiers to exclude.
+        group_color (str): The hex color for the group.
+        group_position (int): The position index for this group on the x-axis.
+        label_type (str): Included for standard signature.
+        num_groups (int): The total number of groups being plotted.
+    """
+    if outliers is None:
+        outliers = []
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 5))
+
+    # 1. Load data
+    raw_dfs = _load_and_truncate_raw_summary_data(
+        base_path=base_path, group=group, trial=trial, outliers=outliers
+    )
+
+    if not raw_dfs:
+        logger.warning(f"No data for group '{group}' in trial '{trial}'.")
+        return
+
+    # 2. Process data: Calculate alternation proportion for each subject
+    alternation_proportions = []
+    for df in raw_dfs:
+        if 'location' not in df.columns:
+            logger.warning(f"A summary file for group '{group}' is missing 'location'. Skipping.")
+            continue
+        
+        area_sequence = df["location"].tolist()
+        alternations, total_entries = _count_alternations_and_entries(area_sequence)
+        
+        # The number of possible alternations is total_entries - 2
+        possible_alternations = total_entries - 2
+        if possible_alternations > 0:
+            proportion = alternations / possible_alternations
+            alternation_proportions.append(proportion)
+        else:
+            alternation_proportions.append(0)
+
+    if not alternation_proportions:
+        logger.warning(f"No alternation data to plot for group '{group}'.")
+        return
+
+    # 3. Plotting logic
+    box_width = 0.5
+    jitter = 0.05
+    pos = group_position
+
+    bp = ax.boxplot(alternation_proportions, positions=[pos], widths=box_width, 
+                    patch_artist=True, showfliers=False)
+    for patch in bp['boxes']:
+        patch.set_facecolor(group_color)
+        patch.set_alpha(0.3)
+    for median in bp['medians']:
+        median.set_color('black')
+
+    x_jittered = np.random.normal(pos, jitter, size=len(alternation_proportions))
+    ax.scatter(x_jittered, alternation_proportions, color=group_color, alpha=0.9, zorder=3, label=group)
+    
+    mean_val = np.mean(alternation_proportions)
+    ax.plot([pos - box_width/2, pos + box_width/2], [mean_val, mean_val],
+            color=group_color, linestyle='--', linewidth=2, zorder=2)
+
+    # 4. Finalize plot aesthetics
+    ax.set_ylabel("Alternation Proportion")
+    ax.set_title("Y-Maze Alternation")
+    ax.set_xticks([])
+    ax.legend(loc='best', fancybox=True, shadow=True)
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+    # ax.set_ylim(0, 1.05) # Proportion is between 0 and 1
+    ax.axhline(0.5, color='k', linestyle='--', linewidth=1)
+
 def boxplot_roi_time(
     base_path: Path,
     group: str,
@@ -161,100 +252,14 @@ def boxplot_roi_time(
     ax.set_ylabel('Time Spent (s)')
     ax.set_title('Time in Each ROI')
     ax.set_xticks([]) # X-ticks are meaningless here, legend provides info
-    ax.legend(loc='best', fancybox=True, shadow=True, framealpha=0.7)
-    ax.grid(axis='y', linestyle='--', alpha=0.7)
-
-
-def boxplot_alternation_proportion(
-    base_path: Path,
-    group: str,
-    trial: str,
-    ax: plt.Axes = None,
-    outliers: list[str] = None,
-    group_color: str = 'blue',
-    group_position: int = 0,
-    num_groups: int = 1,
-    **kwargs
-) -> None:
-    """
-    Creates a boxplot of the Y-maze alternation proportion.
-
-    Args:
-        base_path (Path): The base path of the project.
-        group (str): The name of the experimental group.
-        trial (str): The name of the trial.
-        targets (list[str]): Included for standard signature.
-        fps (int): Included for standard signature.
-        ax (plt.Axes): The axes to plot on.
-        outliers (list[str]): A list of outlier file identifiers to exclude.
-        group_color (str): The hex color for the group.
-        group_position (int): The position index for this group on the x-axis.
-        label_type (str): Included for standard signature.
-        num_groups (int): The total number of groups being plotted.
-    """
-    if outliers is None:
-        outliers = []
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(6, 5))
-
-    # 1. Load data
-    raw_dfs = _load_and_truncate_raw_summary_data(
-        base_path=base_path, group=group, trial=trial, outliers=outliers
+    ax.legend(
+        loc='upper center', 
+        bbox_to_anchor=(0.5, -0.01), # (x, y) - 0.5 is center, -0.01 is below the plot
+        ncol=num_groups, # Arrange in columns to save space
+        frameon=False,
+        fontsize='small'
     )
-
-    if not raw_dfs:
-        logger.warning(f"No data for group '{group}' in trial '{trial}'.")
-        return
-
-    # 2. Process data: Calculate alternation proportion for each subject
-    alternation_proportions = []
-    for df in raw_dfs:
-        if 'location' not in df.columns:
-            logger.warning(f"A summary file for group '{group}' is missing 'location'. Skipping.")
-            continue
-        
-        area_sequence = df["location"].tolist()
-        alternations, total_entries = _count_alternations_and_entries(area_sequence)
-        
-        # The number of possible alternations is total_entries - 2
-        possible_alternations = total_entries - 2
-        if possible_alternations > 0:
-            proportion = alternations / possible_alternations
-            alternation_proportions.append(proportion)
-        else:
-            alternation_proportions.append(0)
-
-    if not alternation_proportions:
-        logger.warning(f"No alternation data to plot for group '{group}'.")
-        return
-
-    # 3. Plotting logic
-    box_width = 0.5
-    jitter = 0.05
-    pos = group_position
-
-    bp = ax.boxplot(alternation_proportions, positions=[pos], widths=box_width, 
-                    patch_artist=True, showfliers=False)
-    for patch in bp['boxes']:
-        patch.set_facecolor(group_color)
-        patch.set_alpha(0.3)
-    for median in bp['medians']:
-        median.set_color('black')
-
-    x_jittered = np.random.normal(pos, jitter, size=len(alternation_proportions))
-    ax.scatter(x_jittered, alternation_proportions, color=group_color, alpha=0.9, zorder=3, label=group)
-    
-    mean_val = np.mean(alternation_proportions)
-    ax.plot([pos - box_width/2, pos + box_width/2], [mean_val, mean_val],
-            color=group_color, linestyle='--', linewidth=2, zorder=2)
-
-    # 4. Finalize plot aesthetics
-    ax.set_ylabel("Alternation Proportion")
-    ax.set_title("Y-Maze Alternation")
-    ax.set_xticks([])
-    ax.legend(loc='best', fancybox=True, shadow=True, framealpha=0.7)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
-    ax.set_ylim(0, 1.05) # Proportion is between 0 and 1
 
 
 def boxplot_roi_distance(
@@ -365,5 +370,11 @@ def boxplot_roi_distance(
     ax.set_ylabel('Distance Traveled (m)')
     ax.set_title('Distance Traveled in Each ROI')
     ax.set_xticks([])
-    ax.legend(loc='best', fancybox=True, shadow=True, framealpha=0.7)
+    ax.legend(
+        loc='upper center', 
+        bbox_to_anchor=(0.5, -0.01), # (x, y) - 0.5 is center, -0.01 is below the plot
+        ncol=num_groups, # Arrange in columns to save space
+        frameon=False,
+        fontsize='small'
+    )
     ax.grid(axis='y', linestyle='--', alpha=0.7)

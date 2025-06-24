@@ -145,7 +145,6 @@ def lineplot_DI(
     
     # Specific for DI plot: Add the horizontal line at Y=0
     ax.axhline(y=0, color='black', linestyle='--', linewidth=2)
-
     logger.debug(f"DI plot finished for {group}/{trial}.")
 
 def lineplot_diff(

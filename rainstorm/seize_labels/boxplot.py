@@ -128,7 +128,13 @@ def boxplot_total_exploration_time(
     ax.set_ylabel('Total Exploration Time (s)')
     ax.set_title(f'Total Exploration Time in {trial}')
     ax.set_xticks([]) # Remove the x-ticks
-    ax.legend(loc='best', fancybox=True, shadow=True, framealpha=0.8)
+    ax.legend(
+        loc='upper center', 
+        bbox_to_anchor=(0.5, -0.01), # (x, y) - 0.5 is center, -0.01 is below the plot
+        ncol=num_groups, # Arrange in columns to save space
+        frameon=False,
+        fontsize='small'
+    )
     ax.grid(axis='y', linestyle='--', alpha=0.7)
 
 
@@ -143,7 +149,7 @@ def boxplot_DI_auc(
     group_color: str = 'blue',
     group_position: int = 0,
     label_type: str = 'labels',
-    num_groups: int = 1,
+    **kwargs
 ) -> None:
     """
     Calculates and plots the Area Under the Curve (AUC) for the Discrimination Index (DI).
@@ -229,9 +235,8 @@ def boxplot_DI_auc(
     ax.set_title("Discrimination Index (AUC)")
     ax.set_xticks([]) # Remove the x-ticks
     ax.axhline(0, color='k', linestyle='--', linewidth=1) # Add a line at y=0 for reference
-    ax.legend(loc='best', fancybox=True, shadow=True, framealpha=0.8)
+    ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
-
 
 
 def boxplot_avg_time_bias(
@@ -245,7 +250,7 @@ def boxplot_avg_time_bias(
     group_color: str = 'blue',
     group_position: int = 0,
     label_type: str = 'labels',
-    num_groups: int = 1,
+    **kwargs
 ) -> None:
     """
     Calculates and plots the average time bias, a normalized measure of the time difference.
@@ -338,5 +343,5 @@ def boxplot_avg_time_bias(
     ax.set_title("Average Time Bias")
     ax.set_xticks([]) # Remove the x-ticks
     ax.axhline(0, color='k', linestyle='--', linewidth=1)
-    ax.legend(loc='best', fancybox=True, shadow=True, framealpha=0.8)
+    ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(axis='y', linestyle='--', alpha=0.7)

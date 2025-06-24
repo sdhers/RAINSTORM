@@ -65,7 +65,6 @@ def detect_roi_activity(params_path: Path, file: Path, bodypart: str = 'body') -
     """
     # Load parameters
     params = load_yaml(Path(params_path))
-    fps = params.get("fps", 30)
     areas = params.get("geometric_analysis", {}).get("roi_data", {}).get("areas", [])
 
     if not areas:
@@ -88,8 +87,11 @@ def detect_roi_activity(params_path: Path, file: Path, bodypart: str = 'body') -
     roi_activity = pd.DataFrame(index=df.index)
 
     # Assign ROI label per frame
+    # If ROIs overlap, their order in the params.yaml file is critical. 
+    # The ROIs that come later in the list will always oclude the ones that come before.
+    # If a point is in multiple ROIs, it will be assigned the label of the one that was drawn last.
     roi_activity['location'] = [
-        next((area["name"] for area in areas if point_in_roi(row[f"{bodypart}_x"], row[f"{bodypart}_y"], area["center"], area["width"], area["height"], area["angle"])), 'other')
+        next((area["name"] for area in reversed(areas) if point_in_roi(row[f"{bodypart}_x"], row[f"{bodypart}_y"], area["center"], area["width"], area["height"], area["angle"])), 'other')
         for _, row in df.iterrows()
     ]
 
@@ -131,7 +133,7 @@ def calculate_movement(params_path: Path, file: Path, nose_bp: str = 'nose', bod
     position = df.filter(regex='_x|_y').filter(regex=pattern).copy()
 
     # Define the window size for rolling calculations
-    window_size = int(fps)
+    window_size = int(fps)*2
 
     # Use a centered rolling window to calculate the standard deviation of frame-to-frame position changes, averaged across all tracked body parts.
     movement = position.diff().rolling(
@@ -144,7 +146,7 @@ def calculate_movement(params_path: Path, file: Path, nose_bp: str = 'nose', bod
 
     # Expand this signal. We use another rolling window to see if ANY frame within the window was below the threshold. The .max() function achieves this
     movement['freezing'] = is_below_threshold.rolling(
-        window=window_size//2,
+        window=window_size,
         center=True,
         min_periods=1  # This ensures the calculation works at the edges of the data.
     ).max().fillna(0).astype(int)

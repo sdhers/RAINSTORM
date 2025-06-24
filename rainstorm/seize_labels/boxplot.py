@@ -9,7 +9,7 @@ from .plot_aux import (
     _load_and_truncate_raw_summary_data,
     _generate_subcolors
 )
-from .calculate_index import calculate_cumsum
+from .calculate_index import calculate_cumsum, calculate_DI
 from .utils import configure_logging
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -67,8 +67,8 @@ def boxplot_total_exploration_time(
     # This structure is similar to the 'old version' to facilitate plotting individual lines
     subject_data = []
     for df in raw_dfs:
-        df_with_cumsum = calculate_cumsum(df.copy(), full_target_names, fps)
-        final_values = [df_with_cumsum.iloc[-1][f'{name}_cumsum'] for name in full_target_names]
+        df_with_cumsum = calculate_cumsum(df.copy(), full_target_names)
+        final_values = [df_with_cumsum.iloc[-1][f'{name}_cumsum'] / fps for name in full_target_names]
         subject_data.append(final_values)
     
     # Create a DataFrame where each row is a subject and each column is a target
@@ -127,7 +127,221 @@ def boxplot_total_exploration_time(
     # 6. Finalize plot aesthetics
     ax.set_ylabel('Total Exploration Time (s)')
     ax.set_title(f'Total Exploration Time in {trial}')
-    
     ax.set_xticks([]) # Remove the x-ticks
-    ax.legend(title='Target', loc='best', fancybox=True, shadow=True)
+    ax.legend(
+        loc='upper center', 
+        bbox_to_anchor=(0.5, -0.01), # (x, y) - 0.5 is center, -0.01 is below the plot
+        ncol=num_groups, # Arrange in columns to save space
+        frameon=False,
+        fontsize='small'
+    )
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+
+def boxplot_DI_auc(
+    base_path: Path,
+    group: str,
+    trial: str,
+    targets: list[str],
+    fps: int = 30,
+    ax: plt.Axes = None,
+    outliers: list[str] = None,
+    group_color: str = 'blue',
+    group_position: int = 0,
+    label_type: str = 'labels',
+    **kwargs
+) -> None:
+    """
+    Calculates and plots the Area Under the Curve (AUC) for the Discrimination Index (DI).
+
+    Args:
+        base_path (Path): Base path of the project.
+        group (str): Name of the experimental group.
+        trial (str): Name of the trial.
+        targets (list[str]): List of the two targets for DI calculation.
+        fps (int, optional): Frames per second. Defaults to 30.
+        ax (plt.Axes, optional): Axes to plot on. Defaults to None.
+        outliers (list[str], optional): List of outliers to exclude. Defaults to None.
+        group_color (str, optional): Base hex color for the group. Defaults to 'blue'.
+        group_position (int, optional): Position index for this group on the x-axis. Defaults to 0.
+        label_type (str, optional): Type of label for targets. Defaults to 'labels'.
+        num_groups (int, optional): Total number of groups being plotted. Defaults to 1.
+    """
+    if outliers is None:
+        outliers = []
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 5))
+
+    if len(targets) != 2:
+        logger.error(f"DI AUC requires exactly 2 targets, but got {len(targets)}. Skipping plot for {group}/{trial}.")
+        return
+
+    # 1. Load data
+    raw_dfs = _load_and_truncate_raw_summary_data(
+        base_path=base_path, group=group, trial=trial, outliers=outliers
+    )
+    if not raw_dfs:
+        logger.warning(f"No data for group '{group}' in trial '{trial}'. Skipping plot.")
+        return
+
+    full_target_names = [f'{t}_{label_type}' for t in targets]
+    
+    # 2. Process data: Calculate DI for each subject and then its AUC
+    di_auc_values = []
+    for df in raw_dfs:
+        # Calculate cumsum and then DI for the individual animal's dataframe
+        df_processed = calculate_cumsum(df.copy(), full_target_names)
+        for name in full_target_names:
+            df_processed[f'{name}_cumsum'] = df_processed[f'{name}_cumsum'] / fps 
+        df_processed = calculate_DI(df_processed, full_target_names)
+        
+        # Ensure the 'DI' column was created successfully
+        if 'DI' in df_processed.columns:
+            di_values = df_processed['DI'].values
+            # Create a time axis for integration (x-axis for AUC)
+            time_values = df_processed.index.values / fps
+            
+            # Calculate the Area Under the Curve using the trapezoidal rule
+            auc = np.trapz(di_values, x=time_values)
+            di_auc_values.append(auc)
+        else:
+            logger.warning(f"Could not calculate DI for a subject in group '{group}'. Skipping subject.")
+
+    if not di_auc_values:
+        logger.warning(f"No DI AUC values calculated for group '{group}'. Skipping plot.")
+        return
+
+    # 3. Plotting logic
+    box_width = 0.5
+    jitter = 0.05
+    pos = group_position
+
+    bp = ax.boxplot(di_auc_values, positions=[pos], widths=box_width, patch_artist=True, showfliers=False)
+    for patch in bp['boxes']:
+        patch.set_facecolor(group_color)
+        patch.set_alpha(0.3)
+    for median in bp['medians']:
+        median.set_color('black')
+
+    x_jittered = np.random.normal(pos, jitter, size=len(di_auc_values))
+    ax.scatter(x_jittered, di_auc_values, color=group_color, alpha=0.9, zorder=3, label=group)
+    
+    mean_val = np.mean(di_auc_values)
+    ax.plot([pos - box_width/2, pos + box_width/2], [mean_val, mean_val],
+            color=group_color, linestyle='--', linewidth=2, zorder=2)
+
+    # 4. Finalize plot aesthetics
+    ax.set_ylabel("DI Area Under Curve (AUC)")
+    ax.set_title("Discrimination Index (AUC)")
+    ax.set_xticks([]) # Remove the x-ticks
+    ax.axhline(0, color='k', linestyle='--', linewidth=1) # Add a line at y=0 for reference
+    ax.legend(loc='best', fancybox=True, shadow=True)
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+
+def boxplot_avg_time_bias(
+    base_path: Path,
+    group: str,
+    trial: str,
+    targets: list[str],
+    fps: int = 30,
+    ax: plt.Axes = None,
+    outliers: list[str] = None,
+    group_color: str = 'blue',
+    group_position: int = 0,
+    label_type: str = 'labels',
+    **kwargs
+) -> None:
+    """
+    Calculates and plots the average time bias, a normalized measure of the time difference.
+
+    Args:
+        base_path (Path): Base path of the project.
+        group (str): Name of the experimental group.
+        trial (str): Name of the trial.
+        targets (list[str]): List of the two targets for diff calculation.
+        fps (int, optional): Frames per second. Defaults to 30.
+        ax (plt.Axes, optional): Axes to plot on. Defaults to None.
+        outliers (list[str], optional): List of outliers to exclude. Defaults to None.
+        group_color (str, optional): Base hex color for the group. Defaults to 'blue'.
+        group_position (int, optional): Position index for this group on the x-axis. Defaults to 0.
+        label_type (str, optional): Type of label for targets. Defaults to 'labels'.
+        num_groups (int, optional): Total number of groups being plotted. Defaults to 1.
+    """
+    if outliers is None:
+        outliers = []
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 5))
+
+    if len(targets) != 2:
+        logger.error(f"Average Time Bias requires exactly 2 targets, but got {len(targets)}. Skipping plot for {group}/{trial}.")
+        return
+
+    # 1. Load data
+    raw_dfs = _load_and_truncate_raw_summary_data(
+        base_path=base_path, group=group, trial=trial, outliers=outliers
+    )
+    if not raw_dfs:
+        logger.warning(f"No data for group '{group}' in trial '{trial}'. Skipping plot.")
+        return
+
+    full_target_names = [f'{t}_{label_type}' for t in targets]
+    
+    # 2. Process data: Calculate average time bias for each subject
+    avg_bias_values = []
+    for df in raw_dfs:
+        # Calculate cumsum and then DI/diff for the individual animal's dataframe
+        df_processed = calculate_cumsum(df.copy(), full_target_names)
+        for name in full_target_names:
+            df_processed[f'{name}_cumsum'] = df_processed[f'{name}_cumsum'] / fps
+        df_processed = calculate_DI(df_processed, full_target_names) # calculate_DI also creates the 'diff' column
+        
+        # Ensure the 'diff' column was created successfully
+        if 'diff' in df_processed.columns:
+            diff_values = df_processed['diff'].values
+            time_values = df_processed.index.values / fps
+            
+            # Calculate the Area Under the Curve for the time difference
+            auc = np.trapz(diff_values, x=time_values)
+            
+            # Normalize the AUC by the total session duration
+            total_duration = time_values[-1] if len(time_values) > 0 else 1
+            if total_duration > 0:
+                avg_bias = auc / total_duration
+            else:
+                avg_bias = 0
+                
+            avg_bias_values.append(avg_bias)
+        else:
+            logger.warning(f"Could not calculate 'diff' for a subject in group '{group}'. Skipping subject.")
+
+    if not avg_bias_values:
+        logger.warning(f"No average bias values calculated for group '{group}'. Skipping plot.")
+        return
+
+    # 3. Plotting logic
+    box_width = 0.5
+    jitter = 0.05
+    pos = group_position
+
+    bp = ax.boxplot(avg_bias_values, positions=[pos], widths=box_width, patch_artist=True, showfliers=False)
+    for patch in bp['boxes']:
+        patch.set_facecolor(group_color)
+        patch.set_alpha(0.3)
+    for median in bp['medians']:
+        median.set_color('black')
+
+    x_jittered = np.random.normal(pos, jitter, size=len(avg_bias_values))
+    ax.scatter(x_jittered, avg_bias_values, color=group_color, alpha=0.9, zorder=3, label=group)
+    
+    mean_val = np.mean(avg_bias_values)
+    ax.plot([pos - box_width/2, pos + box_width/2], [mean_val, mean_val],
+            color=group_color, linestyle='--', linewidth=2, zorder=2)
+
+    # 4. Finalize plot aesthetics
+    ax.set_ylabel("Average Time Bias (s)")
+    ax.set_title("Average Time Bias")
+    ax.set_xticks([]) # Remove the x-ticks
+    ax.axhline(0, color='k', linestyle='--', linewidth=1)
+    ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(axis='y', linestyle='--', alpha=0.7)

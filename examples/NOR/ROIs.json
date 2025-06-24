@@ -3,28 +3,50 @@
     700,
     500
   ],
-  "scale": 18.93,
+  "scale": 18.86,
   "areas": [
     {
-      "name": "left",
+      "name": "top_left",
       "type": "rectangle",
       "center": [
-        209,
-        222
+        208,
+        111
       ],
-      "width": 283,
-      "height": 409,
+      "width": 284,
+      "height": 210,
       "angle": 0
     },
     {
-      "name": "right",
+      "name": "top_right",
       "type": "rectangle",
       "center": [
-        493,
-        222
+        492,
+        111
       ],
-      "width": 283,
-      "height": 409,
+      "width": 284,
+      "height": 210,
+      "angle": 0
+    },
+    {
+      "name": "bottom_left",
+      "type": "rectangle",
+      "center": [
+        208,
+        321
+      ],
+      "width": 284,
+      "height": 210,
+      "angle": 0
+    },
+    {
+      "name": "bottom_right",
+      "type": "rectangle",
+      "center": [
+        492,
+        321
+      ],
+      "width": 284,
+      "height": 210,
       "angle": 0
     }
   ],
@@ -42,28 +64,9 @@
       "type": "point",
       "center": [
         480,
-        134
+        133
       ]
     }
   ],
-  "circles": [
-    {
-      "name": "rad_1",
-      "type": "circle",
-      "center": [
-        218,
-        133
-      ],
-      "radius": 60
-    },
-    {
-      "name": "rad_2",
-      "type": "circle",
-      "center": [
-        480,
-        134
-      ],
-      "radius": 60
-    }
-  ]
+  "circles": []
 }

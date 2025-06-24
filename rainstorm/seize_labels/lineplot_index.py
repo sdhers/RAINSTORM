@@ -86,7 +86,9 @@ def lineplot_DI(
         # Check if all base target columns exist in the dataframe before proceeding
         if all(col in df.columns for col in full_target_names):
             # Calculate cumsum for the targets needed for DI
-            df_with_cumsum = calculate_cumsum(df, full_target_names, fps)
+            df_with_cumsum = calculate_cumsum(df, full_target_names)
+            for col in full_target_names:
+                df_with_cumsum[f'{col}_cumsum'] = df_with_cumsum[f'{col}_cumsum'] / fps  # Convert frame count to seconds
             df_with_di = calculate_DI(df_with_cumsum, full_target_names)
             
             if 'DI' in df_with_di.columns and df_with_di['DI'] is not None:
@@ -143,7 +145,6 @@ def lineplot_DI(
     
     # Specific for DI plot: Add the horizontal line at Y=0
     ax.axhline(y=0, color='black', linestyle='--', linewidth=2)
-
     logger.debug(f"DI plot finished for {group}/{trial}.")
 
 def lineplot_diff(
@@ -217,7 +218,9 @@ def lineplot_diff(
         # Check if all base target columns exist in the dataframe before proceeding
         if all(col in df.columns for col in full_target_names):
             # Calculate cumsum for the targets needed for diff
-            df_with_cumsum = calculate_cumsum(df, full_target_names, fps)
+            df_with_cumsum = calculate_cumsum(df, full_target_names)
+            for col in full_target_names:
+                df_with_cumsum[f'{col}_cumsum'] = df_with_cumsum[f'{col}_cumsum'] / fps  # Convert frame count to seconds
             df_with_diff = calculate_DI(df_with_cumsum, full_target_names)
             
             if 'diff' in df_with_diff.columns and df_with_diff['diff'] is not None:

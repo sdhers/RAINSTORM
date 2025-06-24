@@ -68,7 +68,7 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None) -> str:
             },
         "geometric_analysis": {
             "roi_data": roi_data,  # Add the JSON content here
-            "distance": 2.5,
+            "distance": 3,
             "orientation": {
                 "degree": 45,
                 "front": 'nose',
@@ -88,7 +88,7 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None) -> str:
                 }
             },
         "seize_labels": {
-            "groups": ["Group_1", "Group_2"],
+            "groups": ["24_hs", "1_week"],
             "trials": ['Hab', 'TR', 'TS'],
             "target_roles": {
                 "Hab": None,
@@ -126,6 +126,7 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None) -> str:
         "scale": "    # Scale factor (in px/cm)",
         "areas": "    # Defined ROIs (areas) in the frame",
         "points": "    # Key points within the frame",
+        "circles": "    # Defined ROIs (circular areas) in the frame",
         "distance": "  # Maximum nose-target distance to consider exploration",
         "orientation": "  # Set up orientation analysis",
         "degree": "    # Maximum head-target orientation angle to consider exploration (in degrees)",

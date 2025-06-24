@@ -8,9 +8,9 @@ logger = logging.getLogger(__name__)
 
 # %% Functions
 
-def calculate_cumsum(df: pd.DataFrame, columns_to_sum: list[str], fps: float = 30) -> pd.DataFrame:
+def calculate_cumsum(df: pd.DataFrame, columns_to_sum: list[str]) -> pd.DataFrame:
     """
-    Calculates the cumulative sum (in seconds) for each specified column in the list.
+    Calculates the cumulative sum for each specified column in the list.
 
     Args:
         df (pd.DataFrame): DataFrame containing columns for which to calculate cumulative sums.
@@ -24,7 +24,7 @@ def calculate_cumsum(df: pd.DataFrame, columns_to_sum: list[str], fps: float = 3
     df_copy = df.copy() # Work on a copy to avoid SettingWithCopyWarning
     for col in columns_to_sum:
         if col in df_copy.columns:
-            df_copy[f'{col}_cumsum'] = df_copy[col].cumsum() / fps
+            df_copy[f'{col}_cumsum'] = df_copy[col].cumsum()
         else:
             logger.warning(f"Column '{col}' not found in DataFrame for cumulative sum calculation. '{col}_cumsum' will be None.")
             df_copy[f'{col}_cumsum'] = None # Assign None directly if column not found

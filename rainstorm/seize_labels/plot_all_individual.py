@@ -1,43 +1,45 @@
 import logging
 from pathlib import Path
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgb, to_hex, rgb_to_hsv, hsv_to_rgb
 
 from .geometric_classes import Point, Vector
 from .calculate_index import calculate_cumsum, calculate_DI
-from .plot_aux import _generate_subcolors
-
 from .utils import load_yaml, configure_logging
+
 configure_logging()
 logger = logging.getLogger(__name__)
 
 # %% Helper functions for plotting individual subplots
 
+def _darken_color(color, factor=0.7):
+    """Darkens a color by a given factor."""
+    rgb = to_rgb(color)
+    hsv = rgb_to_hsv(rgb)
+    hsv[2] *= factor  # Decrease value/brightness
+    return hsv_to_rgb(hsv)
+
 def _extract_positions(positions_df: pd.DataFrame, scale: float, targets: list, max_angle: float, max_dist: float, front: str, pivot: str):
     """Extracts and filters positions of targets and body parts."""
     positions_df = positions_df.copy() * (1 / scale)
-
-    # Extract positions of targets and body parts
-    tgt1 = Point(positions_df, targets[0])
-    tgt2 = Point(positions_df, targets[1])
+    tgt1 = Point(positions_df, targets[0]) if targets and len(targets) > 0 else None
+    tgt2 = Point(positions_df, targets[1]) if targets and len(targets) > 1 else None
     nose = Point(positions_df, front)
     head = Point(positions_df, pivot)
 
-    # Filter frames where the mouse's nose is close to each target
-    dist1 = Point.dist(nose, tgt1)
-    dist2 = Point.dist(nose, tgt2)
-
-    # Filter points where the mouse is looking at each target
-    head_nose = Vector(head, nose, normalize=True)
-    head_tgt1 = Vector(head, tgt1, normalize=True)
-    head_tgt2 = Vector(head, tgt2, normalize=True)
-
-    angle1 = Vector.angle(head_nose, head_tgt1)
-    angle2 = Vector.angle(head_nose, head_tgt2)
-
-    # Filter points where the mouse is looking at targets and is close enough
-    towards1 = nose.positions[(angle1 < max_angle) & (dist1 < max_dist * 3)]
-    towards2 = nose.positions[(angle2 < max_angle) & (dist2 < max_dist * 3)]
+    towards1, towards2 = np.array([]), np.array([])
+    if tgt1 and tgt2:
+        dist1 = Point.dist(nose, tgt1)
+        dist2 = Point.dist(nose, tgt2)
+        head_nose = Vector(head, nose, normalize=True)
+        head_tgt1 = Vector(head, tgt1, normalize=True)
+        head_tgt2 = Vector(head, tgt2, normalize=True)
+        angle1 = Vector.angle(head_nose, head_tgt1)
+        angle2 = Vector.angle(head_nose, head_tgt2)
+        towards1 = nose.positions[(angle1 < max_angle) & (dist1 < max_dist * 3)]
+        towards2 = nose.positions[(angle2 < max_angle) & (dist2 < max_dist * 3)]
 
     return nose, towards1, towards2, tgt1, tgt2
 
@@ -51,17 +53,18 @@ def _plot_distance_covered(df: pd.DataFrame, ax: plt.Axes):
     ax.legend(loc='upper left', fancybox=True, shadow=True)
     ax.grid(True)
 
-def _plot_target_exploration(df: pd.DataFrame, novelty_targets: list, ax: plt.Axes):
-    """Plots cumulative exploration time for specified targets."""
-    colors = _generate_subcolors(0.6, len(novelty_targets), 1) # Use a base hue for consistency
-    for i, target in enumerate(novelty_targets):
-        ax.plot(df['Time'], df[f'{target}_cumsum'], label=target, color=colors[i], marker='_')
+def _plot_target_exploration(df: pd.DataFrame, novelty_targets: list, label_type: str, color_map: dict, ax: plt.Axes):
+    """Plots cumulative exploration time for specified targets using a predefined color map."""
+    for target in novelty_targets:
+        col_name = f'{target}_{label_type}_cumsum'
+        color = color_map.get(target, '#808080') # Default to grey if role not in map
+        if col_name in df.columns:
+            ax.plot(df['Time'], df[col_name], label=target, color=color, marker='_')
+
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('Exploration Time (s)')
     ax.set_title('Target Exploration')
     ax.legend(loc='upper left', fancybox=True, shadow=True)
-    ax.grid(True)
-    return colors # Return colors for use in other plots
 
 def _plot_discrimination_index(df: pd.DataFrame, ax: plt.Axes):
     """Plots the Discrimination Index (DI)."""
@@ -76,33 +79,35 @@ def _plot_discrimination_index(df: pd.DataFrame, ax: plt.Axes):
 def _plot_positions(nose, towards1, towards2, tgt1, tgt2, max_dist, colors: list, ax: plt.Axes):
     """Plots the spatial positions and interactions with targets."""
     ax.plot(*nose.positions.T, ".", color="grey", alpha=0.15, label="Nose positions")
-    ax.plot(*towards1.T, ".", color=colors[0], alpha=0.3)
-    ax.plot(*towards2.T, ".", color=colors[1], alpha=0.3)
-    ax.plot(*tgt1.positions[0], "s", lw=20, color=colors[0], markersize=9, markeredgecolor=colors[0])
-    ax.plot(*tgt2.positions[0], "o", lw=20, color=colors[1], markersize=10, markeredgecolor=colors[1])
-    ax.add_patch(plt.Circle(tgt1.positions[0], max_dist, color=colors[0], alpha=0.3))
-    ax.add_patch(plt.Circle(tgt2.positions[0], max_dist, color=colors[1], alpha=0.3))
+    
+    if towards1.size > 0 and towards2.size > 0 and tgt1 and tgt2:
+        dark_color1 = _darken_color(colors[0])
+        dark_color2 = _darken_color(colors[1])
+        ax.plot(towards1[:, 0], towards1[:, 1], ".", color=colors[0], alpha=0.3)
+        ax.plot(towards2[:, 0], towards2[:, 1], ".", color=colors[1], alpha=0.3)
+        ax.plot(*tgt1.positions[0], "s", color=dark_color1, markersize=9, markeredgecolor=dark_color1)
+        ax.plot(*tgt2.positions[0], "o", color=dark_color2, markersize=10, markeredgecolor=dark_color2)
+        ax.add_patch(plt.Circle(tgt1.positions[0], max_dist, color=colors[0], alpha=0.3))
+        ax.add_patch(plt.Circle(tgt2.positions[0], max_dist, color=colors[1], alpha=0.3))
+
     ax.axis('equal')
     ax.set_xlabel("Horizontal positions (cm)")
     ax.set_ylabel("Vertical positions (cm)")
     ax.legend(loc='upper left', ncol=2, fancybox=True, shadow=True)
-    ax.grid(True)
-    ax.invert_yaxis() # Rotate the plot 180 degrees on the y-axis
+    ax.invert_yaxis()
 
 # %% Main function
 
 def plot_all_individual_analyses(params_path: Path, show: bool = False):
     """
-    Generates and saves a 2x2 plot for each individual summary file, showing
+    Generates and saves a plot for each individual summary file, showing
     various behavioral analyses.
-
-    Args:
-        params_path: Path to the YAML configuration file.
-        show: If True, displays the plot interactively.
     """
     try:
         params = load_yaml(params_path)
         base_path = Path(params.get("path"))
+        reference_df = pd.read_csv(base_path / 'reference.csv')
+        
         fps = params.get("fps", 30)
         targets = params.get("targets", [])
         
@@ -117,8 +122,23 @@ def plot_all_individual_analyses(params_path: Path, show: bool = False):
         seize_labels = params.get("seize_labels", {})
         groups = seize_labels.get("groups", [])
         trials = seize_labels.get("trials", [])
-        target_roles = seize_labels.get("target_roles", {})
         label_type = seize_labels.get("label_type", "labels")
+
+        # Dynamically generate a color map for all possible target roles
+        all_roles = set()
+        if 'target_roles' in seize_labels:
+            for trial_roles_list in seize_labels['target_roles'].values():
+                if trial_roles_list:
+                    all_roles.update(trial_roles_list)
+        
+        unique_roles = sorted(list(all_roles))
+        num_roles = len(unique_roles)
+        start_hue = 210 / 360.0
+        hue_step = (1 / num_roles) if num_roles > 0 else 0
+        role_color_map = {
+            role: to_hex(hsv_to_rgb(((start_hue + i * hue_step) % 1.0, 0.85, 0.8)))
+            for i, role in enumerate(unique_roles)
+        }
 
     except Exception as e:
         logger.error(f"Error loading or parsing parameters from {params_path}: {e}")
@@ -131,52 +151,70 @@ def plot_all_individual_analyses(params_path: Path, show: bool = False):
                 logger.warning(f"Summary folder not found, skipping: {summary_folder}")
                 continue
 
-            novelties = target_roles.get(trial)
-            if not novelties:
-                logger.warning(f"No novelty targets defined for trial '{trial}'. Skipping.")
-                continue
-            else:
-                novelty_targets = [f'{t}_{label_type}' for t in novelties]
-
             for summary_file_path in summary_folder.glob('*_summary.csv'):
                 try:
-                    df = pd.read_csv(summary_file_path)
+                    video_name_stem = summary_file_path.stem.replace('_summary', '')
+                    reference_row = reference_df[reference_df['Video'] == video_name_stem]
+                    if reference_row.empty:
+                        logger.warning(f"No entry for video '{video_name_stem}' in reference.csv. Skipping.")
+                        continue
+                    reference_row = reference_row.iloc[0]
                     
-                    # --- Data Calculation ---
-                    df = calculate_cumsum(df, novelty_targets, fps)
-                    df = calculate_DI(df, novelty_targets)
-                    df['nose_dist_cumsum'] = df['nose_dist'].cumsum() / fps
-                    df['body_dist_cumsum'] = df['body_dist'].cumsum() / fps
-                    df['Time'] = df['Frame'] / fps
+                    novelty_targets_for_video = [reference_row.get(tgt) for tgt in targets]
 
-                    # --- Load and Extract Position Data ---
+                    df = pd.read_csv(summary_file_path)
                     positions_file_name = summary_file_path.name.replace('_summary.csv', '_positions.csv')
                     positions_file_path = base_path / trial / 'positions' / positions_file_name
-                    
-                    if not positions_file_path.exists():
-                        logger.warning(f"Positions file not found for {summary_file_path.name}. Skipping position plot.")
-                        continue
+                    positions_df = pd.read_csv(positions_file_path) if positions_file_path.exists() else None
+
+                    # --- Conditional Plotting based on whether targets exist for the trial ---
+                    if any(pd.isna(t) or not isinstance(t, str) or t.strip() == '' for t in novelty_targets_for_video):
+                        logger.info(f"Trial '{trial}' for video '{video_name_stem}' has no targets. Plotting distance and position.")
+                        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
                         
-                    positions_df = pd.read_csv(positions_file_path)
-                    nose, towards1, towards2, tgt1, tgt2 = _extract_positions(
-                        positions_df, scale, targets, max_angle, max_dist, front, pivot
-                    )
+                        df['nose_dist_cumsum'] = df['nose_dist'].cumsum()
+                        df['body_dist_cumsum'] = df['body_dist'].cumsum()
+                        df['Time'] = df['Frame'] / fps
+                        
+                        _plot_distance_covered(df, axes[0])
+                        
+                        if positions_df is not None:
+                            nose, _, _, _, _ = _extract_positions(positions_df, scale, [], max_angle, max_dist, front, pivot)
+                            _plot_positions(nose, np.array([]), np.array([]), None, None, max_dist, [], axes[1])
 
-                    # --- Plotting ---
-                    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-                    
-                    colors = _plot_target_exploration(df, novelty_targets, axes[0, 1])
-                    _plot_distance_covered(df, axes[0, 0])
-                    _plot_discrimination_index(df, axes[1, 0])
-                    _plot_positions(nose, towards1, towards2, tgt1, tgt2, max_dist, colors, axes[1, 1])
+                        plt.suptitle(f"Analysis of {video_name_stem}: Group {group}, Trial {trial}", y=0.98)
+                    else:
+                        # Trial has targets, proceed with 2x2 plot
+                        full_target_names_for_calc = [f'{t}_{label_type}' for t in novelty_targets_for_video]
+                        
+                        df = calculate_cumsum(df, full_target_names_for_calc)
+                        for target in full_target_names_for_calc:
+                            df[f'{target}_cumsum'] = df[f'{target}_cumsum'] / fps  # Convert frame count to seconds
+                        df = calculate_DI(df, full_target_names_for_calc)
+                        df['nose_dist_cumsum'] = df['nose_dist'].cumsum()
+                        df['body_dist_cumsum'] = df['body_dist'].cumsum()
+                        df['Time'] = df['Frame'] / fps
 
-                    plt.suptitle(f"Analysis of {summary_file_path.stem}: Group {group}, Trial {trial}", y=0.98)
+                        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+                        
+                        _plot_target_exploration(df, novelty_targets_for_video, label_type, role_color_map, axes[0, 1])
+                        _plot_distance_covered(df, axes[0, 0])
+                        _plot_discrimination_index(df, axes[1, 0])
+                        
+                        if positions_df is not None:
+                            nose, towards1, towards2, tgt1, tgt2 = _extract_positions(
+                                positions_df, scale, targets, max_angle, max_dist, front, pivot
+                            )
+                            ordered_colors = [role_color_map.get(reference_row[tgt], '#808080') for tgt in targets]
+                            _plot_positions(nose, towards1, towards2, tgt1, tgt2, max_dist, ordered_colors, axes[1, 1])
+
+                        plt.suptitle(f"Analysis of {video_name_stem}: Group {group}, Trial {trial}", y=0.98)
+
+                    # --- Saving and Display ---
                     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-
-                    # --- Saving the Figure ---
                     plots_folder = base_path / 'plots' / 'individual'
                     plots_folder.mkdir(parents=True, exist_ok=True)
-                    save_path = plots_folder / f"{summary_file_path.stem.replace('_summary', '')}.png"
+                    save_path = plots_folder / f"{video_name_stem}.png"
                     
                     plt.savefig(save_path, dpi=300)
                     logger.info(f"Plot saved at: {save_path}")

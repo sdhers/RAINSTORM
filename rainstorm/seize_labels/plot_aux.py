@@ -159,5 +159,5 @@ def _set_cumulative_plot_aesthetics(
 
     ax.set_ylabel(y_label)
     ax.set_title(f'{group_name} - {plot_title}') # Incorporate group name into title
-    ax.legend(loc='upper left', fancybox=True, shadow=True)
+    ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(True)

@@ -65,7 +65,6 @@ def detect_roi_activity(params_path: Path, file: Path, bodypart: str = 'body') -
     """
     # Load parameters
     params = load_yaml(Path(params_path))
-    fps = params.get("fps", 30)
     areas = params.get("geometric_analysis", {}).get("roi_data", {}).get("areas", [])
 
     if not areas:
@@ -88,8 +87,11 @@ def detect_roi_activity(params_path: Path, file: Path, bodypart: str = 'body') -
     roi_activity = pd.DataFrame(index=df.index)
 
     # Assign ROI label per frame
+    # If ROIs overlap, their order in the params.yaml file is critical. 
+    # The ROIs that come later in the list will always oclude the ones that come before.
+    # If a point is in multiple ROIs, it will be assigned the label of the one that was drawn last.
     roi_activity['location'] = [
-        next((area["name"] for area in areas if point_in_roi(row[f"{bodypart}_x"], row[f"{bodypart}_y"], area["center"], area["width"], area["height"], area["angle"])), 'other')
+        next((area["name"] for area in reversed(areas) if point_in_roi(row[f"{bodypart}_x"], row[f"{bodypart}_y"], area["center"], area["width"], area["height"], area["angle"])), 'other')
         for _, row in df.iterrows()
     ]
 
@@ -125,22 +127,30 @@ def calculate_movement(params_path: Path, file: Path, nose_bp: str = 'nose', bod
     # Scale the data
     df *= 1 / scale
 
-    # Filter the position columns and exclude 'tail' and specified targets
+    # Filter for position columns, excluding 'tail' and other specified targets
     exclude_targets_pattern = '|'.join([re.escape(t) for t in targets])
-    # The pattern filters for columns ending with '_x' or '_y' and not containing any of the specified targets.
-    pattern = f'^(?!.*tail)(?!.*(?:{exclude_targets_pattern})).*(?:_x|_y)$'
+    pattern = f'^(?!.*tail)(?!.*(?:{exclude_targets_pattern})).*'
+    position = df.filter(regex='_x|_y').filter(regex=pattern).copy()
 
-    position = df.filter(regex=pattern).copy()
+    # Define the window size for rolling calculations
+    window_size = int(fps)*2
 
-    # Compute a frame-by-frame measure of the animal's overall movement.
-    # First calculate the difference in position between consecutive frames (i.e., movement) for each body point.
-    # Then, apply a centered rolling window of size equal to the frame rate (fps) to compute the standard deviation
-    # of the movement within that time window, which captures the variability of motion.
-    # Finally, Average the standard deviations across all tracked points for each frame,
-    # resulting in a single value that reflects the general level of activity at every time point.
-    movement = position.diff().rolling(window=int(fps), center=True).std().mean(axis=1).bfill().ffill().to_frame(name='movement')
-    # Detect frames with freezing behavior
-    movement['freezing'] = (movement['movement'] < threshold).astype(int)
+    # Use a centered rolling window to calculate the standard deviation of frame-to-frame position changes, averaged across all tracked body parts.
+    movement = position.diff().rolling(
+        window=window_size, 
+        center=True
+    ).std().mean(axis=1).bfill().ffill().to_frame(name='movement')
+
+    # Identify the core frames where the smoothed movement drops below the threshold.
+    is_below_threshold = (movement['movement'] < threshold)
+
+    # Expand this signal. We use another rolling window to see if ANY frame within the window was below the threshold. The .max() function achieves this
+    movement['freezing'] = is_below_threshold.rolling(
+        window=window_size,
+        center=True,
+        min_periods=1  # This ensures the calculation works at the edges of the data.
+    ).max().fillna(0).astype(int)
+
     # Detect transitions in freezing (start/end)
     movement['change'] = movement['freezing'].diff()
     # Assign an event ID to each freezing bout

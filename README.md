@@ -1,235 +1,216 @@
-<div align="center">
-  
+-----
 # **RAINSTORM**
+
 ### Real & Artificial Intelligence for Neuroscience – Simple Tracker for Object Recognition Memory
+
+**A complete toolkit for analyzing rodent exploratory behavior in object recognition tasks.**
 
 ![RAINSTORM Logo](examples/images/logo.png)
 
-</div>
+**RAINSTORM** is a Python-based tool for scoring exploratory behavior in rodents 🐭. It takes pose-estimation data (e.g., from DeepLabCut) and provides a full workflow to process, analyze, and visualize recognition memory performance, from manual labeling to AI-powered automation.
 
-**RAINSTORM** is a tool for scoring exploratory behavior in rodents 🐭. It allows users to automate the analysis of recognition memory performance through training of artificial neural networks.
+-----
 
-Pose estimation software (e.g. DeepLabCut) analyzes video files and returns the position of the mouse's bodyparts... What we do next is up to us!
+## 📋 Table of Contents
 
----
----
+  * [Features](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#features)
+  * [Installation](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#installation)
+  * [Usage](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#usage)
+      * [Video Handling](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#video-handling)
+      * [Rainstorm Behavioral Labeler](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#rainstorm-behavioral-labeler)
+      * [The Pipeline](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#the-rainstorm-pipeline)
 
-## **Features**  
+  * [Contributing](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#contributing)
+  * [License](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#license)
+  * [Contact](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#contact)
 
-- **Frame-by-Frame Behavioral Labeling**  
-   Use this versatile tool for accurate manual scoring. On top of that, prepare your data to train an artificial neural network to recognize behaviors.  
+-----
 
-- **Pre & Post-DeepLabCut Data Processing**  
-   Align points in videos, clean up tracking glitches like disappearing body parts and ensure smooth, reliable data. 
+## Features
 
-- **Geometric Analysis for Exploration**  
-   Leverage distance and angle metrics to identify exploration behavior with precision.  
+  * **🎯 Frame-by-Frame Behavioral Labeling:** A versatile tool for precise manual scoring and for generating training data for your AI models.
+  * **🔧 Pre & Post-DLC Data Processing:** Align video points, clean tracking glitches, and interpolate data for smooth and reliable analysis.
+  * **📐 Geometric Analysis:** Automatically identify object exploration using distance and angle metrics.
+  * **🧊 Immobility Detection:** Label freezing behavior based on motion, a key indicator in memory studies.
+  * **🤖 AI-Powered Automatic Labeling:** Train and deploy neural networks (including LSTMs) to automatically detect complex exploration patterns.
+  * **📊 Visual Label Comparison:** Easily compare manual, geometric, and AI-generated labels with intuitive visualizations.
 
-- **Immobility Detection for Freezing Analysis**  
-   Automatically label freezing behavior based on motion, a key indicator of memory performance.  
+-----
 
-- **AI-Powered Automatic Labeling**  
-   Train and utilize artificial neural networks to detect temporal sequences of exploration behavior.  
+## Installation
 
-- **Visual Label Comparison**  
-   Easily compare manual, geometric, and AI-generated labels using intuitive visualizations.
+### Prerequisites
 
----
----
+First, ensure you have the following software installed on your system.
 
-## **Installation**
+  * [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html) (or Anaconda)
+  * [Visual Studio Code](https://code.visualstudio.com/Download)
+  * [Git](https://git-scm.com/downloads)
 
-### 1. Install **Miniconda** (or Anaconda), **Visual Studio Code** and **Git**
+> [\!TIP]
+> During the Miniconda installation, it is recommended to select the option to **add Conda to your system's PATH**. This will make it easier to run `conda` commands from any terminal.
+> Make sure to reboot your computer to ensure the new software is properly installed.
 
-Download and install from the official installation site: [Miniconda](https://examples.anaconda.com/miniconda/install/), [VS Code](https://code.visualstudio.com/Download) & [Git](https://git-scm.com/downloads).
-During installation, select the option to add Miniconda and VS code to your computer's PATH.
-Once finished, it is best to reboot your computer (this way we make sure everything is set up and running).
+### Setup Steps
 
-### 2. **Clone the RAINSTORM Repository**
+1.  **Clone the Repository**
+    Open a terminal (or Miniconda Prompt) and run the following command.
+    ```bash
+    git clone https://github.com/sdhers/rainstorm.git
+    ```
+    This will create a `rainstorm` folder in your current directory.
 
-Open a terminal (e.g. Miniconda Prompt).
-
-We can see the current working directory path displayed after the environment name (e.g., ```(base) C:\Users\YourUsername>``` ).
-
-To clone the repository, we will run the following command (This step will create a folder named **rainstorm** on your working directory):
-
-```bash
-git clone https://github.com/sdhers/rainstorm.git
-```
-
-### 3. **Set Up the Conda Environment**
-
-Navigate to the rainstorm directory:
-
-```bash
-cd rainstorm
-```
-  
-Create the Conda environment:
-  
-```bash
-conda env create -f rainstorm_venv.yml
-```
+2.  **Set Up the Conda Environment**
+    Navigate into the cloned directory and create the dedicated environment from the provided file:
+    ```bash
+    cd rainstorm
+    conda env create -f rainstorm_venv.yml
+    ```
 
 Once the environment is ready, you can activate it by running ```conda activate rainstorm```.
 
-### 4. **Open VS Code**
+3.  **Launch VS Code & Select Kernel**
+    Launch VS Code from the terminal:
 
-Launch VS Code from the terminal:
-
-```bash
-code .
-```
+    ```bash
+    code .
+    ```
+    
+    In VS Code, ensure the Python extension is installed:
+    - Go to the Extensions view (```Ctrl+Shift+X``` or ```Cmd+Shift+X``` on macOS).
+    - Search for "Python" and install the extension provided by Microsoft.
   
-In VS Code, ensure the Python extension is installed:
-  - Go to the Extensions view (```Ctrl+Shift+X``` or ```Cmd+Shift+X``` on macOS).
-  - Search for "Python" and install the extension provided by Microsoft.
+    Open the ```0-Video_handling.ipynb``` notebook.
+    - When prompted to select a kernel, choose the ```rainstorm``` Conda environment among the ```Python Environments```.
 
-Open the ```0-Video_handling.ipynb``` notebook.
-  - When prompted to select a kernel, choose the ```rainstorm``` Conda environment among the ```Python Environments```.
+You are all set\! You can now run the notebooks to explore the RAINSTORM workflow.
 
-### 5. **Start Exploring RAINSTORM**
-  - Run the cells in the Notebook to get started.
+-----
 
-You can also launch any of the RAINSTORM notebooks without opening the Prompt.
+## 💻 Usage
 
-The setup is complete!
+RAINSTORM offers two main functionalities: a full analysis pipeline using Jupyter notebooks and a standalone tool for manual video labeling.
 
----
----
+-----
 
-## **Manual Labeling Tool**
+### ✍️ RAINSTORM Behavioral Labeler
 
-Before getting to the automated part of the project, let me introduce you to the **RAINSTORM labeler** tool.
+For precise, frame-by-frame annotation, use the **RAINSTORM Behavioral Labeler**.
 
-This simple python tool will let you label a video frame by frame, and get a precise register of what is happening (what behaviours are being displayed) on every moment of the recording.
+2.  **Run the file `1-Behavioral_labeler.ipynb`**
 
-As we already have our rainstorm environment created, all we need to do is open the Miniconda (or Anaconda) Command Prompt and:
+3.  **Select the video you want to label**
+  
+5.  **(Optional) Load a previous labeling csv file**
+      * If you want to pick up where you left off labeling the video.
 
-### 1. **Activate the RAINSTORM conda environment**
+6.  **Select (confirm) the behaviors you want to label, and their keys.**
 
-```bash
-conda activate rainstorm
-```
+      * Enter the behaviors you want to score (e.g., `exp_1, exp_2, freezing, grooming`).
 
-### 2. **Run the labeler**
+> [\!WARNING]
+> Keys should be unique, single characters, different from the operant and fixed control keys: (Quit: 'q', Zoom In: '+', Zoom Out: '-', Margin Toggle: 'm')
 
-```bash
-python -m rainstorm.labeler
-```
+7.  **Start Labeling\!**
+    The video will load, and you can begin annotating frame by frame using the keys you defined.
 
-- A pop up window will appear, where we need to:
+-----
 
-### 3. **Navigate to the video we want to label and select it**
+### 🔬 The RAINSTORM Pipeline
 
-- If you dont have a video available on your computer, you can find a demo inside the RAINSTORM repository on ```examples/examples/colabeled_video/Example_video.mp4```.
+The core of this project is a series of Jupyter notebooks designed to guide you from raw data to final results.
 
-### 4. **(Optional) Pick a labeled csv file.**
+-----
 
-- If you already started labeling, you can pick up where you left off.
+#### `2a-Prepare_positions.ipynb`
 
-### 5. **Type the behaviors you would like to label.**
+🧹 **Process and clean bodypart position data.**
 
-- As we label the exploration of two objects, the presets are ```obj_1```, ```obj_2```, ```freezing```, ```grooming``` and ```rearing```.
-- You may add as many behaviors as you want.
-
-### 6. **Type the keyboard keys you'd like to use**
-
-- One for each behavior, the presets are ```4```, ```6```, ```f```, ```g``` and ```r```.
-
-### 7. **Start labeling**
-
-- After a few seconds (or minutes, if the video is too long or heavy) the labeler will open and the first frame will be displayed.
-- Follow the instrucitons on the screen to navivate through the video and label each behavior as it happens.
-
-Once you are done, exit and save the results, and a labeled csv file will be created on the selected video directory.
-
-> [!TIP]
-> The heavier the video, the longer it will take the program to process it. If it is too demanding for your computer, try compressing the video.
-
----
----
-
-## **Pipeline**
-The repository contains a series of Jupyter notebooks to go from raw pose estimation data to the visualization of your results:
-
----
-
-### ```2a-Prepare_positions.ipynb```: Process and clean bodypart position data.
-- This is the first notebook of the RAINSTORM project. Here you'll find the initial steps to prepare the data for analysis.
-- If you dont have your pose estimation files yet (or you just want to try out the workflow), RAINSTORM comes with an example folder with pose estimation files from mice on a Novel Object Recognition (NOR) task.
-- Filter out the frames where the mouse is not in the video.
-- Points that have a low likelihood assigned by DLC are also filtered out, and data is interpolated and smoothed.
-- Conveniently scale the video from pixels to cm.
-- Return: We obtain .csv files with the correct, scaled positions of the mice.
+  * Filters out frames with low tracking likelihood from DeepLabCut.
+  * Interpolates and smooths data to correct glitches.
+  * Scales coordinates from pixels to a more convenient unit (e.g., cm).
+  * **Output:** Clean, scaled `.csv` files ready for analysis.
 
 ![1-Prepare_positions](examples/images/1-Prepare_positions.png)
 
----
+-----
 
-### ```2b-Geometric_analysis.ipynb```: Perform geometric labeling of exploration and freezing.
+#### `2b-Geometric_analysis.ipynb`
 
-- One way of finding out when the mouse is exploring an object is to use a geometric criteria:
-  - If the mouse is close to the object (distance < 2.5 cm).
-  - If the mouse is oriented towards the object (angle < 45°).
+📐 **Perform geometric labeling of exploration and freezing.**
+
+  * Applies a simple geometric rule for exploration:
+      * Distance to object \< `2.5 cm`
+      * Angle towards object \< `45°`
+  * Identifies freezing behavior based on lack of movement.
 
 ![2-Geometric_analysis](examples/images/2-Geometric_analysis.png)
 
----
+-----
 
-### ```3a-Create_Models.ipynb```: Train AI models for automatic behavioral labeling.
+#### `3a-Create_Models.ipynb`
 
-- Another way of finding out when the mouse is exploring is to train an artificial neural network with manually labeled data:
+🤖 **Train AI models for automatic behavioral labeling.**
+
+  * Uses your manually labeled data to train TensorFlow models.
+  * Includes an LSTM network that considers temporal sequences for higher accuracy.
+  * Evaluates model performance against human labelers using Principal Components Analysis (PCA).
 
 ![3-Create_Models](examples/images/3-Create_models.png)
 
-- Using TensorFlow, we were able to train models that are able to clasify a mouse's position into exploration.
-- Among the models, we train a more complex LSTM network that is aware of frame sequences, and performs better as exploration is time dependant.
-- The training learns from our own manual labeling, so it acquires the criteria of the users.
-- Models can now be used to label all the data that was manually labeled, and the results can be compared in terms of accuracy.
-- To evaluate the similarity of the models to the mean human labeler, we can also run a Principal Components Analysis:
-
 ![4-Evaluate_models_a](examples/images/4-Evaluate_models_a.png)
-
-- Finally, we can plot the dynamic labeling of models against labelers in an example video timelime:
 
 ![4-Evaluate_models_b](examples/images/4-Evaluate_models_b.png)
 
----
+-----
 
-### ```3b-Automatic_analysis.ipynb```: Automate labeling with your AI model.
+#### `3b-Automatic_analysis.ipynb`
 
-- Having chosen our favorite model, it is time to analyze and label our own position files.
-- Once we have the manual, geometric and automatic labels, we can compare the performance of each on an example video
-- Using a polar graph, we can see for each position the angle of approach and distance in which the mice is exploring the objects
+🧠 **Automate labeling with your trained AI model.**
+
+  * Applies your best-performing model to label large datasets.
+  * Generates comparative visualizations (like polar graphs) to contrast manual, geometric, and AI-driven labels.
 
 ![6-Compare_Labels](examples/images/6-Compare_labels.png)
 
----
+-----
 
-### ```4-Seize_Labels.ipynb```: Extract and summarize your labeled data.
+#### `4-Seize_Labels.ipynb`
 
-- Use the best labels to find differences in the exploration of familiar and novel objects for groups of trained mice (which was the obective all along):
+📊 **Extract, summarize, and visualize your final data.**
+
+  * Calculates key metrics like the Discrimination Index.
+  * Generates publication-ready plots to compare behavior across different experimental groups and sessions (Habituation, Training, Test).
 
 ![7-Seize_Labels_ts](examples/images/7-Seize_labels_ts.png)
 
-- We can visually compare these two groups of trained mice, and see that those who were tested 24 hours after training have a higher Discrimination Index (they spend more time exploring the novel object)
-- Lets also plot the training session, to make sure there are no differences between groups there:
-
 ![7-Seize_Labels_tr](examples/images/7-Seize_labels_tr.png)
-
-- And why not? lets see how they behaved during their initial habituation to the arena:
 
 ![7-Seize_Labels_hab](examples/images/7-Seize_labels_hab.png)
 
----
----
+-----
 
-## **Conclusions**
-- This project, although already in use, is a work in progress that could significantly improve the way we analyze object exploration videos.
-- If you wish to contact us, please do so: sdhers@fbmc.fcen.uba.ar
-- © 2024. This project is openly licensed under the MIT License.
+## 🤝 Contributing
 
-### Thanks for exploring us!
+This project is a work in progress. Contributions are welcome\! If you have suggestions or find a bug, please feel free to open an issue or submit a pull request.
+
+-----
+
+## 📜 License
+
+This project is openly licensed under the **MIT License**. See the `LICENSE` file for more details.
+© 2024, sdhers.
+
+-----
+
+## 📫 Contact
+
+For any questions or collaborations, please reach out to sdhers@fbmc.fcen.uba.ar.
+
+*Thanks for exploring RAINSTORM\!*
 
 ![mouse_exploring](examples/images/mouse_exploring.gif)
+
+\</div\>
+
+-----

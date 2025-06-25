@@ -45,8 +45,9 @@ First, ensure you have the following software installed on your system.
 * [Git](https://git-scm.com/downloads)
 
 > [!TIP]
-> During the Miniconda installation, it is recommended to select the option to **add Conda to your system's PATH**. This will make it easier to run `conda` commands from any terminal.
-> Make sure to reboot your computer to ensure the new software is properly installed.
+> During the Miniconda installation, select the option to **add Conda to your system's PATH**. This will make it easier to run `conda` commands from any terminal.
+> 
+> Make sure to **reboot** your computer to ensure the new software is properly installed.
 
 ### Setup Steps
 

@@ -1,4 +1,5 @@
 -----
+
 # **RAINSTORM**
 
 ### Real & Artificial Intelligence for Neuroscience – Simple Tracker for Object Recognition Memory
@@ -11,33 +12,31 @@
 
 -----
 
-## 📋 Table of Contents
+## Table of Contents 📋 
 
-  * [Features](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#features)
-  * [Installation](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#installation)
-  * [Usage](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#usage)
-      * [Video Handling](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#video-handling)
-      * [Rainstorm Behavioral Labeler](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#rainstorm-behavioral-labeler)
-      * [The Pipeline](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#the-rainstorm-pipeline)
-
-  * [Contributing](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#contributing)
-  * [License](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#license)
-  * [Contact](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#contact)
+  * [Features ✨](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#features)
+  * [Installation 💾](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#installation)
+  * [Usage 💻](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#usage)
+      * [Video Handling 🎥](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#video-handling)
+      * [RAINSTORM Behavioral Labeler ✍️](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#rainstorm-behavioral-labeler)
+      * [The RAINSTORM Pipeline 🔬](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#the-rainstorm-pipeline)
+  * [Contributing 🤝](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#contributing)
+  * [Contact 📫](https://github.com/sdhers/RAINSTORM?tab=readme-ov-file#contact)
 
 -----
 
-## Features
+## Features ✨
 
   * **🎯 Frame-by-Frame Behavioral Labeling:** A versatile tool for precise manual scoring and for generating training data for your AI models.
   * **🔧 Pre & Post-DLC Data Processing:** Align video points, clean tracking glitches, and interpolate data for smooth and reliable analysis.
   * **📐 Geometric Analysis:** Automatically identify object exploration using distance and angle metrics.
   * **🧊 Immobility Detection:** Label freezing behavior based on motion, a key indicator in memory studies.
-  * **🤖 AI-Powered Automatic Labeling:** Train and deploy neural networks (including LSTMs) to automatically detect complex exploration patterns.
+  * **⚙️ AI-Powered Automatic Labeling:** Train and deploy neural networks (including LSTMs) to automatically detect complex exploration patterns.
   * **📊 Visual Label Comparison:** Easily compare manual, geometric, and AI-generated labels with intuitive visualizations.
 
 -----
 
-## Installation
+## Installation 💾
 
 ### Prerequisites
 
@@ -78,45 +77,59 @@ Once the environment is ready, you can activate it by running ```conda activate 
     
     In VS Code, ensure the Python extension is installed:
     - Go to the Extensions view (```Ctrl+Shift+X``` or ```Cmd+Shift+X``` on macOS).
-    - Search for "Python" and install the extension provided by Microsoft.
+    - Search for "Python" and install the extension provided.
   
-    Open the ```0-Video_handling.ipynb``` notebook.
+    Open a Jupyter notebook (e.g., ```2a-Prepare_positions.ipynb```).
     - When prompted to select a kernel, choose the ```rainstorm``` Conda environment among the ```Python Environments```.
 
 You are all set\! You can now run the notebooks to explore the RAINSTORM workflow.
 
 -----
 
-## 💻 Usage
+## Usage 💻 
 
 RAINSTORM offers two main functionalities: a full analysis pipeline using Jupyter notebooks and a standalone tool for manual video labeling.
 
 -----
 
-### ✍️ RAINSTORM Behavioral Labeler
+### Video Handling 🎥
+
+We offer a quick and easy way to prepare videos for pose estimation and behavioral analysis.
+
+**Open the file `0-Video_handling.ipynb`**
+1.  **Run the Video Handling app**
+     *  It allows:
+       * Trim the video to the desired length.
+       * Crop the video to the desired size.
+       * Align the videos based on two manually selected points (very useful when you want to batch process videos with ROIs).
+2.  **Run the Draw ROIs app**
+       * Draw ROIs and points on the video.
+       * Select a distance for scaling.
+
+-----
+
+### RAINSTORM Behavioral Labeler ✍️ 
 
 For precise, frame-by-frame annotation, use the **RAINSTORM Behavioral Labeler**.
 
-2.  **Run the file `1-Behavioral_labeler.ipynb`**
-
-3.  **Select the video you want to label**
+**Open and Run the file `1-Behavioral_labeler.ipynb`**
+1.  **Select the video you want to label**
   
-5.  **(Optional) Load a previous labeling csv file**
+2.  **(Optional) Load a previous labeling csv file**
       * If you want to pick up where you left off labeling the video.
 
-6.  **Select (confirm) the behaviors you want to label, and their keys.**
-
+3.  **Select (confirm) the behaviors you want to label, and their keys.**
       * Enter the behaviors you want to score (e.g., `exp_1, exp_2, freezing, grooming`).
 
 > [\!WARNING]
 > Keys should be unique, single characters, different from the operant and fixed control keys: (Quit: 'q', Zoom In: '+', Zoom Out: '-', Margin Toggle: 'm')
 
-7.  **Start Labeling\!**
-    The video will load, and you can begin annotating frame by frame using the keys you defined.
+4.  **Start Labeling\!**
+    After pressing 'Start Labeling' the video will load, and you can begin annotating frame by frame using the keys you defined.
 
 -----
 
-### 🔬 The RAINSTORM Pipeline
+### The RAINSTORM Pipeline 🔬 
 
 The core of this project is a series of Jupyter notebooks designed to guide you from raw data to final results.
 
@@ -128,8 +141,7 @@ The core of this project is a series of Jupyter notebooks designed to guide you 
 
   * Filters out frames with low tracking likelihood from DeepLabCut.
   * Interpolates and smooths data to correct glitches.
-  * Scales coordinates from pixels to a more convenient unit (e.g., cm).
-  * **Output:** Clean, scaled `.csv` files ready for analysis.
+  * **Output:** Clean `.csv` files ready for analysis.
 
 ![1-Prepare_positions](examples/images/1-Prepare_positions.png)
 
@@ -150,16 +162,13 @@ The core of this project is a series of Jupyter notebooks designed to guide you 
 
 #### `3a-Create_Models.ipynb`
 
-🤖 **Train AI models for automatic behavioral labeling.**
+⚙️ **Train AI models for automatic behavioral labeling.**
 
   * Uses your manually labeled data to train TensorFlow models.
-  * Includes an LSTM network that considers temporal sequences for higher accuracy.
-  * Evaluates model performance against human labelers using Principal Components Analysis (PCA).
-
 ![3-Create_Models](examples/images/3-Create_models.png)
-
+  * Evaluates model performance against human labelers using Principal Components Analysis (PCA).
 ![4-Evaluate_models_a](examples/images/4-Evaluate_models_a.png)
-
+  * Includes an LSTM network, or **wide** model, that considers temporal sequences for higher accuracy.
 ![4-Evaluate_models_b](examples/images/4-Evaluate_models_b.png)
 
 -----
@@ -168,7 +177,7 @@ The core of this project is a series of Jupyter notebooks designed to guide you 
 
 🧠 **Automate labeling with your trained AI model.**
 
-  * Applies your best-performing model to label large datasets.
+  * Applies your best-performing model to label unseen datasets.
   * Generates comparative visualizations (like polar graphs) to contrast manual, geometric, and AI-driven labels.
 
 ![6-Compare_Labels](examples/images/6-Compare_labels.png)
@@ -180,37 +189,26 @@ The core of this project is a series of Jupyter notebooks designed to guide you 
 📊 **Extract, summarize, and visualize your final data.**
 
   * Calculates key metrics like the Discrimination Index.
-  * Generates publication-ready plots to compare behavior across different experimental groups and sessions (Habituation, Training, Test).
+  * Generates publication-ready plots to compare behavior across different experimental groups and sessions of an experiment.
 
 ![7-Seize_Labels_ts](examples/images/7-Seize_labels_ts.png)
 
-![7-Seize_Labels_tr](examples/images/7-Seize_labels_tr.png)
+-----
 
-![7-Seize_Labels_hab](examples/images/7-Seize_labels_hab.png)
+## Contributing 🤝 
+
+Contributions are welcome\! If you have suggestions or find a bug, please feel free to open an issue or submit a pull request.
 
 -----
 
-## 🤝 Contributing
-
-This project is a work in progress. Contributions are welcome\! If you have suggestions or find a bug, please feel free to open an issue or submit a pull request.
-
------
-
-## 📜 License
-
-This project is openly licensed under the **MIT License**. See the `LICENSE` file for more details.
-© 2024, sdhers.
-
------
-
-## 📫 Contact
+## Contact 📫
 
 For any questions or collaborations, please reach out to sdhers@fbmc.fcen.uba.ar.
+
+-----
 
 *Thanks for exploring RAINSTORM\!*
 
 ![mouse_exploring](examples/images/mouse_exploring.gif)
-
-\</div\>
 
 -----

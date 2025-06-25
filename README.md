@@ -115,7 +115,7 @@ For precise, frame-by-frame annotation, use the **RAINSTORM Behavioral Labeler**
     * This allows you to pick up where you left off.
 
 3.  **Select the behaviors to label and their keys.**
-    * Enter the behaviors you want to score (e.g., `exp_1, exp_2, freezing, grooming`).
+    * Enter the behaviors you want to score (e.g., `exp_1`, `exp_2`, `freezing`, `grooming`, etc...).
 
 > [!WARNING]
 > Keys should be unique, single characters, and different from the fixed control keys: (Quit: `q`, Zoom In: `+`, Zoom Out: `-`, Margin Toggle: `m`)
@@ -161,11 +161,11 @@ The core of this project is a series of Jupyter notebooks designed to guide you 
 ⚙️ **Train AI models for automatic behavioral labeling.**
 
 * Uses your manually labeled data to train TensorFlow models.
+    ![4-Evaluate_models_b](examples/images/4-Evaluate_models_b.png)
+* Includes an LSTM network (a **wide** model) that considers temporal sequences for higher accuracy.
     ![3-Create_Models](examples/images/3-Create_models.png)
 * Evaluates model performance against human labelers using Principal Components Analysis (PCA).
     ![4-Evaluate_models_a](examples/images/4-Evaluate_models_a.png)
-* Includes an LSTM network (a **wide** model) that considers temporal sequences for higher accuracy.
-    ![4-Evaluate_models_b](examples/images/4-Evaluate_models_b.png)
 
 -----
 

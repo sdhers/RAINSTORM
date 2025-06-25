@@ -54,7 +54,7 @@ First, ensure you have the following software installed on your system.
 1.  **Clone the Repository**
     Open a terminal (or Miniconda Prompt) and run the following command.
     ```bash
-    git clone [https://github.com/sdhers/rainstorm.git](https://github.com/sdhers/rainstorm.git)
+    git clone https://github.com/sdhers/rainstorm.git
     ```
     This will create a `rainstorm` folder in your current directory.
 

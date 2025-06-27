@@ -77,7 +77,6 @@ def create_reference_file(params_path: Path, overwrite: bool = False) -> Path:
 
 def _process_and_save_summary_file(
     video_name: str,
-    group: str,
     trial: str,
     label_type: str,
     targets: list,
@@ -93,7 +92,6 @@ def _process_and_save_summary_file(
 
     Parameters:
         video_name (str): Name of the video.
-        group (str): Group name.
         trial (str): Trial name.
         label_type (str): Type of label (e.g., 'labels', 'geolabels').
         targets (list): List of target names for label column renaming.
@@ -162,7 +160,7 @@ def _process_and_save_summary_file(
         else:
             logger.warning(f"Label file '{label_path}' not found. No label data will be used for '{video_name}'.")
     else:
-        logger.warning(f"label_type not found on params. Skipping label data merge for '{video_name}'.")
+        logger.info(f"label_type not found on params. Skipping label data merge for '{video_name}'.")
 
     # --- Add Location column ---
     geometric_analysis = params.get("geometric_analysis") or {}
@@ -245,6 +243,8 @@ def create_summary_files(params_path: Path, overwrite: bool = False) -> Path:
     targets = params.get("targets") or []
     seize_labels = params.get("seize_labels") or {}
     label_type = seize_labels.get("label_type") or None
+    if not label_type:
+        print("Label type not defined on params file, label data will be missing.")
     filenames = params.get("filenames") or []
     common_name = find_common_name(filenames)
     trials = seize_labels.get("trials") or [common_name]
@@ -272,7 +272,7 @@ def create_summary_files(params_path: Path, overwrite: bool = False) -> Path:
 
         try:
             _process_and_save_summary_file( # Pass overwrite parameter to helper
-                video_name, group, video_trial,
+                video_name, video_trial,
                 label_type, targets, folder, group_path, row, params,
                 overwrite_individual_file=overwrite
             )

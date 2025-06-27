@@ -7,9 +7,9 @@ from typing import List, Optional, Tuple
 import random
 import logging
 
-# Import necessary utilities from the rainstorm package
-from .utils import load_yaml, use_model
-
+from .aux_functions import use_model
+from ..utils import configure_logging, load_yaml
+configure_logging()
 logger = logging.getLogger(__name__)
 
 def create_autolabels(params_path: Path) -> None:
@@ -19,17 +19,6 @@ def create_autolabels(params_path: Path) -> None:
 
     Args:
         params_path (Path): Path to the YAML parameters file.
-                            This file should contain:
-                            - "path": Base directory for data.
-                            - "filenames": List of base filenames (e.g., "video_A").
-                            - "seize_labels.trials": Optional list of trial subdirectories.
-                            - "targets": List of target objects (e.g., "obj_1", "obj_2").
-                            - "geometric_analysis.roi_data.scale": Scaling factor for positions.
-                            - "automatic_analysis.model_path": Path to the saved Keras model (.keras).
-                            - "automatic_analysis.model_bodyparts": List of body parts model was trained on.
-                            - "automatic_analysis.rescaling": Boolean, recenter positions.
-                            - "automatic_analysis.reshaping": Boolean, reshape for RNN.
-                            - "automatic_analysis.RNN_width": Dict with 'past', 'future', 'broad'.
     """
     logger.info(f"Starting automatic labeling process using parameters from: {params_path}")
 

@@ -32,7 +32,6 @@ def configure_logging(level=logging.WARNING):
         logging.getLogger().setLevel(level)
         logger.info(f"Logging configured to level: {logging.getLevelName(level)}")
 
-
 # Configure logging for utils.py itself
 configure_logging()
 
@@ -119,24 +118,27 @@ def find_common_name(filenames: List[str]) -> str:
         return "session"  # Fallback name if no commonality
 
     return "_".join(common_parts)
+    
 
-
-def choose_example_positions(params_path: Path, look_for: str = 'TS', suffix: str = '_positions.csv') -> Optional[Path]:
+def choose_example_positions(params_path: Path, look_for: str = 'TS', suffix: str = '_positions.h5') -> Optional[Path]:
     """
-    Picks an example file from the specified folder based on a substring and suffix.
+    Picks an example file from a folder based on a substring and suffix.
+
+    This function adapts its file-finding strategy based on the file extension
+    provided in the suffix (e.g., '.h5' or '.csv').
 
     Args:
         params_path (Path): Path to the YAML parameters file.
-        look_for (str, optional): Substring to filter files by. Defaults to 'TS'.
-        suffix (str, optional): The full file suffix including the dot (e.g., '_positions.csv').
-                                Defaults to '_positions.csv'.
+        look_for (str, optional): Substring to filter filenames by. Defaults to 'TS'.
+        suffix (str, optional): The full file suffix including the dot (e.g., '_positions.h5').
+                                Defaults to '_positions.h5'.
 
     Returns:
         Optional[Path]: Full path to the chosen file, or None if no suitable file is found.
     """
     params = load_yaml(params_path)
-    folder_path = Path(params.get("path")) # Ensure folder_path is a Path object
-    filenames = params.get("filenames") or []
+    folder_path = Path(params.get("path"))
+    filenames = params.get("filenames")
 
     if not folder_path.is_dir():
         logger.error(f"Invalid folder path: '{folder_path}'")
@@ -144,31 +146,47 @@ def choose_example_positions(params_path: Path, look_for: str = 'TS', suffix: st
         return None
 
     if not filenames:
-        logger.warning("No filenames found in the params.yaml file.")
-        print(f"Warning: No filenames found in the params.yaml file. Check if '{folder_path}' contains the desired files and create params file again.")
+        logger.warning(f"No filenames found in the params file: '{params_path}'")
+        print(f"Warning: No filenames listed in '{params_path}'. Cannot select a file.")
         return None
-    
-    # Construct full paths based on the filenames list and the specified suffix
-    seize_labels = params.get("seize_labels") or {}
-    common_name = find_common_name(filenames)
-    trials = seize_labels.get("trials") or [common_name]
 
-    all_files = [
-        folder_path / trial / 'positions' / f"{file}_positions.csv"
-        for trial in trials
-        for file in filenames
-        if trial in file
-    ]
+    # --- Suffix-dependent logic to build the list of all possible files ---
+    all_files: List[Path] = []
+    if suffix.endswith('.h5'):
+        logger.info("Using '.h5' file search logic.")
+        all_files = [(folder_path / (f + suffix)) for f in filenames]
 
-    # Filter files based on the 'look_for' substring
-    filtered = [f for f in all_files if look_for in f.name] # Check in filename only
+    elif suffix.endswith('.csv'):
+        logger.info("Using '.csv' file search logic.")
+        seize_labels = params.get("seize_labels") or {}
+        common_name = find_common_name(filenames)
+        trials = seize_labels.get("trials") or [common_name]
+        all_files = [
+            folder_path / trial / 'positions' / f"{file}{suffix}"
+            for trial in trials
+            for file in filenames
+            if trial in file
+        ]
+    else:
+        logger.error(f"Unsupported file suffix provided: '{suffix}'")
+        print(f"Error: The suffix '{suffix}' is not supported. Please use one ending in '.h5' or '.csv'.")
+        return None
+
+    if not all_files:
+        logger.warning("File search yielded no results. Check your params file and directory structure.")
+        print("Warning: Could not construct any valid file paths.")
+        return None
+
+    # --- Common filtering and selection logic ---
+    filtered = [f for f in all_files if look_for in f.name]
 
     if filtered:
         example_file = random.choice(filtered)
-        logger.info(f"Found {len(filtered)} file(s) matching '{look_for}'. Using: '{example_file.name}'")
-        print(f"Found {len(filtered)} file(s) matching '{look_for}'. Using: '{example_file.name}'")
+        logger.info(f"Found {len(filtered)} file(s) matching '{look_for}'. Using: '{example_file}'")
+        print(f"Found {len(filtered)} file(s) matching '{look_for}'. Using: '{example_file}'")
         return example_file
     else:
-        logger.warning(f"No files matched '{look_for}'. Using a random file from the list instead.")
+        logger.warning(f"No files matched '{look_for}'. Using a random file from the full list instead.")
         print(f"Warning: No files matched '{look_for}'. Using a random file from the list instead.")
         return random.choice(all_files)
+

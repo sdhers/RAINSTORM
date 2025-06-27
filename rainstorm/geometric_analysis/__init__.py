@@ -11,7 +11,8 @@ configure_logging()
 
 # Import all public functions from submodules
 from .plotting import plot_positions, plot_heatmap, plot_freezing_events, plot_roi_activity
-from .analyze_positions import detect_roi_activity, calculate_movement, calculate_exploration_geolabels, batch_process_positions
+from .analyze_positions import detect_roi_activity, calculate_movement, calculate_exploration_geolabels
+from .batch_processing import batch_process_positions
 
 # Define __all__ for explicit export (optional but good practice)
 __all__ = [

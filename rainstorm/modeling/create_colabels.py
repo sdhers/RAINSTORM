@@ -9,9 +9,8 @@ import logging
 from pathlib import Path
 from typing import List
 
-from .utils import configure_logging
+from ..utils import configure_logging
 configure_logging()
-
 logger = logging.getLogger(__name__)
 
 # %% Functions

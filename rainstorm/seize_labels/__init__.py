@@ -1,8 +1,8 @@
 """
-RAINSTORM - Plot results
+RAINSTORM - Seize labels
 
 This __init__.py file makes the functions from the submodules directly accessible
-when importing the 'rainstorm.plot_results' package.
+when importing the 'rainstorm.seize_labels' package.
 """
 
 # Import and configure logging first
@@ -12,11 +12,11 @@ configure_logging()
 from .plotting_example import create_video, plot_mouse_exploration
 from .summary_files import create_reference_file, create_summary_files
 
-from .multiplot import plot_multiple_analyses
-from .lineplot_cumulative import lineplot_cumulative_distance, lineplot_cumulative_exploration_time, lineplot_cumulative_freezing_time
-from .lineplot_index import lineplot_DI, lineplot_diff
-from .boxplot import boxplot_total_exploration_time, boxplot_DI_auc, boxplot_avg_time_bias
-from .plot_roi_activity import boxplot_roi_time, boxplot_roi_distance, boxplot_alternation_proportion
+from .multiplot.multiplot import plot_multiple_analyses
+from .multiplot.lineplot_cumulative import lineplot_cumulative_distance, lineplot_cumulative_exploration_time, lineplot_cumulative_freezing_time
+from .multiplot.lineplot_index import lineplot_DI, lineplot_diff
+from .multiplot.boxplot import boxplot_total_exploration_time, boxplot_DI_auc, boxplot_avg_time_bias
+from .multiplot.plot_roi_activity import boxplot_roi_time, boxplot_roi_distance, boxplot_alternation_proportion
 
 from .results_file import create_results_file
 from .plot_all_individual import plot_all_individual_analyses

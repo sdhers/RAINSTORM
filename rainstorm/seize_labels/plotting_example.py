@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 import cv2
 from typing import Optional
-import random
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
@@ -64,7 +63,8 @@ def create_video(
             )
         width, height = frame_shape
         areas = roi_data.get("areas") or {}
-        distance = geometric_params.get("distance") or 2.5  # Default distance in cm
+        target_exploration = geometric_params.get("target_exploration") or {}
+        distance = target_exploration.get("distance") or 2.5  # Default distance in cm
         scale = roi_data.get("scale") or 1  # Default scale factor
         obj_size = int(scale * distance * (2 / 3))
 
@@ -459,8 +459,9 @@ def plot_mouse_exploration(params_path: Path, position_file: Path) -> None:
         geometric_params = params.get("geometric_analysis") or {}
         roi_data = geometric_params.get("roi_data") or {}
         scale = roi_data.get("scale") or 1  # Default scale factor
-        distance = geometric_params.get("distance") or 2.5  # Default distance in cm
-        orientation = geometric_params.get("orientation") or {}
+        target_exploration = geometric_params.get("target_exploration") or {}
+        distance = target_exploration.get("distance") or 2.5  # Default distance in cm
+        orientation = target_exploration.get("orientation") or {}
         max_angle = orientation.get("degree") or 45  # Default max angle in degrees
         front = orientation.get("front") or 'nose'
         pivot = orientation.get("pivot") or 'head'

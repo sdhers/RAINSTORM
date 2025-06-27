@@ -6,10 +6,9 @@ when importing the 'rainstorm.modeling' package.
 """
 
 # Import and configure logging first
-from .utils import load_yaml, configure_logging
+from ..utils import configure_logging
 configure_logging()
 
-from .geometric_classes import Point, Vector
 from .create_colabels import create_colabels
 from .create_modeling_file import create_modeling
 from .data_handling import prepare_data, focus, split_tr_ts_val, save_split, load_split

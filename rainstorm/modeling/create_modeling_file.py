@@ -11,9 +11,8 @@ from typing import Dict
 import logging
 import yaml
 
-from .utils import configure_logging
+from ..utils import configure_logging
 configure_logging()
-
 logger = logging.getLogger(__name__)
 
 # %% Modeling File Configuration

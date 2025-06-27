@@ -1,4 +1,4 @@
-# rainstorm/data_preparation.py
+# rainstorm/data_handling.py
 
 import pandas as pd
 import numpy as np
@@ -9,9 +9,9 @@ import logging
 import h5py
 import datetime
 
-from .utils import load_yaml, configure_logging, reshape, recenter
+from .aux_functions import recenter, reshape
+from ..utils import configure_logging, load_yaml
 configure_logging()
-
 logger = logging.getLogger(__name__)
 
 # %% Data Preparation Functions

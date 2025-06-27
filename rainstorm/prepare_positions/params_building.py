@@ -12,11 +12,64 @@ import yaml
 from pathlib import Path
 from typing import List, Optional
 
-from .data_loading import collect_filenames, load_roi_data
 from ..utils import configure_logging
 configure_logging()
 
 logger = logging.getLogger(__name__)
+
+# %% Helper functions
+
+def load_roi_data(rois_path: Optional[Path]) -> dict:
+    """
+    Loads ROI data from a JSON file.
+
+    Parameters:
+        rois_path (Optional[Path]): Path to the ROIs.json file.
+
+    Returns:
+        dict: Loaded ROI data or a default dictionary if file not found or error occurs.
+    """
+    if rois_path and rois_path.is_file():
+        try:
+            with open(rois_path, "r") as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error decoding JSON from '{rois_path}': {e}")
+            print(f"Error: Could not decode JSON from '{rois_path}'. Check file format.")
+        except Exception as e:
+            logger.error(f"Failed to load ROI data from '{rois_path}': {e}")
+            print(f"Error: Failed to load ROI data from '{rois_path}'.")
+    elif rois_path: # Path was provided but doesn't exist
+        logger.warning(f"ROI file not found at '{rois_path}'. Using default ROI data.")
+        print(f"Warning: ROI file not found at '{rois_path}'.")
+    else: # No path was provided
+        logger.info("No ROI path provided. Using default ROI data.")
+        print("No ROI file specified. Using default ROI data.")
+
+    return {"frame_shape": [], "scale": 1, "areas": [], "points": [], "circles": []}
+
+
+def collect_filenames(folder_path: Path) -> List[str]:
+    """
+    Collects filenames of H5 position files in a given folder.
+
+    Parameters:
+        folder_path (Path): The folder to search for H5 files.
+
+    Returns:
+        List[str]: A list of cleaned filenames (without '_positions' suffix and extension).
+    """
+    if not folder_path.is_dir():
+        logger.error(f"'{folder_path}' is not a valid directory.")
+        return []
+
+    filenames = [
+        file.stem.replace("_positions", "")
+        for file in folder_path.glob("*_positions.h5")
+        if file.is_file()
+    ]
+    logger.info(f"Found {len(filenames)} position files in '{folder_path}'.")
+    return filenames
 
 # %% Core function
 def create_params(folder_path: Path, ROIs_path: Optional[Path] = None) -> str:
@@ -66,11 +119,13 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None) -> str:
             },
         "geometric_analysis": {
             "roi_data": roi_data,  # Add the JSON content here
-            "distance": 3,
-            "orientation": {
-                "degree": 45,
-                "front": 'nose',
-                "pivot": 'head'
+            "target_exploration": {
+                "distance": 3,
+                "orientation": {
+                    "degree": 45,
+                    "front": 'nose',
+                    "pivot": 'head'
+                    }
                 },
             "freezing_threshold": 0.01
             },
@@ -86,7 +141,6 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None) -> str:
                 }
             },
         "seize_labels": {
-            "groups": ["24_hs", "1_week"],
             "trials": ['Hab', 'TR', 'TS'],
             "target_roles": {
                 "Hab": None,
@@ -125,11 +179,13 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None) -> str:
         "areas": "    # Defined ROIs (areas) in the frame",
         "points": "    # Key points within the frame",
         "circles": "    # Defined ROIs (circular areas) in the frame",
-        "distance": "  # Maximum nose-target distance to consider exploration",
-        "orientation": "  # Set up orientation analysis",
-        "degree": "    # Maximum head-target orientation angle to consider exploration (in degrees)",
-        "front": "    # Ending bodypart of the orientation line",
-        "pivot": "    # Starting bodypart of the orientation line",
+
+        "target_exploration": "  # Parameters for geometric target exploration",
+        "distance": "    # Maximum nose-target distance to consider exploration",
+        "orientation": "    # Set up orientation analysis",
+        "degree": "      # Maximum head-target orientation angle to consider exploration (in degrees)",
+        "front": "      # Ending bodypart of the orientation line",
+        "pivot": "      # Starting bodypart of the orientation line",
         "freezing_threshold": "  # Movement threshold to consider freezing, computed as the mean std of all body parts over 1 second",
         
         "automatic_analysis": "# Parameters for automatic analysis",
@@ -143,17 +199,17 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None) -> str:
         "broad": "    # Broaden the window by skipping some frames as we stray further from the present",
         
         "seize_labels": "# Parameters for the analysis of the experiment results",
-        "groups": "  # Experimental groups you want to compare",
         "trials": "  # If your experiment has multiple trials, list the trial names here",
-        "target_roles": "  # Role/novelty of each target in the experiment",
-        "label_type": "  # Type of labels used to measure exploration (geolabels, autolabels, labels, etc)",
+        "target_roles": "  # Role/novelty of each target for each trial of the experiment",
+        "label_type": "  # Type of labels used to measure exploration (geolabels, autolabels, etc)",
     }
 
     # Insert comments before corresponding keys
     try:
         with open(params_path, "w") as file:
             file.write("# Rainstorm Parameters file\n")
-            file.write("# Edit this file to customize Rainstorm's behavioral analysis. Parameters such as targets and trials are set to default values, but can be edited or erased (e.g., targets: null).\n")
+            file.write("# Edit this file to customize Rainstorm's behavioral analysis.\n\n")
+            file.write("# Parameters such as targets and trials are set to default values, but can be edited or erased (e.g., targets: null).\n")
             for line in yaml_lines:
                 stripped_line = line.lstrip()
                 key = stripped_line.split(":")[0].strip()  # Extract key (ignores indentation)

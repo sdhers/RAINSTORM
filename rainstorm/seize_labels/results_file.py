@@ -11,10 +11,9 @@ from pathlib import Path
 import pandas as pd
 from typing import Optional
 
-from .utils import load_yaml, configure_logging
 from .calculate_index import calculate_cumsum, calculate_DI
-from .plot_roi_activity import _count_alternations_and_entries
-
+from .multiplot.plot_roi_activity import _count_alternations_and_entries
+from ..utils import configure_logging, load_yaml
 configure_logging()
 logger = logging.getLogger(__name__)
 
@@ -50,9 +49,9 @@ def create_results_file(
     base_folder = Path(params.get("path"))
     fps = params.get("fps", 30)
 
-    seize_labels = params.get("seize_labels", {})
-    target_roles = seize_labels.get("target_roles", {})
-    label_type = seize_labels.get("label_type", "labels")
+    seize_labels = params.get("seize_labels") or {}
+    target_roles = seize_labels.get("target_roles") or {}
+    label_type = seize_labels.get("label_type") or None
 
     results = []
 
@@ -73,9 +72,9 @@ def create_results_file(
 
     # Collect all unique renamed ROI names for consistent columns
     all_renamed_roi_columns = set()
-    geometric_analysis = params.get("geometric_analysis", {})
-    roi_data = geometric_analysis.get("roi_data", {})
-    areas = roi_data.get("areas", [])
+    geometric_analysis = params.get("geometric_analysis") or {}
+    roi_data = geometric_analysis.get("roi_data") or {}
+    areas = roi_data.get("areas") or []
 
     for area in areas:
         if "name" in area:
@@ -128,7 +127,7 @@ def create_results_file(
                     working_df = summary_df.copy()
 
                     # --- Calculate exploration time, DI, and diff ---
-                    novelties = target_roles.get(trial_name)
+                    novelties = target_roles.get(trial_name) or None
                     if novelties:
                         novelty_targets = [f'{t}_{label_type}' for t in novelties]
                         working_df = calculate_cumsum(working_df, novelty_targets)

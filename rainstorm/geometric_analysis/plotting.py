@@ -35,11 +35,14 @@ def plot_positions(params_path: str, file: str, scaling: bool = True) -> None:
     geom_params = params.get("geometric_analysis") or {}
     roi_data = geom_params.get("roi_data") or {}
     scale_factor = roi_data.get("scale") or 1
-    max_distance = geom_params.get("distance") or 2.5
-    orientation = geom_params.get("orientation") or {}
-    max_angle = orientation.get("degree") or 45
-    front = orientation.get("front") or 'nose'
-    pivot = orientation.get("pivot") or 'head'
+
+    # Get geometric thresholds
+    target_exploration = geom_params.get("target_exploration") or {}
+    max_distance = target_exploration.get("distance") or 2.5
+    orientation_params = target_exploration.get("orientation") or {}
+    max_angle = orientation_params.get("degree") or 45
+    front = orientation_params.get("front") or 'nose'
+    pivot = orientation_params.get("pivot") or 'head'
 
     # Style config for Plotly traces
     symbols = ['square', 'circle', 'diamond', 'cross', 'x']

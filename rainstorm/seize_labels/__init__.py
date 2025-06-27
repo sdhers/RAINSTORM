@@ -6,10 +6,10 @@ when importing the 'rainstorm.plot_results' package.
 """
 
 # Import and configure logging first
-from .utils import configure_logging
+from ..utils import configure_logging, choose_example_positions
 configure_logging()
 
-from .plotting_example import choose_example_positions, create_video, plot_mouse_exploration
+from .plotting_example import create_video, plot_mouse_exploration
 from .summary_files import create_reference_file, create_summary_files
 
 from .multiplot import plot_multiple_analyses

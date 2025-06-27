@@ -11,8 +11,8 @@ import logging
 from pathlib import Path
 import re
 
-from .geometric_classes import Point, Vector
-from .utils import load_yaml, configure_logging
+from ..geometric_classes import Point, Vector
+from ..utils import configure_logging, load_yaml, find_common_name
 
 # Configure logging
 configure_logging()
@@ -65,7 +65,9 @@ def detect_roi_activity(params_path: Path, file: Path, bodypart: str = 'body') -
     """
     # Load parameters
     params = load_yaml(Path(params_path))
-    areas = params.get("geometric_analysis", {}).get("roi_data", {}).get("areas", [])
+    geom_params = params.get("geometric_analysis") or {}
+    roi_data = geom_params.get("roi_data") or {}
+    areas = roi_data.get("areas") or []
 
     if not areas:
         logger.info("No ROIs found in the parameters file. Skipping ROI activity analysis.")
@@ -116,10 +118,11 @@ def calculate_movement(params_path: Path, file: Path, nose_bp: str = 'nose', bod
     # Load parameters
     params = load_yaml(params_path)
     fps = params.get("fps", 30)
-    targets = params.get("targets", [])
-    geometric_params = params.get("geometric_analysis", {})
-    scale = geometric_params.get("roi_data", {}).get("scale", 1)
-    threshold = geometric_params.get("freezing_threshold", 0.01)
+    targets = params.get("targets") or []
+    geom_params = params.get("geometric_analysis") or {}
+    roi_data = geom_params.get("roi_data") or {}
+    scale = roi_data.get("scale") or 1
+    threshold = geom_params.get("freezing_threshold", 0.01)
 
     # Load the CSV
     df = pd.read_csv(file)
@@ -201,17 +204,21 @@ def calculate_exploration_geolabels(params_path: Path, file_path: Path) -> pd.Da
                       or essential parameters are missing.
     """
     params = load_yaml(params_path)
-    geom_params = params.get("geometric_analysis", {})
-    scale = geom_params.get("roi_data", {}).get("scale", 1)
+    geom_params = params.get("geometric_analysis") or {}
+    roi_data = geom_params.get("roi_data") or {}
+    scale = roi_data.get("scale") or 1
 
     # Get geometric thresholds
     max_distance = geom_params.get("distance", 2.5)
-    orientation_params = geom_params.get("orientation", {})
+    orientation_params = geom_params.get("orientation") or {}
     max_angle = orientation_params.get("degree", 45)
     front_bodypart = orientation_params.get("front", 'nose')
     pivot_bodypart = orientation_params.get("pivot", 'head')
-    targets = params.get("targets", [])
+    targets = params.get("targets") or []
 
+    if not targets:
+        logger.info("No targets defined in the parameters file. Skipping geolabel calculation.")
+        return pd.DataFrame()
 
     # Load position data
     try:
@@ -292,8 +299,9 @@ def batch_process_positions(params_path: Path, roi_bp: str = 'body', nose_bp: st
     """
     params = load_yaml(params_path)
     folder_path = Path(params.get("path"))
-    filenames = params.get("filenames", [])
-    trials = params.get("seize_labels", {}).get("trials", [])
+    filenames = params.get("filenames") or []
+    seize_labels = params.get("seize_labels") or {}
+    trials = seize_labels.get("trials") or [find_common_name(filenames)]
 
     logger.info(f"Starting processing positions in {folder_path}...")
     print(f"Starting processing positions in {folder_path}...")
@@ -325,12 +333,10 @@ def batch_process_positions(params_path: Path, roi_bp: str = 'body', nose_bp: st
         # Define output directories for each type of analysis
         roi_output_dir = output_root_dir / 'roi_activity'
         move_output_dir = output_root_dir / 'movement'
-        geo_output_dir = output_root_dir / 'geolabels'
 
         # Create base output directories if they don't exist
         roi_output_dir.mkdir(parents=True, exist_ok=True)
         move_output_dir.mkdir(parents=True, exist_ok=True)
-        geo_output_dir.mkdir(parents=True, exist_ok=True)
 
         # Extract the base filename (e.g., 'mouse_a_trial_1_1' from 'mouse_a_trial_1_1_positions.csv')
         input_filename_stem = file_path.stem.replace('_positions', '')
@@ -354,13 +360,19 @@ def batch_process_positions(params_path: Path, roi_bp: str = 'body', nose_bp: st
             logger.warning(f"No movement data generated for {file_path.name}. Output will not be saved.")
 
         # Process Exploration Geolabels
-        geolabels = calculate_exploration_geolabels(params_path, file_path)
-        if not geolabels.empty:
-            geo_output_path = geo_output_dir / f'{input_filename_stem}_geolabels.csv'
-            geolabels.to_csv(geo_output_path, index=False)
-            logger.info(f"Saved geolabels to {geo_output_path}")
+        targets = params.get("targets") or []
+        if targets:
+            geo_output_dir = output_root_dir / 'geolabels'
+            geo_output_dir.mkdir(parents=True, exist_ok=True)
+            geolabels = calculate_exploration_geolabels(params_path, file_path)
+            if not geolabels.empty:
+                geo_output_path = geo_output_dir / f'{input_filename_stem}_geolabels.csv'
+                geolabels.to_csv(geo_output_path, index=False)
+                logger.info(f"Saved geolabels to {geo_output_path}")
+            else:
+                logger.warning(f"No geolabels generated for {file_path.name}. Output will not be saved.")
         else:
-            logger.warning(f"No geolabels generated for {file_path.name}. Output will not be saved.")
+            logger.info("No targets defined in the parameters file. Skipping geolabel calculation.")
 
     logger.info("Finished processing all position files.")
     print("Finished processing all position files.")

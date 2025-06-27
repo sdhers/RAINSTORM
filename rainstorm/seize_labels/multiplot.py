@@ -1,60 +1,61 @@
 from pathlib import Path
 import matplotlib.pyplot as plt
 import logging
+from typing import Optional, List
 from matplotlib.colors import to_rgb, hsv_to_rgb, to_hex
 
-from .utils import load_yaml, configure_logging
+from ..utils import configure_logging, load_yaml, find_common_name
 configure_logging()
 logger = logging.getLogger(__name__)
 
 def plot_multiple_analyses(
     params_path: Path,
-    trial: str,
     plots: list,
+    trial: Optional[str] = None,
+    outliers: List[str] = None,
     show: bool = True,
-    outliers: list[str] = None,
 ) -> None:
     """
     Plot multiple analyses for a single trial side by side as subplots.
 
     Args:
         params_path: Path to the YAML configuration file containing plotting parameters.
-        trial: The specific trial name (e.g., 'NOR_TS_01') for which to generate plots.
         plots: A list of callable functions (e.g., `[lineplot_cumulative_distance, lineplot_cumulative_exploration_time]`)
                that will be used to generate each subplot. Each function in this list
                MUST accept the following arguments:
                `(base_path, group, trial, targets, fps, ax, outliers, group_color, label_type, num_groups)`.
-        show: If True, the generated plots will be displayed interactively.
+        trial: The specific trial name (e.g., 'TS') for which to generate plots.
         outliers: An optional list of filenames (or parts of filenames) to exclude from
                   data processing for any of the plots.
+        show: If True, the generated plots will be displayed interactively.
     """
-    if outliers is None:
-        outliers = []
-
-    params_path = Path(params_path)
-    logger.info(f"Starting multiple analyses plotting for trial: {trial} using params from {params_path.name}")
+    if not plots:
+        logger.warning("No plotting functions provided in 'plots' list. No plots will be generated.")
+        return
 
     try:
         params = load_yaml(params_path)
-        output_base_dir = Path(params.get("path"))
-        fps = params.get("fps", 30)
-        targets = params.get("targets", [])
-        seize_labels = params.get("seize_labels", {})
-        groups = seize_labels.get("groups", [])
-        target_roles_data = seize_labels.get("target_roles", {})
-        label_type = seize_labels.get("label_type", "labels")
-
-        if not groups:
-            logger.warning("No groups specified in parameters. No plots will be generated.")
-            return
-
-        if not plots:
-            logger.warning("No plotting functions provided in 'plots' list. No plots will be generated.")
-            return
+        folder_path = Path(params.get("path"))
+        filenames = params.get("filenames") or []
+        fps = params.get("fps") or 30
+        targets = params.get("targets") or []
+        seize_labels = params.get("seize_labels") or {}
+        target_roles_data = seize_labels.get("target_roles") or {}
+        label_type = seize_labels.get("label_type") or None
 
     except Exception as e:
         logger.error(f"Error loading or parsing parameters from {params_path}: {e}")
         raise
+
+    summary_path = folder_path / "summary"
+    groups = [item.name for item in summary_path.iterdir() if item.is_dir()]
+    
+    if not trial:
+        trial = find_common_name(filenames)
+    logger.info(f"Starting multiple analyses plotting for trial: {trial} using params from {params_path.name}")
+
+    if outliers is None:
+        outliers = []
 
     num_plots = len(plots)
     fig, axes = plt.subplots(1, num_plots, figsize=(6 * num_plots, 6), sharey=False)
@@ -78,7 +79,7 @@ def plot_multiple_analyses(
             
             try:
                 plot_func(
-                    base_path=output_base_dir,
+                    base_path=folder_path,
                     group=group,
                     trial=trial,
                     targets=novelty_targets,
@@ -107,7 +108,7 @@ def plot_multiple_analyses(
 
     plt.tight_layout(rect=[0, 0, 0.95, 0.96])
 
-    plots_folder = output_base_dir / "plots" / "multiple"
+    plots_folder = folder_path / "plots" / "multiple"
     plots_folder.mkdir(parents=True, exist_ok=True)
     logger.info(f"Plots output directory ensured: {plots_folder}")
 

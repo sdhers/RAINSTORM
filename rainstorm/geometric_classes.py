@@ -1,7 +1,7 @@
 """
-RAINSTORM - Geometric Analysis - Geometric Classes
+RAINSTORM - Geometric Classes
 
-This module defines fundamental geometric classes used in the Rainstorm geometric analysis.
+This module defines fundamental geometric classes.
 """
 
 import numpy as np

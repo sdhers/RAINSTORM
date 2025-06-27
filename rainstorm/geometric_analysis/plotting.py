@@ -12,8 +12,8 @@ import plotly.graph_objects as go
 from scipy.ndimage import gaussian_filter
 import math
 
-from .geometric_classes import Point, Vector
-from .utils import load_yaml, configure_logging
+from ..geometric_classes import Point, Vector
+from ..utils import load_yaml, configure_logging
 configure_logging()
 
 logger = logging.getLogger(__name__)
@@ -31,15 +31,15 @@ def plot_positions(params_path: str, file: str, scaling: bool = True) -> None:
     """
     # Load YAML parameters
     params = load_yaml(Path(params_path))
-    targets = params.get("targets", [])
-    geom_params = params.get("geometric_analysis", {})
-    
-    scale_factor = geom_params.get("roi_data", {}).get("scale", 1)
-    max_distance = geom_params.get("distance", 2.5)
-    orientation = geom_params.get("orientation", {})
-    max_angle = orientation.get("degree", 45)
-    front = orientation.get("front", 'nose')
-    pivot = orientation.get("pivot", 'head')
+    targets = params.get("targets") or []
+    geom_params = params.get("geometric_analysis") or {}
+    roi_data = geom_params.get("roi_data") or {}
+    scale_factor = roi_data.get("scale") or 1
+    max_distance = geom_params.get("distance") or 2.5
+    orientation = geom_params.get("orientation") or {}
+    max_angle = orientation.get("degree") or 45
+    front = orientation.get("front") or 'nose'
+    pivot = orientation.get("pivot") or 'head'
 
     # Style config for Plotly traces
     symbols = ['square', 'circle', 'diamond', 'cross', 'x']
@@ -225,11 +225,12 @@ def plot_heatmap(params_path, file, bodypart='body', bins=100, colorscale="hot",
 
     # Load data
     params = load_yaml(params_path)
-    roi_data = params.get("geometric_analysis", {}).get("roi_data", {})
-    areas = roi_data.get("areas", [])
-    circles = roi_data.get("circles", []) # Load circles
-    points = roi_data.get("points", [])   # Load points
-    frame_shape = roi_data.get("frame_shape", [])
+    geom_params = params.get("geometric_analysis") or {}
+    roi_data = geom_params.get("roi_data") or {}
+    areas = roi_data.get("areas") or []
+    circles = roi_data.get("circles") or [] # Load circles
+    points = roi_data.get("points") or []   # Load points
+    frame_shape = roi_data.get("frame_shape") or []
 
     if len(frame_shape) < 2:
         logger.error("⚠️ Frame shape not found in parameters. Skipping heatmap plot.")
@@ -381,9 +382,9 @@ def plot_freezing_events(params_path: Path, file: Path, movement: pd.DataFrame):
     """
     # Load parameters
     params = load_yaml(params_path)
-    fps = params.get("fps", 30)
-    geometric_params = params.get("geometric_analysis", {})
-    threshold = geometric_params.get("freezing_threshold", 0.01)
+    fps = params.get("fps") or 30
+    geom_params = params.get("geometric_analysis") or {}
+    threshold = geom_params.get("freezing_threshold") or 0.01
 
     # Extract only frames where freezing is active
     events = movement[movement['freezing'] == 1]
@@ -467,7 +468,7 @@ def plot_roi_activity(params_path: Path, file: Path, roi_activity: pd.DataFrame,
         bodypart (str): Name of the body part to analyze. Default is 'body'.
     """
     params = load_yaml(params_path)
-    fps = params.get("fps", 30)
+    fps = params.get("fps") or 30
 
     # Time spent in each area
     time_spent = roi_activity['location'].value_counts().sort_index()

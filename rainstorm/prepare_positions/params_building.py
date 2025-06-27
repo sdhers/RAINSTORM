@@ -12,10 +12,8 @@ import yaml
 from pathlib import Path
 from typing import List, Optional
 
-# Import functions from data_loading for collecting filenames and loading ROI data
 from .data_loading import collect_filenames, load_roi_data
-# Import and configure logging from utils
-from .utils import configure_logging
+from ..utils import configure_logging
 configure_logging()
 
 logger = logging.getLogger(__name__)
@@ -155,6 +153,7 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None) -> str:
     try:
         with open(params_path, "w") as file:
             file.write("# Rainstorm Parameters file\n")
+            file.write("# Edit this file to customize Rainstorm's behavioral analysis. Parameters such as targets and trials are set to default values, but can be edited or erased (e.g., targets: null).\n")
             for line in yaml_lines:
                 stripped_line = line.lstrip()
                 key = stripped_line.split(":")[0].strip()  # Extract key (ignores indentation)

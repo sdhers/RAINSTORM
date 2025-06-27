@@ -16,7 +16,7 @@ import h5py
 import pandas as pd
 import numpy as np
 
-from .utils import load_yaml, configure_logging
+from ..utils import load_yaml, configure_logging
 configure_logging()
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ def collect_filenames(folder_path: Path) -> List[str]:
     logger.info(f"Found {len(filenames)} position files in '{folder_path}'.")
     return filenames
 
-def choose_example(params_path: Path, look_for: str = 'TS', suffix: str = '_positions.h5') -> Optional[Path]:
+def choose_example_h5(params_path: Path, look_for: str = 'TS', suffix: str = '_positions.h5') -> Optional[Path]:
     """
     Picks an example file from the specified folder based on a substring and suffix.
 
@@ -171,8 +171,9 @@ def open_h5_file(params_path: Path, file_path: Path, print_data: bool = False) -
     """
     # Load parameters
     params = load_yaml(params_path)
-    software = params.get("software", "DLC")
-    num_sd = params.get("prepare_positions", {}).get("confidence", 2)
+    software = params.get("software") or "DLC"
+    prep_pos = params.get("prepare_positions") or {}
+    num_sd = prep_pos.get("confidence") or 2
 
     if software == "DLC":
         scorer, bodyparts, df = open_DLC_file(file_path)

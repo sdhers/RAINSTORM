@@ -14,7 +14,7 @@ from scipy import signal
 from typing import List
 from pathlib import Path
 
-from .utils import load_yaml, configure_logging
+from ..utils import load_yaml, configure_logging
 configure_logging()
 
 logger = logging.getLogger(__name__)
@@ -33,8 +33,10 @@ def add_targets(params_path: Path, df: pd.DataFrame, verbose: bool = False) -> p
         pd.DataFrame: DataFrame with added target positions.
     """
     params = load_yaml(params_path)
-    targets = params.get("targets", [])
-    points = params.get("geometric_analysis", {}).get("roi_data", {}).get("points", [])
+    targets = params.get("targets") or []
+    geom_params = params.get("geometric_analysis") or {}
+    roi_data = geom_params.get("roi_data") or {}
+    points = roi_data.get("points") or []
 
     if not targets:
         logger.info("No targets defined in params. Skipping target addition.")
@@ -117,11 +119,11 @@ def filter_and_smooth_df(params_path: Path, df_raw: pd.DataFrame) -> pd.DataFram
     df = df_raw.copy()
 
     # Fetch params
-    bodyparts: List[str] = params.get("bodyparts", [])
-    targets: List[str] = params.get("targets", [])
-    prep = params.get("prepare_positions", {})
-    num_sd: float = prep.get("confidence", 2)
-    med_window: int = prep.get("median_filter", 3)
+    bodyparts: List[str] = params.get("bodyparts") or []
+    targets: List[str] = params.get("targets") or []
+    prep = params.get("prepare_positions") or {}
+    num_sd: float = prep.get("confidence") or 2
+    med_window: int = prep.get("median_filter") or 3
     # Ensure median window is odd
     if med_window % 2 == 0:
         med_window += 1

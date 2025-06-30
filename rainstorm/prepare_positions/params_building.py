@@ -71,7 +71,7 @@ def collect_filenames(folder_path: Path) -> List[str]:
     return filenames
 
 # %% Core function
-def create_params(folder_path: Path, ROIs_path: Optional[Path] = None, targets_present: bool = True) -> str:
+def create_params(folder_path: Path, ROIs_path: Optional[Path] = None, targets_present: bool = True, overwrite: bool = False) -> str:
     """
     Creates a `params.yaml` file with structured configuration and inline comments.
 
@@ -80,15 +80,20 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None, targets_p
         ROIs_path (str, optional): Path to a JSON file with ROI information.
         targets_present (bool): If True, includes sections for target exploration 
                                 and automatic analysis. Defaults to True.
+        overwrite (bool): If True, overwrite existing params.yaml file.
 
     Returns:
         str: Path to the created params.yaml file.
     """
     params_path = folder_path / 'params.yaml'
-    if params_path.exists():
-        logger.info(f"params.yaml already exists: {params_path}")
-        print(f"params.yaml already exists: {params_path}")
+
+    if params_path.exists() and not overwrite:
+        logger.info(f"params.yaml already exists at {params_path}\nUse overwrite=True to replace it.")
+        print(f"params.yaml already exists at {params_path}\nUse overwrite=True to replace it.")
         return str(params_path)
+    elif params_path.exists() and overwrite:
+        logger.warning(f"Overwriting existing params.yaml at {params_path}")
+        print(f"Warning: Overwriting existing params.yaml at {params_path}")
     
     roi_data = load_roi_data(ROIs_path)
     filenames = collect_filenames(folder_path)
@@ -101,15 +106,27 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None, targets_p
         "filenames": filenames,
         "software": "DLC",
         "fps": 30,
+        "targets": None,
         "bodyparts": ['body', 'head', 'left_ear', 'left_hip', 'left_midside', 'left_shoulder', 'neck', 'nose', 'right_ear', 'right_hip', 'right_midside', 'right_shoulder', 'tail_base', 'tail_end', 'tail_mid'],
         "prepare_positions": {
             "confidence": 2,
             "median_filter": 3
-            },
+        },
         "geometric_analysis": {
             "roi_data": roi_data,
             "freezing_threshold": 0.01
-            },
+        },
+        "automatic_analysis": {
+            "model_path": DEFAULT_MODEL_PATH,
+            "model_bodyparts": ["nose", "left_ear", "right_ear", "head", "neck", "body"],
+            "rescaling": True,
+            "reshaping": True,
+            "RNN_width": {
+                "past": 3,
+                "future": 3,
+                "broad": 1.7
+            }
+        },
         "seize_labels": {
             "trials": ['Hab', 'TR', 'TS'],
         }
@@ -126,25 +143,12 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None, targets_p
                 "pivot": 'head'
             }
         }
-        parameters["automatic_analysis"] = {
-            "model_path": DEFAULT_MODEL_PATH,
-            "model_bodyparts": ["nose", "left_ear", "right_ear", "head", "neck", "body"],
-            "rescaling": True,
-            "reshaping": True,
-            "RNN_width": {
-                "past": 3,
-                "future": 3,
-                "broad": 1.7
-            }
-        }
         parameters["seize_labels"]["target_roles"] = {
             "Hab": None,
             "TR": ["Left", "Right"],
             "TS": ["Novel", "Known"]
         }
         parameters["seize_labels"]["label_type"] = "autolabels"
-    else:
-        parameters["targets"] = None
 
     # generate params.yaml file
     with open(params_path, 'w') as f:
@@ -160,9 +164,9 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None, targets_p
         "filenames": "# Pose estimation filenames",
         "software": "# Software used to generate the pose estimation files ('DLC' or 'SLEAP')",
         "fps": "# Video frames per second",
-        "bodyparts": "# Tracked bodyparts",
-        "targets": "# Exploration targets",
 
+        "targets": "# Exploration targets",
+        "bodyparts": "# Tracked bodyparts",
         "prepare_positions": "# Parameters for processing positions",
         "confidence": "  # How many std_dev away from the mean the point's likelihood can be without being erased",
         "median_filter": "  # Number of frames to use for the median filter (it must be an odd number)",
@@ -204,7 +208,7 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None, targets_p
         with open(params_path, "w") as file:
             file.write("# Rainstorm Parameters file\n\n")
             file.write("# Edit this file to customize Rainstorm's behavioral analysis.\n")
-            file.write("# Parameters such as trials and target_roles are set to default values, and can be edited or erased.\n")
+            file.write("# Some parameters (i.e., 'trials') are set to work with the demo data, and can be edited or erased.\n")
             for line in yaml_lines:
                 stripped_line = line.lstrip()
                 key = stripped_line.split(":")[0].strip()  # Extract key (ignores indentation)

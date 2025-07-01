@@ -1,3 +1,5 @@
+<div align="center">
+
 # **RAINSTORM**
 
 ### Real & Artificial Intelligence for Neuroscience – Simple Tracker for Object Recognition Memory
@@ -5,6 +7,8 @@
 **A complete toolkit for analyzing rodent exploratory behavior in object recognition tasks.**
 
 ![RAINSTORM Logo](examples/images/logo.png)
+
+</div>
 
 **RAINSTORM** is a Python-based tool for scoring exploratory behavior in rodents 🐭. It takes pose-estimation data (e.g., from DeepLabCut) and provides a full workflow to process, analyze, and visualize recognition memory performance, from manual labeling to AI-powered automation.
 
@@ -53,6 +57,7 @@ First, ensure you have the following software installed on your system.
 ### Setup Steps
 
 1.  **Clone the Repository**
+
     Open a terminal (or Miniconda Prompt) and run the following command.
     ```bash
     git clone https://github.com/sdhers/rainstorm.git
@@ -60,6 +65,7 @@ First, ensure you have the following software installed on your system.
     This will create a `rainstorm` folder in your current directory.
 
 2.  **Set Up the Conda Environment**
+
     Navigate into the cloned directory and create the dedicated environment from the provided file:
     ```bash
     cd rainstorm
@@ -68,6 +74,7 @@ First, ensure you have the following software installed on your system.
     Once the environment is ready, you can activate it by running `conda activate rainstorm`.
 
 3.  **Launch VS Code & Select Kernel**
+
     Launch VS Code from the terminal:
     ```bash
     code .

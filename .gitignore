@@ -15,7 +15,4 @@ dist/
 *.spec
 
 # Big files
-examples/NOR*/
-examples/colabeled_video/
-examples/models/splits/
-examples/models/trained_models/
+# examples/NOR*/

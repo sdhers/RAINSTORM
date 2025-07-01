@@ -18,6 +18,7 @@
     * [Video Handling 🎥](#video-handling-)
     * [RAINSTORM Behavioral Labeler ✍️](#rainstorm-behavioral-labeler-)
     * [The RAINSTORM Pipeline 🔬](#the-rainstorm-pipeline-)
+* [Citation 📜](#citation-)
 * [Contributing 🤝](#contributing-)
 * [Contact 📫](#contact-)
 
@@ -189,6 +190,16 @@ The core of this project is a series of Jupyter notebooks designed to guide you 
 * Generates publication-ready plots to compare behavior across different experimental groups and sessions.
 
 ![7-Seize_Labels_ts](examples/images/7-Seize_labels_ts.png)
+
+-----
+
+## Citation 📜
+
+If you use RAINSTORM in your research, please cite:
+
+D'hers et al. (2025). RAINSTORM: Automated Analysis of Mouse Exploratory Behavior using Artificial Neural Networks. *Current Protocols*. [DOI: 10.xxxx/xxxxx](https://doi.org/xxx)
+
+> Note: This repository contains open-source code independently developed and released under the MIT License. The associated scientific publication is © Wiley and subject to their copyright terms.
 
 -----
 

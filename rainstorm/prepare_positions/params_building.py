@@ -98,7 +98,8 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None, targets_p
     roi_data = load_roi_data(ROIs_path)
     filenames = collect_filenames(folder_path)
 
-    DEFAULT_MODEL_PATH = str(folder_path.parent / 'models' / 'trained_models' / 'example_wide.keras')
+    RAINSTORM_DIR = Path.cwd() # Use the default jupyter notebook directory to find the example models
+    DEFAULT_MODEL_PATH = str(RAINSTORM_DIR / 'examples' / 'models' / 'trained_models' / 'example_wide.keras')
 
     # Define base configuration
     parameters = {
@@ -110,7 +111,10 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None, targets_p
         "bodyparts": ['body', 'head', 'left_ear', 'left_hip', 'left_midside', 'left_shoulder', 'neck', 'nose', 'right_ear', 'right_hip', 'right_midside', 'right_shoulder', 'tail_base', 'tail_end', 'tail_mid'],
         "prepare_positions": {
             "confidence": 2,
-            "median_filter": 3
+            "median_filter": 3,
+            "near_dist": 4.5,
+            "far_dist": 14,
+            "max_outlier_connections": 3,
         },
         "geometric_analysis": {
             "roi_data": roi_data,
@@ -128,7 +132,7 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None, targets_p
             }
         },
         "seize_labels": {
-            "trials": ['Hab', 'TR', 'TS'],
+            "trials": None,
         }
     }
 
@@ -143,6 +147,7 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None, targets_p
                 "pivot": 'head'
             }
         }
+        parameters["seize_labels"]["trials"] = ['Hab', 'TR', 'TS']
         parameters["seize_labels"]["target_roles"] = {
             "Hab": None,
             "TR": ["Left", "Right"],
@@ -170,6 +175,9 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None, targets_p
         "prepare_positions": "# Parameters for processing positions",
         "confidence": "  # How many std_dev away from the mean the point's likelihood can be without being erased",
         "median_filter": "  # Number of frames to use for the median filter (it must be an odd number)",
+        "near_dist": "  # Maximum distance (in cm) between two connected bodyparts. In c57bl6 mice, I use half a tail length (around 4.5 cm).",
+        "far_dist": "  # Maximum distance (in cm) between any two bodyparts. In c57bl6 mice, I use whole body length (around 14 cm).",
+        "max_outlier_connections": "  # If a bodypart has more than this number of long connections, it will be dropped from the frame.",
         
         "geometric_analysis": "# Parameters for geometric analysis",
         "roi_data": "  # Loaded from ROIs.json",

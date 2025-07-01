@@ -166,7 +166,11 @@ def plot_all_individual_analyses(params_path: Path, show: bool = False):
                         continue
                     reference_row = reference_row.iloc[0]
                     
-                    novelty_targets_for_video = [reference_row.get(tgt) for tgt in targets]
+                    novelty_targets_for_video = [
+                        reference_row.get(tgt)
+                        for tgt in targets
+                        if pd.notna(reference_row.get(tgt))
+                    ]
 
                     df = pd.read_csv(summary_file_path)
                     positions_file_name = summary_file_path.name.replace('_summary.csv', '_positions.csv')
@@ -174,7 +178,7 @@ def plot_all_individual_analyses(params_path: Path, show: bool = False):
                     positions_df = pd.read_csv(positions_file_path) if positions_file_path.exists() else None
 
                     # --- Conditional Plotting based on whether targets exist for the trial ---                    
-                    if len(targets)==2: # Trial has two targets, proceed with 2x2 plot
+                    if len(novelty_targets_for_video)==2: # Trial has two targets, proceed with 2x2 plot
                         logger.info(f"Trial '{trial}' for video '{video_name_stem}' has two targets. Plotting distance, position and exploration.")
                         print(f"Trial '{trial}' for video '{video_name_stem}' has two targets. Plotting distance, position and exploration.")
                     

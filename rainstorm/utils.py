@@ -161,12 +161,20 @@ def choose_example_positions(params_path: Path, look_for: str = 'TS', suffix: st
         seize_labels = params.get("seize_labels") or {}
         common_name = find_common_name(filenames)
         trials = seize_labels.get("trials") or [common_name]
-        all_files = [
-            folder_path / trial / 'positions' / f"{file}{suffix}"
-            for trial in trials
-            for file in filenames
-            if trial in file
-        ]
+        if len(trials) == 1:
+            trial = trials[0]
+            all_files = [
+                folder_path / trial / 'positions' / f"{file}{suffix}"
+                for file in filenames
+            ]
+        else:
+            all_files = []
+            for trial in trials:
+                matching_files = [file for file in filenames if trial in file]
+                all_files.extend([
+                    folder_path / trial / 'positions' / f"{file}{suffix}"
+                    for file in matching_files
+                ])
     else:
         logger.error(f"Unsupported file suffix provided: '{suffix}'")
         print(f"Error: The suffix '{suffix}' is not supported. Please use one ending in '.h5' or '.csv'.")

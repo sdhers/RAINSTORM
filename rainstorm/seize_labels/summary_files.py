@@ -238,8 +238,6 @@ def create_summary_files(params_path: Path, overwrite: bool = False) -> Path:
         logger.error(f"Reference file '{reference_path}' not found. Please create it first using create_reference_file().")
         return summary_path
 
-    reference = pd.read_csv(reference_path)
-
     targets = params.get("targets") or []
     seize_labels = params.get("seize_labels") or {}
     label_type = seize_labels.get("label_type") or None
@@ -249,7 +247,8 @@ def create_summary_files(params_path: Path, overwrite: bool = False) -> Path:
     common_name = find_common_name(filenames)
     trials = seize_labels.get("trials") or [common_name]
 
-    logger.info(f"Summary folder '{summary_path}' created or already exists.")
+    reference = pd.read_csv(reference_path)
+    reference['Group'] = reference['Group'].fillna(common_name) # Fill NaN values in 'Group' with common_name
 
     for index, row in reference.iterrows():
         video_name = row['Video']
@@ -263,8 +262,8 @@ def create_summary_files(params_path: Path, overwrite: bool = False) -> Path:
                 break
 
         if identified_trial is None:
-            logger.error(f"Could not identify a trial for video '{video_name}' from the 'trials' list in params. Skipping video.")
-            continue
+            logger.info(f"Could not identify a trial for video '{video_name}' from the 'trials' list in params. Using '{common_name}' instead.")
+            identified_trial = common_name
 
         video_trial = identified_trial
         group_path = summary_path / group

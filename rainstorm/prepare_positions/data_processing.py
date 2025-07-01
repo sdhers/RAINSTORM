@@ -13,6 +13,7 @@ import pandas as pd
 from scipy import signal
 from typing import List
 from pathlib import Path
+from collections import Counter
 
 from ..utils import load_yaml, configure_logging
 configure_logging()
@@ -75,168 +76,129 @@ def erase_disconnected_points(
     df: pd.DataFrame,
     bodyparts: List[str],
     px_per_cm: float,
-    max_dist_cm: float,
-    max_outlier_connections: int = 0
+    dist_near_bp: float = 4.0,
+    dist_far_bp: float = 12.0,
+    max_outlier_connections: int = 0,
+    verbose: bool = False
 ) -> pd.DataFrame:
     """
-    Cleans tracking data by identifying and removing "disconnected" or outlier
-    body part coordinates within each frame.
+    Cleans tracking data by sequentially removing disconnected points.
 
-    This function operates on a frame-by-frame basis to ensure that body parts
-    are spatially coherent. It sets coordinates to NaN if:
-    1. A single body part is too far from all other valid body parts in a frame.
-    2. A body part has an excessive number of "long" connections (distances
-       greater than 4 times max_dist_cm) with other points.
+    This function operates in two sequential passes for each frame:
+    1. It first identifies and removes any body part that is too far
+       (distance > dist_near_bp) from all other valid body parts.
+    2. Then, from the REMAINING points, it removes any that have an
+       excessive number of "long" connections (> dist_far_bp).
 
     Args:
-        df (pd.DataFrame): The input DataFrame containing tracking data.
-                           Expected columns are '{bodypart_name}_x' and
-                           '{bodypart_name}_y' for each body part.
-        bodyparts (List[str]): A list of strings, where each string is the name
-                                of a body part (e.g., ['nose', 'left_ear']).
-        px_per_cm (float): The conversion factor from centimeters to pixels.
-                           (e.g., 100 pixels per 1 cm).
-        max_dist_cm (float): The maximum allowed distance in centimeters between
-                             any two body parts for them to be considered
-                             "connected" within a frame.
-        max_outlier_connections (int, optional): The maximum number of connections
-                                                 a point can have that are
-                                                 greater than 4 * max_dist_cm.
-                                                 If a point has more than this
-                                                 many "long" connections, it
-                                                 will be erased. Defaults to 0,
-                                                 meaning even one long connection
-                                                 will cause the point to be erased
-                                                 if it's the only point with that issue.
+        df (pd.DataFrame): Input DataFrame with tracking data.
+        bodyparts (List[str]): List of body part names.
+        px_per_cm (float): Pixels per centimeter conversion factor.
+        dist_near_bp (float): Maximum distance (cm) to be considered "connected".
+        dist_far_bp (float): Distance (cm) threshold to define a "long" connection.
+        max_outlier_connections (int): Max number of long connections a point
+                                       can have before being removed. Defaults to 0.
+        verbose (bool): If True, prints detailed messages about the cleaning process.
 
     Returns:
-        pd.DataFrame: A new DataFrame with disconnected body part coordinates
-                      set to NaN.
+        pd.DataFrame: A new DataFrame with cleaned coordinates set to NaN.
     """
-    # Calculate thresholds in pixels for connectivity and outlier points
-    connection_threshold_px = px_per_cm * max_dist_cm
-    # New threshold: 4 times max_dist_cm for identifying "long" connections
-    outlier_point_threshold_px = 4 * connection_threshold_px
+    connection_threshold_px = px_per_cm * dist_near_bp
+    outlier_point_threshold_px = px_per_cm * dist_far_bp
 
     num_frames = len(df)
     num_bodyparts = len(bodyparts)
 
-    # --- Data Preparation: Convert DataFrame to a NumPy array for efficiency ---
-    # Initialize a 3D NumPy array to hold coordinates: [frames, bodyparts, (x, y)]
     coords_array = np.full((num_frames, num_bodyparts, 2), np.nan)
     for i, bp in enumerate(bodyparts):
-        x_col, y_col = f"{bp}_x", f"{bp}_y"
-        coords_array[:, i, 0] = df[x_col].to_numpy()
-        coords_array[:, i, 1] = df[y_col].to_numpy()
+        coords_array[:, i, 0] = df[f"{bp}_x"].to_numpy()
+        coords_array[:, i, 1] = df[f"{bp}_y"].to_numpy()
 
-    # Create a boolean mask indicating which coordinates are NOT NaN (i.e., valid)
-    # Shape: [num_frames, num_bodyparts]
     initial_valid_mask = ~np.isnan(coords_array).any(axis=2)
-    # This mask will be modified to mark points to be kept after cleaning
     keep_mask = initial_valid_mask.copy()
 
-    # Loggers for tracking dropped points
-    dropped_individual_points_log = [] # Stores (frame_idx, bodypart_name)
+    dropped_isolated = Counter()
+    dropped_long_connections = Counter()
 
-    # --- Frame-by-Frame Processing ---
     for frame_idx in range(num_frames):
-        current_frame_coords = coords_array[frame_idx] # Coordinates for all bodyparts in current frame
-        frame_validity_mask = initial_valid_mask[frame_idx] # Validity for bodyparts in current frame
+        current_frame_coords = coords_array[frame_idx]
+        frame_validity_mask = initial_valid_mask[frame_idx]
 
-        # Skip frame if fewer than 2 valid body parts are present (no comparisons possible)
         if frame_validity_mask.sum() < 2:
             continue
 
-        # Get coordinates only for body parts present in this frame
-        present_bodypart_coords = current_frame_coords[frame_validity_mask] # Shape: [num_valid_bps, 2]
+        present_bodypart_coords = current_frame_coords[frame_validity_mask]
+        current_frame_valid_indices = np.where(frame_validity_mask)[0]
+        bodyparts_to_drop_in_frame = set()
 
-        # Calculate pairwise Euclidean distances between all present body parts in the frame
-        # Resulting shape: [num_valid_bps, num_valid_bps]
         pairwise_distances_px = np.linalg.norm(
             present_bodypart_coords[:, None, :] - present_bodypart_coords[None, :, :],
             axis=2
         )
 
-        # Get the original indices (within the 'bodyparts' list) of valid body parts
-        current_frame_valid_indices = np.where(frame_validity_mask)[0]
-
-        # Collect all body part indices to be dropped in this frame
-        bodyparts_to_drop_in_frame = set()
-
-        # --- Condition 1: Identify and Mark Individual Disconnected Body Parts (too far from ALL others) ---
-        # `is_connected_within_threshold` is True if distance <= connection_threshold_px
-        # We exclude self-comparisons (diagonal elements)
+        # --- STEP 1: Identify and flag ISOLATED points ---
         is_connected_within_threshold = (pairwise_distances_px <= connection_threshold_px) & \
                                         (~np.eye(len(pairwise_distances_px), dtype=bool))
-
-        # `has_any_connection` is True if a body part is connected to at least one other within threshold
         has_any_connection = is_connected_within_threshold.any(axis=1)
+        
+        # Get local indices of isolated points (i.e., those with no connections)
+        isolated_indices_local = np.where(~has_any_connection)[0]
+        for local_idx in isolated_indices_local:
+            bp_index = current_frame_valid_indices[local_idx]
+            bodyparts_to_drop_in_frame.add(bp_index)
+            dropped_isolated[bodyparts[bp_index]] += 1
 
-        # Identify indices of body parts that are NOT connected to any other valid body part
-        isolated_bodypart_indices_local = [
-            bp_present_idx for bp_present_idx, connected in enumerate(has_any_connection)
-            if not connected
-        ]
-        # Map local indices back to original bodypart indices
-        for local_idx in isolated_bodypart_indices_local:
-            bodyparts_to_drop_in_frame.add(current_frame_valid_indices[local_idx])
+        # --- STEP 2: On REMAINING points, check for long connections ---
+        # `has_any_connection` is the mask for points that are NOT isolated
+        remaining_indices_local = np.where(has_any_connection)[0]
 
+        # Only proceed if there are enough points left for a meaningful check
+        if len(remaining_indices_local) >= 2:
+            # Filter the distance matrix to only include the remaining, connected points
+            remaining_distances_px = pairwise_distances_px[np.ix_(remaining_indices_local, remaining_indices_local)]
+            is_long_connection = (remaining_distances_px > outlier_point_threshold_px) & \
+                                 (~np.eye(len(remaining_distances_px), dtype=bool))
+            
+            num_long_connections_per_bp = is_long_connection.sum(axis=1)
+            excessive_indices_in_subset = np.where(num_long_connections_per_bp > max_outlier_connections)[0]
+            
+            original_indices_to_drop = remaining_indices_local[excessive_indices_in_subset]
+            for local_idx in original_indices_to_drop:
+                bp_index = current_frame_valid_indices[local_idx]
+                bodyparts_to_drop_in_frame.add(bp_index)
+                dropped_long_connections[bodyparts[bp_index]] += 1
 
-        # --- Condition 2: Identify and Mark Body Parts with Excessive "Long" Connections ---
-        # `is_long_connection` is True if distance > outlier_point_threshold_px
-        is_long_connection = (pairwise_distances_px > outlier_point_threshold_px) & \
-                             (~np.eye(len(pairwise_distances_px), dtype=bool))
-
-        # Count how many "long" connections each present body part has
-        num_long_connections_per_bp = is_long_connection.sum(axis=1)
-
-        # Identify indices of body parts that have more "long" connections than allowed
-        excessive_long_connection_indices_local = [
-            bp_present_idx for bp_present_idx, count in enumerate(num_long_connections_per_bp)
-            if count > max_outlier_connections
-        ]
-        # Map local indices back to original bodypart indices
-        for local_idx in excessive_long_connection_indices_local:
-            bodyparts_to_drop_in_frame.add(current_frame_valid_indices[local_idx])
-
-        # --- Apply collected drops for the current frame ---
+        # Apply all collected drops for the current frame
         for bp_idx_to_drop in bodyparts_to_drop_in_frame:
-            keep_mask[frame_idx, bp_idx_to_drop] = False
-            dropped_individual_points_log.append((frame_idx, bodyparts[bp_idx_to_drop]))
+            if keep_mask[frame_idx, bp_idx_to_drop]: # Avoid double logging
+                keep_mask[frame_idx, bp_idx_to_drop] = False
 
-
-    # --- Apply the final `keep_mask` to the coordinates array ---
-    # Set all coordinates marked as False in `keep_mask` to NaN
+    # Apply the final mask and create the output DataFrame
     coords_array[~keep_mask] = np.nan
-
-    # --- Create and Populate the Output DataFrame ---
     df_output = df.copy()
     for i, bp in enumerate(bodyparts):
         df_output[f"{bp}_x"] = coords_array[:, i, 0]
         df_output[f"{bp}_y"] = coords_array[:, i, 1]
 
-    # --- Logging Summary ---
-    logger.info(f"Summary of cleaning process:")
-    unique_frames = {frame for frame, _ in dropped_individual_points_log}
-    logger.info(f"  - Affected frames: {len(unique_frames)}")
-    logger.info(f"  - Individual disconnected points removed: {len(dropped_individual_points_log)}")
-    if dropped_individual_points_log:
-        summary_df = pd.DataFrame(dropped_individual_points_log, columns=["frame", "bodypart"])
-        logger.debug("  Examples of individual dropped points (first 10):\n" + summary_df.head(10).to_string(index=False))
+    logger.info("\n=== Cleaning Summary ===")
+    logger.info(f"{'Body Part':<20} | {'Isolated':>9} | {'Long Conn.':>11}")
+    logger.info("-" * 45)
+    for bp in bodyparts:
+        iso = dropped_isolated.get(bp, 0)
+        long = dropped_long_connections.get(bp, 0)
+        logger.info(f"{bp:<20} | {iso:>9} | {long:>11}")
+    logger.info("=" * 45 + "\n")
 
-    # --- Logging Summary ---
-    print(f"Summary of cleaning process:")
-    unique_frames = {frame for frame, _ in dropped_individual_points_log}
-    print(f"  - Affected frames: {len(unique_frames)}")
-    print(f"  - Individual disconnected points removed: {len(dropped_individual_points_log)}")
-
-    # Count how many times each bodypart was dropped
-    from collections import Counter
-    drop_counts = Counter(bp for _, bp in dropped_individual_points_log)
-
-    print("  - Drop count per bodypart:")
-    for bp, count in drop_counts.items():
-        print(f"    {bp} -> {count}")
+    if verbose:
+        total_dropped = sum(dropped_isolated.values()) + sum(dropped_long_connections.values())
+        print(f"Total points dropped: {total_dropped}")
+        print(f"{'Body Part':<20} | {'Isolated':>9} | {'Long Conn.':>11}")
+        print("-" * 45)
+        for bp in bodyparts:
+            iso = dropped_isolated.get(bp, 0)
+            long = dropped_long_connections.get(bp, 0)
+            print(f"{bp:<20} | {iso:>9} | {long:>11}")
+        print("=" * 45 + "\n")
 
     return df_output
 
@@ -266,7 +228,7 @@ def _smooth_series(series: pd.Series, median_window: int, gauss_kernel: np.ndarr
     # Re‐assemble as Series using the original index
     return pd.Series(smoothed, index=idx)
 
-def filter_and_smooth_df(params_path: Path, df_raw: pd.DataFrame) -> pd.DataFrame:
+def filter_and_smooth_df(params_path: Path, df_raw: pd.DataFrame, verbose: bool = False) -> pd.DataFrame:
     """
     Filters out low likelihood points and smooths coordinates.
 
@@ -281,6 +243,7 @@ def filter_and_smooth_df(params_path: Path, df_raw: pd.DataFrame) -> pd.DataFram
     Args:
         params_path (Path): Path to YAML config.
         df_raw (pd.DataFrame): Raw tracking DataFrame.
+        verbose (bool): If True, prints detailed messages about the processing steps.
 
     Returns:
         pd.DataFrame: Cleaned & smoothed coordinates.
@@ -294,11 +257,13 @@ def filter_and_smooth_df(params_path: Path, df_raw: pd.DataFrame) -> pd.DataFram
     prep = params.get("prepare_positions") or {}
     num_sd: float = prep.get("confidence") or 2
     med_window: int = prep.get("median_filter") or 3
+    near_dist: float = prep.get("near_dist") or 4
+    far_dist: float = prep.get("far_dist") or 12
+    max_outlier_connections: int = prep.get("max_outlier_connections") or 3
 
     geom_params = params.get("geometric_analysis") or {}
     roi_data = geom_params.get("roi_data") or {}
     scale = roi_data.get("scale") or 1
-    max_dist = 4 # cm
 
     # Ensure median window is odd
     if med_window % 2 == 0:
@@ -328,7 +293,7 @@ def filter_and_smooth_df(params_path: Path, df_raw: pd.DataFrame) -> pd.DataFram
         df.loc[mask, [xcol, ycol]] = np.nan
 
     # Remove spatially disconnected points
-    df = erase_disconnected_points(df, bodyparts, px_per_cm=scale, max_dist_cm=max_dist, max_outlier_connections=2)
+    df = erase_disconnected_points(df, bodyparts, px_per_cm=scale, dist_near_bp=near_dist, dist_far_bp=far_dist, max_outlier_connections=max_outlier_connections, verbose=verbose)
 
     # Find first frame where all bodyparts are present
     presence_matrix = np.array([(~df[f"{bp}_x"].isna() & ~df[f"{bp}_y"].isna()).to_numpy() for bp in bodyparts]).T  # shape: [frames, bodyparts]
@@ -337,7 +302,7 @@ def filter_and_smooth_df(params_path: Path, df_raw: pd.DataFrame) -> pd.DataFram
     all_present = presence_matrix.all(axis=1)
     first_valid_frame = np.argmax(all_present) if all_present.any() else len(df)
 
-    if first_valid_frame > 0:
+    if first_valid_frame != len(df):
         logger.info(f"First complete frame with all bodyparts: {first_valid_frame}")
         
         # Mask all previous frames, and smooth each bodypart

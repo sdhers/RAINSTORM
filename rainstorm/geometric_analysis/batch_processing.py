@@ -26,28 +26,35 @@ def batch_process_positions(params_path: Path, roi_bp: str = 'body', nose_bp: st
     folder_path = Path(params.get("path"))
     filenames = params.get("filenames") or []
     seize_labels = params.get("seize_labels") or {}
-    trials = seize_labels.get("trials") or [find_common_name(filenames)]
-
-    logger.info(f"Starting processing positions in {folder_path}...")
-    print(f"Starting processing positions in {folder_path}...")
+    common_name = find_common_name(filenames)
+    trials = seize_labels.get("trials") or [common_name]
 
     # Construct the list of files to process
     files_to_process = []
-    for trial in trials:
-        for fname_stem in filenames: # fname_stem is the base filename without '_positions'
-            if trial in fname_stem: # Ensure the trial name is part of the filename, as per user's logic
-                file_path = folder_path / trial / 'positions' / f'{fname_stem}_positions.csv'
-                if file_path.is_file(): # Check if it's an existing file
-                    files_to_process.append(file_path)
-                else:
-                    logger.warning(f"File not found or is not a file: {file_path}")
+    if len(trials) == 1:
+        trial = trials[0]
+        for fname_stem in filenames:
+            file_path = folder_path / trial / 'positions' / f'{fname_stem}_positions.csv'
+            if file_path.is_file():
+                files_to_process.append(file_path)
             else:
-                logger.debug(f"Skipping filename '{fname_stem}' for trial '{trial}' as trial name not in filename.")
-
+                logger.warning(f"File not found: {file_path}")
+    else:
+        for trial in trials:
+            for fname_stem in filenames:
+                if trial in fname_stem:
+                    file_path = folder_path / trial / 'positions' / f'{fname_stem}_positions.csv'
+                    if file_path.is_file():
+                        files_to_process.append(file_path)
+                    else:
+                        logger.warning(f"File not found: {file_path}")
 
     if not files_to_process:
         logger.warning("No tracking files found matching the criteria. Exiting processing.")
         return
+    
+    logger.info(f"Starting processing positions in {folder_path}...")
+    print(f"Starting processing positions in {folder_path}...")
 
     for file_path in files_to_process:
         logger.info(f"Processing {file_path.name}...")

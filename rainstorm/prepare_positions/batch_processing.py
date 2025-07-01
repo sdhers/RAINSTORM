@@ -13,7 +13,7 @@ from pathlib import Path
 # Import functions from other modules
 from .data_loading import open_h5_file
 from .data_processing import add_targets, filter_and_smooth_df
-from .utils import load_yaml, configure_logging
+from ..utils import load_yaml, configure_logging
 configure_logging()
 
 # Logging setup
@@ -39,8 +39,8 @@ def process_position_files(params_path: Path, targetless_trials: Optional[List[s
 
     params = load_yaml(params_path)
     folder = Path(params.get("path"))
-    fps = params.get("fps", 1)
-    filenames = params.get("filenames", [])
+    fps = params.get("fps") or 30
+    filenames = params.get("filenames") or []
 
     for file in filenames:
         h5_file_path = folder / f"{file}_positions.h5"

@@ -11,7 +11,7 @@ import shutil
 import stat
 from pathlib import Path
 
-from .utils import load_yaml, configure_logging
+from ..utils import configure_logging, load_yaml, find_common_name
 configure_logging()
 
 logger = logging.getLogger(__name__)
@@ -127,56 +127,66 @@ def rename_files(folder_path: Path, old_substring: str, new_substring: str):
 
 def filter_and_move_files(params_path: Path, trials_subfolder: str = "positions", h5_subfolder: str = "h5_files"):
     """
-    Filters CSVs by trial name into per-trial subfolders, and moves all .h5 files into an archive subfolder.
+    Filters CSVs into subfolders. If trials are defined, it sorts them into
+    per-trial subfolders. If no trials are defined, it groups all CSVs into
+    a single folder named after their common filename prefix.
+    It also moves all .h5 files into a separate archive subfolder.
 
     Args:
         params_path (Path): Path to the YAML parameters file.
-        trials_subfolder (str): Name of the subfolder under each trial to store CSVs.
-        h5_subfolder (str): Name of the subfolder under the main folder to store .h5 files.
+        trials_subfolder (str): Name of the subfolder to store CSVs.
+        h5_subfolder (str): Name of the subfolder to store .h5 files.
     """
     params = load_yaml(params_path)
     folder_path = Path(params.get("path"))
-    trials = params.get("seize_labels", {}).get("trials", [])
+    filenames = params.get("filenames") or []
+    seize_labels = params.get("seize_labels") or {}
+    common_name = find_common_name(filenames)
+    trials = seize_labels.get("trials") or [common_name]
 
-    if not folder_path.is_dir():
-        logger.error(f"Invalid folder path in params: '{folder_path}'")
-        print(f"Error: Invalid folder path in params: '{folder_path}'.")
-        return {}
+    if not folder_path or not folder_path.is_dir():
+        logging.error(f"Invalid folder path in params: '{folder_path}'")
+        print(f"Error: Invalid folder path specified: '{folder_path}'.")
+        return
 
-    # Move CSVs into trial-specific subfolders
+    all_csvs = list(folder_path.glob("*.csv"))
+    all_h5s = list(folder_path.glob("*.h5"))
+    
+    # --- Process CSV files ---
     for trial in trials:
         dest_dir = folder_path / trial / trials_subfolder
         dest_dir.mkdir(parents=True, exist_ok=True)
         print(f"Ensuring directory exists: '{dest_dir}'")
-
-        for fname in folder_path.iterdir():
-            if fname.is_file() and fname.suffix.lower() == ".csv" and trial in fname.name:
-                src = fname
-                dst = dest_dir / fname.name
+        
+        for src_path in all_csvs:
+            if trial in src_path.name or trial == common_name:
+                dst_path = dest_dir / src_path.name
                 try:
-                    shutil.move(src, dst)
-                    logger.info(f"Moved CSV '{fname.name}' → '{trial}/{trials_subfolder}/'")
-                    print(f"Moved CSV '{fname.name}' → '{trial}/{trials_subfolder}/'")
+                    shutil.move(str(src_path), str(dst_path))
+                    logging.info(f"Moved CSV '{src_path.name}' -> '{trial}/{trials_subfolder}/'")
+                    print(f"Moved CSV '{src_path.name}' -> '{trial}/{trials_subfolder}/'")
                 except Exception as e:
-                    logger.error(f"Failed to move '{src}' → '{dst}': {e}")
-                    print(f"Error moving '{src}': {e}")
+                    logging.error(f"Failed to move '{src_path}' -> '{dst_path}': {e}")
+                    print(f"Error moving '{src_path}': {e}")
 
-    # Archive all remaining .h5 files
-    h5_archive_dir = folder_path / h5_subfolder
-    h5_archive_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Ensuring H5 archive directory exists: '{h5_archive_dir}'")
+    # --- Archive all .h5 files ---
+    if all_h5s:
+        h5_archive_dir = folder_path / h5_subfolder
+        h5_archive_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Archiving .h5 files into: '{h5_archive_dir}'")
 
-    for fname in folder_path.iterdir():
-        if fname.is_file() and fname.suffix.lower() == ".h5":
-            src = fname
-            dst = h5_archive_dir / fname.name
+        for src_path in all_h5s:
+            dst_path = h5_archive_dir / src_path.name
             try:
-                shutil.move(src, dst)
-                logger.info(f"Archived H5 '{fname.name}' → '{h5_subfolder}/'")
-                print(f"Archived H5 '{fname.name}' → '{h5_subfolder}/'")
+                shutil.move(str(src_path), str(dst_path))
+                logging.info(f"Archived H5 '{src_path.name}' -> '{h5_subfolder}/'")
+                print(f"Archived H5 '{src_path.name}' -> '{h5_subfolder}/'")
             except Exception as e:
-                logger.error(f"Failed to archive '{src}' → '{dst}': {e}")
-                print(f"Error archiving '{src}': {e}")
+                logging.error(f"Failed to archive '{src_path}' -> '{dst_path}': {e}")
+                print(f"Error archiving '{src_path}': {e}")
+    else:
+        print("No .h5 files found to archive.")
+        logging.info("No .h5 files found in the directory to archive.")
 
-    print("File filtering and moving complete.")
-    logger.info("File filtering and moving complete.")
+    print("\nFile filtering and moving complete.")
+    logging.info("File filtering and moving complete.")

@@ -4,7 +4,7 @@ from glob import glob
 import pandas as pd
 import csv
 
-from .utils import load_yaml, configure_logging
+from ..utils import configure_logging, load_yaml, find_common_name
 configure_logging()
 logger = logging.getLogger(__name__)
 
@@ -23,14 +23,16 @@ def create_reference_file(params_path: Path, overwrite: bool = False) -> Path:
     """
     params = load_yaml(params_path)
     folder = Path(params.get("path"))
-    targets = params.get("targets", [])
-    seize_labels = params.get("seize_labels", {})
-    trials = seize_labels.get("trials", [])
+    filenames = params.get("filenames") or []
+    targets = params.get("targets") or []
+    seize_labels = params.get("seize_labels") or {}
+    common_name = find_common_name(filenames)
+    trials = seize_labels.get("trials") or [common_name]
 
     # Get ROI area names from geometric_analysis parameters and add a '_roi' suffix
-    geometric_analysis = params.get("geometric_analysis", {})
-    roi_data = geometric_analysis.get("roi_data", {})
-    areas = roi_data.get("areas", [])
+    geometric_analysis = params.get("geometric_analysis") or {}
+    roi_data = geometric_analysis.get("roi_data") or {}
+    areas = roi_data.get("areas") or []
     roi_area_names = [f"{area['name']}_roi" for area in areas if "name" in area] # Add _roi suffix here
 
     reference_path = folder / 'reference.csv'
@@ -75,7 +77,6 @@ def create_reference_file(params_path: Path, overwrite: bool = False) -> Path:
 
 def _process_and_save_summary_file(
     video_name: str,
-    group: str,
     trial: str,
     label_type: str,
     targets: list,
@@ -91,7 +92,6 @@ def _process_and_save_summary_file(
 
     Parameters:
         video_name (str): Name of the video.
-        group (str): Group name.
         trial (str): Trial name.
         label_type (str): Type of label (e.g., 'labels', 'geolabels').
         targets (list): List of target names for label column renaming.
@@ -124,46 +124,48 @@ def _process_and_save_summary_file(
     selected_movement_cols = ['Frame', 'movement', 'freezing'] + [col for col in df_movement.columns if col.endswith('_dist')]
     df = df_movement[selected_movement_cols].copy()
 
+    if label_type:
+        # --- Load and merge label data ---
+        label_path = folder / trial / label_type / f'{video_name}_{label_type}.csv'
+        if label_path.exists():
+            df_label = pd.read_csv(label_path)
 
-    # --- Load and merge label data ---
-    label_path = folder / trial / label_type / f'{video_name}_{label_type}.csv'
-    if label_path.exists():
-        df_label = pd.read_csv(label_path)
+            # Ensure 'Frame' column exists in df_label
+            if 'Frame' not in df_label.columns and not df_label.index.name == 'Frame':
+                df_label.insert(0, "Frame", df_label.index + 1)
+                logger.info(f"Created 'Frame' column from index for label file: '{label_path}'.")
 
-        # Ensure 'Frame' column exists in df_label
-        if 'Frame' not in df_label.columns and not df_label.index.name == 'Frame':
-            df_label.insert(0, "Frame", df_label.index + 1)
-            logger.info(f"Created 'Frame' column from index for label file: '{label_path}'.")
-
-        # Check for Frame column consistency
-        if not df_label['Frame'].equals(df['Frame']):
-            logger.warning(f"Frame columns in label file '{label_path}' and movement file do not match. Skipping label data merge for '{video_name}'.")
-        else:
-            # Process and rename label columns with _{label_type} suffix
-            renamed_label_cols = {}
-            for col in df_label.columns:
-                # Check if the column is one of the 'targets' from params
-                if col in targets:
-                    new_target_name = reference_row.get(col)
-                    if pd.notna(new_target_name) and new_target_name != '':
-                        renamed_label_cols[col] = f"{new_target_name}_{label_type}" # Add suffix
+            # Check for Frame column consistency
+            if not df_label['Frame'].equals(df['Frame']):
+                logger.warning(f"Frame columns in label file '{label_path}' and movement file do not match. Skipping label data merge for '{video_name}'.")
+            else:
+                # Process and rename label columns with _{label_type} suffix
+                renamed_label_cols = {}
+                for col in df_label.columns:
+                    # Check if the column is one of the 'targets' from params
+                    if col in targets:
+                        new_target_name = reference_row.get(col)
+                        if pd.notna(new_target_name) and new_target_name != '':
+                            renamed_label_cols[col] = f"{new_target_name}_{label_type}" # Add suffix
+                        else:
+                            logger.info(f"Target '{col}' in reference.csv is empty for video '{video_name}'. Skipping rename for this target and adding {label_type} suffix.")
+                            renamed_label_cols[col] = f"{col}_{label_type}" # Still add suffix even if original name is used
                     else:
-                        logger.info(f"Target '{col}' in reference.csv is empty for video '{video_name}'. Skipping rename for this target and adding {label_type} suffix.")
-                        renamed_label_cols[col] = f"{col}_{label_type}" # Still add suffix even if original name is used
-                else:
-                    renamed_label_cols[col] = col # Keep 'Frame' and non target columns as is
+                        renamed_label_cols[col] = col # Keep 'Frame' and non target columns as is
 
-            df_label = df_label.rename(columns=renamed_label_cols)
-            # Only merge selected label columns (Frame and the renamed ones)
-            cols_to_merge = ['Frame'] + [c for c in renamed_label_cols.values() if c != 'Frame']
-            df = pd.merge(df, df_label[cols_to_merge], on='Frame', how='left')
+                df_label = df_label.rename(columns=renamed_label_cols)
+                # Only merge selected label columns (Frame and the renamed ones)
+                cols_to_merge = ['Frame'] + [c for c in renamed_label_cols.values() if c != 'Frame']
+                df = pd.merge(df, df_label[cols_to_merge], on='Frame', how='left')
+        else:
+            logger.warning(f"Label file '{label_path}' not found. No label data will be used for '{video_name}'.")
     else:
-        logger.warning(f"Label file '{label_path}' not found. No label data will be used for '{video_name}'.")
+        logger.info(f"label_type not found on params. Skipping label data merge for '{video_name}'.")
 
     # --- Add Location column ---
-    geometric_analysis = params.get("geometric_analysis", {})
-    roi_data = geometric_analysis.get("roi_data", {})
-    areas = roi_data.get("areas", [])
+    geometric_analysis = params.get("geometric_analysis") or {}
+    roi_data = geometric_analysis.get("roi_data") or {}
+    areas = roi_data.get("areas") or []
 
     roi_activity_path = folder / trial / 'roi_activity' / f'{video_name}_roi_activity.csv'
 
@@ -236,14 +238,17 @@ def create_summary_files(params_path: Path, overwrite: bool = False) -> Path:
         logger.error(f"Reference file '{reference_path}' not found. Please create it first using create_reference_file().")
         return summary_path
 
+    targets = params.get("targets") or []
+    seize_labels = params.get("seize_labels") or {}
+    label_type = seize_labels.get("label_type") or None
+    if not label_type:
+        print("Label type not defined on params file, label data will be missing.")
+    filenames = params.get("filenames") or []
+    common_name = find_common_name(filenames)
+    trials = seize_labels.get("trials") or [common_name]
+
     reference = pd.read_csv(reference_path)
-
-    targets = params.get("targets", [])
-    seize_labels = params.get("seize_labels", {})
-    label_type = seize_labels.get("label_type", "labels")
-    trials_from_params = seize_labels.get("trials", []) # Get the list of trials from params
-
-    logger.info(f"Summary folder '{summary_path}' created or already exists.")
+    reference['Group'] = reference['Group'].fillna(common_name) # Fill NaN values in 'Group' with common_name
 
     for index, row in reference.iterrows():
         video_name = row['Video']
@@ -251,14 +256,14 @@ def create_summary_files(params_path: Path, overwrite: bool = False) -> Path:
 
         # --- Robust trial identification ---
         identified_trial = None
-        for t in trials_from_params:
+        for t in trials:
             if t in str(video_name):
                 identified_trial = t
                 break
 
         if identified_trial is None:
-            logger.error(f"Could not identify a trial for video '{video_name}' from the 'trials' list in params. Skipping video.")
-            continue
+            logger.info(f"Could not identify a trial for video '{video_name}' from the 'trials' list in params. Using '{common_name}' instead.")
+            identified_trial = common_name
 
         video_trial = identified_trial
         group_path = summary_path / group
@@ -266,7 +271,7 @@ def create_summary_files(params_path: Path, overwrite: bool = False) -> Path:
 
         try:
             _process_and_save_summary_file( # Pass overwrite parameter to helper
-                video_name, group, video_trial,
+                video_name, video_trial,
                 label_type, targets, folder, group_path, row, params,
                 overwrite_individual_file=overwrite
             )

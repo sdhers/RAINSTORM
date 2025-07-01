@@ -11,7 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from pathlib import Path
 
-from .utils import load_yaml, configure_logging
+from ..utils import load_yaml, configure_logging
 configure_logging()
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,8 @@ def plot_raw_vs_smooth(params_path: Path, df_raw: pd.DataFrame, df_smooth: pd.Da
     """
     # Load parameters
     params = load_yaml(params_path)
-    num_sd = params.get("prepare_positions", {}).get("confidence", 2)
+    prep = params.get("prepare_positions") or {}
+    num_sd: float = prep.get("confidence") or 2
     mean = df_raw[f'{bodypart}_likelihood'].mean()
     std_dev = df_raw[f'{bodypart}_likelihood'].std()
         

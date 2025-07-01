@@ -5,10 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_rgb, to_hex, rgb_to_hsv, hsv_to_rgb
 
-from .geometric_classes import Point, Vector
 from .calculate_index import calculate_cumsum, calculate_DI
-from .utils import load_yaml, configure_logging
-
+from ..geometric_classes import Point, Vector
+from ..utils import configure_logging, load_yaml, find_common_name
 configure_logging()
 logger = logging.getLogger(__name__)
 
@@ -108,41 +107,48 @@ def plot_all_individual_analyses(params_path: Path, show: bool = False):
         base_path = Path(params.get("path"))
         reference_df = pd.read_csv(base_path / 'reference.csv')
         
-        fps = params.get("fps", 30)
-        targets = params.get("targets", [])
+        fps = params.get("fps") or 30
+        targets = params.get("targets") or []
         
-        geo_params = params.get("geometric_analysis", {})
-        scale = geo_params.get("roi_data", {}).get("scale", 1.0)
-        max_dist = geo_params.get("distance", 2.5)
-        orientation = geo_params.get("orientation", {})
-        max_angle = orientation.get("degree", 45)
-        front = orientation.get("front", 'nose')
-        pivot = orientation.get("pivot", 'head')
-        
-        seize_labels = params.get("seize_labels", {})
-        groups = seize_labels.get("groups", [])
-        trials = seize_labels.get("trials", [])
-        label_type = seize_labels.get("label_type", "labels")
+        geo_params = params.get("geometric_analysis") or {}
+        roi_data = geo_params.get("roi_data") or {}
+        scale = roi_data.get("scale") or 1
 
-        # Dynamically generate a color map for all possible target roles
-        all_roles = set()
-        if 'target_roles' in seize_labels:
-            for trial_roles_list in seize_labels['target_roles'].values():
-                if trial_roles_list:
-                    all_roles.update(trial_roles_list)
+        target_exp = geo_params.get("target_exploration") or {}
+        max_dist = target_exp.get("distance") or 2.5
+        orientation = target_exp.get("orientation") or {}
+        max_angle = orientation.get("degree") or 45
+        front = orientation.get("front") or 'nose'
+        pivot = orientation.get("pivot") or 'head'
         
-        unique_roles = sorted(list(all_roles))
-        num_roles = len(unique_roles)
-        start_hue = 210 / 360.0
-        hue_step = (1 / num_roles) if num_roles > 0 else 0
-        role_color_map = {
-            role: to_hex(hsv_to_rgb(((start_hue + i * hue_step) % 1.0, 0.85, 0.8)))
-            for i, role in enumerate(unique_roles)
-        }
+        seize_labels = params.get("seize_labels") or {}
+        filenames = params.get("filenames") or []
+        common_name = find_common_name(filenames)
+        trials = seize_labels.get("trials") or [common_name]
+        label_type = seize_labels.get("label_type") or None
+
+        summary_path = base_path / "summary"
+        groups = [item.name for item in summary_path.iterdir() if item.is_dir()]
 
     except Exception as e:
         logger.error(f"Error loading or parsing parameters from {params_path}: {e}")
         raise
+
+    # Dynamically generate a color map for all possible target roles
+    all_roles = set()
+    if 'target_roles' in seize_labels:
+        for trial_roles_list in seize_labels['target_roles'].values():
+            if trial_roles_list:
+                all_roles.update(trial_roles_list)
+    
+    unique_roles = sorted(list(all_roles))
+    num_roles = len(unique_roles)
+    start_hue = 210 / 360.0
+    hue_step = (1 / num_roles) if num_roles > 0 else 0
+    role_color_map = {
+        role: to_hex(hsv_to_rgb(((start_hue + i * hue_step) % 1.0, 0.85, 0.8)))
+        for i, role in enumerate(unique_roles)
+    }
 
     for group in groups:
         for trial in trials:
@@ -160,31 +166,22 @@ def plot_all_individual_analyses(params_path: Path, show: bool = False):
                         continue
                     reference_row = reference_row.iloc[0]
                     
-                    novelty_targets_for_video = [reference_row.get(tgt) for tgt in targets]
+                    novelty_targets_for_video = [
+                        reference_row.get(tgt)
+                        for tgt in targets
+                        if pd.notna(reference_row.get(tgt))
+                    ]
 
                     df = pd.read_csv(summary_file_path)
                     positions_file_name = summary_file_path.name.replace('_summary.csv', '_positions.csv')
                     positions_file_path = base_path / trial / 'positions' / positions_file_name
                     positions_df = pd.read_csv(positions_file_path) if positions_file_path.exists() else None
 
-                    # --- Conditional Plotting based on whether targets exist for the trial ---
-                    if any(pd.isna(t) or not isinstance(t, str) or t.strip() == '' for t in novelty_targets_for_video):
-                        logger.info(f"Trial '{trial}' for video '{video_name_stem}' has no targets. Plotting distance and position.")
-                        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-                        
-                        df['nose_dist_cumsum'] = df['nose_dist'].cumsum()
-                        df['body_dist_cumsum'] = df['body_dist'].cumsum()
-                        df['Time'] = df['Frame'] / fps
-                        
-                        _plot_distance_covered(df, axes[0])
-                        
-                        if positions_df is not None:
-                            nose, _, _, _, _ = _extract_positions(positions_df, scale, [], max_angle, max_dist, front, pivot)
-                            _plot_positions(nose, np.array([]), np.array([]), None, None, max_dist, [], axes[1])
-
-                        plt.suptitle(f"Analysis of {video_name_stem}: Group {group}, Trial {trial}", y=0.98)
-                    else:
-                        # Trial has targets, proceed with 2x2 plot
+                    # --- Conditional Plotting based on whether targets exist for the trial ---                    
+                    if len(novelty_targets_for_video)==2: # Trial has two targets, proceed with 2x2 plot
+                        logger.info(f"Trial '{trial}' for video '{video_name_stem}' has two targets. Plotting distance, position and exploration.")
+                        print(f"Trial '{trial}' for video '{video_name_stem}' has two targets. Plotting distance, position and exploration.")
+                    
                         full_target_names_for_calc = [f'{t}_{label_type}' for t in novelty_targets_for_video]
                         
                         df = calculate_cumsum(df, full_target_names_for_calc)
@@ -209,6 +206,24 @@ def plot_all_individual_analyses(params_path: Path, show: bool = False):
                             _plot_positions(nose, towards1, towards2, tgt1, tgt2, max_dist, ordered_colors, axes[1, 1])
 
                         plt.suptitle(f"Analysis of {video_name_stem}: Group {group}, Trial {trial}", y=0.98)
+                    
+                    else:
+                        logger.info(f"Trial '{trial}' for video '{video_name_stem}' does not have two targets. Plotting distance and position.")
+                        print(f"Trial '{trial}' for video '{video_name_stem}' does not have two targets. Plotting distance and position.")
+
+                        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+                        
+                        df['nose_dist_cumsum'] = df['nose_dist'].cumsum()
+                        df['body_dist_cumsum'] = df['body_dist'].cumsum()
+                        df['Time'] = df['Frame'] / fps
+                        
+                        _plot_distance_covered(df, axes[0])
+                        
+                        if positions_df is not None:
+                            nose, _, _, _, _ = _extract_positions(positions_df, scale, [], max_angle, max_dist, front, pivot)
+                            _plot_positions(nose, np.array([]), np.array([]), None, None, max_dist, [], axes[1])
+
+                        plt.suptitle(f"Analysis of {video_name_stem}: Group {group}, Trial {trial}", y=0.98)
 
                     # --- Saving and Display ---
                     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
@@ -226,3 +241,6 @@ def plot_all_individual_analyses(params_path: Path, show: bool = False):
 
                 except Exception as e:
                     logger.error(f"Failed to process and plot {summary_file_path.name}: {e}", exc_info=True)
+    
+    logger.info(f'Finished individual plotting. Individual plots saved: {plots_folder}')
+    print(f'Finished individual plotting. Individual plots saved: {plots_folder}')

@@ -11,9 +11,8 @@ from typing import Dict
 import logging
 import yaml
 
-from .utils import configure_logging
+from ..utils import configure_logging
 configure_logging()
-
 logger = logging.getLogger(__name__)
 
 # %% Modeling File Configuration
@@ -78,19 +77,20 @@ def _modeling_comments() -> Dict[str, str]:
         "patience": "  # Number of epochs to wait before early stopping"
     }
 
-def create_modeling(folder_path: Path) -> Path:
+def create_modeling(folder_path: Path, overwrite: bool = False) -> Path:
     """
     Creates a modeling.yaml file with a default configuration and explanatory comments.
 
     Args:
         folder_path (Path): Directory where modeling.yaml will be saved.
+        overwrite (bool): If True, overwrite existing modeling.yaml. Default is False.
     
     Returns:
         Path: Path to the created or existing modeling.yaml file.
     """
     modeling_path = folder_path / 'modeling.yaml'
     
-    if modeling_path.is_file():
+    if modeling_path.is_file() and not overwrite:
         logger.info(f"✅ modeling.yaml already exists: {modeling_path}\nSkipping creation.")
         print(f"modeling.yaml already exists: {modeling_path}\nSkipping creation.")
         return modeling_path

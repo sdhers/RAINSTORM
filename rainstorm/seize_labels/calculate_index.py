@@ -1,8 +1,7 @@
 import logging
 import pandas as pd
-import numpy as np
 
-from .utils import configure_logging
+from ..utils import configure_logging
 configure_logging()
 logger = logging.getLogger(__name__)
 

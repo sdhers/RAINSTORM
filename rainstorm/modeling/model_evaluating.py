@@ -1,16 +1,16 @@
-# rainstorm/model_evaluation.py
+# rainstorm/model_evaluating.py
 
 import pandas as pd
 import numpy as np
 import tensorflow as tf
-from typing import Dict, List
+from typing import Dict
 from pathlib import Path
 import logging
 from sklearn.metrics import classification_report, accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, mean_absolute_error, r2_score
 
-from .utils import load_yaml, configure_logging, use_model
+from .aux_functions import use_model
+from ..utils import configure_logging, load_yaml
 configure_logging()
-
 logger = logging.getLogger(__name__)
 
 # %% Model Evaluation Functions

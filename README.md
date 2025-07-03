@@ -115,7 +115,7 @@ We offer a quick and easy way to prepare videos for pose estimation and behavior
 
 ### RAINSTORM Behavioral Labeler ✍️
 
-For precise, frame-by-frame annotation, use the **RAINSTORM Behavioral Labeler**.
+For precise, frame-by-frame annotation, use the RAINSTORM manual Behavioral Labeler.
 
 **Open and run the file `1-Behavioral_labeler.ipynb`**
 1.  **Select the video you want to label.**

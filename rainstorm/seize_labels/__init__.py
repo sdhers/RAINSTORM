@@ -19,7 +19,7 @@ from .multiplot.boxplot import boxplot_total_exploration_time, boxplot_DI_auc, b
 from .multiplot.plot_roi_activity import boxplot_roi_time, boxplot_roi_distance, boxplot_alternation_proportion
 
 from .results_file import create_results_file
-from .plot_all_individual import plot_all_individual_analyses
+from .plot_all_individual import run_individual_analysis
 
 __all__ = [
     'choose_example_positions',
@@ -40,5 +40,5 @@ __all__ = [
     'boxplot_roi_distance',
     'boxplot_alternation_proportion',
     'create_results_file',
-    'plot_all_individual_analyses',
+    'run_individual_analysis',
 ]

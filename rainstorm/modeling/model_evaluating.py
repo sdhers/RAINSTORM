@@ -97,11 +97,15 @@ def build_evaluation_dict(modeling_path: Path) -> Dict[str, pd.DataFrame]:
     # Create a dictionary to store evaluation results
     evaluation_dict = {}
     evaluation_dict['position'] = position
-    # add the manual labels to the dictionary
+    
+    # Add the manual labels to the dictionary
     for name in labelers:
         evaluation_dict[name] = colabels_df.filter(regex=name).copy()
     evaluation_dict['manual_labels'] = manual_labels
-    evaluation_dict['geometric'] = geometric
+
+    # Only add the geometric dataframe if it is not empty
+    if not geometric.empty:
+        evaluation_dict['geometric'] = geometric
 
     return evaluation_dict
 
@@ -126,10 +130,10 @@ def create_chimera_and_loo_mean(df: pd.DataFrame, seed: int = None) -> Dict[str,
     if df.shape[1] == 1:
         # If only one column, chimera and loo_mean are the same as the input
         chimera = df.copy()
-        chimera.columns = ['chimera']
+        chimera.columns = ['chimera'] # Renaming for clarity if df had a different column name
         loo_mean = df.copy()
-        loo_mean.columns = ['loo_mean']
-        return chimera, loo_mean
+        loo_mean.columns = ['loo_mean'] # Renaming for clarity
+        return {"chimera": chimera, "loo_mean": loo_mean}
     
     n_cols = df.shape[1]
     

@@ -17,7 +17,7 @@ class Cropper:
 
     def __init__(self, video_dict: Dict[str, Dict]):
         self.video_dict = video_dict
-        self.video_files = list(video_dict.keys()) # Should be video_dict.keys() if it's a dict
+        self.video_files = list(video_dict.keys())
         if not self.video_files:
             raise ValueError("Cropper: No video files provided in video_dict.")
 
@@ -27,13 +27,11 @@ class Cropper:
             # This error should be caught by the GUI and displayed to the user
             raise ValueError(f"Cropper: Error merging frames - {e}")
         
-        self.canvas_image = self.base_image.copy() # Image to draw on, though _get_display_frame will use base_image.copy()
-
         # Current crop rectangle properties
         self.corners: List[Tuple[int, int]] = []  # [(x1, y1), (x2, y2)] defining the unrotated bounding box
         self.angle_deg: float = 0.0
         
-        # Load existing crop if present for the first video (or a global crop)
+        # Load existing crop if present for the first video
         first_video_path = self.video_files[0]
         existing_crop_params = self.video_dict.get(first_video_path, {}).get('crop')
         if existing_crop_params and isinstance(existing_crop_params, dict):
@@ -185,13 +183,12 @@ class Cropper:
     def _get_display_frame(self) -> np.ndarray:
         """Renders the current state (base image, crop rectangle, zoom inset, text)"""
         display_frame = self.base_image.copy()
-        # H, W = display_frame.shape[:2] # Not strictly needed here
         status_text = f"Cursor: {self.cursor_pos}, Zoom: {self.zoom_level}x"
 
         if len(self.corners) == 2:
             # define_rectangle_properties returns center as [x,y] list
             center_px_list, width_px, height_px = image_utils.define_rectangle_properties(*self.corners)
-            center_px_tuple = tuple(center_px_list) # Ensure it's a tuple for drawing functions
+            center_px_tuple = tuple(int(c) for c in center_px_list) # Ensure it's a tuple of ints for drawing
 
             # Draw the defined crop rectangle (yellow for temporary/active)
             image_utils.draw_rotated_rectangle(display_frame, center_px_tuple, width_px, height_px, 
@@ -303,12 +300,12 @@ class Cropper:
 
             if action == 'quit':
                 if gui.ask_question("Quit Cropping", 
-                                         "Quit cropping tool? Selected area will be lost.", 
+                                         "Quit cropping tool? Selected area will be lost if not confirmed.", 
                                          parent=self.tk_root_ref) == 'yes':
                     break
             elif action == 'confirm':
                 if self._handle_confirm_action():
-                    if gui.ask_question("Confirm Cropping Area", f"Confirm selected area? It will be used to crop all {len(self.video_dict)} video(s) during processing", parent=self.tk_root_ref) == 'yes':
+                    if gui.ask_question("Confirm Cropping Area", f"Confirm selected area? It will be used for all {len(self.video_dict)} video(s) during processing.", parent=self.tk_root_ref) == 'yes':
                         break
             elif action == 'erase':
                 self._handle_erase_action()

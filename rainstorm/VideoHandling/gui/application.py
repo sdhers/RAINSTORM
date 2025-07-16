@@ -7,7 +7,7 @@ from tkinter import ttk, scrolledtext
 
 from rainstorm.VideoHandling.gui import gui_utils as gui
 from rainstorm.VideoHandling.tools import video_manager, video_processor, config
-from rainstorm.VideoHandling.components import aligner, cropper, trimmer
+from rainstorm.VideoHandling.components import aligner, cropper, trimmer, rotator
 
 logger = logging.getLogger(__name__) # Use module-specific logger
 
@@ -15,7 +15,7 @@ class VideoProcessorGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Video Processing Pipeline GUI")
-        self.root.geometry("700x600")
+        self.root.geometry("700x650")
 
         self.video_dict = None
         self.project_file_path = None
@@ -25,6 +25,7 @@ class VideoProcessorGUI:
         self.apply_trim_var = tk.BooleanVar(value=False)
         self.apply_align_var = tk.BooleanVar(value=False)
         self.apply_crop_var = tk.BooleanVar(value=False)
+        self.apply_rotate_var = tk.BooleanVar(value=False)
         self.force_horizontal_align_var = tk.BooleanVar(value=False)
         self.manual_align_points_var = tk.BooleanVar(value=False) 
 
@@ -80,6 +81,9 @@ class VideoProcessorGUI:
         self.align_button.grid(row=1, column=0, padx=5, pady=5, sticky=tk.W+tk.E)
         self.crop_button = ttk.Button(params_frame, text="Define Cropping", command=self._define_cropping)
         self.crop_button.grid(row=2, column=0, padx=5, pady=5, sticky=tk.W+tk.E)
+        self.rotate_button = ttk.Button(params_frame, text="Define Rotation", command=self._define_rotation)
+        self.rotate_button.grid(row=3, column=0, padx=5, pady=5, sticky=tk.W+tk.E)
+
 
         # --- Video Processing Frame ---
         process_frame = ttk.LabelFrame(main_frame, text="Video Processing", padding="10")
@@ -118,16 +122,18 @@ class VideoProcessorGUI:
         self.manual_p2_y_entry.grid(row=1, column=3, sticky=tk.W, padx=2)
 
         ttk.Checkbutton(process_frame, text="Apply Cropping", variable=self.apply_crop_var).grid(row=5, column=0, sticky=tk.W, padx=5, pady=(10,0))
+        ttk.Checkbutton(process_frame, text="Apply Rotation", variable=self.apply_rotate_var).grid(row=6, column=0, sticky=tk.W, padx=5)
+
 
         output_folder_frame = ttk.Frame(process_frame)
-        output_folder_frame.grid(row=6, column=0, sticky=(tk.W, tk.E), pady=5, padx=5)
+        output_folder_frame.grid(row=7, column=0, sticky=(tk.W, tk.E), pady=5, padx=5)
         output_folder_frame.columnconfigure(1, weight=1)
         ttk.Button(output_folder_frame, text="Select Output Folder", command=self._select_output_folder).grid(row=0, column=0, sticky=tk.W)
         self.output_folder_entry = ttk.Entry(output_folder_frame, textvariable=self.output_folder_path, state='readonly', width=30)
         self.output_folder_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
         
         self.process_videos_button = ttk.Button(process_frame, text="Process Videos & Save", command=self._process_videos)
-        self.process_videos_button.grid(row=7, column=0, columnspan=2, pady=10, sticky=tk.E+tk.W)
+        self.process_videos_button.grid(row=8, column=0, columnspan=2, pady=10, sticky=tk.E+tk.W)
 
         # --- Status Frame ---
         status_frame = ttk.LabelFrame(main_frame, text="Status Log", padding="10")
@@ -150,6 +156,7 @@ class VideoProcessorGUI:
         self.trim_button.config(state=param_button_state)
         self.align_button.config(state=param_button_state)
         self.crop_button.config(state=param_button_state)
+        self.rotate_button.config(state=param_button_state)
         self.process_videos_button.config(state=param_button_state)
         
         if project_loaded and self.project_file_path:
@@ -308,6 +315,15 @@ class VideoProcessorGUI:
             gui.show_info("Cropping Error", f"An unexpected error occurred: {e}", parent=self.root)
         self._update_ui_state()
 
+    def _define_rotation(self):
+        if not self.video_dict: return
+        self._log_status("Opening rotation selection...")
+        applied = rotator.select_rotation(self.video_dict, parent_tk_instance=self.root)
+        if applied:
+            self._log_status("Rotation parameters updated. Consider saving the project.")
+        else:
+            self._log_status("Rotation selection canceled or no changes applied.")
+
     def _select_output_folder(self):
         initial_dir = os.path.dirname(self.project_file_path) if self.project_file_path else os.getcwd()
         folder = gui.ask_directory(title="Select Output Folder for Processed Videos",
@@ -328,12 +344,13 @@ class VideoProcessorGUI:
             "trim": self.apply_trim_var.get(),
             "align": self.apply_align_var.get(),
             "crop": self.apply_crop_var.get(),
+            "rotate": self.apply_rotate_var.get(),
             "horizontal_align": self.force_horizontal_align_var.get() if self.apply_align_var.get() else False
         }
 
-        if not (ops_to_apply["trim"] or ops_to_apply["align"] or ops_to_apply["crop"]):
-            self._log_status("No processing operations (trim, align, crop) selected.", is_error=True)
-            gui.show_info("Processing Info", "No processing operations (trim, align, crop) were selected.", parent=self.root)
+        if not any(ops_to_apply.values()):
+            self._log_status("No processing operations selected.", is_error=True)
+            gui.show_info("Processing Info", "No processing operations were selected.", parent=self.root)
             return
 
         chosen_output_folder = self.output_folder_path.get()
@@ -381,4 +398,3 @@ class VideoProcessorGUI:
         except Exception as e:
             self._log_status(f"An error occurred during video processing: {e}", is_error=True)
             gui.show_info("Processing Error", f"An error occurred during video processing:\n{e}", parent=self.root)
-

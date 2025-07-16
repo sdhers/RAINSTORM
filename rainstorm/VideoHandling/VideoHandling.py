@@ -29,5 +29,7 @@ if __name__ == "__main__": # This block will run when DrawROIs.py is executed di
     rainstorm_parent_dir = os.path.abspath(os.path.join(current_dir, '..', '..')) # Go up two levels from DrawROIs.py to reach the 'rainstorm' directory's parent
     if rainstorm_parent_dir not in sys.path:
         sys.path.insert(0, rainstorm_parent_dir)
+        print(f"Added to sys.path: {rainstorm_parent_dir}")
+        
     print("Running VideoHandling...")
     run_app()

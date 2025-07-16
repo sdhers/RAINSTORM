@@ -54,28 +54,45 @@ def zoom_in_display(frame: np.ndarray, x: int, y: int,
                     cross_color: tuple = config.COLOR_GREEN):
     """
     Create a zoomed inset at (x,y) and return it plus its placement coords.
+    This version prevents distortion at edges by padding with black.
     """
     H, W = frame.shape[:2]
     overlay_w = int(W * overlay_frac)
-    overlay_h = overlay_w # Assuming square inset for simplicity
+    overlay_h = overlay_w # Square inset
 
-    half_crop_w = overlay_w // (2 * zoom_scale)
-    half_crop_h = overlay_h // (2 * zoom_scale)
+    # 1. Define the source region size based on the zoom level
+    src_w = overlay_w // zoom_scale
+    src_h = overlay_h // zoom_scale
+    half_src_w, half_src_h = src_w // 2, src_h // 2
 
-    x1_crop, x2_crop = max(0, x - half_crop_w), min(W, x + half_crop_w)
-    y1_crop, y2_crop = max(0, y - half_crop_h), min(H, y + half_crop_h)
+    # 2. Define the source crop box, centered on the cursor (x, y)
+    src_x1, src_x2 = x - half_src_w, x + half_src_w
+    src_y1, src_y2 = y - half_src_h, y + half_src_h
+
+    # 3. Create a black padded canvas of the source size
+    padded_crop = np.zeros((src_h, src_w, frame.shape[2]), dtype=frame.dtype)
+
+    # 4. Determine the valid region of the source crop box that is inside the frame
+    valid_src_x1, valid_src_x2 = max(0, src_x1), min(W, src_x2)
+    valid_src_y1, valid_src_y2 = max(0, src_y1), min(H, src_y2)
+
+    # 5. Extract the valid sub-frame from the original image
+    sub_frame = frame[valid_src_y1:valid_src_y2, valid_src_x1:valid_src_x2]
+
+    # 6. Calculate where to paste the sub_frame onto the padded_crop canvas
+    paste_x = max(0, -src_x1)
+    paste_y = max(0, -src_y1)
     
-    crop = frame[y1_crop:y2_crop, x1_crop:x2_crop]
-    
-    # Ensure crop is not empty
-    if crop.size == 0:
-        # Fallback: create a small black patch if crop is empty
-        inset = np.zeros((overlay_h, overlay_w, frame.shape[2] if frame.ndim == 3 else 1), dtype=frame.dtype)
-    else:
-        inset = cv2.resize(crop, (overlay_w, overlay_h), interpolation=cv2.INTER_LINEAR)
+    if sub_frame.size > 0:
+        h_paste, w_paste = sub_frame.shape[:2]
+        padded_crop[paste_y:paste_y+h_paste, paste_x:paste_x+w_paste] = sub_frame
 
+    # 7. Resize the padded crop to the final overlay size. This preserves the scale.
+    inset = cv2.resize(padded_crop, (overlay_w, overlay_h), interpolation=cv2.INTER_NEAREST)
+
+    # Draw crosshairs on the final inset
     cx, cy = overlay_w // 2, overlay_h // 2
-    ll = int(min(overlay_w, overlay_h) * cross_length_frac) # Use min for safety
+    ll = int(min(overlay_w, overlay_h) * cross_length_frac)
     cv2.line(inset, (cx, cy - ll), (cx, cy + ll), cross_color, 1)
     cv2.line(inset, (cx - ll, cy), (cx + ll, cy), cross_color, 1)
 
@@ -84,8 +101,8 @@ def zoom_in_display(frame: np.ndarray, x: int, y: int,
     oy1 = margin
 
     # Smart placement: if cursor is near top-right, move inset to bottom-left
-    if x > (W - overlay_w - 2 * margin) and y < (overlay_h + 2 * margin):
-        oy1 = H - overlay_h - margin*3
+    if x > (W - 2 * overlay_w) and y < (2 * overlay_h):
+        oy1 = H - overlay_h - margin * 3
         ox1 = margin
 
     return inset, (ox1, ox1 + overlay_w, oy1, oy1 + overlay_h)

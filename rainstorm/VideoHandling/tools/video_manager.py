@@ -29,8 +29,9 @@ def create_video_dict() -> dict:
         video_dict[file_path] = {
             "info": video_info,
             "trim": None,      # Placeholder for {"start_seconds": s, "end_seconds": e}
+            "align": None,     # Placeholder for {"points": [[x1,y1], [x2,y2]]}
             "crop": None,      # Placeholder for {"center": [x,y], "width": w, "height": h, "angle_degrees": a}
-            "align": None      # Placeholder for {"points": [[x1,y1], [x2,y2]]}
+            "rotate": None     # Placeholder for {"angle_degrees": a}
         }
     return video_dict
 

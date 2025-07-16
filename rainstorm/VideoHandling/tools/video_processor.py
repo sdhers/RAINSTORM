@@ -11,10 +11,40 @@ from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
+def get_rotated_dimensions(w: int, h: int, angle_degrees: float) -> Tuple[int, int]:
+    """Calculates the bounding box of a rectangle after rotation."""
+    if angle_degrees % 180 == 90: # Handles 90, 270
+        return h, w
+    if angle_degrees % 180 == 0: # Handles 0, 180
+        return w, h
+    
+    angle_rad = np.radians(angle_degrees)
+    cos_a = np.abs(np.cos(angle_rad))
+    sin_a = np.abs(np.sin(angle_rad))
+    
+    new_w = int(w * cos_a + h * sin_a)
+    new_h = int(w * sin_a + h * cos_a)
+    return new_w, new_h
+
+def rotate_frame(frame: np.ndarray, angle_degrees: float, new_w: int, new_h: int) -> np.ndarray:
+    """Rotates a frame to fit new dimensions, padding with black."""
+    h, w = frame.shape[:2]
+    center = (w / 2, h / 2)
+    
+    # Get rotation matrix
+    rot_mat = cv2.getRotationMatrix2D(center, angle_degrees, 1.0)
+    
+    # Adjust for translation to keep it centered in the new canvas
+    rot_mat[0, 2] += (new_w / 2) - center[0]
+    rot_mat[1, 2] += (new_h / 2) - center[1]
+    
+    # Perform rotation
+    return cv2.warpAffine(frame, rot_mat, (new_w, new_h), borderValue=(0, 0, 0))
+
+
 def calculate_mean_points(video_dict: Dict[str, Dict], horizontal: bool = False) -> Optional[List[List[int]]]:
     """
     Calculate the mean alignment points from all videos in video_dict.
-    (Implementation from previous optimized answer)
     """
     point_pairs_np_list = []
     for video_path, video_data_val in video_dict.items():
@@ -55,7 +85,6 @@ def get_alignment_matrix(video_data: Dict,
                         ) -> Optional[np.ndarray]:
     """
     Compute a similarity transform.
-    (Implementation from previous optimized answer)
     """
     align_data = video_data.get("align")
     if not (isinstance(align_data, dict) and \
@@ -90,7 +119,6 @@ def crop_frame_rotated(frame: np.ndarray,
                        crop_height: int) -> Optional[np.ndarray]:
     """
     Rotate the frame around crop_center_xy and then extract an axis-aligned crop.
-    (Implementation from previous optimized answer)
     """
     if crop_width <= 0 or crop_height <= 0:
         logger.warning(f"Invalid crop dimensions: W={crop_width}, H={crop_height}.")
@@ -234,7 +262,7 @@ def _iterate_video_frames(
 
 
 def process_video(video_path: str, video_data: Dict,
-                  apply_trim: bool, apply_crop: bool, apply_align: bool,
+                  apply_trim: bool, apply_crop: bool, apply_align: bool, apply_rotate: bool,
                   target_mean_points: Optional[List[List[int]]] = None,
                   output_video_path: str = None) -> bool:
     cap = cv2.VideoCapture(video_path)
@@ -291,8 +319,8 @@ def process_video(video_path: str, video_data: Dict,
             logger.error(f"Error processing target_mean_points for {video_path}: {e}. Alignment skipped.")
             current_apply_align = False
     
-    # --- Crop setup ---
-    output_w, output_h = original_width, original_height
+    # --- Crop & Rotate setup (determines final output dimensions) ---
+    post_crop_w, post_crop_h = original_width, original_height
     crop_active = False
     crop_details = {}
     current_apply_crop = apply_crop
@@ -307,17 +335,34 @@ def process_video(video_path: str, video_data: Dict,
                     "angle_degrees": float(crop_params.get("angle_degrees", 0.0))
                 }
                 if crop_details["width"] > 0 and crop_details["height"] > 0:
-                    output_w, output_h = crop_details["width"], crop_details["height"]
+                    post_crop_w, post_crop_h = crop_details["width"], crop_details["height"]
                     crop_active = True
                 else: 
                     logger.warning(f"Invalid crop dimensions (W={crop_details['width']}, H={crop_details['height']}) for {video_path}. Cropping skipped.")
-                    current_apply_crop = False # Disable crop for this video
+                    current_apply_crop = False
             except (ValueError, TypeError) as e:
                 logger.warning(f"Invalid crop parameter types for {video_path}: {e}. Cropping skipped.")
                 current_apply_crop = False
         else:
             logger.warning(f"Cropping parameters missing or incomplete for {video_path}. Cropping skipped.")
             current_apply_crop = False
+
+    rotation_angle = 0.0
+    current_apply_rotate = apply_rotate
+    if current_apply_rotate:
+        rotate_params = video_data.get("rotate")
+        if rotate_params and "angle_degrees" in rotate_params:
+            try:
+                rotation_angle = float(rotate_params["angle_degrees"])
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid rotation angle for {video_path}. Rotation skipped.")
+                current_apply_rotate = False
+        else:
+            logger.warning(f"Rotation parameters missing for {video_path}. Rotation skipped.")
+            current_apply_rotate = False
+
+    # Final output dimensions
+    output_w, output_h = get_rotated_dimensions(post_crop_w, post_crop_h, rotation_angle)
     # --- End of parameter setup ---
 
     num_frames_expected_for_pbar = None # Renamed for clarity within this function
@@ -374,13 +419,16 @@ def process_video(video_path: str, video_data: Dict,
                                                  crop_details["angle_degrees"],
                                                  crop_details["width"], 
                                                  crop_details["height"]) 
-                    if cropped is None or cropped.shape[0] != output_h or cropped.shape[1] != output_w:
+                    if cropped is None or cropped.shape[0] != post_crop_h or cropped.shape[1] != post_crop_w:
                         logger.error(f"Cropped frame for {video_path} has unexpected shape or is None. Creating black frame.")
                         num_channels = frame.shape[2] if frame.ndim == 3 and frame.shape[2] in [1, 3, 4] else 3
-                        processed_frame = np.zeros((output_h, output_w, num_channels), dtype=frame.dtype)
+                        processed_frame = np.zeros((post_crop_h, post_crop_w, num_channels), dtype=frame.dtype)
                     else:
                         processed_frame = cropped
                 
+                if current_apply_rotate and rotation_angle != 0:
+                    processed_frame = rotate_frame(processed_frame, rotation_angle, output_w, output_h)
+
                 # Final safety resize if dimensions don't match VideoWriter expectations
                 if processed_frame.shape[0] != output_h or processed_frame.shape[1] != output_w :
                     logger.warning(f"Resizing frame {processed_frame.shape[:2]} to {output_w}x{output_h} for {video_path} before writing.")
@@ -429,6 +477,7 @@ def run_video_processing_pipeline(video_dict: Dict[str, Dict],
     apply_trim_op = operations.get("trim", False)
     apply_align_op = operations.get("align", False)
     apply_crop_op = operations.get("crop", False)
+    apply_rotate_op = operations.get("rotate", False)
     horizontal_align = operations.get("horizontal_align", False)
 
     target_mean_points_for_alignment = None
@@ -469,12 +518,12 @@ def run_video_processing_pipeline(video_dict: Dict[str, Dict],
         # Update description of the main progress bar for the current video
         video_iterable.set_description(f"Processing {video_name[:20]:<20}") # Truncate/pad
 
-        output_filename = f"{os.path.splitext(video_name)[0]}_rst{os.path.splitext(video_name)[1]}"
+        output_filename = f"{os.path.splitext(video_name)[0]}_processed{os.path.splitext(video_name)[1]}"
         output_video_path = os.path.join(global_output_folder, output_filename)
 
-        # Pass actual_apply_align_op which reflects if alignment is feasible
+        # Pass all operation flags to the processing function
         if process_video(video_path, video_data,
-                         apply_trim_op, apply_crop_op, apply_align_op,
+                         apply_trim_op, apply_crop_op, apply_align_op, apply_rotate_op,
                          target_mean_points_for_alignment,
                          output_video_path,
                          ):
@@ -485,12 +534,13 @@ def run_video_processing_pipeline(video_dict: Dict[str, Dict],
 
     logger.info("--- Video Processing Summary ---")
     logger.info(f"Total videos attempted: {total_videos}")
-    if apply_trim_op:
-        logger.info(f"Trimmed videos on times {video_data.get('trim')}")
-    if apply_crop_op:
-        logger.info(f"Cropped videos to size {video_data.get('crop')}")
-    if apply_align_op:
-        logger.info(f"Aligned videos on points {target_mean_points_for_alignment}")
+    summary_ops = []
+    if apply_trim_op: summary_ops.append("Trim")
+    if apply_align_op: summary_ops.append("Align")
+    if apply_crop_op: summary_ops.append("Crop")
+    if apply_rotate_op: summary_ops.append("Rotate")
+    logger.info(f"Operations applied: {', '.join(summary_ops) if summary_ops else 'None'}")
+    
     logger.info(f"Successfully processed: {processed_count}")
     logger.info(f"Failed to process: {failed_count}")
     if total_videos > 0:

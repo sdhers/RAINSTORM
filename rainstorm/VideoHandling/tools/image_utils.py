@@ -54,7 +54,18 @@ def zoom_in_display(frame: np.ndarray, x: int, y: int,
                     cross_color: tuple = config.COLOR_GREEN):
     """
     Create a zoomed inset at (x,y) and return it plus its placement coords.
-    This version prevents distortion at edges by padding with black.
+
+    Args:
+        frame (np.ndarray): The original image frame.
+        x (int): X-coordinate for the center of the zoom.
+        y (int): Y-coordinate for the center of the zoom.
+        zoom_scale (int): Magnification level.
+        overlay_frac (float): Fraction of frame width for the inset.
+        margin (int): Padding from edges for the inset.
+
+    Returns:
+        tuple: A tuple containing the zoomed inset image and its
+                (x1, x2, y1, y2) placement coordinates on the original frame.
     """
     H, W = frame.shape[:2]
     overlay_w = int(W * overlay_frac)
@@ -101,7 +112,7 @@ def zoom_in_display(frame: np.ndarray, x: int, y: int,
     oy1 = margin
 
     # Smart placement: if cursor is near top-right, move inset to bottom-left
-    if x > (W - 2 * overlay_w) and y < (2 * overlay_h):
+    if x > (W - overlay_w - 4*margin) and y < (overlay_h + 4*margin):
         oy1 = H - overlay_h - margin * 3
         ox1 = margin
 

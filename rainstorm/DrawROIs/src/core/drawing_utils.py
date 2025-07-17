@@ -84,9 +84,14 @@ class DrawingUtils:
         paste_x = max(0, -src_x1)
         paste_y = max(0, -src_y1)
         
+        # Check if the source and destination slices are valid before pasting
         if sub_frame.size > 0:
             h_paste, w_paste = sub_frame.shape[:2]
-            padded_crop[paste_y:paste_y+h_paste, paste_x:paste_x+w_paste] = sub_frame
+            
+            # Ensure the destination slice on padded_crop is not out of bounds
+            if (paste_y + h_paste <= padded_crop.shape[0]) and \
+               (paste_x + w_paste <= padded_crop.shape[1]):
+                padded_crop[paste_y:paste_y+h_paste, paste_x:paste_x+w_paste] = sub_frame
 
         inset = cv2.resize(padded_crop, (overlay_w, overlay_h), interpolation=cv2.INTER_NEAREST)
 
@@ -99,7 +104,7 @@ class DrawingUtils:
         # Smart placement of inset
         ox1 = W - overlay_w - MARGIN
         oy1 = MARGIN
-        if x > (W - overlay_w - 2 * MARGIN) and y < (overlay_h + 2 * MARGIN):
+        if x > (W - overlay_w - 3 * MARGIN) and y < (overlay_h + 3 * MARGIN):
             oy1 = H - overlay_h - MARGIN
             ox1 = MARGIN
 

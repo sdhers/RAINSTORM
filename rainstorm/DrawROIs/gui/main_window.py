@@ -30,7 +30,6 @@ class MainWindow:
         self.cursor_pos = (0, 0)
         self.is_dragging = False        
         self.is_moving_active_roi = False 
-        self.is_moving_saved_roi = False 
         self.move_start_point = None    
         
         # Active ROI State
@@ -39,7 +38,13 @@ class MainWindow:
         self.active_roi_type = None     
         self.scale_line_points = None   
         self.zoom_scale = INITIAL_ZOOM
-        self.selected_saved_roi = None 
+        self.selected_saved_roi = None
+
+        # Attributes for aspect ratio correction
+        self.display_scale = 1.0
+        self.display_offset_x = 0
+        self.display_offset_y = 0
+        self.is_moving_saved_roi = False
 
     def reset_active_roi(self):
         """Resets all temporary/active ROI properties to their initial state."""
@@ -55,49 +60,58 @@ class MainWindow:
 
     def _on_mouse_event(self, event, x, y, flags, param):
         """Handles all mouse events and updates the application state."""
-        self.cursor_pos = (x, y)
+        # Translate window coordinates to frame coordinates
+        if self.display_scale == 0: return # Avoid division by zero if scale is not set
+        
+        frame_h, frame_w = self.app.base_image.shape[:2]
+        frame_x = int((x - self.display_offset_x) / self.display_scale)
+        frame_y = int((y - self.display_offset_y) / self.display_scale)
+        
+        # Use the translated coordinates for all logic
+        self.cursor_pos = (frame_x, frame_y)
         self.app.state_changed = True 
 
         # --- Left Button Down: Start drawing or select a saved ROI to move ---
         if event == cv2.EVENT_LBUTTONDOWN:
-            logger.debug(f"Mouse: LBUTTONDOWN at ({x}, {y}) with flags {flags}")
+            logger.debug(f"Mouse: LBUTTONDOWN at ({frame_x}, {frame_y}) with flags {flags}")
             self.reset_active_roi()
             self.is_dragging = True
             
             if flags & cv2.EVENT_FLAG_ALTKEY:
                 self.active_roi_type = 'scale_line'
-                self.current_roi_corners = [(x, y)]
-                self.scale_line_points = (self.current_roi_corners[0], (x, y))
+                self.current_roi_corners = [(frame_x, frame_y)]
+                self.scale_line_points = (self.current_roi_corners[0], (frame_x, frame_y))
             elif flags & cv2.EVENT_FLAG_SHIFTKEY:
                 self.active_roi_type = 'circle'
-                self.current_roi_corners = [(x, y), 0] # [center, radius]
+                self.current_roi_corners = [(frame_x, frame_y), 0] # [center, radius]
             else:
                 self.active_roi_type = 'rectangle'
-                self.current_roi_corners = [(x, y)]
+                self.current_roi_corners = [(frame_x, frame_y)]
 
         # --- Mouse Move: Update drawing preview or move ROI ---
         elif event == cv2.EVENT_MOUSEMOVE:
             if self.is_dragging: # Preview a new shape
-                self._update_drawing_preview(x, y, flags)
+                self._update_drawing_preview(frame_x, frame_y, flags)
             elif self.is_moving_active_roi and self.move_start_point: # Move the active ROI
-                dx, dy = x - self.move_start_point[0], y - self.move_start_point[1]
-                self.move_start_point = (x, y)
+                dx = frame_x - self.move_start_point[0]
+                dy = frame_y - self.move_start_point[1]
+                self.move_start_point = (frame_x, frame_y)
                 self._update_current_roi_position(dx, dy)
 
         # --- Left Button Up: Finish drawing ---
         elif event == cv2.EVENT_LBUTTONUP:
             if self.is_dragging:
                 self.is_dragging = False
-                self._finalize_drawing(x, y)
+                self._finalize_drawing(frame_x, frame_y)
 
         # --- Right Button Down: Start moving active ROI or select a saved one ---
         elif event == cv2.EVENT_RBUTTONDOWN:
-            logger.debug(f"Mouse: RBUTTONDOWN at ({x}, {y}).")
+            logger.debug(f"Mouse: RBUTTONDOWN at ({frame_x}, {frame_y}).")
             if self.active_roi_type: # If there's an active ROI, move it
                 self.is_moving_active_roi = True
-                self.move_start_point = (x, y)
+                self.move_start_point = (frame_x, frame_y)
             else: # Otherwise, try to select a saved ROI
-                self._select_saved_roi_for_moving(x, y)
+                self._select_saved_roi_for_moving(frame_x, frame_y)
 
         # --- Right Button Up: Finish moving ---
         elif event == cv2.EVENT_RBUTTONUP:
@@ -192,7 +206,6 @@ class MainWindow:
         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
         w0, h0 = abs(x2 - x1), abs(y2 - y1)
         
-        # Maintain aspect ratio while resizing
         ratio = h0 / w0 if w0 else 1
         delta_w = RESIZE_FACTOR * delta
         delta_h = RESIZE_FACTOR * delta * ratio
@@ -265,8 +278,52 @@ class MainWindow:
         return frame
 
     def show_frame(self, frame: np.ndarray):
-        """Displays the given frame in the OpenCV window."""
-        cv2.imshow(self.window_name, frame)
+        """
+        Displays the given frame in the OpenCV window, maintaining aspect ratio.
+        """
+        frame_h, frame_w = frame.shape[:2]
+        if frame_h == 0 or frame_w == 0: return
+
+        try:
+            _, _, win_w, win_h = cv2.getWindowImageRect(self.window_name)
+        except cv2.error:
+            # Window might be closed or not ready
+            return
+
+        if win_w <= 0 or win_h <= 0: return
+
+        frame_aspect = frame_w / frame_h
+        win_aspect = win_w / win_h
+
+        if abs(frame_aspect - win_aspect) < 0.01:
+            # Aspect ratios are close enough, no need for padding
+            self.display_scale = win_w / frame_w
+            self.display_offset_x = 0
+            self.display_offset_y = 0
+            cv2.imshow(self.window_name, frame)
+            return
+
+        # Create a letterboxed/pillarboxed view
+        if frame_aspect > win_aspect: # Frame is wider than window -> letterbox
+            new_w = win_w
+            new_h = int(new_w / frame_aspect)
+        else: # Frame is taller than window -> pillarbox
+            new_h = win_h
+            new_w = int(new_h * frame_aspect)
+
+        # Update scale and offsets for mouse coordinate translation
+        self.display_scale = new_w / frame_w
+        self.display_offset_x = (win_w - new_w) // 2
+        self.display_offset_y = (win_h - new_h) // 2
+
+        resized_frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        
+        # Create a black canvas and place the resized frame in the center
+        canvas = np.zeros((win_h, win_w, 3), dtype=np.uint8)
+        canvas[self.display_offset_y : self.display_offset_y + new_h,
+               self.display_offset_x : self.display_offset_x + new_w] = resized_frame
+
+        cv2.imshow(self.window_name, canvas)
 
     def wait_key(self, delay: int = 20):
         """Waits for a key press and returns its ASCII value."""
@@ -275,6 +332,7 @@ class MainWindow:
     def is_window_visible(self):
         """Checks if the OpenCV window is still visible."""
         try:
+            # A value of -1 is returned if the window is closed.
             return cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) >= 1
         except cv2.error:
             return False

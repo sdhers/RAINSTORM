@@ -112,7 +112,7 @@ def zoom_in_display(frame: np.ndarray, x: int, y: int,
     oy1 = margin
 
     # Smart placement: if cursor is near top-right, move inset to bottom-left
-    if x > (W - overlay_w - 4*margin) and y < (overlay_h + 4*margin):
+    if x > (W - overlay_w - 3 * margin) and y < (overlay_h + 3 * margin):
         oy1 = H - overlay_h - margin * 3
         ox1 = margin
 

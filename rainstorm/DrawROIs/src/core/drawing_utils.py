@@ -105,7 +105,7 @@ class DrawingUtils:
         ox1 = W - overlay_w - MARGIN
         oy1 = MARGIN
         if x > (W - overlay_w - 3 * MARGIN) and y < (overlay_h + 3 * MARGIN):
-            oy1 = H - overlay_h - MARGIN
+            oy1 = H - overlay_h - 3 * MARGIN
             ox1 = MARGIN
 
         return inset, (ox1, ox1 + overlay_w, oy1, oy1 + overlay_h)

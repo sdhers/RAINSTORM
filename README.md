@@ -206,8 +206,6 @@ If you use RAINSTORM in your research, please cite:
 
 D'hers et al. (2025). RAINSTORM: Automated Analysis of Mouse Exploratory Behavior using Artificial Neural Networks. *Current Protocols*. [DOI: 10.1002/cpz1.70171](https://doi.org/10.1002/cpz1.70171)
 
-> Note: This repository contains open-source code independently developed and released under the MIT License. The associated scientific publication is © Wiley and subject to their copyright terms.
-
 -----
 
 ## Contributing 🤝

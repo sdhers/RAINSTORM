@@ -1,13 +1,13 @@
 # RAINSTORM: Real & Artificial Intelligence for Neuroscience – Simple Tracker for Object Recognition Memory
 # Authors: Santiago D'hers. 
-# © 2025. This project is openly licensed.
+# © 2025. This project is openly licensed. If you use it, please cite: D'hers et al. (2025). RAINSTORM: Automated Analysis of Mouse Exploratory Behavior using Artificial Neural Networks. Current Protocols. DOI: 10.1002/cpz1.70171.
 # https://github.com/sdhers/RAINSTORM
 
 from setuptools import setup, find_packages
 
 setup(
     name="rainstorm",
-    version="1.0.3",
+    version="1.0.4",
     description="Real & Artificial Intelligence for Neuroscience – Simple Tracker for Object Recognition Memory",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",

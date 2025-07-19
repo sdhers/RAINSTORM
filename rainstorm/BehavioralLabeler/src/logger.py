@@ -11,7 +11,7 @@ def setup_logging():
     """
     log_dir = Path("logs")
     log_dir.mkdir(parents=True, exist_ok=True)
-    log_filename = datetime.now().strftime("app_%Y-%m-%d_%H-%M-%S.log")
+    log_filename = datetime.now().strftime("BehavioralLabeler_%Y-%m-%d_%H-%M-%S.log")
     log_filepath = log_dir / log_filename
 
     logging.basicConfig(

@@ -22,7 +22,6 @@ def run_app():
         app.run()
     except Exception as e:
         logger.critical(f"An unhandled error occurred: {e}", exc_info=True)
-        Dialogs.show_error("Application Error", f"An unhandled error occurred: {e}\nThe application will close. Check logs for details.")
 
 if __name__ == "__main__":  # This block will run when DrawROIs.py is executed directly
     from pathlib import Path; import sys

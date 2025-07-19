@@ -21,7 +21,7 @@ def setup_logging(log_file_path=None, console_level=logging.INFO, file_level=log
         log_dir = Path("logs")
         log_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file_path = log_dir / f"roi_selector_{timestamp}.log"
+        log_file_path = log_dir / f"DrawROIs_{timestamp}.log"
 
     # Get the root logger
     root_logger = logging.getLogger()

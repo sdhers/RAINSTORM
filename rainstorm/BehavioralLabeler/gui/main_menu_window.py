@@ -216,11 +216,23 @@ Note: Keys should be unique, single characters, different from the operant and f
         }); logger.info(f"Main menu configuration confirmed: {self.result_config}"); self.master.destroy()
 
     def _select_video(self):
-        path = filedialog.askopenfilename(title="Select Video File", filetypes=[("Video files", "*.mp4;*.avi;*.mov")]);
+        # Cross-platform file dialog filetypes
+        filetypes = [
+            ("Video files", "*.mp4 *.avi *.mov *.mkv *.wmv *.flv *.webm"),
+            ("MP4 files", "*.mp4"),
+            ("AVI files", "*.avi"),
+            ("MOV files", "*.mov"),
+            ("All files", "*.*")
+        ]
+        path = filedialog.askopenfilename(title="Select Video File", filetypes=filetypes)
         if path: self.video_path_var.set(path); logger.info(f"Selected video: {path}")
         else: self.video_path_var.set(""); logger.info("Video selection cancelled.")
     def _select_csv(self):
-        path = filedialog.askopenfilename(title="Select Labels CSV (Optional)", filetypes=[("CSV files", "*.csv")]);
+        filetypes = [
+            ("CSV files", "*.csv"),
+            ("All files", "*.*")
+        ]
+        path = filedialog.askopenfilename(title="Select Labels CSV (Optional)", filetypes=filetypes)
         if path: self.csv_path_var.set(path); self.continue_checkbox.config(state='normal'); logger.info(f"Selected CSV: {path}")
         else: self.csv_path_var.set(""); self.continue_checkbox_var.set(False); self.continue_checkbox.config(state='disabled'); logger.info("CSV selection cancelled.")
     def add_row(self, behavior_name="", key_char=""):

@@ -21,7 +21,7 @@ def setup_logging(log_file_path=None, console_level=logging.INFO, file_level=log
         log_dir = os.path.join(os.getcwd(), 'logs')
         os.makedirs(log_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file_path = os.path.join(log_dir, f"video_handling_{timestamp}.log")
+        log_file_path = os.path.join(log_dir, f"VideoHandling_{timestamp}.log")
 
     # Get the root logger
     root_logger = logging.getLogger()

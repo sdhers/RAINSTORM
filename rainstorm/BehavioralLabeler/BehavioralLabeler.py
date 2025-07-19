@@ -1,35 +1,15 @@
-import sys
-import logging
-from tkinter import messagebox, Tk
-from pathlib import Path
-
-# --- Conditional Imports ---
-# Try to import using relative paths first (for when this file is part of a package)
-try:
-    from .src.app import LabelingApp
-    from .src.logger import setup_logging
-except ImportError:
-    # If the relative import fails (meaning it's likely being run directly as a script),
-    # then adjust sys.path to find 'src' and 'gui' as top-level modules.
-
-    script_dir = Path(__file__).resolve().parent
-    src_path = script_dir / 'src'
-    gui_path = script_dir / 'gui'
-
-    if str(src_path) not in sys.path:
-        sys.path.append(str(src_path))
-    if str(gui_path) not in sys.path:
-        sys.path.append(str(gui_path))
-    
-    # Perform absolute imports, assuming 'src' and 'gui' are discoverable
-    from src.app import LabelingApp
-    from src.logger import setup_logging
+# BehavioralLabeler.py
 
 def run_app():
     """
     Initializes and runs the BehavioralLabeler application.
     This function can be called from other scripts or notebooks.
     """
+    import logging
+    from tkinter import messagebox, Tk
+    from rainstorm.BehavioralLabeler.src.app import LabelingApp
+    from rainstorm.BehavioralLabeler.src.logger import setup_logging
+
     # Set up logging before any other operations
     setup_logging()
     logger = logging.getLogger(__name__)
@@ -47,6 +27,11 @@ def run_app():
         root.destroy() # Destroy the hidden root window
 
 if __name__ == "__main__":
-    # This block will run when BehavioralLabeler.py is executed directly
+    from pathlib import Path; import sys
+    # Add the parent directory of 'rainstorm' to sys.path. This is crucial for running directly if 'rainstorm' isn't installed or its parent isn't already on sys.path.
+    current_dir = Path(__file__).resolve().parent
+    rainstorm_parent_dir = current_dir.parent.parent  # Go up two levels from DrawROIs.py
+    if str(rainstorm_parent_dir) not in sys.path:
+        sys.path.insert(0, str(rainstorm_parent_dir))
     print("Running BehavioralLabeler...")
     run_app()

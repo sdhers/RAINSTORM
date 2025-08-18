@@ -8,7 +8,7 @@ import random
 import logging
 
 from .aux_functions import use_model
-from ..utils import configure_logging, load_yaml
+from ..utils import configure_logging, load_yaml, find_common_name
 configure_logging()
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,10 @@ def create_autolabels(params_path: Path) -> None:
         logger.error("No 'filenames' specified in parameters. Cannot proceed with automatic labeling.")
         return
 
-    trials = params.get("seize_labels", {}).get("trials", [])
+    filenames = params.get("filenames") or []
+    seize_labels = params.get("seize_labels") or {}
+    common_name = find_common_name(filenames)
+    trials = seize_labels.get("trials") or [common_name]
     targets = params.get("targets", [])
     
     if not targets:

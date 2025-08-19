@@ -510,16 +510,16 @@ def plot_mouse_exploration(params_path: Path, position_file: Path) -> None:
         logger.info("No 'label_type' specified in parameters. Skipping labels plot.")
 
     # --- Define symbols and colors ---
-    symbol_list = ['o', 's', 'D', 'P', 'h']
-    color_list = ['blue', 'darkred', 'darkgreen', 'purple', 'goldenrod']
-    trace_color_list = ['turquoise', 'orangered', 'limegreen', 'magenta', 'gold']
+    symbols = ['s', 'o', 'D', 'P', 'X', 'v']
+    colors = ['blue', 'darkred', 'darkgreen', 'purple', 'darkgoldenrod', 'black']
+    trace_colors = ['turquoise', 'orangered', 'limegreen', 'magenta', 'gold', 'white']
 
     # Create a dictionary mapping each target to its style properties
     target_styles = {
         tgt: {
-            "symbol": symbol_list[idx % len(symbol_list)],
-            "color": color_list[idx % len(color_list)],
-            "trace_color": trace_color_list[idx % len(trace_color_list)]
+            "symbol": symbols[idx % len(symbols)],
+            "color": colors[idx % len(colors)],
+            "trace_color": trace_colors[idx % len(trace_colors)]
         }
         for idx, tgt in enumerate(targets)
     }
@@ -529,7 +529,7 @@ def plot_mouse_exploration(params_path: Path, position_file: Path) -> None:
 
     # Plot exploration time (only if labels_df is not empty)
     if not labels_df.empty:
-        plot_target_exploration(labels_df, targets, axes[0], trace_color_list)
+        plot_target_exploration(labels_df, targets, axes[0], colors)
     else:
         logger.info("Labels DataFrame is empty. Skipping target exploration plot.")
         axes[0].set_title('Target Exploration (No Data)')

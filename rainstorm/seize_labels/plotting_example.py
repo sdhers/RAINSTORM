@@ -386,7 +386,7 @@ def plot_positions(
                     angle = Vector.angle(head_nose, head_tgt)
 
                     # Filter nose positions oriented towards the target
-                    towards_tgt_indices = (angle < max_angle) & (dist < max_dist * 3)
+                    towards_tgt_indices = (angle < max_angle) & (dist < max_dist * 2)
                     towards_tgt = nose.positions[towards_tgt_indices]
 
                     if towards_tgt.size > 0:
@@ -511,8 +511,8 @@ def plot_mouse_exploration(params_path: Path, position_file: Path) -> None:
 
     # --- Define symbols and colors ---
     symbols = ['s', 'o', 'D', 'P', 'X', 'v']
-    colors = ['blue', 'darkred', 'darkgreen', 'purple', 'darkgoldenrod', 'black']
-    trace_colors = ['turquoise', 'orangered', 'limegreen', 'magenta', 'gold', 'white']
+    colors = ['blue', 'darkred', 'darkgreen', 'purple', 'darkgoldenrod', 'steelblue']
+    trace_colors = ['turquoise', 'orangered', 'limegreen', 'magenta', 'gold', 'black']
 
     # Create a dictionary mapping each target to its style properties
     target_styles = {
@@ -529,7 +529,7 @@ def plot_mouse_exploration(params_path: Path, position_file: Path) -> None:
 
     # Plot exploration time (only if labels_df is not empty)
     if not labels_df.empty:
-        plot_target_exploration(labels_df, targets, axes[0], colors)
+        plot_target_exploration(labels_df, targets, axes[0], trace_colors)
     else:
         logger.info("Labels DataFrame is empty. Skipping target exploration plot.")
         axes[0].set_title('Target Exploration (No Data)')

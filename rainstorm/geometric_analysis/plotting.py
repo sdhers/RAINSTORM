@@ -46,8 +46,8 @@ def plot_positions(params_path: str, file: str, scaling: bool = True) -> None:
 
     # Style config for Plotly traces
     symbols = ['square', 'circle', 'diamond', 'cross', 'x', 'triangle-down']
-    colors = ['blue', 'darkred', 'darkgreen', 'purple', 'darkgoldenrod', 'black']
-    trace_colors = ['turquoise', 'orangered', 'limegreen', 'magenta', 'gold', 'white']
+    colors = ['blue', 'darkred', 'darkgreen', 'purple', 'darkgoldenrod', 'steelblue']
+    trace_colors = ['turquoise', 'orangered', 'limegreen', 'magenta', 'gold', 'black']
 
     target_styles = {
         tgt: {

@@ -17,6 +17,7 @@ from .multiplot.lineplot_cumulative import lineplot_cumulative_distance, lineplo
 from .multiplot.lineplot_index import lineplot_DI, lineplot_diff
 from .multiplot.boxplot import boxplot_total_exploration_time, boxplot_DI_auc, boxplot_avg_time_bias
 from .multiplot.plot_roi_activity import boxplot_roi_time, boxplot_roi_distance, boxplot_alternation_proportion
+from .multiplot.bout_plot import boxplot_exploration_bouts, boxplot_roi_bouts
 
 from .results_file import create_results_file
 from .plot_all_individual import run_individual_analysis
@@ -41,4 +42,6 @@ __all__ = [
     'boxplot_alternation_proportion',
     'create_results_file',
     'run_individual_analysis',
+    'boxplot_exploration_bouts',
+    'boxplot_roi_bouts',
 ]

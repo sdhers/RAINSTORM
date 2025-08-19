@@ -183,9 +183,9 @@ def create_params(folder_path: Path, ROIs_path: Optional[Path] = None, targets_p
         "roi_data": "  # Loaded from ROIs.json",
         "frame_shape": "    # Shape of the video frames ([width, height])",
         "scale": "    # Scale factor (in px/cm)",
-        "areas": "    # Defined ROIs (areas) in the frame",
-        "points": "    # Key points within the frame",
+        "rectangles": "    # Defined ROIs (Rectangular areas) in the frame",
         "circles": "    # Defined ROIs (circular areas) in the frame",
+        "points": "    # Key points within the frame",
         
         "freezing_threshold": "  # Movement threshold to consider freezing, computed as the mean std of all body parts over 1 second",
 

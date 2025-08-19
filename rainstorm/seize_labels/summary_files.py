@@ -32,7 +32,9 @@ def create_reference_file(params_path: Path, overwrite: bool = False) -> Path:
     # Get ROI area names from geometric_analysis parameters and add a '_roi' suffix
     geometric_analysis = params.get("geometric_analysis") or {}
     roi_data = geometric_analysis.get("roi_data") or {}
-    areas = roi_data.get("areas") or []
+    rectangles = roi_data.get("rectangles") or []
+    circles = roi_data.get("circles") or []
+    areas = rectangles + circles
     roi_area_names = [f"{area['name']}_roi" for area in areas if "name" in area] # Add _roi suffix here
 
     reference_path = folder / 'reference.csv'
@@ -165,7 +167,9 @@ def _process_and_save_summary_file(
     # --- Add Location column ---
     geometric_analysis = params.get("geometric_analysis") or {}
     roi_data = geometric_analysis.get("roi_data") or {}
-    areas = roi_data.get("areas") or []
+    rectangles = roi_data.get("rectangles") or []
+    circles = roi_data.get("circles") or []
+    areas = rectangles + circles
 
     roi_activity_path = folder / trial / 'roi_activity' / f'{video_name}_roi_activity.csv'
 

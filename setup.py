@@ -26,6 +26,7 @@ setup(
         "pandas==2.0.3",
         "plotly==5.24.1",
         "PyYAML==6.0.2",
+        "ruamel.yaml==0.17.21",
         "scikit-learn==1.6.0",
         "scipy==1.13.1",
         "seaborn==0.13.2",

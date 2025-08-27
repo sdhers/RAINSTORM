@@ -1,8 +1,7 @@
 """
-RAINSTORM - Prepare Positions - Params Building (Refactored)
+RAINSTORM - Prepare Positions - Params Building
 
-This script creates and manages the parameters file (params.yaml) 
-for the Rainstorm project, with improved modularity and robustness.
+This script creates and manages the parameters file (params.yaml) for the Rainstorm projects.
 """
 
 # %% Imports
@@ -54,23 +53,24 @@ def load_roi_data(rois_path: Optional[Path]) -> Dict[str, Any]:
     return DEFAULT_ROI.copy()
 
 
-def collect_filenames(folder_path: Path) -> List[str]:
+def collect_filenames(folder_path: Path, suffix: str = '_positions') -> List[str]:
     """
     Collects filenames of H5 position files in a given folder.
 
     Parameters:
         folder_path (Path): The folder to search for H5 files.
+        suffix (str): The ending of each filename.
 
     Returns:
-        List[str]: Cleaned filenames (without '_positions' suffix and extension).
+        List[str]: Cleaned filenames (without suffix and extension).
     """
     if not folder_path.is_dir():
         logger.error(f"'{folder_path}' is not a valid directory.")
         return []
 
     filenames = [
-        file.stem.replace("_positions", "")
-        for file in folder_path.glob("*_positions.h5")
+        file.stem.replace(suffix, "")
+        for file in folder_path.glob(f"*{suffix}.h5")
         if file.is_file()
     ]
     logger.info(f"Found {len(filenames)} position files in '{folder_path}'.")

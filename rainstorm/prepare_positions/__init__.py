@@ -11,11 +11,14 @@ configure_logging()
 
 # Import all public functions from submodules
 from .file_handling import backup_folder, rename_files, filter_and_move_files
-from .params_building import create_params
 from .data_loading import open_h5_file
 from .data_processing import add_targets, filter_and_smooth_df
 from .plotting import plot_raw_vs_smooth
 from .batch_processing import process_position_files
+
+# from .params_building import create_params
+from .params_builder import create_params
+from .params_editor import open_params_editor
 
 # Define __all__ for explicit export (optional but good practice)
 __all__ = [
@@ -23,6 +26,7 @@ __all__ = [
     'rename_files',
     'filter_and_move_files',
     'create_params',
+    'open_params_editor',
     'choose_example_positions',
     'open_h5_file',
     'add_targets',

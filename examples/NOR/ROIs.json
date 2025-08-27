@@ -4,7 +4,7 @@
     500
   ],
   "scale": 18.86,
-  "areas": [
+  "rectangles": [
     {
       "name": "top_right",
       "type": "rectangle",
@@ -50,6 +50,7 @@
       "angle": 0
     }
   ],
+  "circles": [],
   "points": [
     {
       "name": "obj_1",
@@ -67,6 +68,5 @@
         133
       ]
     }
-  ],
-  "circles": []
+  ]
 }

@@ -238,8 +238,8 @@ class MainWindow:
         frame = base_image.copy()
         
         # Draw saved ROIs
-        for area in rois_data.get('areas', []):
-            DrawingUtils.draw_rectangle(frame, area['center'], area['width'], area['height'], area['angle'])
+        for rectangle in rois_data.get('rectangles', []):
+            DrawingUtils.draw_rectangle(frame, rectangle['center'], rectangle['width'], rectangle['height'], rectangle['angle'])
         for circle in rois_data.get('circles', []):
             DrawingUtils.draw_circle(frame, circle['center'], circle['radius'])
         for pt in rois_data.get('points', []):

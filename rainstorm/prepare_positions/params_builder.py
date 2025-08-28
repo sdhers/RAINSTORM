@@ -163,6 +163,8 @@ def create_params(folder_path: str,
     builder = ParamsBuilder(folder_path)
     builder.build_parameters(ROIs_path, targets_present, geometric_labels, automatic_labels)
     builder.write_yaml(overwrite)
+
+    print(f"Parameters file created successfully at {builder.params_path}")
     
     return str(builder.params_path)
 

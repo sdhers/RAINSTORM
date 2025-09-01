@@ -21,6 +21,7 @@ def create_video(
     params_path: Path,
     position_file: Path,
     video_path: Optional[Path] = None,
+    label_type: Optional[str] = 'geolabels',
     skeleton_links: list[list[str]] = [
         ["nose", "head"], ["head", "neck"], ["neck", "body"], ["body", "tail_base"],
         ["tail_base", "tail_mid"], ["tail_mid", "tail_end"],
@@ -67,9 +68,6 @@ def create_video(
         distance = target_exploration.get("distance") or 2.5  # Default distance in cm
         scale = roi_data.get("scale") or 1  # Default scale factor
         obj_size = int(scale * distance * (2 / 3))
-
-        seize_labels = params.get("seize_labels") or {}
-        label_type = seize_labels.get("label_type") or None
 
         bodyparts_list = params.get("bodyparts") or []
         targets_list = params.get("targets") or []
@@ -436,7 +434,7 @@ def plot_positions(
 
 # Main function to plot mouse exploration
 
-def plot_mouse_exploration(params_path: Path, position_file: Path) -> None:
+def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: Optional[str] = 'geolabels') -> None:
     """
     Generates and displays plots for target exploration time and animal positions.
 
@@ -465,8 +463,6 @@ def plot_mouse_exploration(params_path: Path, position_file: Path) -> None:
         max_angle = orientation.get("degree") or 45  # Default max angle in degrees
         front = orientation.get("front") or 'nose'
         pivot = orientation.get("pivot") or 'head'
-        seize_labels = params.get("seize_labels") or {}
-        label_type = seize_labels.get("label_type") or None
 
         if not targets:
             logger.warning("No targets specified in parameters. Plots might be empty.")

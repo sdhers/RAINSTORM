@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 def create_results_file(
     params_path: Path,
+    label_type: str = 'geolabels',
     start_time: Optional[int] = None, # New parameter: start time for data extraction
     end_time: Optional[int] = None,
     distance_col_name: str = 'body_dist',
@@ -33,6 +34,8 @@ def create_results_file(
 
     Parameters:
         params_path (Path): Path to the YAML parameters file.
+        label_type (str): The type of labels to use for the analysis.
+                          Defaults to 'geolabels'.
         start_time (Optional[int]): The specific time (in seconds) from which to
                                      start extracting data from the summary DataFrame.
                                      If None, data extraction starts from the beginning (0s).
@@ -56,9 +59,7 @@ def create_results_file(
     base_folder = Path(params.get("path"))
     fps = params.get("fps", 30)
 
-    seize_labels = params.get("seize_labels") or {}
-    target_roles = seize_labels.get("target_roles") or {}
-    label_type = seize_labels.get("label_type") or None
+    target_roles = params.get("target_roles") or {}
 
     results_path = base_folder / 'results.csv'
     

@@ -25,9 +25,8 @@ def create_reference_file(params_path: Path, overwrite: bool = False) -> Path:
     folder = Path(params.get("path"))
     filenames = params.get("filenames") or []
     targets = params.get("targets") or []
-    seize_labels = params.get("seize_labels") or {}
     common_name = find_common_name(filenames)
-    trials = seize_labels.get("trials") or [common_name]
+    trials = params.get("trials") or [common_name]
 
     # Get ROI area names from geometric_analysis parameters and add a '_roi' suffix
     geometric_analysis = params.get("geometric_analysis") or {}
@@ -218,7 +217,7 @@ def _process_and_save_summary_file(
     logger.info(f"Processed and saved: '{new_path}'")
     return new_path
 
-def create_summary_files(params_path: Path, overwrite: bool = False) -> Path:
+def create_summary_files(params_path: Path, label_type: str = 'geolabels', overwrite: bool = False) -> Path:
     """
     Creates a subfolder named "summary" and populates it with processed
     and renamed CSV files based on the 'reference.csv' file and parameters.
@@ -243,13 +242,11 @@ def create_summary_files(params_path: Path, overwrite: bool = False) -> Path:
         return summary_path
 
     targets = params.get("targets") or []
-    seize_labels = params.get("seize_labels") or {}
-    label_type = seize_labels.get("label_type") or None
     if not label_type:
         print("Label type not defined on params file, label data will be missing.")
     filenames = params.get("filenames") or []
     common_name = find_common_name(filenames)
-    trials = seize_labels.get("trials") or [common_name]
+    trials = params.get("trials") or [common_name]
 
     reference = pd.read_csv(reference_path)
     reference['Group'] = reference['Group'].fillna(common_name) # Fill NaN values in 'Group' with common_name

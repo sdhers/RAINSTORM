@@ -36,9 +36,8 @@ def create_autolabels(params_path: Path) -> None:
         return
 
     filenames = params.get("filenames") or []
-    seize_labels = params.get("seize_labels") or {}
     common_name = find_common_name(filenames)
-    trials = seize_labels.get("trials") or [common_name]
+    trials = params.get("trials") or [common_name]
     targets = params.get("targets", [])
     
     if not targets:

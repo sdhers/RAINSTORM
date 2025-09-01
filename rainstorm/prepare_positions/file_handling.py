@@ -140,9 +140,8 @@ def filter_and_move_files(params_path: Path, trials_subfolder: str = "positions"
     params = load_yaml(params_path)
     folder_path = Path(params.get("path"))
     filenames = params.get("filenames") or []
-    seize_labels = params.get("seize_labels") or {}
     common_name = find_common_name(filenames)
-    trials = seize_labels.get("trials") or [common_name]
+    trials = params.get("trials") or [common_name]
 
     if not folder_path or not folder_path.is_dir():
         logging.error(f"Invalid folder path in params: '{folder_path}'")

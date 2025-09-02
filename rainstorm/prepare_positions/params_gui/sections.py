@@ -8,32 +8,45 @@ All sections are always visible with preset values.
 import tkinter as tk
 from tkinter import ttk, filedialog
 from ruamel.yaml import CommentedMap
-import ast
 
 from .widgets import (
     ToolTip, ScrollableDynamicListFrame, DynamicListFrame,
-    ROIDataFrame, TargetExplorationFrame, RNNWidthFrame
+    ROIDataFrame, TargetExplorationFrame, RNNWidthFrame, TargetRolesFrame
 )
-from .utils import get_comment, parse_value
+from .gui_utils import get_comment, parse_value
 
 class SectionFrame(ttk.LabelFrame):
     """Base class for a section in the GUI."""
-    def __init__(self, parent, title, data, row, **kwargs):
+    def __init__(self, parent, title, data, row, layout_manager=None, **kwargs):
         super().__init__(parent, text=title, padding="5", **kwargs)
         self.grid(row=row, column=0, sticky="ew", padx=2, pady=2)
         self.columnconfigure(1, weight=1)
         
         self.data = data
         self.widgets = {}
+        self.layout_manager = layout_manager
 
-    def _create_entry(self, parent, label_text, value, comment=None, row=0, width=15):
-        """Helper to create a label and entry widget."""
+    def _create_entry(self, parent, label_text, value, comment=None, row=0, width=15, field_type='default'):
+        """Helper to create a label and entry widget with responsive sizing."""
         label = ttk.Label(parent, text=label_text)
         label.grid(row=row, column=0, sticky="w", padx=2, pady=1)
         
+        # Use responsive width if layout manager is available
+        if self.layout_manager:
+            if field_type == 'path':
+                width = self.layout_manager.get_path_field_width()
+                sticky = "ew"  # Expand to fill available width
+            elif field_type == 'number':
+                width = self.layout_manager.get_number_field_width()
+                sticky = "w"
+            else:
+                sticky = "w"
+        else:
+            sticky = "w"
+        
         var = tk.StringVar(value=str(value))
         entry = ttk.Entry(parent, textvariable=var, width=width)
-        entry.grid(row=row, column=1, sticky="w", padx=2, pady=1)
+        entry.grid(row=row, column=1, sticky=sticky, padx=2, pady=1)
         
         # Add tooltip to both label and entry if comment exists
         if comment:
@@ -52,16 +65,20 @@ class SectionFrame(ttk.LabelFrame):
         return var
 
     def _create_file_selector(self, parent, label_text, value, comment=None, row=0):
-        """Helper to create a file selector with browse button below."""
+        """Helper to create a file selector with browse button below and responsive sizing."""
         label = ttk.Label(parent, text=label_text)
         label.grid(row=row, column=0, sticky="w", padx=2, pady=1)
 
         frame = ttk.Frame(parent)
-        frame.grid(row=row, column=1, sticky="w", padx=2, pady=1)
+        frame.grid(row=row, column=1, sticky="ew", padx=2, pady=1)
+        frame.columnconfigure(0, weight=1)  # Make entry expand
+
+        # Use responsive width if layout manager is available
+        width = self.layout_manager.get_path_field_width() if self.layout_manager else 20
 
         var = tk.StringVar(value=str(value))
-        entry = ttk.Entry(frame, textvariable=var, width=20)
-        entry.grid(row=0, column=0, pady=(0, 2))
+        entry = ttk.Entry(frame, textvariable=var, width=width)
+        entry.grid(row=0, column=0, pady=(0, 2), sticky="ew")
         
         browse_btn = ttk.Button(frame, text="Browse", width=8,
                                command=lambda: self._browse_file(var))
@@ -87,12 +104,12 @@ class SectionFrame(ttk.LabelFrame):
         """Gathers data from the widgets in this section."""
         return {}
 
-# --- Simplified Sections for 3-Column Layout ---
+# Simplified Sections for 3-Column Layout
 
 class BasicSetupSection(SectionFrame):
     """Column 1: Basic setup, processing positions, and experiment design."""
-    def __init__(self, parent, data, row):
-        super().__init__(parent, "Basic Setup & Processing", data, row)
+    def __init__(self, parent, data, row, layout_manager=None):
+        super().__init__(parent, "Basic Setup & Processing", data, row, layout_manager)
         self.populate()
 
     def populate(self):
@@ -103,7 +120,7 @@ class BasicSetupSection(SectionFrame):
 
         self.widgets['path'] = self._create_entry(basic_frame, "Path:", 
                                                  self.data.get('path', ''), 
-                                                 get_comment(self.data, ['path']), 0)
+                                                 get_comment(self.data, ['path']), 0, field_type='path')
         
         # Filenames as scrollable list
         filenames_frame = ttk.LabelFrame(self, text="Filenames", padding=3)
@@ -120,7 +137,7 @@ class BasicSetupSection(SectionFrame):
         
         self.widgets['fps'] = self._create_entry(basic_frame, "FPS:", 
                                                 self.data.get('fps', 30), 
-                                                get_comment(self.data, ['fps']), 2)
+                                                get_comment(self.data, ['fps']), 2, field_type='number')
 
         # Bodyparts as scrollable list
         bodyparts_frame = ttk.LabelFrame(self, text="Bodyparts", padding=3)
@@ -142,7 +159,7 @@ class BasicSetupSection(SectionFrame):
             comment = get_comment(self.data, ["prepare_positions", key])
             self.widgets[f'prep_{key}'] = self._create_entry(prep_frame, 
                                                            key.replace('_', ' ').title() + ":", 
-                                                           value, comment, row)
+                                                           value, comment, row, field_type='number')
             row += 1
 
     def get_data(self):
@@ -170,8 +187,9 @@ class BasicSetupSection(SectionFrame):
 
 class ExperimentDesignSection(SectionFrame):
     """Column 1 (continued): Experiment design with targets and trials."""
-    def __init__(self, parent, data, row):
-        super().__init__(parent, "Experiment Design", data, row)
+    def __init__(self, parent, data, row, layout_manager=None):
+        super().__init__(parent, "Experiment Design", data, row, layout_manager)
+        self._update_pending = False  # Flag to prevent excessive updates
         self.populate()
 
     def populate(self):
@@ -186,20 +204,65 @@ class ExperimentDesignSection(SectionFrame):
         trials_frame = ttk.LabelFrame(self, text="Trials", padding=3)
         trials_frame.grid(row=1, column=0, columnspan=2, sticky='ew', pady=2)
         
-        self.trials_list = DynamicListFrame(trials_frame, "", self.data.get("trials", []))
+        self.trials_list = DynamicListFrame(trials_frame, "", self.data.get("trials", []), 
+                                          callback=self._on_trials_changed)
         self.trials_list.pack(fill='both', expand=True)
+
+        # Target Roles - positioned below trials section
+        self.target_roles_editor = TargetRolesFrame(self, self.data.get("target_roles", {}), 
+                                                   self.trials_list)
+        self.target_roles_editor.grid(row=2, column=0, columnspan=2, sticky='ew', pady=2)
+
+    def _on_trials_changed(self):
+        """Enhanced callback method triggered when trials list changes with debouncing."""
+        try:
+            if hasattr(self, 'target_roles_editor') and self.target_roles_editor:
+                # Use debouncing to prevent excessive updates during rapid typing
+                if not self._update_pending:
+                    self._update_pending = True
+                    # Schedule update after a short delay to allow for rapid changes
+                    self.after(100, self._perform_delayed_update)
+                
+        except Exception as e:
+            print(f"Warning: Error in trials changed callback: {e}")
+    
+    def _perform_delayed_update(self):
+        """Perform the actual update after debouncing delay."""
+        try:
+            self._update_pending = False
+            if hasattr(self, 'target_roles_editor') and self.target_roles_editor:
+                current_trials = self.trials_list.get_values()
+                self._update_target_roles_safely(current_trials)
+        except Exception as e:
+            print(f"Warning: Error in delayed update: {e}")
+            self._update_pending = False
+    
+    def _update_target_roles_safely(self, trials):
+        """Safely update target roles with error handling and validation."""
+        try:
+            if hasattr(self, 'target_roles_editor') and self.target_roles_editor:
+                # Validate trials before updating
+                valid_trials = [trial for trial in trials if trial and trial.strip()]
+                self.target_roles_editor.update_from_trials(valid_trials)
+        except Exception as e:
+            print(f"Warning: Error updating target roles: {e}")
 
     def get_data(self):
         data = CommentedMap()
         data['targets'] = self.targets_list.get_values()
         data['trials'] = self.trials_list.get_values()
+        
+        # Include target_roles data
+        if hasattr(self, 'target_roles_editor'):
+            data['target_roles'] = self.target_roles_editor.get_target_roles_data()
+        
         return data
 
 
 class GeometricAnalysisSection(SectionFrame):
     """Column 2: Geometric analysis parameters."""
-    def __init__(self, parent, data, row):
-        super().__init__(parent, "Geometric Analysis", data, row)
+    def __init__(self, parent, data, row, layout_manager=None):
+        super().__init__(parent, "Geometric Analysis", data, row, layout_manager)
         self.sub_data = self.data.get("geometric_analysis", {})
         self.populate()
 
@@ -208,6 +271,9 @@ class GeometricAnalysisSection(SectionFrame):
         if 'roi_data' in self.sub_data:
             self.roi_editor = ROIDataFrame(self, self.sub_data['roi_data'])
             self.roi_editor.grid(row=0, column=0, columnspan=2, sticky='ew', pady=5)
+            # Make ROI section responsive to column width
+            if self.layout_manager:
+                self.layout_manager.configure_roi_section_responsive(self.roi_editor)
 
         # Freezing threshold
         if 'freezing_threshold' in self.sub_data:
@@ -219,7 +285,7 @@ class GeometricAnalysisSection(SectionFrame):
             self.widgets['freezing_threshold'] = self._create_entry(thresh_frame, 
                                                                   "Freezing Threshold:", 
                                                                   self.sub_data['freezing_threshold'], 
-                                                                  comment, 0)
+                                                                  comment, 0, field_type='number')
 
         # Target Exploration
         if 'target_exploration' in self.sub_data:
@@ -245,8 +311,8 @@ class GeometricAnalysisSection(SectionFrame):
 
 class AutomaticAnalysisSection(SectionFrame):
     """Column 3: Automatic analysis parameters."""
-    def __init__(self, parent, data, row):
-        super().__init__(parent, "Automatic Analysis", data, row)
+    def __init__(self, parent, data, row, layout_manager=None):
+        super().__init__(parent, "Automatic Analysis", data, row, layout_manager)
         self.sub_data = self.data.get("automatic_analysis", {})
         self.populate()
 

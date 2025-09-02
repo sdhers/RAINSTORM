@@ -42,30 +42,31 @@ class Config:
         try:
             params = load_yaml(params_path)
             base_path = Path(params["path"])
-            # Set index to 'Video' for faster lookups
-            reference_df = pd.read_csv(base_path / 'reference.csv').set_index('Video')
-
-            geo_params = params.get("geometric_analysis", {})
-            target_exp = geo_params.get("target_exploration", {})
-            orientation = target_exp.get("orientation", {})
-            target_roles = params.get("target_roles", {})
             
-            filenames = params.get("filenames", [])
+            reference_df = pd.read_csv(base_path / 'reference.csv').set_index('Video') # Set index to 'Video' for faster lookups
+
+            geo_params = params.get("geometric_analysis") or {}
+            target_exp = geo_params.get("target_exploration") or {}
+            orientation = target_exp.get("orientation") or {}
+            target_roles = params.get("target_roles") or {}
+            
+            filenames = params.get("filenames") or []
             common_name = find_common_name(filenames)
-            trials = params.get("trials", [common_name])
+            trials = params.get("trials") or [common_name]
 
             role_color_map = cls._generate_role_color_map(target_roles)
 
             return cls(
                 base_path=base_path,
                 reference_df=reference_df,
-                fps=params.get("fps", 30),
-                targets=params.get("targets", []),
-                scale=geo_params.get("roi_data", {}).get("scale", 1.0),
-                max_dist=target_exp.get("distance", 2.5),
-                max_angle=orientation.get("degree", 45),
-                front=orientation.get("front", 'nose'),
-                pivot=orientation.get("pivot", 'head'),
+                fps=params.get("fps") or 30,
+                targets=params.get("targets") or [],
+                roi_data=geo_params.get("roi_data") or {}
+                scale=roi_data.get("scale") or 1.0,
+                max_dist=target_exp.get("distance") or 2.5,
+                max_angle=orientation.get("degree") or 45,
+                front=orientation.get("front") or 'nose',
+                pivot=orientation.get("pivot") or 'head',
                 target_roles=target_roles,
                 trials=trials,
                 role_color_map=role_color_map

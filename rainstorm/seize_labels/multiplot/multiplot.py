@@ -12,6 +12,7 @@ def plot_multiple_analyses(
     params_path: Path,
     plots: list,
     trial: Optional[str] = None,
+    label_type: str = 'geolabels',
     outliers: List[str] = None,
     show: bool = True,
 ) -> None:
@@ -25,6 +26,7 @@ def plot_multiple_analyses(
                MUST accept the following arguments:
                `(base_path, group, trial, targets, fps, ax, outliers, group_color, label_type, num_groups)`.
         trial: The specific trial name (e.g., 'TS') for which to generate plots.
+        label_type: The labels used to plot target exploration.
         outliers: An optional list of filenames (or parts of filenames) to exclude from
                   data processing for any of the plots.
         show: If True, the generated plots will be displayed interactively.
@@ -39,9 +41,7 @@ def plot_multiple_analyses(
         filenames = params.get("filenames") or []
         fps = params.get("fps") or 30
         targets = params.get("targets") or []
-        seize_labels = params.get("seize_labels") or {}
-        target_roles_data = seize_labels.get("target_roles") or {}
-        label_type = seize_labels.get("label_type") or None
+        target_roles_data = params.get("target_roles") or {}
 
     except Exception as e:
         logger.error(f"Error loading or parsing parameters from {params_path}: {e}")

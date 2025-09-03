@@ -45,7 +45,7 @@ DEFAULT_BODYPARTS = [
 DEFAULT_MODEL_BODYPARTS = ["nose", "left_ear", "right_ear", "head", "neck", "body"]
 DEFAULT_TARGETS = ["obj_1", "obj_2"]
 DEFAULT_TRIALS = ['Hab', 'TR', 'TS']
-DEFAULT_TARGET_ROLES = {"Hab": [], "TR": ["left", "right"], "TS": ["novel", "known"]}
+DEFAULT_TARGET_ROLES = {"Hab": [], "TR": ["Left", "Right"], "TS": ["Novel", "Known"]}
 
 try:
     RAINSTORM_DIR = Path(__file__).parent.parent 

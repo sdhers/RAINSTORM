@@ -130,7 +130,7 @@ Experiment Specs:
 
 • targets: Exploration targets (e.g., 'obj_1', 'obj_2')
 • trials: If your experiment has multiple trials, list the trial names here (e.g., 'Hab', 'TR', 'TS')
-• target_roles: State the roles targets can take on each trial (e.g., 'Hab': None, 'TR': ['left', 'right'], 'TS': ['novel', 'known'])
+• target_roles: State the roles targets can take on each trial (e.g., 'Hab': None, 'TR': ['Left', 'Right'], 'TS': ['Novel', 'Known'])
 
 """
         

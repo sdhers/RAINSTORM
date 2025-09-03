@@ -41,7 +41,6 @@ def get_comment(data, keys):
         pass
     return None
 
-
 def _clean_comment_text(raw_comment):
     """
     Clean comment text to remove infiltrated content from adjacent parameters.
@@ -91,8 +90,6 @@ def _clean_comment_text(raw_comment):
             return line
     
     return None
-
-
 
 def parse_value(value_str, var_type):
     """

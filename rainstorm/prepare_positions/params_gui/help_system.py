@@ -107,14 +107,9 @@ class HelpDialog(tk.Toplevel):
         nav_content = """Getting Started
 
 This params editor allows you to:
-• Open existing YAML parameter files for editing
-• Modify parameter values in an organized interface
-• Save changes back to YAML format
-
-Basic Workflow:
-1. Open a params file
+1. Open a params.yaml file
 2. Edit parameter values in the organized sections
-3. Click "Save and close" to save your changes
+3. Click "Save and Close" to save your changes
 4. Click "Cancel" to exit without saving
 
 Basic Setup & Processing Parameters:
@@ -133,8 +128,8 @@ Experiment Specs:
   • far_dist: Maximum distance (in cm) between any two bodyparts. In c57 mice, I use whole body length (around 14 cm).
   • max_outlier_connections: If a bodypart has more than this number of long connections, it will be dropped from the frame.        
 
-• targets: Exploration targets
-• trials: If your experiment has multiple trials, list the trial names here
+• targets: Exploration targets (e.g., 'obj_1', 'obj_2')
+• trials: If your experiment has multiple trials, list the trial names here (e.g., 'Hab', 'TR', 'TS')
 • target_roles: State the roles targets can take on each trial (e.g., 'Hab': None, 'TR': ['left', 'right'], 'TS': ['novel', 'known'])
 
 """

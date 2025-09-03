@@ -16,7 +16,6 @@ from .data_processing import add_targets, filter_and_smooth_df
 from .plotting import plot_raw_vs_smooth
 from .batch_processing import process_position_files
 
-# from .params_building import create_params
 from .params_builder import create_params
 from .params_editor import open_params_editor
 

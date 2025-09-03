@@ -158,9 +158,8 @@ def choose_example_positions(params_path: Path, look_for: str = 'TS', suffix: st
 
     elif suffix.endswith('.csv'):
         logger.info("Using '.csv' file search logic.")
-        seize_labels = params.get("seize_labels") or {}
         common_name = find_common_name(filenames)
-        trials = seize_labels.get("trials") or [common_name]
+        trials = params.get("trials") or [common_name]
         if len(trials) == 1:
             trial = trials[0]
             all_files = [

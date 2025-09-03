@@ -165,6 +165,7 @@ class ParamsEditor(ThemedTk):
                 self.yaml.dump(new_data, f)
             
             messagebox.showinfo("Success", "Parameters saved successfully!")
+            print("Parameters saved successfully to", self.params_path)
             self.destroy()
             
         except Exception as e:

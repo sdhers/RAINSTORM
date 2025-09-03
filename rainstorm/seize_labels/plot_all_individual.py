@@ -46,6 +46,7 @@ class Config:
             reference_df = pd.read_csv(base_path / 'reference.csv').set_index('Video') # Set index to 'Video' for faster lookups
 
             geo_params = params.get("geometric_analysis") or {}
+            roi_data=geo_params.get("roi_data") or {}
             target_exp = geo_params.get("target_exploration") or {}
             orientation = target_exp.get("orientation") or {}
             target_roles = params.get("target_roles") or {}
@@ -61,7 +62,7 @@ class Config:
                 reference_df=reference_df,
                 fps=params.get("fps") or 30,
                 targets=params.get("targets") or [],
-                roi_data=geo_params.get("roi_data") or {}
+                roi_data=roi_data,
                 scale=roi_data.get("scale") or 1.0,
                 max_dist=target_exp.get("distance") or 2.5,
                 max_angle=orientation.get("degree") or 45,

@@ -230,7 +230,7 @@ def plot_heatmap(params_path, file, bodypart='body', bins=100, colorscale="hot",
     params = load_yaml(params_path)
     geom_params = params.get("geometric_analysis") or {}
     roi_data = geom_params.get("roi_data") or {}
-    areas = roi_data.get("areas") or []
+    rectangles = roi_data.get("rectangles") or []
     circles = roi_data.get("circles") or [] # Load circles
     points = roi_data.get("points") or []   # Load points
     frame_shape = roi_data.get("frame_shape") or []
@@ -274,10 +274,10 @@ def plot_heatmap(params_path, file, bodypart='body', bins=100, colorscale="hot",
     fig.update_yaxes(autorange="reversed")
 
     # Plot ROIs (Rectangles)
-    for area in areas:
-        center_x, center_y = area["center"]
-        width, height = area["width"], area["height"]
-        angle = area["angle"]
+    for rectangle in rectangles:
+        center_x, center_y = rectangle["center"]
+        width, height = rectangle["width"], rectangle["height"]
+        angle = rectangle["angle"]
 
         # Get the SVG path for the rotated rectangle
         rotated_rect_path = rotate_rectangle(center_x, center_y, width, height, angle)
@@ -293,7 +293,7 @@ def plot_heatmap(params_path, file, bodypart='body', bins=100, colorscale="hot",
         fig.add_annotation(
             x=center_x,
             y=center_y,
-            text=area["name"],
+            text=rectangle["name"],
             showarrow=False,
             font=dict(color="white", size=10),
             bgcolor="rgba(0,0,0,0.5)",

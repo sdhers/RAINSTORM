@@ -41,9 +41,9 @@ class Config:
         """Loads parameters from a YAML file and creates a Config instance."""
         try:
             params = load_yaml(params_path)
-            base_path = Path(params["path"])
+            base_path = Path(params.get("path"))
             
-            reference_df = pd.read_csv(base_path / 'reference.csv').set_index('Video') # Set index to 'Video' for faster lookups
+            reference_df = pd.read_csv(base_path / 'reference.csv').set_index('Video')
 
             geo_params = params.get("geometric_analysis") or {}
             roi_data=geo_params.get("roi_data") or {}
@@ -62,7 +62,6 @@ class Config:
                 reference_df=reference_df,
                 fps=params.get("fps") or 30,
                 targets=params.get("targets") or [],
-                roi_data=roi_data,
                 scale=roi_data.get("scale") or 1.0,
                 max_dist=target_exp.get("distance") or 2.5,
                 max_angle=orientation.get("degree") or 45,
@@ -72,8 +71,11 @@ class Config:
                 trials=trials,
                 role_color_map=role_color_map
             )
-        except (KeyError, FileNotFoundError) as e:
+        except Exception as e:
             logger.error(f"Error loading or parsing parameters from {params_path}: {e}")
+            logger.error(f"Exception type: {type(e).__name__}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             raise
 
     @staticmethod
@@ -276,8 +278,10 @@ def run_individual_analysis(params_path: Path, label_type: Optional[str] = 'geol
     """
     try:
         cfg = Config.from_params(params_path)
-    except Exception:
-        logger.error("Failed to initialize configuration. Aborting.")
+    except Exception as e:
+        logger.error(f"Failed to initialize configuration: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         return
 
     summary_root = cfg.base_path / "summary"

@@ -3,7 +3,7 @@
     700,
     500
   ],
-  "scale": 18.86,
+  "scale": 18.92,
   "rectangles": [
     {
       "name": "top_right",
@@ -50,7 +50,26 @@
       "angle": 0
     }
   ],
-  "circles": [],
+  "circles": [
+    {
+      "name": "obj_surf_1",
+      "type": "circle",
+      "center": [
+        218,
+        133
+      ],
+      "radius": 40
+    },
+    {
+      "name": "obj_surf_2",
+      "type": "circle",
+      "center": [
+        480,
+        133
+      ],
+      "radius": 40
+    }
+  ],
   "points": [
     {
       "name": "obj_1",

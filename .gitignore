@@ -15,4 +15,4 @@ dist/
 *.spec
 
 # Big files
-examples/NOR_backup/
+examples/NOR*/

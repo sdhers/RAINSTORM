@@ -9,6 +9,9 @@ when importing the 'rainstorm.seize_labels' package.
 from ..utils import configure_logging, choose_example_positions
 configure_logging()
 
+# Import the params_editor module from the submodule
+from ..prepare_positions import open_params_editor
+
 from .plotting_example import create_video, plot_mouse_exploration
 from .summary_files import create_reference_file, create_summary_files
 
@@ -24,6 +27,7 @@ from .plot_all_individual import run_individual_analysis
 
 __all__ = [
     'choose_example_positions',
+    'open_params_editor',
     'create_video',
     'plot_mouse_exploration',
     'create_reference_file',

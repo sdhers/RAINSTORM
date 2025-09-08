@@ -6,12 +6,24 @@ This module contains reusable Tkinter widgets.
 
 import tkinter as tk
 from tkinter import ttk
+import logging
 from .gui_utils import parse_value
+from .type_registry import get_parameter_type, is_numeric_parameter
+from .type_conversion import convert_with_fallback, format_for_display, validate_numeric_input, get_user_friendly_error_message
+
+logger = logging.getLogger(__name__)
 
 # --- Custom Exceptions for Validation ---
 class WidgetValueError(ValueError):
     """Custom exception for validation errors within a widget."""
     pass
+
+class WidgetValidationError(Exception):
+    """Exception raised when widget validation fails."""
+    def __init__(self, message, widget_name=None, invalid_value=None):
+        self.widget_name = widget_name
+        self.invalid_value = invalid_value
+        super().__init__(message)
 
 # --- ToolTip Widget ---
 class ToolTip:
@@ -208,11 +220,11 @@ class ROIDataFrame(ttk.LabelFrame):
         
         ttk.Label(shape_frame, text="Width:").grid(row=0, column=0, sticky='w')
         w_var = tk.StringVar(value=str(self.data['frame_shape'][0]))
-        w_var.trace_add("write", lambda *_: self._update_frame_shape(0, w_var.get()))
+        w_var.trace_add("write", lambda *_: self._update_frame_shape_with_conversion(0, w_var.get()))
         ttk.Entry(shape_frame, textvariable=w_var, width=8).grid(row=0, column=1, padx=5, sticky='w')
         ttk.Label(shape_frame, text="Height:").grid(row=0, column=2, sticky='w')
         h_var = tk.StringVar(value=str(self.data['frame_shape'][1]))
-        h_var.trace_add("write", lambda *_: self._update_frame_shape(1, h_var.get()))
+        h_var.trace_add("write", lambda *_: self._update_frame_shape_with_conversion(1, h_var.get()))
         ttk.Entry(shape_frame, textvariable=h_var, width=8).grid(row=0, column=3, padx=5, sticky='w')
         
         # Scale
@@ -221,7 +233,7 @@ class ROIDataFrame(ttk.LabelFrame):
         scale_frame.columnconfigure(1, weight=1)
         ttk.Label(scale_frame, text="Scale:").grid(row=0, column=0, sticky='w')
         scale_var = tk.StringVar(value=str(self.data.get('scale', 1.0)))
-        scale_var.trace_add("write", lambda *_: self._update_scale(scale_var.get()))
+        scale_var.trace_add("write", lambda *_: self._update_scale_with_conversion(scale_var.get()))
         ttk.Entry(scale_frame, textvariable=scale_var, width=8).grid(row=0, column=1, padx=5, sticky='w')
         
         # ROI Elements with scrollable sections
@@ -291,12 +303,12 @@ class ROIDataFrame(ttk.LabelFrame):
         center = element.get('center', [0, 0])
         ttk.Label(center_frame, text="X:", width=3).grid(row=0, column=0, sticky='w')
         x_var = tk.StringVar(value=str(center[0]))
-        x_var.trace_add("write", lambda *_: self._update_element_center(element_type, index, 0, x_var.get()))
+        x_var.trace_add("write", lambda *_: self._update_element_center_with_conversion(element_type, index, 0, x_var.get()))
         ttk.Entry(center_frame, textvariable=x_var, width=6).grid(row=0, column=1, sticky='w', padx=2)
         
         ttk.Label(center_frame, text="Y:", width=3).grid(row=0, column=2, sticky='w', padx=(5, 0))
         y_var = tk.StringVar(value=str(center[1]))
-        y_var.trace_add("write", lambda *_: self._update_element_center(element_type, index, 1, y_var.get()))
+        y_var.trace_add("write", lambda *_: self._update_element_center_with_conversion(element_type, index, 1, y_var.get()))
         ttk.Entry(center_frame, textvariable=y_var, width=6).grid(row=0, column=3, sticky='w', padx=2)
         
         # Row 3: Additional properties based on type
@@ -306,23 +318,23 @@ class ROIDataFrame(ttk.LabelFrame):
         if element_type == 'rectangles':
             ttk.Label(props_frame, text="W:", width=3).grid(row=0, column=0, sticky='w')
             w_var = tk.StringVar(value=str(element.get('width', 0)))
-            w_var.trace_add("write", lambda *_: self._update_element(element_type, index, 'width', w_var.get()))
+            w_var.trace_add("write", lambda *_: self._update_element_with_conversion(element_type, index, 'width', w_var.get()))
             ttk.Entry(props_frame, textvariable=w_var, width=5).grid(row=0, column=1, sticky='w', padx=2)
             
             ttk.Label(props_frame, text="H:", width=3).grid(row=0, column=2, sticky='w', padx=(5, 0))
             h_var = tk.StringVar(value=str(element.get('height', 0)))
-            h_var.trace_add("write", lambda *_: self._update_element(element_type, index, 'height', h_var.get()))
+            h_var.trace_add("write", lambda *_: self._update_element_with_conversion(element_type, index, 'height', h_var.get()))
             ttk.Entry(props_frame, textvariable=h_var, width=5).grid(row=0, column=3, sticky='w', padx=2)
             
             ttk.Label(props_frame, text="A:", width=3).grid(row=0, column=4, sticky='w', padx=(5, 0))
             a_var = tk.StringVar(value=str(element.get('angle', 0)))
-            a_var.trace_add("write", lambda *_: self._update_element(element_type, index, 'angle', a_var.get()))
+            a_var.trace_add("write", lambda *_: self._update_element_with_conversion(element_type, index, 'angle', a_var.get()))
             ttk.Entry(props_frame, textvariable=a_var, width=5).grid(row=0, column=5, sticky='w', padx=2)
         
         elif element_type == 'circles':
             ttk.Label(props_frame, text="R:", width=3).grid(row=0, column=0, sticky='w')
             r_var = tk.StringVar(value=str(element.get('radius', 0)))
-            r_var.trace_add("write", lambda *_: self._update_element(element_type, index, 'radius', r_var.get()))
+            r_var.trace_add("write", lambda *_: self._update_element_with_conversion(element_type, index, 'radius', r_var.get()))
             ttk.Entry(props_frame, textvariable=r_var, width=6).grid(row=0, column=1, sticky='w', padx=2)
         
         # Remove button in the top right
@@ -390,38 +402,92 @@ class ROIDataFrame(ttk.LabelFrame):
             except (ValueError, KeyError, IndexError):
                 pass
 
-    def _update_element(self, element_type, index, key, value):
-        """Update an element property"""
-        if element_type in self.data and 0 <= index < len(self.data[element_type]):
-            try:
-                if key in ['width', 'height', 'radius']:
-                    self.data[element_type][index][key] = float(value)
-                else:
-                    self.data[element_type][index][key] = value
-            except (ValueError, KeyError):
-                pass
 
-    def _update_element_center(self, element_type, index, coord_index, value):
-        """Update element center coordinates"""
+    
+    def _update_frame_shape_with_conversion(self, index, value):
+        """Update frame shape with enhanced type-aware conversion and error handling"""
+        try:
+            # Validate input first
+            if not validate_numeric_input(value, 'int'):
+                logger.warning(f"Invalid frame shape value '{value}' - expected integer")
+                return
+            
+            converted_value = convert_with_fallback(value, 'int', value, ['geometric_analysis', 'roi_data', 'frame_shape', str(index)])
+            if isinstance(converted_value, int):
+                self.data['frame_shape'][index] = converted_value
+                logger.debug(f"Updated frame_shape[{index}] to {converted_value}")
+            else:
+                logger.warning(f"Failed to convert frame shape value '{value}' to int, keeping original")
+        except (IndexError, Exception) as e:
+            logger.error(f"Error updating frame shape[{index}]: {e}")
+            # Don't raise exception to keep GUI responsive
+    
+    def _update_scale_with_conversion(self, value):
+        """Update scale with enhanced type-aware conversion and error handling"""
+        try:
+            # Validate input first
+            if not validate_numeric_input(value, 'float'):
+                logger.warning(f"Invalid scale value '{value}' - expected number")
+                return
+            
+            converted_value = convert_with_fallback(value, 'float', value, ['geometric_analysis', 'roi_data', 'scale'])
+            if isinstance(converted_value, (int, float)):
+                self.data['scale'] = float(converted_value)
+                logger.debug(f"Updated scale to {converted_value}")
+            else:
+                logger.warning(f"Failed to convert scale value '{value}' to float, keeping original")
+        except Exception as e:
+            logger.error(f"Error updating scale: {e}")
+            # Don't raise exception to keep GUI responsive
+    
+    def _update_element_center_with_conversion(self, element_type, index, coord_index, value):
+        """Update element center coordinates with enhanced type-aware conversion and error handling"""
         if element_type in self.data and 0 <= index < len(self.data[element_type]):
             try:
+                # Validate input first
+                if not validate_numeric_input(value, 'float'):
+                    logger.warning(f"Invalid coordinate value '{value}' for {element_type}[{index}].center[{coord_index}] - expected number")
+                    return
+                
                 if 'center' not in self.data[element_type][index]:
                     self.data[element_type][index]['center'] = [0, 0]
-                self.data[element_type][index]['center'][coord_index] = float(value)
-            except (ValueError, KeyError, IndexError):
-                pass
-
-    def _update_frame_shape(self, index, value):
-        try:
-            self.data['frame_shape'][index] = int(value)
-        except (ValueError, IndexError):
-            pass
+                
+                param_path = ['geometric_analysis', 'roi_data', element_type, str(index), 'center', str(coord_index)]
+                converted_value = convert_with_fallback(value, 'float', value, param_path)
+                
+                if isinstance(converted_value, (int, float)):
+                    self.data[element_type][index]['center'][coord_index] = float(converted_value)
+                    logger.debug(f"Updated {element_type}[{index}].center[{coord_index}] to {converted_value}")
+                else:
+                    logger.warning(f"Failed to convert center coordinate '{value}' to float, keeping original")
+            except (ValueError, KeyError, IndexError, Exception) as e:
+                logger.error(f"Error updating element center for {element_type}[{index}].center[{coord_index}]: {e}")
+                # Don't raise exception to keep GUI responsive
     
-    def _update_scale(self, value):
-        try:
-            self.data['scale'] = float(value)
-        except ValueError:
-            pass
+    def _update_element_with_conversion(self, element_type, index, key, value):
+        """Update an element property with enhanced type-aware conversion and error handling"""
+        if element_type in self.data and 0 <= index < len(self.data[element_type]):
+            try:
+                if key in ['width', 'height', 'radius', 'angle']:
+                    # Validate input first
+                    if not validate_numeric_input(value, 'float'):
+                        logger.warning(f"Invalid {key} value '{value}' for {element_type}[{index}] - expected number")
+                        return
+                    
+                    param_path = ['geometric_analysis', 'roi_data', element_type, str(index), key]
+                    converted_value = convert_with_fallback(value, 'float', value, param_path)
+                    
+                    if isinstance(converted_value, (int, float)):
+                        self.data[element_type][index][key] = float(converted_value)
+                        logger.debug(f"Updated {element_type}[{index}].{key} to {converted_value}")
+                    else:
+                        logger.warning(f"Failed to convert {key} value '{value}' to float, keeping original")
+                else:
+                    self.data[element_type][index][key] = value
+                    logger.debug(f"Updated {element_type}[{index}].{key} to '{value}' (string)")
+            except (ValueError, KeyError, Exception) as e:
+                logger.error(f"Error updating element property {key} for {element_type}[{index}]: {e}")
+                # Don't raise exception to keep GUI responsive
 
 class TargetExplorationFrame(ttk.LabelFrame):
     def __init__(self, parent, exploration_data, model=None):
@@ -438,9 +504,33 @@ class TargetExplorationFrame(ttk.LabelFrame):
         dist_label = ttk.Label(self, text="Distance:")
         dist_label.grid(row=0, column=0, sticky='w')
         dist_var = tk.StringVar(value=str(self.data.get('distance', 3)))
-        dist_var.trace_add("write", lambda *_: self._update_distance(dist_var.get()))
+        dist_var.trace_add("write", lambda *_: self._update_distance_with_conversion(dist_var.get()))
         dist_entry = ttk.Entry(self, textvariable=dist_var, width=8)
         dist_entry.grid(row=0, column=1, sticky='w', padx=5)
+        
+        # Add tooltip with validation info
+        from .widgets import ToolTip
+        ToolTip(dist_entry, "Distance value (integer expected)")
+
+    def _update_distance_with_conversion(self, value):
+        """Update distance with enhanced type-aware conversion and error handling"""
+        try:
+            # Validate input first
+            if not validate_numeric_input(value, 'int'):
+                logger.warning(f"Invalid distance value '{value}' - expected integer")
+                return
+            
+            param_path = ['geometric_analysis', 'target_exploration', 'distance']
+            converted_value = convert_with_fallback(value, 'int', value, param_path)
+            
+            if isinstance(converted_value, int):
+                self.data['distance'] = converted_value
+                logger.debug(f"Updated target exploration distance to {converted_value}")
+            else:
+                logger.warning(f"Failed to convert distance value '{value}' to int, keeping original")
+        except Exception as e:
+            logger.error(f"Error updating target exploration distance: {e}")
+            # Don't raise exception to keep GUI responsive
         
         # Add tooltip if model is available
         if self.model:
@@ -459,7 +549,7 @@ class TargetExplorationFrame(ttk.LabelFrame):
         degree_label = ttk.Label(orientation_frame, text="Degree:")
         degree_label.grid(row=0, column=0, sticky='w')
         degree_var = tk.StringVar(value=str(orientation_data.get('degree', 45)))
-        degree_var.trace_add("write", lambda *_: self._update_orientation('degree', degree_var.get()))
+        degree_var.trace_add("write", lambda *_: self._update_orientation_with_conversion('degree', degree_var.get()))
         degree_entry = ttk.Entry(orientation_frame, textvariable=degree_var, width=8)
         degree_entry.grid(row=0, column=1, sticky='w', padx=5)
         
@@ -497,22 +587,57 @@ class TargetExplorationFrame(ttk.LabelFrame):
                 ToolTip(pivot_label, comment)
                 ToolTip(pivot_entry, comment)
 
-    def _update_distance(self, value):
-        try:
-            self.data['distance'] = float(value)
-        except ValueError:
-            pass
+
     
-    def _update_orientation(self, key, value):
+    def _update_distance_with_conversion(self, value):
+        """Update distance with type-aware conversion"""
+        try:
+            # Distance parameter path: ['geometric_analysis', 'target_exploration', 'distance']
+            parameter_path = ['geometric_analysis', 'target_exploration', 'distance']
+            param_type = get_parameter_type(parameter_path)
+            if param_type:
+                converted_value = convert_with_fallback(value, param_type, value)
+                if isinstance(converted_value, (int, float)):
+                    self.data['distance'] = converted_value
+                    logger.debug(f"Updated target exploration distance to {converted_value}")
+                else:
+                    logger.warning(f"Failed to convert distance value '{value}' to {param_type}")
+            else:
+                # Fallback to float conversion
+                converted_value = convert_with_fallback(value, 'float', value)
+                if isinstance(converted_value, (int, float)):
+                    self.data['distance'] = float(converted_value)
+        except Exception as e:
+            logger.error(f"Error updating distance: {e}")
+    
+
+    
+    def _update_orientation_with_conversion(self, key, value):
+        """Update orientation with type-aware conversion"""
         if 'orientation' not in self.data:
             self.data['orientation'] = {}
-        if key == 'degree':
-            try:
-                self.data['orientation'][key] = float(value)
-            except ValueError:
-                pass
-        else:
-            self.data['orientation'][key] = str(value)
+        
+        try:
+            if key == 'degree':
+                # Degree parameter path: ['geometric_analysis', 'target_exploration', 'orientation', 'degree']
+                parameter_path = ['geometric_analysis', 'target_exploration', 'orientation', 'degree']
+                param_type = get_parameter_type(parameter_path)
+                if param_type:
+                    converted_value = convert_with_fallback(value, param_type, value)
+                    if isinstance(converted_value, (int, float)):
+                        self.data['orientation'][key] = converted_value
+                        logger.debug(f"Updated orientation degree to {converted_value}")
+                    else:
+                        logger.warning(f"Failed to convert degree value '{value}' to {param_type}")
+                else:
+                    # Fallback to float conversion
+                    converted_value = convert_with_fallback(value, 'float', value)
+                    if isinstance(converted_value, (int, float)):
+                        self.data['orientation'][key] = float(converted_value)
+            else:
+                self.data['orientation'][key] = str(value)
+        except Exception as e:
+            logger.error(f"Error updating orientation {key}: {e}")
 
 class RNNWidthFrame(ttk.LabelFrame):
     def __init__(self, parent, rnn_data, model=None):
@@ -529,7 +654,7 @@ class RNNWidthFrame(ttk.LabelFrame):
             label = ttk.Label(self, text=f"{key.title()}:")
             label.grid(row=i, column=0, sticky='w')
             var = tk.StringVar(value=str(val))
-            var.trace_add("write", lambda *_, k=key, v=var: self._update_value(k, v.get()))
+            var.trace_add("write", lambda *_, k=key, v=var: self._update_value_with_conversion(k, v.get()))
             entry = ttk.Entry(self, textvariable=var, width=8)
             entry.grid(row=i, column=1, sticky='w', padx=5)
             
@@ -541,10 +666,29 @@ class RNNWidthFrame(ttk.LabelFrame):
                     ToolTip(label, comment)
                     ToolTip(entry, comment)
     
-    def _update_value(self, key, value):
+    def _update_value_with_conversion(self, key, value):
+        """Update RNN width value with type-aware conversion"""
         try:
-            self.data[key] = float(value)
-        except ValueError:
+            # RNN width parameter path: ['automatic_analysis', 'RNN', 'RNN_width', key]
+            parameter_path = ['automatic_analysis', 'RNN', 'RNN_width', key]
+            param_type = get_parameter_type(parameter_path)
+            if param_type:
+                converted_value = convert_with_fallback(value, param_type, value)
+                if isinstance(converted_value, (int, float)):
+                    self.data[key] = converted_value
+                    logger.debug(f"Updated RNN width {key} to {converted_value}")
+                else:
+                    logger.warning(f"Failed to convert RNN width {key} value '{value}' to {param_type}")
+                    self.data[key] = value
+            else:
+                # Fallback to float conversion
+                converted_value = convert_with_fallback(value, 'float', value)
+                if isinstance(converted_value, (int, float)):
+                    self.data[key] = float(converted_value)
+                else:
+                    self.data[key] = value
+        except Exception as e:
+            logger.error(f"Error updating RNN width {key}: {e}")
             self.data[key] = value
 
 class TargetRolesFrame(ttk.LabelFrame):

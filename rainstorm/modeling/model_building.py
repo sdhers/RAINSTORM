@@ -129,12 +129,12 @@ def train_RNN(params_path: Path, model: tf.keras.Model, model_dict: Dict[str, np
     rnn_conf = modeling.get("RNN") or {}
 
     # Training configuration parameters
-    total_epochs = rnn_conf.get("total_epochs") or 100 # Maximum number of training epochs
-    warmup_epochs = rnn_conf.get("warmup_epochs") or 10 # Number of epochs for learning rate warmup/cooldown phase
-    initial_lr = rnn_conf.get("initial_lr") or 1e-5 # Starting and final learning rate during warmup phase
-    peak_lr = rnn_conf.get("peak_lr") or 1e-4 # Maximum learning rate during warmup phase
-    batch_size = rnn_conf.get("batch_size") or 64 # Number of samples per gradient update
-    patience = rnn_conf.get("patience") or 10 # Number of epochs with no improvement after which training will be stopped
+    total_epochs = int(rnn_conf.get("total_epochs")) or 100 # Maximum number of training epochs
+    warmup_epochs = int(rnn_conf.get("warmup_epochs")) or 10 # Number of epochs for learning rate warmup/cooldown phase
+    initial_lr = float(rnn_conf.get("initial_lr")) or 0.00001 # Starting and final learning rate during warmup phase
+    peak_lr = float(rnn_conf.get("peak_lr")) or 0.0001 # Maximum learning rate during warmup phase
+    batch_size = int(rnn_conf.get("batch_size")) or 64 # Number of samples per gradient update
+    patience = int(rnn_conf.get("patience")) or 10 # Number of epochs with no improvement after which training will be stopped
 
     # Define the save folder for logs and checkpoints
     save_folder = Path(modeling.get("models_path"))

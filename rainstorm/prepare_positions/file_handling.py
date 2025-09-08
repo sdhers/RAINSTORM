@@ -65,7 +65,7 @@ def backup_folder(folder_path: Path, suffix: str = "_backup", overwrite: bool = 
         else:
             print(f"Backup folder already exists: '{copied_folder_path}'. Skipping backup.")
             logger.warning(f"The folder '{copied_folder_path}' already exists. Use overwrite=True to replace it.")
-            return copied_folder_path
+            return
 
     print(f"Creating backup of '{folder_path}' to '{copied_folder_path}'...")
     try:
@@ -74,7 +74,7 @@ def backup_folder(folder_path: Path, suffix: str = "_backup", overwrite: bool = 
     except Exception as e:
         logger.error(f"Failed to create backup of '{folder_path}' to '{copied_folder_path}': {e}")
         raise
-    return copied_folder_path
+    return
 
 
 def rename_files(folder_path: Path, old_substring: str, new_substring: str):

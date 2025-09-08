@@ -1,7 +1,7 @@
 """
 RAINSTORM - Prepare Positions - Params Builder
 
-This script creates and manages the parameters file (params.yaml) for Rainstorm projects.
+Build the params.yaml file
 """
 
 import json
@@ -13,11 +13,11 @@ from typing import List, Optional, Dict, Any
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
 
+# Import constants from the GUI config.py to ensure consistency
+from .params_gui import config as C
+
 def dict_to_commented_map(d):
-    """
-    Recursively convert a nested dict into a ruamel.yaml CommentedMap
-    so that YAML comments can be added.
-    """
+    """Recursively convert a nested dict into a CommentedMap."""
     if isinstance(d, dict):
         cm = CommentedMap()
         for k, v in d.items():
@@ -25,49 +25,13 @@ def dict_to_commented_map(d):
         return cm
     elif isinstance(d, list):
         return [dict_to_commented_map(i) for i in d]
-    else:
-        return d
-
-from ..utils import configure_logging 
-configure_logging()
+    return d
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO) # Basic config for standalone run
-
-# Constants
-DEFAULT_ROI = {"frame_shape": [700, 500], "scale": 1, "rectangles": [], "circles": [], "points": []}
-DEFAULT_FPS = 30
-DEFAULT_BODYPARTS = [
-    'body', 'head', 'left_ear', 'left_hip', 'left_midside', 'left_shoulder',
-    'neck', 'nose', 'right_ear', 'right_hip', 'right_midside', 'right_shoulder',
-    'tail_base', 'tail_end', 'tail_mid'
-]
-DEFAULT_MODEL_BODYPARTS = ["nose", "left_ear", "right_ear", "head", "neck", "body"]
-DEFAULT_TARGETS = ["obj_1", "obj_2"]
-DEFAULT_TRIALS = ['Hab', 'TR', 'TS']
-DEFAULT_TARGET_ROLES = {"Hab": [], "TR": ["Left", "Right"], "TS": ["Novel", "Known"]}
-
-try:
-    RAINSTORM_DIR = Path(__file__).parent.parent 
-except NameError:
-    RAINSTORM_DIR = Path.cwd()
-DEFAULT_MODEL_PATH = str(RAINSTORM_DIR / 'examples' / 'models' / 'trained_models' / 'example_wide.keras')
 
 class ParamsBuilder:
     """
-    A class to build, manage, and write analysis parameters to a params.yaml file.
-    
-    This class creates comprehensive parameter files for Rainstorm analysis with:
-    - Proper inline comments for GUI tooltip support
-    - All analysis sections (basic, geometric, automatic)
-    - Parameter validation
-    - Backup creation on overwrite
-    - Flexible parameter updates
-    
-    Attributes:
-        folder_path (Path): Path to the experiment folder
-        params_path (Path): Path to the params.yaml file
-        parameters (CommentedMap): The parameter structure
+    Builds, manages, and writes analysis parameters to a params.yaml file.
     """
     def __init__(self, folder_path: Path):
         self.folder_path = folder_path
@@ -77,273 +41,185 @@ class ParamsBuilder:
     def load_roi_data(self, rois_path: Optional[Path]) -> Dict[str, Any]:
         """Loads ROI data from a JSON file, or returns a default structure."""
         if not rois_path or not rois_path.is_file():
-            logger.info("No ROI file specified or found. Using default ROI data.")
-            return DEFAULT_ROI.copy()
+            return C.DEFAULT_ROI.copy()
         try:
             with open(rois_path, "r") as f:
                 return json.load(f)
-        except (json.JSONDecodeError, Exception) as e:
-            logger.error(f"Failed to load ROI data from '{rois_path}': {e}. Using default ROI data.")
-            return DEFAULT_ROI.copy()
+        except Exception as e:
+            logger.error(f"Failed to load ROI data from '{rois_path}': {e}. Using default.")
+            return C.DEFAULT_ROI.copy()
 
     def collect_filenames(self, suffix: str = '_positions') -> List[str]:
         """Collects filenames of H5 position files in a given folder."""
         if not self.folder_path.is_dir():
-            logger.error(f"'{self.folder_path}' is not a valid directory.")
             return []
-        
-        try:
-            filenames = [f.stem.replace(suffix, "") for f in self.folder_path.glob(f"*{suffix}.h5")]
-            logger.info(f"Found {len(filenames)} position files in '{self.folder_path}'.")
-            return sorted(filenames)  # Sort for consistent ordering
-        except Exception as e:
-            logger.error(f"Error collecting filenames from '{self.folder_path}': {e}")
-            return []
+        return sorted([f.stem.replace(suffix, "") for f in self.folder_path.glob(f"*{suffix}.h5")])
 
     def build_parameters(self, rois_path: Optional[Path] = None):
-        """Builds the complete parameters dictionary with all sections included."""
-        roi_data = self.load_roi_data(rois_path)
-        filenames = self.collect_filenames()
-
-        # Build complete parameters structure with all sections
+        """Builds the complete parameters dictionary using defaults from config."""
         self.parameters = CommentedMap({
-            "path": str(self.folder_path),
-            "filenames": filenames,
-            "software": "DLC",
-            "fps": DEFAULT_FPS,
-            "bodyparts": DEFAULT_BODYPARTS.copy(),
-            "prepare_positions": dict_to_commented_map({
-                "confidence": 2, 
-                "median_filter": 3, 
-                "near_dist": 4.5,
-                "far_dist": 14, 
-                "max_outlier_connections": 3,
+            C.KEY_PATH: str(self.folder_path),
+            C.KEY_FILENAMES: self.collect_filenames(),
+            C.KEY_SOFTWARE: "DLC",
+            C.KEY_FPS: C.DEFAULT_FPS,
+            C.KEY_BODYPARTS: C.DEFAULT_BODYPARTS.copy(),
+            C.KEY_PREPARE_POSITIONS: dict_to_commented_map({
+                C.KEY_CONFIDENCE: 2, C.KEY_MEDIAN_FILTER: 3, C.KEY_NEAR_DIST: 4.5,
+                C.KEY_FAR_DIST: 14, C.KEY_MAX_OUTLIER_CONNECTIONS: 3,
             }),
-            "targets": DEFAULT_TARGETS.copy(),
-            "trials": DEFAULT_TRIALS.copy(),
-            "target_roles": DEFAULT_TARGET_ROLES.copy(),
+            C.KEY_TARGETS: C.DEFAULT_TARGETS.copy(),
+            C.KEY_TRIALS: C.DEFAULT_TRIALS.copy(),
+            C.KEY_TARGET_ROLES: C.DEFAULT_TARGET_ROLES.copy(),
+            C.KEY_GEOMETRIC_ANALYSIS: dict_to_commented_map({
+                C.KEY_ROI_DATA: self.load_roi_data(rois_path),
+                C.KEY_FREEZING_THRESHOLD: 0.01,
+                C.KEY_TARGET_EXPLORATION: {
+                    C.KEY_DISTANCE: 3,
+                    C.KEY_ORIENTATION: {C.KEY_DEGREE: 45, C.KEY_FRONT: 'nose', C.KEY_PIVOT: 'head'}
+                }
+            }),
+            C.KEY_AUTOMATIC_ANALYSIS: dict_to_commented_map({
+                C.KEY_MODELS_PATH: str(C.DEFAULT_MODELS_PATH),
+                C.KEY_ANALYZE_WITH: C.DEFAULT_ANALYZE_WITH,
+                C.KEY_COLABELS: {
+                    C.KEY_COLABELS_PATH: str(C.DEFAULT_MODELS_PATH / 'colabels.csv'),
+                    C.KEY_LABELERS: ['Labeler_A', 'Labeler_B', 'Labeler_C', 'Labeler_D', 'Labeler_E'],
+                    C.KEY_TARGET: 'tgt',
+                },
+                C.KEY_MODEL_BODYPARTS: C.DEFAULT_MODEL_BODYPARTS.copy(),
+                C.KEY_SPLIT: {
+                    C.KEY_FOCUS_DISTANCE: 30,
+                    C.KEY_VALIDATION: 0.15,
+                    C.KEY_TEST: 0.15,
+                },
+                C.KEY_RNN: {
+                    C.KEY_RESCALING: True,
+                    C.KEY_RESHAPING: True,
+                    C.KEY_RNN_WIDTH: {C.KEY_PAST: 3, C.KEY_FUTURE: 3, C.KEY_BROAD: 1.7},
+                    C.KEY_UNITS: [32, 16, 8],
+                    C.KEY_BATCH_SIZE: 64,
+                    C.KEY_DROPOUT: 0.2,
+                    C.KEY_TOTAL_EPOCHS: 100,
+                    C.KEY_WARMUP_EPOCHS: 10,
+                    C.KEY_INITIAL_LR: 0.00001,
+                    C.KEY_PEAK_LR: 0.0001,
+                    C.KEY_PATIENCE: 10
+                }
+            })
         })
-
-        # Always include geometric analysis
-        self.parameters["geometric_analysis"] = dict_to_commented_map({
-            "roi_data": roi_data,
-            "freezing_threshold": 0.01,
-            "target_exploration": {
-                "distance": 3,
-                "orientation": {"degree": 45, "front": 'nose', "pivot": 'head'}
-            }
-        })
-        
-        # Always include automatic analysis
-        self.parameters["automatic_analysis"] = dict_to_commented_map({
-            "model_path": str(DEFAULT_MODEL_PATH),
-            "model_bodyparts": DEFAULT_MODEL_BODYPARTS.copy(),
-            "rescaling": True, 
-            "reshaping": True,
-            "RNN_width": {"past": 3, "future": 3, "broad": 1.7}
-        })
-
-    def validate_parameters(self) -> bool:
-        """Validates the parameters before writing to ensure they're complete and valid."""
-        required_keys = ["path", "filenames", "software", "fps", "bodyparts", 
-                        "prepare_positions", "targets", "trials", "target_roles",
-                        "geometric_analysis", "automatic_analysis"]
-        
-        for key in required_keys:
-            if key not in self.parameters:
-                logger.error(f"Missing required parameter: {key}")
-                return False
-        
-        # Validate specific values
-        if not isinstance(self.parameters["fps"], int) or self.parameters["fps"] <= 0:
-            logger.error("FPS must be a positive integer")
-            return False
-            
-        if not self.parameters["filenames"]:
-            logger.warning("No filenames found - this may be intentional for new projects")
-            
-        return True
-
-    def update_parameter(self, key_path: str, value: Any):
-        """
-        Update a specific parameter using dot notation.
-        
-        Args:
-            key_path: Dot-separated path to the parameter (e.g., 'prepare_positions.confidence')
-            value: New value for the parameter
-        """
-        keys = key_path.split('.')
-        current = self.parameters
-        
-        # Navigate to the parent of the target key
-        for key in keys[:-1]:
-            if key not in current:
-                current[key] = CommentedMap()
-            current = current[key]
-        
-        # Set the final value
-        current[keys[-1]] = value
-        logger.info(f"Updated parameter {key_path} = {value}")
-
-    def get_parameter(self, key_path: str) -> Any:
-        """
-        Get a specific parameter using dot notation.
-        
-        Args:
-            key_path: Dot-separated path to the parameter
-            
-        Returns:
-            The parameter value or None if not found
-        """
-        keys = key_path.split('.')
-        current = self.parameters
-        
-        try:
-            for key in keys:
-                current = current[key]
-            return current
-        except (KeyError, TypeError):
-            return None
 
     def write_yaml(self, overwrite: bool = False):
         """Writes the parameters to a YAML file with comments."""
         if self.params_path.exists() and not overwrite:
-            logger.info(f"params.yaml already exists at {self.params_path}. Use overwrite=True to replace it.")
+            logger.info(f"params.yaml already exists at {self.params_path}. Use overwrite=True.")
+            print(f"params.yaml already exists at {self.params_path}\nUse overwrite=True to create it again.")
             return
 
-        # Create backup if overwriting
         if self.params_path.exists():
             backup = self.params_path.with_suffix(".yaml.bak")
             shutil.copy(self.params_path, backup)
-            logger.warning(f"Overwriting existing params.yaml at {self.params_path} (backup saved at {backup})")
-
-        # Configure YAML writer
+            logger.warning(f"Overwriting {self.params_path} (backup at {backup})")
+        
         yaml = YAML()
         yaml.indent(mapping=2, sequence=4, offset=2)
         yaml.default_flow_style = False
-        yaml.preserve_quotes = True
-
-        # Validate parameters before writing
-        if not self.validate_parameters():
-            logger.error("Parameter validation failed. File not written.")
-            return
-
-        # Add comments before writing
-        self.add_comments()
-
-        # Write file with header
-        header = ("# Rainstorm Parameters file\n#\n"
-                 "# Edit this file to customize Rainstorm's behavioral analysis.\n"
-                 "# Some parameters (i.e., 'targets') are set to work with the demo data, "
-                 "and can be edited or erased.\n\n")
         
-        try:
-            with open(self.params_path, "w", encoding='utf-8') as f:
-                f.write(header)
-                yaml.dump(self.parameters, f)
-            logger.info(f"Parameters file created successfully at {self.params_path}")
-        except Exception as e:
-            logger.error(f"Failed to write parameters file: {e}")
-            raise
+        self.add_comments()
+        header = (
+                "# Rainstorm Parameters file\n\n"
+                "# Edit this file to customize Rainstorm's behavioral analysis.\n"
+                "# All parameters are set to work with the demo data.\n"
+                "# You can edit, add or remove parameters as you see fit for your data.\n\n"
+            )
+        
+        with open(self.params_path, "w", encoding='utf-8') as f:
+            f.write(header)
+            yaml.dump(self.parameters, f)
+        logger.info(f"Parameters file created successfully at {self.params_path}")
+        print(f"Parameters file created successfully at {self.params_path}")
 
     def add_comments(self):
-        """Adds comments to the parameter map for better readability."""
-        # Top-level comments - use inline comments for proper tooltip association
-        self.parameters.yaml_add_eol_comment("Path to the folder containing the pose estimation files", key="path")
-        self.parameters.yaml_add_eol_comment("Pose estimation filenames", key="filenames")
-        self.parameters.yaml_add_eol_comment("Software used to generate the pose estimation files ('DLC' or 'SLEAP')", key="software")
-        self.parameters.yaml_add_eol_comment("Video frames per second", key="fps")
-        self.parameters.yaml_add_eol_comment("Tracked bodyparts", key="bodyparts")
+        """Adds comments to the parameter map using keys from the config."""
+        # --- Top Level Comments ---
+        self.parameters.yaml_add_eol_comment("Path to the folder containing pose estimation files", key=C.KEY_PATH)
+        self.parameters.yaml_add_eol_comment("List of pose estimation filenames (without extension)", key=C.KEY_FILENAMES)
+        self.parameters.yaml_add_eol_comment("Software used for pose estimation ('DLC' or 'SLEAP')", key=C.KEY_SOFTWARE)
+        self.parameters.yaml_add_eol_comment("Video frames per second", key=C.KEY_FPS)
+        self.parameters.yaml_add_eol_comment("List of all tracked bodyparts", key=C.KEY_BODYPARTS)
+        self.parameters.yaml_add_eol_comment("List of expected exploration targets", key=C.KEY_TARGETS)
+        self.parameters.yaml_add_eol_comment("List of trial names for the experiment", key=C.KEY_TRIALS)
+        self.parameters.yaml_add_eol_comment("Roles targets can take on each trial (e.g., Novel, Known). Must match trial names.", key=C.KEY_TARGET_ROLES)
+
+        # --- prepare_positions Comments ---
+        prep = self.parameters[C.KEY_PREPARE_POSITIONS]
+        prep.yaml_add_eol_comment("Points are erased if their likelihood is (confidence*standard deviations) away from the mean likelihood. Increase to remove less points.", key=C.KEY_CONFIDENCE)
+        prep.yaml_add_eol_comment("Number of frames for median filter (must be odd)", key=C.KEY_MEDIAN_FILTER)
+        prep.yaml_add_eol_comment("Max distance (cm) between two connected bodyparts", key=C.KEY_NEAR_DIST)
+        prep.yaml_add_eol_comment("Max distance (cm) between any two bodyparts", key=C.KEY_FAR_DIST)
+        prep.yaml_add_eol_comment("Drop bodypart if it has more outlier connections than this", key=C.KEY_MAX_OUTLIER_CONNECTIONS)
         
-        # prepare_positions section with detailed comments
-        prep = self.parameters["prepare_positions"]
-        self.parameters.yaml_set_comment_before_after_key("prepare_positions", before="\nParameters for processing positions")
-        prep.yaml_add_eol_comment("How many std_dev away from the mean the point's likelihood can be without being erased", key="confidence")
-        prep.yaml_add_eol_comment("Number of frames to use for the median filter (it must be an odd number)", key="median_filter")
-        prep.yaml_add_eol_comment("Maximum distance (in cm) between two connected bodyparts. In c57 mice, I use half a tail length (around 4.5 cm).", key="near_dist")
-        prep.yaml_add_eol_comment("Maximum distance (in cm) between any two bodyparts. In c57 mice, I use whole body length (around 14 cm).", key="far_dist")
-        prep.yaml_add_eol_comment("If a bodypart has more than this number of long connections, it will be dropped from the frame.", key="max_outlier_connections")
-        
-        # Experiment design section
-        self.parameters.yaml_set_comment_before_after_key(key="targets", before="\nExploration targets")
-        self.parameters.yaml_set_comment_before_after_key(key="trials", before="\nExperiment trials")
-        self.parameters.yaml_set_comment_before_after_key(key="target_roles", before="\nState the roles targets can take on each trial")
-        
-        # geometric_analysis section with detailed comments
-        self.parameters.yaml_set_comment_before_after_key("geometric_analysis", before="\nParameters for geometric analysis")
-        geo = self.parameters["geometric_analysis"]
-        geo.yaml_add_eol_comment("Loaded from ROIs.json", key="roi_data")
-        
-        # ROI data comments
-        roi_data = geo["roi_data"]
-        roi_data.yaml_add_eol_comment("Shape of the video frames ([width, height])", key="frame_shape")
-        roi_data.yaml_add_eol_comment("Scale factor (in px/cm)", key="scale")
-        roi_data.yaml_add_eol_comment("Defined ROIs (Rectangular areas) in the frame", key="rectangles")
-        roi_data.yaml_add_eol_comment("Defined ROIs (circular areas) in the frame", key="circles")
-        roi_data.yaml_add_eol_comment("Key points within the frame", key="points")
-        
-        geo.yaml_add_eol_comment("Movement threshold to consider freezing, computed as the mean std of all body parts over 1 second", key="freezing_threshold")
-        
-        # target_exploration comments
-        te = geo["target_exploration"]
-        geo.yaml_set_comment_before_after_key("target_exploration", before="\nParameters for geometric target exploration")
-        te.yaml_add_eol_comment("Maximum nose-target distance to consider exploration", key="distance")
-        orient = te["orientation"]
-        te.yaml_add_eol_comment("Set up orientation analysis", key="orientation")
-        orient.yaml_add_eol_comment("Maximum head-target orientation angle to consider exploration (in degrees)", key="degree")
-        orient.yaml_add_eol_comment("Ending bodypart of the orientation line", key="front")
-        orient.yaml_add_eol_comment("Starting bodypart of the orientation line", key="pivot")
-        
-        # automatic_analysis section with detailed comments and spacing
-        auto = self.parameters["automatic_analysis"]
-        self.parameters.yaml_set_comment_before_after_key("automatic_analysis", before="\nParameters for automatic analysis")
-        auto.yaml_add_eol_comment("Path to the model file", key="model_path")
-        auto.yaml_add_eol_comment("List of bodyparts used to train the model", key="model_bodyparts")
-        auto.yaml_add_eol_comment("Whether to rescale the data", key="rescaling")
-        auto.yaml_add_eol_comment("Whether to reshape the data (set to True for RNN models)", key="reshaping")
-        rnn = auto["RNN_width"]
-        auto.yaml_set_comment_before_after_key("RNN_width", before="\nDefine the shape of the RNN model")
-        rnn.yaml_add_eol_comment("Number of past frames to include", key="past")
-        rnn.yaml_add_eol_comment("Number of future frames to include", key="future")
-        rnn.yaml_add_eol_comment("Broaden the window by skipping some frames as we stray further from the present", key="broad")
+        # --- geometric_analysis Comments ---
+        geom = self.parameters[C.KEY_GEOMETRIC_ANALYSIS]
+
+        # --- target_exploration Comments ---
+        explore = geom[C.KEY_TARGET_EXPLORATION]
+        explore.yaml_add_eol_comment("Max nose-target distance (cm) to consider exploration", key=C.KEY_DISTANCE)
+        orient = explore[C.KEY_ORIENTATION]
+        orient.yaml_add_eol_comment("Max head-target angle (degrees) for exploration", key=C.KEY_DEGREE)
+        orient.yaml_add_eol_comment("Ending bodypart of the orientation line", key=C.KEY_FRONT)
+        orient.yaml_add_eol_comment("Starting bodypart of the orientation line", key=C.KEY_PIVOT)
+
+        # --- Immobility detection Comments ---
+        geom.yaml_add_eol_comment("Movement threshold for freezing (mean std of all bodyparts over a time window)", key=C.KEY_FREEZING_THRESHOLD)
+
+        # --- automatic_analysis Comments ---
+        auto = self.parameters[C.KEY_AUTOMATIC_ANALYSIS]
+        auto.yaml_add_eol_comment("Path to the models folder", key=C.KEY_MODELS_PATH)
+        auto.yaml_add_eol_comment("Model file to use for analysis (.keras)", key=C.KEY_ANALYZE_WITH)
+        auto.yaml_add_eol_comment("Bodyparts used to train the model", key=C.KEY_MODEL_BODYPARTS)
+
+        # --- colabels Comments ---
+        colabels = auto[C.KEY_COLABELS]
+        colabels.yaml_add_eol_comment("Path to the colabels file", key=C.KEY_COLABELS_PATH)
+        colabels.yaml_add_eol_comment("List of labelers on the colabels file (as found in the columns)", key=C.KEY_LABELERS)
+        colabels.yaml_add_eol_comment("Name of the target on the colabels file", key=C.KEY_TARGET)
+
+        # --- split Comments ---
+        split = auto[C.KEY_SPLIT]
+        split.yaml_add_eol_comment("Window of frames to consider around an exploration event", key=C.KEY_FOCUS_DISTANCE)
+        split.yaml_add_eol_comment("Percentage of the data to use for validation", key=C.KEY_VALIDATION)
+        split.yaml_add_eol_comment("Percentage of the data to use for testing", key=C.KEY_TEST)
+
+        # --- RNN Comments ---
+        rnn = auto[C.KEY_RNN]
+        rnn.yaml_add_eol_comment("Whether to rescale the data", key=C.KEY_RESCALING)
+        rnn.yaml_add_eol_comment("Whether to reshape the data (set to True for RNN)", key=C.KEY_RESHAPING)
+        rnn.yaml_add_eol_comment("Number of neurons on each layer", key=C.KEY_UNITS)
+        rnn.yaml_add_eol_comment("Number of training samples the model processes before updating its weights", key=C.KEY_BATCH_SIZE)
+        rnn.yaml_add_eol_comment("Randomly turn off a fraction of neurons in the network", key=C.KEY_DROPOUT)
+        rnn.yaml_add_eol_comment("Each epoch is a complete pass through the entire training dataset", key=C.KEY_TOTAL_EPOCHS)
+        rnn.yaml_add_eol_comment("Epochs with increasing learning rate", key=C.KEY_WARMUP_EPOCHS)
+        rnn.yaml_add_eol_comment("Initial learning rate", key=C.KEY_INITIAL_LR)
+        rnn.yaml_add_eol_comment("Peak learning rate", key=C.KEY_PEAK_LR)
+        rnn.yaml_add_eol_comment("Number of epochs to wait before early stopping", key=C.KEY_PATIENCE)
+
+        # --- RNN_width Comments ---
+        rnn_width = rnn[C.KEY_RNN_WIDTH]
+        rnn_width.yaml_add_eol_comment("Number of past frames to include in RNN window", key=C.KEY_PAST)
+        rnn_width.yaml_add_eol_comment("Number of future frames to include in RNN window", key=C.KEY_FUTURE)
+        rnn_width.yaml_add_eol_comment("Broaden window by skipping frames further from the present", key=C.KEY_BROAD)
 
 
-def create_params(folder_path: str,
-                  ROIs_path: Optional[str] = None,
-                  overwrite: bool = False) -> str:
-    """
-    Create a complete params.yaml file with all analysis sections included.
-    
-    This function creates a comprehensive parameters file for Rainstorm analysis
-    with proper inline comments for GUI tooltips and all necessary sections.
-    
-    Args:
-        folder_path (str): The path to the main experiment folder containing position files.
-        ROIs_path (Optional[str]): Path to the ROIs.json file. If None, uses default ROI structure.
-        overwrite (bool): If True, overwrites existing params.yaml (creates backup first).
-    
-    Returns:
-        str: Path to the created params.yaml file.
-        
-    Raises:
-        ValueError: If folder_path is invalid
-        IOError: If file writing fails
-    """   
-    folder_path = Path(folder_path)
-    
-    if not folder_path.exists():
-        raise ValueError(f"Folder path does not exist: {folder_path}")
+def create_params(folder_path: str, ROIs_path: Optional[str] = None, overwrite: bool = False) -> str:
+    """Creates a complete params.yaml file."""
+    folder_p = Path(folder_path)
+    if not folder_p.exists():
+        raise ValueError(f"Folder path does not exist: {folder_p}")
     
     rois_p = Path(ROIs_path) if ROIs_path else None
     
-    try:
-        builder = ParamsBuilder(folder_path)
-        builder.build_parameters(rois_p)
-        builder.write_yaml(overwrite)
+    builder = ParamsBuilder(folder_p)
+    builder.build_parameters(rois_p)
+    builder.write_yaml(overwrite)
+    return str(builder.params_path)
 
-        print(f"Parameters file created successfully at {builder.params_path}")
-        return str(builder.params_path)
-        
-    except Exception as e:
-        logger.error(f"Failed to create parameters file: {e}")
-        raise

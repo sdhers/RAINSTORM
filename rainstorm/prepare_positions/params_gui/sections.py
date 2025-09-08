@@ -1,385 +1,303 @@
 """
-RAINSTORM - Parameters Editor GUI (UI Sections)
+RAINSTORM - Parameters Editor GUI (UI Sections - The "View")
 
-Simplified sections for the 3-column layout.
-All sections are always visible with preset values.
+This module defines the different logical sections of the UI. In the MVC
+pattern, these classes are part of the "View". They are responsible for
+displaying the data from the Model.
 """
 
 import tkinter as tk
 from tkinter import ttk, filedialog
-from ruamel.yaml import CommentedMap
-
 from .widgets import (
     ToolTip, ScrollableDynamicListFrame, DynamicListFrame,
     ROIDataFrame, TargetExplorationFrame, RNNWidthFrame, TargetRolesFrame
 )
-from .gui_utils import get_comment, parse_value
+from .gui_utils import get_comment
+from . import config as C
 
 class SectionFrame(ttk.LabelFrame):
-    """Base class for a section in the GUI."""
-    def __init__(self, parent, title, data, row, layout_manager=None, **kwargs):
+    """
+    Base class for a section in the GUI. It takes a 'model' argument
+    to bind its widgets directly to the application's data model.
+    """
+    def __init__(self, parent, title, model, row, layout_manager=None, **kwargs):
         super().__init__(parent, text=title, padding="5", **kwargs)
         self.grid(row=row, column=0, sticky="ew", padx=2, pady=2)
         self.columnconfigure(1, weight=1)
-        
-        self.data = data
-        self.widgets = {}
+        self.model = model
         self.layout_manager = layout_manager
 
-    def _create_entry(self, parent, label_text, value, comment=None, row=0, width=15, field_type='default'):
-        """Helper to create a label and entry widget with responsive sizing."""
+    def _create_entry(self, parent, label_text, data_map, key, comment=None, row=0, field_type='default'):
+        """
+        Creates a labeled entry widget and binds its StringVar directly to the
+        provided data map (a CommentedMap from the model).
+        """
         label = ttk.Label(parent, text=label_text)
         label.grid(row=row, column=0, sticky="w", padx=2, pady=1)
+
+        width, sticky = self._get_field_layout(field_type)
         
-        # Use responsive width if layout manager is available
-        if self.layout_manager:
-            if field_type == 'path':
-                width = self.layout_manager.get_path_field_width()
-                sticky = "ew"  # Expand to fill available width
-            elif field_type == 'number':
-                width = self.layout_manager.get_number_field_width()
-                sticky = "w"
-            else:
-                sticky = "w"
-        else:
-            sticky = "w"
+        # Create a StringVar that syncs with the model's data
+        var = tk.StringVar(value=str(data_map.get(key, '')))
+        var.trace_add("write", lambda *_: data_map.update({key: var.get()}))
         
-        var = tk.StringVar(value=str(value))
         entry = ttk.Entry(parent, textvariable=var, width=width)
         entry.grid(row=row, column=1, sticky=sticky, padx=2, pady=1)
-        
-        # Add tooltip to both label and entry if comment exists
+
         if comment:
             ToolTip(label, comment)
             ToolTip(entry, comment)
-        
         return var
 
-    def _create_checkbutton(self, parent, label_text, value, comment=None, row=0):
-        """Helper to create a checkbutton."""
-        var = tk.BooleanVar(value=value)
+    def _create_checkbutton(self, parent, label_text, data_map, key, comment=None, row=0):
+        """Creates a checkbutton and binds its BooleanVar to the model's data."""
+        var = tk.BooleanVar(value=data_map.get(key, False))
+        var.trace_add("write", lambda *_: data_map.update({key: var.get()}))
+        
         cb = ttk.Checkbutton(parent, text=label_text, variable=var)
         cb.grid(row=row, column=0, columnspan=2, sticky="w", padx=2, pady=1)
         if comment:
             ToolTip(cb, comment)
         return var
 
-    def _create_file_selector(self, parent, label_text, value, comment=None, row=0):
-        """Helper to create a file selector with browse button below and responsive sizing."""
+    def _create_file_selector(self, parent, label_text, data_map, key, comment=None, row=0):
+        """Creates a file selector and binds its StringVar to the model's data."""
         label = ttk.Label(parent, text=label_text)
         label.grid(row=row, column=0, sticky="w", padx=2, pady=1)
 
         frame = ttk.Frame(parent)
-        frame.grid(row=row, column=1, sticky="ew", padx=2, pady=1)
-        frame.columnconfigure(0, weight=1)  # Make entry expand
+        frame.grid(row=row, column=1, sticky="w", padx=2, pady=1)  # Changed from "ew" to "w"
 
-        # Use responsive width if layout manager is available
-        width = self.layout_manager.get_path_field_width() if self.layout_manager else 20
-
-        var = tk.StringVar(value=str(value))
-        entry = ttk.Entry(frame, textvariable=var, width=width)
-        entry.grid(row=0, column=0, pady=(0, 2), sticky="ew")
+        width, _ = self._get_field_layout('path')
+        var = tk.StringVar(value=str(data_map.get(key, '')))
+        var.trace_add("write", lambda *_: data_map.update({key: var.get()}))
         
-        browse_btn = ttk.Button(frame, text="Browse", width=8,
-                               command=lambda: self._browse_file(var))
+        entry = ttk.Entry(frame, textvariable=var, width=width)
+        entry.grid(row=0, column=0, pady=(0, 2), sticky="w")  # Changed from "ew" to "w"
+        
+        browse_btn = ttk.Button(frame, text="Browse", width=6,  # Reduced button width
+                               command=lambda v=var: self._browse_file(v))
         browse_btn.grid(row=1, column=0, sticky="w")
         
-        # Add tooltip to both label and entry if comment exists
         if comment:
             ToolTip(label, comment)
             ToolTip(entry, comment)
-        
         return var
+    
+    def _get_field_layout(self, field_type):
+        """Determines width and sticky settings based on field type from config."""
+        if field_type == 'path':
+            return self.layout_manager.get_path_field_width(), "w"  # Changed from "ew" to "w"
+        if field_type == 'number':
+            return self.layout_manager.get_number_field_width(), "w"
+        if field_type == 'text':
+            return self.layout_manager.get_text_field_width(), "w"
+        return 12, "w"  # Reduced default width
 
     def _browse_file(self, var):
-        """Open file dialog and set the variable."""
-        filename = filedialog.askopenfilename(
-            title="Select file",
-            filetypes=[("All files", "*.*")]
-        )
+        filename = filedialog.askopenfilename(title="Select file")
         if filename:
             var.set(filename)
 
-    def get_data(self):
-        """Gathers data from the widgets in this section."""
-        return {}
-
-# Simplified Sections for 3-Column Layout
+# --- Section Implementations ---
 
 class BasicSetupSection(SectionFrame):
-    """Column 1: Basic setup, processing positions, and experiment design."""
-    def __init__(self, parent, data, row, layout_manager=None):
-        super().__init__(parent, "Basic Setup & Processing", data, row, layout_manager)
+    def __init__(self, parent, model, row, layout_manager=None):
+        super().__init__(parent, "Basic Setup & Processing", model, row, layout_manager)
         self.populate()
 
     def populate(self):
+        data = self.model.data
+        
         # Basic Settings
         basic_frame = ttk.LabelFrame(self, text="Basic Settings", padding=3)
-        basic_frame.grid(row=0, column=0, columnspan=2, sticky='ew', pady=2)
+        basic_frame.grid(row=0, column=0, sticky='ew', pady=2)
         basic_frame.columnconfigure(1, weight=1)
 
-        self.widgets['path'] = self._create_entry(basic_frame, "Path:", 
-                                                 self.data.get('path', ''), 
-                                                 get_comment(self.data, ['path']), 0, field_type='path')
-        
-        # Filenames as scrollable list
+        self._create_entry(basic_frame, "Path:", data, C.KEY_PATH, get_comment(data, [C.KEY_PATH]), 0, 'path')
+        self._create_entry(basic_frame, "Software:", data, C.KEY_SOFTWARE, get_comment(data, [C.KEY_SOFTWARE]), 1, 'text')
+        self._create_entry(basic_frame, "FPS:", data, C.KEY_FPS, get_comment(data, [C.KEY_FPS]), 2, 'number')
+
+        # Filenames
         filenames_frame = ttk.LabelFrame(self, text="Filenames", padding=3)
-        filenames_frame.grid(row=1, column=0, columnspan=2, sticky='ew', pady=2)
-        
-        self.filenames_list = ScrollableDynamicListFrame(filenames_frame, "", 
-                                                        self.data.get("filenames", []), 
-                                                        max_height=100)
-        self.filenames_list.pack(fill='both', expand=True)
+        filenames_frame.grid(row=1, column=0, sticky='ew', pady=2)
+        ScrollableDynamicListFrame(filenames_frame, "", data, C.KEY_FILENAMES, max_height=200).pack(fill='both', expand=True)
 
-        self.widgets['software'] = self._create_entry(basic_frame, "Software:", 
-                                                     self.data.get('software', 'DLC'), 
-                                                     get_comment(self.data, ['software']), 1)
-        
-        self.widgets['fps'] = self._create_entry(basic_frame, "FPS:", 
-                                                self.data.get('fps', 30), 
-                                                get_comment(self.data, ['fps']), 2, field_type='number')
-
-        # Bodyparts as scrollable list
+        # Bodyparts
         bodyparts_frame = ttk.LabelFrame(self, text="Bodyparts", padding=3)
-        bodyparts_frame.grid(row=2, column=0, columnspan=2, sticky='ew', pady=2)
-        
-        self.bodyparts_list = ScrollableDynamicListFrame(bodyparts_frame, "", 
-                                                        self.data.get("bodyparts", []), 
-                                                        max_height=120)
-        self.bodyparts_list.pack(fill='both', expand=True)
+        bodyparts_frame.grid(row=2, column=0, sticky='ew', pady=2)
+        ScrollableDynamicListFrame(bodyparts_frame, "", data, C.KEY_BODYPARTS, max_height=120).pack(fill='both', expand=True)
 
-        # Prepare Positions
+        # Processing Parameters
         prep_frame = ttk.LabelFrame(self, text="Processing Parameters", padding=3)
-        prep_frame.grid(row=3, column=0, columnspan=2, sticky='ew', pady=2)
+        prep_frame.grid(row=3, column=0, sticky='ew', pady=2)
         prep_frame.columnconfigure(1, weight=1)
-
-        prep_data = self.data.get("prepare_positions", {})
-        row = 0
-        for key, value in prep_data.items():
-            comment = get_comment(self.data, ["prepare_positions", key])
-            self.widgets[f'prep_{key}'] = self._create_entry(prep_frame, 
-                                                           key.replace('_', ' ').title() + ":", 
-                                                           value, comment, row, field_type='number')
-            row += 1
-
-    def get_data(self):
-        data = CommentedMap()
         
-        # Basic settings
-        data['path'] = self.widgets['path'].get()
-        data['filenames'] = self.filenames_list.get_values()
-        data['software'] = self.widgets['software'].get()
-        data['fps'] = parse_value(self.widgets['fps'].get(), 'int')
-        data['bodyparts'] = self.bodyparts_list.get_values()
-        
-        # Prepare positions
-        prep_data = CommentedMap()
-        prep_keys = self.data.get("prepare_positions", {}).keys()
-        for key in prep_keys:
-            widget_key = f'prep_{key}'
-            if widget_key in self.widgets:
-                value = self.widgets[widget_key].get()
-                prep_data[key] = parse_value(value, 'float' if '.' in str(value) else 'int')
-        data['prepare_positions'] = prep_data
-        
-        return data
-
+        prep_data = self.model.get_nested([C.KEY_PREPARE_POSITIONS])
+        for i, (key, _) in enumerate(prep_data.items()):
+            comment = get_comment(data, [C.KEY_PREPARE_POSITIONS, key])
+            self._create_entry(prep_frame, f"{key.replace('_', ' ').title()}:", prep_data, key, comment, i, 'number')
 
 class ExperimentDesignSection(SectionFrame):
-    """Column 1 (continued): Experiment design with targets and trials."""
-    def __init__(self, parent, data, row, layout_manager=None):
-        super().__init__(parent, "Experiment Design", data, row, layout_manager)
-        self._update_pending = False  # Flag to prevent excessive updates
+    def __init__(self, parent, model, row, layout_manager=None):
+        super().__init__(parent, "Experiment Design", model, row, layout_manager)
         self.populate()
 
     def populate(self):
+        data = self.model.data
+        
         # Targets
         targets_frame = ttk.LabelFrame(self, text="Targets", padding=3)
-        targets_frame.grid(row=0, column=0, columnspan=2, sticky='ew', pady=2)
+        targets_frame.grid(row=0, column=0, sticky='ew', pady=2)
+        DynamicListFrame(targets_frame, "", data, C.KEY_TARGETS).pack(fill='both', expand=True)
         
-        self.targets_list = DynamicListFrame(targets_frame, "", self.data.get("targets", []))
-        self.targets_list.pack(fill='both', expand=True)
-
-        # Trials
+        # Trials - with callback to update target roles
         trials_frame = ttk.LabelFrame(self, text="Trials", padding=3)
-        trials_frame.grid(row=1, column=0, columnspan=2, sticky='ew', pady=2)
+        trials_frame.grid(row=1, column=0, sticky='ew', pady=2)
+        trials_list_widget = DynamicListFrame(trials_frame, "", data, C.KEY_TRIALS, self._on_trials_changed)
+        trials_list_widget.pack(fill='both', expand=True)
         
-        self.trials_list = DynamicListFrame(trials_frame, "", self.data.get("trials", []), 
-                                          callback=self._on_trials_changed)
-        self.trials_list.pack(fill='both', expand=True)
-
-        # Target Roles - positioned below trials section
-        self.target_roles_editor = TargetRolesFrame(self, self.data.get("target_roles", {}), 
-                                                   self.trials_list)
-        self.target_roles_editor.grid(row=2, column=0, columnspan=2, sticky='ew', pady=2)
+        # Target Roles - initialize with current trials
+        current_trials = data.get(C.KEY_TRIALS, [])
+        self.target_roles_editor = TargetRolesFrame(self, data.get(C.KEY_TARGET_ROLES, {}), trials_list_widget)
+        self.target_roles_editor.grid(row=2, column=0, sticky='ew', pady=2)
+        # Initialize target roles display with current trials
+        self.target_roles_editor.update_from_trials(current_trials)
 
     def _on_trials_changed(self):
-        """Enhanced callback method triggered when trials list changes with debouncing."""
-        try:
-            if hasattr(self, 'target_roles_editor') and self.target_roles_editor:
-                # Use debouncing to prevent excessive updates during rapid typing
-                if not self._update_pending:
-                    self._update_pending = True
-                    # Schedule update after a short delay to allow for rapid changes
-                    self.after(100, self._perform_delayed_update)
-                
-        except Exception as e:
-            print(f"Warning: Error in trials changed callback: {e}")
-    
-    def _perform_delayed_update(self):
-        """Perform the actual update after debouncing delay."""
-        try:
-            self._update_pending = False
-            if hasattr(self, 'target_roles_editor') and self.target_roles_editor:
-                current_trials = self.trials_list.get_values()
-                self._update_target_roles_safely(current_trials)
-        except Exception as e:
-            print(f"Warning: Error in delayed update: {e}")
-            self._update_pending = False
-    
-    def _update_target_roles_safely(self, trials):
-        """Safely update target roles with error handling and validation."""
-        try:
-            if hasattr(self, 'target_roles_editor') and self.target_roles_editor:
-                # Validate trials before updating
-                valid_trials = [trial for trial in trials if trial and trial.strip()]
-                self.target_roles_editor.update_from_trials(valid_trials)
-        except Exception as e:
-            print(f"Warning: Error updating target roles: {e}")
-
-    def get_data(self):
-        data = CommentedMap()
-        data['targets'] = self.targets_list.get_values()
-        data['trials'] = self.trials_list.get_values()
-        
-        # Include target_roles data
         if hasattr(self, 'target_roles_editor'):
-            data['target_roles'] = self.target_roles_editor.get_target_roles_data()
-        
-        return data
-
+            current_trials = self.model.get(C.KEY_TRIALS, [])
+            self.target_roles_editor.update_from_trials(current_trials)
 
 class GeometricAnalysisSection(SectionFrame):
-    """Column 2: Geometric analysis parameters."""
-    def __init__(self, parent, data, row, layout_manager=None):
-        super().__init__(parent, "Geometric Analysis", data, row, layout_manager)
-        self.sub_data = self.data.get("geometric_analysis", {})
+    def __init__(self, parent, model, row, layout_manager=None):
+        super().__init__(parent, "Geometric Analysis", model, row, layout_manager)
+        self.sub_data = self.model.get_nested([C.KEY_GEOMETRIC_ANALYSIS])
         self.populate()
 
     def populate(self):
         # ROI Data
-        if 'roi_data' in self.sub_data:
-            self.roi_editor = ROIDataFrame(self, self.sub_data['roi_data'])
-            self.roi_editor.grid(row=0, column=0, columnspan=2, sticky='ew', pady=5)
-            # Make ROI section responsive to column width
+        if C.KEY_ROI_DATA in self.sub_data:
+            roi_editor = ROIDataFrame(self, self.sub_data[C.KEY_ROI_DATA])
+            roi_editor.grid(row=0, column=0, sticky='ew', pady=5)
             if self.layout_manager:
-                self.layout_manager.configure_roi_section_responsive(self.roi_editor)
+                self.layout_manager.configure_roi_section_responsive(roi_editor)
 
-        # Freezing threshold
-        if 'freezing_threshold' in self.sub_data:
+        # Freezing Threshold
+        if C.KEY_FREEZING_THRESHOLD in self.sub_data:
             thresh_frame = ttk.LabelFrame(self, text="Freezing Analysis", padding=3)
-            thresh_frame.grid(row=1, column=0, columnspan=2, sticky='ew', pady=2)
+            thresh_frame.grid(row=1, column=0, sticky='ew', pady=2)
             thresh_frame.columnconfigure(1, weight=1)
-            
-            comment = get_comment(self.data, ["geometric_analysis", "freezing_threshold"])
-            self.widgets['freezing_threshold'] = self._create_entry(thresh_frame, 
-                                                                  "Freezing Threshold:", 
-                                                                  self.sub_data['freezing_threshold'], 
-                                                                  comment, 0, field_type='number')
+            comment = get_comment(self.model.data, [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_FREEZING_THRESHOLD])
+            self._create_entry(thresh_frame, "Freezing Threshold:", self.sub_data, C.KEY_FREEZING_THRESHOLD, comment, 0, 'number')
 
         # Target Exploration
-        if 'target_exploration' in self.sub_data:
-            self.exploration_editor = TargetExplorationFrame(self, self.sub_data['target_exploration'])
-            self.exploration_editor.grid(row=2, column=0, columnspan=2, sticky='ew', pady=5)
-
-    def get_data(self):
-        data = CommentedMap()
-        section_data = CommentedMap()
-        
-        if hasattr(self, 'roi_editor'):
-            section_data['roi_data'] = self.roi_editor.get_roi_data()
-        
-        if 'freezing_threshold' in self.widgets:
-            section_data['freezing_threshold'] = parse_value(self.widgets['freezing_threshold'].get(), 'float')
-        
-        if hasattr(self, 'exploration_editor'):
-            section_data['target_exploration'] = self.exploration_editor.get_exploration_data()
-        
-        data['geometric_analysis'] = section_data
-        return data
+        if C.KEY_TARGET_EXPLORATION in self.sub_data:
+            TargetExplorationFrame(self, self.sub_data[C.KEY_TARGET_EXPLORATION], self.model).grid(row=2, column=0, sticky='ew', pady=5)
 
 
 class AutomaticAnalysisSection(SectionFrame):
-    """Column 3: Automatic analysis parameters."""
-    def __init__(self, parent, data, row, layout_manager=None):
-        super().__init__(parent, "Automatic Analysis", data, row, layout_manager)
-        self.sub_data = self.data.get("automatic_analysis", {})
+    def __init__(self, parent, model, row, layout_manager=None):
+        super().__init__(parent, "Automatic Analysis", model, row, layout_manager)
+        self.sub_data = self.model.get_nested([C.KEY_AUTOMATIC_ANALYSIS])
         self.populate()
 
     def populate(self):
-        # Model settings
+        # Model Settings
         model_frame = ttk.LabelFrame(self, text="Model Settings", padding=3)
-        model_frame.grid(row=0, column=0, columnspan=2, sticky='ew', pady=2)
+        model_frame.grid(row=0, column=0, sticky='ew', pady=2)
         model_frame.columnconfigure(1, weight=1)
 
-        if 'model_path' in self.sub_data:
-            comment = get_comment(self.data, ["automatic_analysis", "model_path"])
-            self.widgets['model_path'] = self._create_file_selector(model_frame, 
-                                                                  "Model Path:", 
-                                                                  self.sub_data['model_path'], 
-                                                                  comment, 0)
+        if C.KEY_MODELS_PATH in self.sub_data:
+            comment = get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_MODELS_PATH])
+            self._create_file_selector(model_frame, "Models Path:", self.sub_data, C.KEY_MODELS_PATH, comment, 0)
 
-        # Model bodyparts
-        if 'model_bodyparts' in self.sub_data:
-            bodyparts_frame = ttk.LabelFrame(self, text="Model Bodyparts", padding=3)
-            bodyparts_frame.grid(row=1, column=0, columnspan=2, sticky='ew', pady=2)
+        if C.KEY_ANALYZE_WITH in self.sub_data:
+            comment = get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_ANALYZE_WITH])
+            self._create_entry(model_frame, "Analyze with:", self.sub_data, C.KEY_ANALYZE_WITH, comment, 1, 'text')
+
+        # Colabels Settings
+        if C.KEY_COLABELS in self.sub_data:
+            colabels_frame = ttk.LabelFrame(self, text="Settings for Supervised Learning", padding=3)
+            colabels_frame.grid(row=1, column=0, sticky='ew', pady=2)
+            colabels_frame.columnconfigure(1, weight=1)
             
-            self.model_bodyparts_list = ScrollableDynamicListFrame(bodyparts_frame, "", 
-                                                                  self.sub_data['model_bodyparts'], 
-                                                                  max_height=120)
-            self.model_bodyparts_list.pack(fill='both', expand=True)
+            colabels_data = self.sub_data[C.KEY_COLABELS]
+            if C.KEY_COLABELS_PATH in colabels_data:
+                comment = get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_COLABELS, C.KEY_COLABELS_PATH])
+                self._create_file_selector(colabels_frame, "Colabels Path:", colabels_data, C.KEY_COLABELS_PATH, comment, 0)
+            
+            if C.KEY_TARGET in colabels_data:
+                comment = get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_COLABELS, C.KEY_TARGET])
+                self._create_entry(colabels_frame, "Target:", colabels_data, C.KEY_TARGET, comment, 1, 'text')
+            
+            if C.KEY_LABELERS in colabels_data:
+                labelers_frame = ttk.LabelFrame(colabels_frame, text="Labelers", padding=3)
+                labelers_frame.grid(row=2, column=0, columnspan=2, sticky='ew', pady=2)
+                ScrollableDynamicListFrame(labelers_frame, "", colabels_data, C.KEY_LABELERS, max_height=80).pack(fill='both', expand=True)
 
-        # Processing options
-        options_frame = ttk.LabelFrame(self, text="Processing Options", padding=5)
-        options_frame.grid(row=2, column=0, columnspan=2, sticky='ew', pady=5)
+        # Model Bodyparts
+        if C.KEY_MODEL_BODYPARTS in self.sub_data:
+            bodyparts_frame = ttk.LabelFrame(self, text="Model Bodyparts", padding=3)
+            bodyparts_frame.grid(row=2, column=0, sticky='ew', pady=2)
+            ScrollableDynamicListFrame(bodyparts_frame, "", self.sub_data, C.KEY_MODEL_BODYPARTS, max_height=120).pack(fill='both', expand=True)
 
-        if 'rescaling' in self.sub_data:
-            comment = get_comment(self.data, ["automatic_analysis", "rescaling"])
-            self.widgets['rescaling'] = self._create_checkbutton(options_frame, 
-                                                               "Rescaling", 
-                                                               self.sub_data['rescaling'], 
-                                                               comment, 0)
+        # Data Split Settings
+        if C.KEY_SPLIT in self.sub_data:
+            split_frame = ttk.LabelFrame(self, text="Data Split", padding=3)
+            split_frame.grid(row=3, column=0, sticky='ew', pady=2)
+            split_frame.columnconfigure(1, weight=1)
+            
+            split_data = self.sub_data[C.KEY_SPLIT]
+            if C.KEY_FOCUS_DISTANCE in split_data:
+                comment = get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_SPLIT, C.KEY_FOCUS_DISTANCE])
+                self._create_entry(split_frame, "Focus Distance:", split_data, C.KEY_FOCUS_DISTANCE, comment, 0, 'number')
+            
+            if C.KEY_VALIDATION in split_data:
+                comment = get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_SPLIT, C.KEY_VALIDATION])
+                self._create_entry(split_frame, "Validation:", split_data, C.KEY_VALIDATION, comment, 1, 'number')
+            
+            if C.KEY_TEST in split_data:
+                comment = get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_SPLIT, C.KEY_TEST])
+                self._create_entry(split_frame, "Test:", split_data, C.KEY_TEST, comment, 2, 'number')
 
-        if 'reshaping' in self.sub_data:
-            comment = get_comment(self.data, ["automatic_analysis", "reshaping"])
-            self.widgets['reshaping'] = self._create_checkbutton(options_frame, 
-                                                               "Reshaping", 
-                                                               self.sub_data['reshaping'], 
-                                                               comment, 1)
-
-        # RNN Width
-        if 'RNN_width' in self.sub_data:
-            self.rnn_editor = RNNWidthFrame(self, self.sub_data['RNN_width'])
-            self.rnn_editor.grid(row=3, column=0, columnspan=2, sticky='ew', pady=5)
-
-    def get_data(self):
-        data = CommentedMap()
-        section_data = CommentedMap()
-        
-        if 'model_path' in self.widgets:
-            section_data['model_path'] = self.widgets['model_path'].get()
-        
-        if hasattr(self, 'model_bodyparts_list'):
-            section_data['model_bodyparts'] = self.model_bodyparts_list.get_values()
-        
-        if 'rescaling' in self.widgets:
-            section_data['rescaling'] = self.widgets['rescaling'].get()
-        
-        if 'reshaping' in self.widgets:
-            section_data['reshaping'] = self.widgets['reshaping'].get()
-        
-        if hasattr(self, 'rnn_editor'):
-            section_data['RNN_width'] = self.rnn_editor.get_rnn_data()
-        
-        data['automatic_analysis'] = section_data
-        return data
+        # RNN Settings
+        if C.KEY_RNN in self.sub_data:
+            rnn_frame = ttk.LabelFrame(self, text="RNN Settings", padding=3)
+            rnn_frame.grid(row=4, column=0, sticky='ew', pady=2)
+            rnn_frame.columnconfigure(1, weight=1)
+            
+            rnn_data = self.sub_data[C.KEY_RNN]
+            
+            # Processing Options (moved to RNN Settings)
+            if C.KEY_RESCALING in rnn_data:
+                comment = get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, C.KEY_RESCALING])
+                self._create_checkbutton(rnn_frame, "Rescaling", rnn_data, C.KEY_RESCALING, comment, 0)
+            
+            if C.KEY_RESHAPING in rnn_data:
+                comment = get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, C.KEY_RESHAPING])
+                self._create_checkbutton(rnn_frame, "Reshaping", rnn_data, C.KEY_RESHAPING, comment, 1)
+            
+            # RNN Width
+            if C.KEY_RNN_WIDTH in rnn_data:
+                RNNWidthFrame(rnn_frame, rnn_data[C.KEY_RNN_WIDTH], self.model).grid(row=2, column=0, columnspan=2, sticky='ew', pady=2)
+            
+            # Units
+            if C.KEY_UNITS in rnn_data:
+                units_frame = ttk.LabelFrame(rnn_frame, text="Units", padding=3)
+                units_frame.grid(row=3, column=0, columnspan=2, sticky='ew', pady=2)
+                ScrollableDynamicListFrame(units_frame, "", rnn_data, C.KEY_UNITS, max_height=120).pack(fill='both', expand=True)
+            
+            # Training Parameters
+            training_frame = ttk.LabelFrame(rnn_frame, text="Training Parameters", padding=3)
+            training_frame.grid(row=4, column=0, columnspan=2, sticky='ew', pady=2)
+            training_frame.columnconfigure(1, weight=1)
+            
+            row_idx = 0
+            for key in [C.KEY_BATCH_SIZE, C.KEY_DROPOUT, C.KEY_TOTAL_EPOCHS, C.KEY_WARMUP_EPOCHS, 
+                       C.KEY_INITIAL_LR, C.KEY_PEAK_LR, C.KEY_PATIENCE]:
+                if key in rnn_data:
+                    comment = get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, key])
+                    label = key.replace('_', ' ').title()
+                    self._create_entry(training_frame, f"{label}:", rnn_data, key, comment, row_idx, 'number')
+                    row_idx += 1

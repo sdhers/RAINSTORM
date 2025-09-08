@@ -1,0 +1,28 @@
+Getting Started
+
+This params editor allows you to:
+• Open a params.yaml file
+• Edit parameter values in the organized sections
+• Click "Save and close" to save your changes
+• Click "Cancel" to exit without saving
+
+Basic Setup & Processing Parameters
+
+EXPERIMENT SETUP:
+• path: Path to the experiment folder containing the pose estimation files
+• software: Software used to generate the pose estimation files ('DLC' or 'SLEAP')
+• fps: Video frames per second
+• filenames: Pose estimation filenames
+• bodyparts: Tracked bodyparts
+
+PARAMETERS FOR PREPROCESSING POSITIONS:
+• confidence: How many std_dev away from the mean the points likelihood can be without being erased (it is similar to asking 'how good is your tracking?')
+• median_filter: Number of frames to use for the median filter (it must be an odd number)
+• near_dist: Maximum distance (in cm) between two connected bodyparts. In c57 mice, I use half a tail length (around 4.5 cm).
+• far_dist: Maximum distance (in cm) between any two bodyparts. In c57 mice, I use whole body length (around 14 cm).
+• max_outlier_connections: If a bodypart has more than this number of long connections, it will be dropped from the frame.
+
+EXPERIMENT DESIGN:
+• targets: Exploration targets
+• trials: If your experiment has multiple trials, list the trial names here
+• target_roles: State the roles targets can take on each trial (e.g., 'Hab': None, 'TR': ['left', 'right'], 'TS': ['novel', 'known'])

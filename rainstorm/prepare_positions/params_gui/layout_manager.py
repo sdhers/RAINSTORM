@@ -1,231 +1,115 @@
 """
 RAINSTORM - Parameters Editor GUI (Layout Manager)
 
-Responsive layout manager for calculating optimal column widths
-and managing the 3-column layout with proper scrollbar visibility.
+Manages responsive layout calculations.
 """
 
 import tkinter as tk
 from tkinter import ttk
-
+from . import config as C
 
 class ResponsiveLayoutManager:
     """
     Manages responsive layout calculations for the 3-column parameter editor.
-    Ensures all columns and scrollbars fit within the specified window dimensions.
     """
-    
-    def __init__(self, window_width: int = 1000, window_height: int = 620):
-        """
-        Initialize the layout manager with target window dimensions.
-        
-        Args:
-            window_width: Target window width in pixels
-            window_height: Target window height in pixels
-        """
-        self.window_width = window_width
-        self.window_height = window_height
-        
-        # UI element dimensions (estimated based on typical Tkinter values)
-        self.scrollbar_width = 20  # Width of vertical scrollbar
-        self.main_padding = 20     # Main frame padding (10px on each side)
-        self.column_padding = 6    # Padding between columns (2px on each side)
-        self.button_frame_height = 70  # Height reserved for save/cancel buttons
-        
+    def __init__(self):
+        self.window_width = C.WINDOW_WIDTH
+        self.window_height = C.WINDOW_HEIGHT
+
     def calculate_column_width(self) -> int:
-        """
-        Calculate the optimal width for each column accounting for scrollbars and padding.
-        
-        Returns:
-            int: Width in pixels for each column content area
-        """
-        # Calculate available width for columns
-        available_width = self.window_width - self.main_padding
-        
-        # Account for scrollbars (one per column) and inter-column spacing
-        total_scrollbar_width = 3 * self.scrollbar_width
-        total_column_padding = 3 * self.column_padding
-        
-        # Calculate width available for column content
+        """Calculate the optimal width for each column."""
+        available_width = self.window_width - C.MAIN_PADDING - 40  # Extra margin for safety
+        total_scrollbar_width = 3 * C.SCROLLBAR_WIDTH
+        total_column_padding = 3 * C.COLUMN_PADDING
         content_width = available_width - total_scrollbar_width - total_column_padding
-        
-        # Divide equally among 3 columns
         column_width = content_width // 3
-        
-        # Ensure minimum width for usability
-        min_width = 250
-        return max(column_width, min_width)
-    
+        return max(column_width, C.MIN_COLUMN_WIDTH)
+
     def calculate_content_height(self) -> int:
-        """
-        Calculate the available height for column content.
-        
-        Returns:
-            int: Height in pixels available for scrollable content
-        """
-        # Reserve space for title bar, main padding, and button frame
-        title_bar_height = 30  # Approximate title bar height
-        available_height = (self.window_height - title_bar_height - 
-                          self.main_padding - self.button_frame_height)
-        
-        return max(available_height, 400)  # Minimum height for usability
-    
+        """Calculate the available height for column content."""
+        available_height = (self.window_height - C.TITLE_BAR_HEIGHT -
+                          C.MAIN_PADDING - C.BUTTON_FRAME_HEIGHT)
+        return max(available_height, C.MIN_CONTENT_HEIGHT)
+
     def get_window_geometry(self) -> str:
-        """
-        Get the window geometry string for the main window.
-        
-        Returns:
-            str: Geometry string in format "WIDTHxHEIGHT"
-        """
+        """Get the window geometry string for the main window."""
         return f"{self.window_width}x{self.window_height}"
-    
-    def configure_paned_window(self, paned_window: ttk.PanedWindow) -> None:
-        """
-        Configure the paned window with calculated dimensions.
-        
-        Args:
-            paned_window: The ttk.PanedWindow to configure
-        """
-        # Set minimum pane size to ensure scrollbars are visible
+
+    def configure_paned_window(self, paned_window: ttk.PanedWindow):
+        """Configure the paned window with calculated dimensions."""
         column_width = self.calculate_column_width()
-        min_pane_width = column_width + self.scrollbar_width + self.column_padding
-        
-        # Configure each pane with minimum width
-        for i in range(3):  # 3 columns
+        min_pane_width = column_width + C.SCROLLBAR_WIDTH + C.COLUMN_PADDING
+        for i in range(3):
             try:
                 paned_window.paneconfig(i, minsize=min_pane_width)
             except tk.TclError:
-                # Pane might not exist yet, will be configured when added
-                pass
-    
+                pass # Pane might not exist yet
+
     def create_scrollable_column(self, parent: tk.Widget, weight: int = 1) -> ttk.Frame:
-        """
-        Create a properly sized scrollable column with calculated dimensions.
-        
-        Args:
-            parent: Parent widget (typically a paned window pane)
-            weight: Grid weight for the column
-            
-        Returns:
-            ttk.Frame: The scrollable frame for content
-        """
-        # Create main frame for this column
+        """Create a properly sized scrollable column."""
         frame = ttk.Frame(parent)
         parent.add(frame, weight=weight)
         
-        # Calculate dimensions
         column_width = self.calculate_column_width()
         content_height = self.calculate_content_height()
         
-        # Create canvas with calculated width
-        canvas = tk.Canvas(
-            frame, 
-            highlightthickness=0,
-            width=column_width,
-            height=content_height
-        )
-        
-        # Create scrollbar
+        canvas = tk.Canvas(frame, highlightthickness=0, width=column_width, height=content_height)
         scrollbar = ttk.Scrollbar(frame, orient="vertical", command=canvas.yview)
-        
-        # Create scrollable frame
         scrollable_frame = ttk.Frame(canvas)
-        
-        # Configure scrolling
-        scrollable_frame.bind(
-            "<Configure>", 
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        # Create window in canvas
+
+        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        
-        # Configure canvas scrolling
         canvas.configure(yscrollcommand=scrollbar.set)
-        
-        # Bind canvas resize to update scrollable frame width
+
         def on_canvas_configure(event):
-            # Update the scrollable frame width to match canvas width
-            canvas_width = event.width
-            canvas.itemconfig(canvas_window, width=canvas_width)
-        
+            canvas.itemconfig(canvas_window, width=event.width)
         canvas.bind('<Configure>', on_canvas_configure)
         
-        # Pack canvas and scrollbar with proper sizing
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
-        # Configure column weight for responsive behavior
         scrollable_frame.columnconfigure(0, weight=1)
         
-        # Enable mouse wheel scrolling
         def on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            # Only scroll if mouse is over this canvas
+            widget = event.widget
+            while widget and widget != canvas:
+                widget = widget.master
+            if widget == canvas:
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
         
-        # Bind mouse wheel to canvas and scrollable frame
+        # Bind mousewheel to canvas and its children
+        def bind_mousewheel(widget):
+            widget.bind("<MouseWheel>", on_mousewheel)
+            for child in widget.winfo_children():
+                bind_mousewheel(child)
+        
         canvas.bind("<MouseWheel>", on_mousewheel)
         scrollable_frame.bind("<MouseWheel>", on_mousewheel)
         
         return scrollable_frame
-    
+
     def get_path_field_width(self) -> int:
-        """
-        Calculate optimal width for path and model path fields to match section width.
-        
-        Returns:
-            int: Width in characters for path fields
-        """
-        column_width = self.calculate_column_width()
-        # Convert pixels to approximate character width (assuming ~8 pixels per character)
-        # Leave some padding for labels and margins
-        char_width = max(int((column_width - 100) / 8), 30)  # Minimum 30 characters
-        return char_width
-    
+        return C.PATH_FIELD_WIDTH_CHARS
+
     def get_number_field_width(self) -> int:
-        """
-        Calculate appropriate width for number input fields.
-        
-        Returns:
-            int: Width in characters for number fields (shorter than current)
-        """
-        return 12  # Shorter than the default 15, appropriate for numbers
+        return C.NUMBER_FIELD_WIDTH_CHARS
     
-    def configure_roi_section_responsive(self, roi_frame: 'ttk.Frame') -> None:
-        """
-        Configure ROI data section to be responsive to column width like other sections.
-        
-        Args:
-            roi_frame: The ROI data frame to make responsive
-        """
-        # Configure the main frame to expand with column width
+    def get_text_field_width(self) -> int:
+        return C.TEXT_FIELD_WIDTH_CHARS
+
+    def configure_roi_section_responsive(self, roi_frame: 'ttk.Frame'):
         roi_frame.columnconfigure(0, weight=1)
-        
-        # Find and configure all child frames to be responsive
         for child in roi_frame.winfo_children():
             if isinstance(child, ttk.LabelFrame):
                 child.columnconfigure(0, weight=1)
-                # Configure nested frames within labelframes
                 for nested_child in child.winfo_children():
                     if hasattr(nested_child, 'columnconfigure'):
                         nested_child.columnconfigure(0, weight=1)
     
-    def update_layout(self, main_window) -> None:
-        """
-        Update the layout when window is resized.
-        
-        Args:
-            main_window: The main ParamsEditor window instance
-        """
-        # Get current window size
+    def update_layout(self, main_window):
         main_window.update_idletasks()
         current_width = main_window.winfo_width()
         current_height = main_window.winfo_height()
-        
-        # Update internal dimensions if window was resized
-        if current_width > 100:  # Avoid invalid dimensions during initialization
-            self.window_width = current_width
-        if current_height > 100:
-            self.window_height = current_height
-        
-        # Recalculate and apply new dimensions if needed
-        # This would be called on window resize events
+        if current_width > 100: self.window_width = current_width
+        if current_height > 100: self.window_height = current_height

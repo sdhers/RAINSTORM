@@ -63,21 +63,22 @@ def apply_sigmoid_transformation(data: pd.Series) -> pd.Series:
     return sigmoid
 
 
-def prepare_data(modeling_path: Path) -> pd.DataFrame:
+def prepare_data(params_path: Path) -> pd.DataFrame:
     """
     Loads and prepares behavioral data for training.
 
     Args:
-        modeling_path (Path): Path to modeling.yaml with colabel settings.
+        params_path (Path): Path to params.yaml.
 
     Returns:
         pd.DataFrame: DataFrame containing smoothed position columns and normalized labels.
     """
     # Load modeling config
-    modeling = load_yaml(modeling_path)
-    colabels_conf = modeling.get("colabels", {})
+    params = load_yaml(params_path)
+    modeling = params.get("automatic_analysis") or {}
+    colabels_conf = modeling.get("colabels") or {}
     colabels_path = Path(colabels_conf.get("colabels_path"))
-    labelers = colabels_conf.get("labelers", [])
+    labelers = colabels_conf.get("labelers") or []
 
     if not colabels_path.is_file():
         logger.error(f"Colabels file not found: {colabels_path}")
@@ -100,12 +101,12 @@ def prepare_data(modeling_path: Path) -> pd.DataFrame:
     return pd.concat([position, averaged["labels"]], axis=1)
 
 
-def focus(modeling_path: Path, df: pd.DataFrame, filter_by: str = 'labels') -> pd.DataFrame:
+def focus(params_path: Path, df: pd.DataFrame, filter_by: str = 'labels') -> pd.DataFrame:
     """
     Filters a DataFrame to include only rows within a window around non-zero activity.
 
     Args:
-        modeling_path (Path): Path to modeling.yaml file containing 'focus_distance'.
+        params_path (Path): Path to params.yaml file containing 'focus_distance'.
         df (pd.DataFrame): The full DataFrame with positional and label data.
         filter_by (str): Column name to base the filtering on (default is 'labels').
 
@@ -113,8 +114,10 @@ def focus(modeling_path: Path, df: pd.DataFrame, filter_by: str = 'labels') -> p
         pd.DataFrame: Filtered DataFrame focused around labeled events.
     """
     # Load distance from config
-    modeling = load_yaml(modeling_path)
-    distance = modeling.get("focus_distance", 30)
+    params = load_yaml(params_path)
+    modeling = params.get("automatic_analysis") or {}
+    split_params = modeling.get("split") or {}
+    distance = split_params.get("focus_distance") or 30
 
     if filter_by not in df.columns:
         logger.error(f"Column '{filter_by}' not found in DataFrame.")
@@ -143,31 +146,32 @@ def focus(modeling_path: Path, df: pd.DataFrame, filter_by: str = 'labels') -> p
 
 # %% Data Splitting Functions
 
-def split_tr_ts_val(modeling_path: Path, df: pd.DataFrame) -> Dict[str, np.ndarray]:
+def split_tr_ts_val(params_path: Path, df: pd.DataFrame) -> Dict[str, np.ndarray]:
     """
     Splits the data into training, validation, and test sets.
 
     Args:
-        modeling_path (Path): Path to modeling.yaml with split configuration.
+        params_path (Path): Path to params.yaml with split configuration.
         df (pd.DataFrame): Input DataFrame containing position and label data.
 
     Returns:
         Dict[str, np.ndarray]: Dictionary with keys for training, validation, and testing splits,
                                including both wide and simple position arrays and labels.
     """
-    modeling = load_yaml(modeling_path)
-    colabels = modeling.get("colabels", {})
-    target = colabels.get("target", "tgt")
-    bodyparts = modeling.get("bodyparts", [])
-    split_params = modeling.get("split", {})
-    val_size = split_params.get("validation", 0.15)
-    ts_size = split_params.get("test", 0.15)
+    params = load_yaml(params_path)
+    modeling = params.get("automatic_analysis") or {}
+    colabels = modeling.get("colabels") or {}
+    target = colabels.get("target") or "tgt"
+    bodyparts = modeling.get("model_bodyparts") or []
+    split_params = modeling.get("split") or {}
+    val_size = split_params.get("validation") or 0.15
+    ts_size = split_params.get("test") or 0.15
 
-    rnn_params = modeling.get("RNN", {})
-    width = rnn_params.get("width", {})
-    past = width.get("past", 3)
-    future = width.get("future", 3)
-    broad = width.get("broad", 1.7)
+    rnn_params = modeling.get("RNN") or {}
+    width = rnn_params.get("RNN_width") or {}
+    past = width.get("past") or 3
+    future = width.get("future") or 3
+    broad = width.get("broad") or 1.7
 
     logger.info("📊 Splitting data into training, validation, and test sets...")
     print("📊 Splitting data into training, validation, and test sets...")
@@ -237,19 +241,20 @@ def split_tr_ts_val(modeling_path: Path, df: pd.DataFrame) -> Dict[str, np.ndarr
         'y_val': y_val
     }
 
-def save_split(modeling_path: Path, model_dict: Dict[str, np.ndarray]) -> None:
+def save_split(params_path: Path, model_dict: Dict[str, np.ndarray]) -> None:
     """
     Save train/validation/test split data to an HDF5 file.
 
     Args:
-        modeling_path (Path): Path to modeling.yaml to get the save folder.
+        params_path (Path): Path to params.yaml to get the save folder.
         model_dict (dict): Dictionary containing arrays for training, validation, and testing.
     
     Returns:
         str: Full path to the saved split file.
     """
-    modeling = load_yaml(modeling_path)
-    save_folder = Path(modeling.get("path")) / 'splits'
+    params = load_yaml(params_path)
+    modeling = params.get("automatic_analysis") or {}
+    save_folder = Path(modeling.get("models_path")) / 'splits'
     save_folder.mkdir(parents=True, exist_ok=True)
     
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d")

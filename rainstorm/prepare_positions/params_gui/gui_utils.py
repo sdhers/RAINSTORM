@@ -8,39 +8,6 @@ comments from the YAML data and safely parsing values from strings.
 import tkinter as tk
 import ast
 
-def get_comment(data, keys):
-    """
-    Traverses the CommentedMap to get comments for a specific key.
-    
-    Enhanced version that properly cleans comment text and prevents
-    infiltration from adjacent parameters by implementing boundary detection.
-    """
-    try:
-        d = data
-        for key in keys[:-1]:
-            d = d[key]
-            # Ensure we're still working with a CommentedMap-like object
-            if not hasattr(d, 'ca'):
-                return None
-        
-        # Ensure the final container has comment attributes
-        if not hasattr(d, 'ca') or not hasattr(d.ca, 'items'):
-            return None
-            
-        comments = d.ca.items.get(keys[-1])
-        if comments:
-            comment_token = comments[2]
-            if comment_token and hasattr(comment_token, 'value'):
-                # Get the raw comment value
-                raw_comment = comment_token.value
-                
-                # Clean the comment text and implement boundary detection
-                cleaned_comment = _clean_comment_text(raw_comment)
-                return cleaned_comment
-    except (KeyError, AttributeError, IndexError, TypeError):
-        pass
-    return None
-
 def _clean_comment_text(raw_comment):
     """
     Clean comment text to remove infiltrated content from adjacent parameters.
@@ -89,6 +56,39 @@ def _clean_comment_text(raw_comment):
         if line:
             return line
     
+    return None
+
+def get_comment(data, keys):
+    """
+    Traverses the CommentedMap to get comments for a specific key.
+    
+    Enhanced version that properly cleans comment text and prevents
+    infiltration from adjacent parameters by implementing boundary detection.
+    """
+    try:
+        d = data
+        for key in keys[:-1]:
+            d = d[key]
+            # Ensure we're still working with a CommentedMap-like object
+            if not hasattr(d, 'ca'):
+                return None
+        
+        # Ensure the final container has comment attributes
+        if not hasattr(d, 'ca') or not hasattr(d.ca, 'items'):
+            return None
+            
+        comments = d.ca.items.get(keys[-1])
+        if comments:
+            comment_token = comments[2]
+            if comment_token and hasattr(comment_token, 'value'):
+                # Get the raw comment value
+                raw_comment = comment_token.value
+                
+                # Clean the comment text and implement boundary detection
+                cleaned_comment = _clean_comment_text(raw_comment)
+                return cleaned_comment
+    except (KeyError, AttributeError, IndexError, TypeError):
+        pass
     return None
 
 def parse_value(value_str, var_type):

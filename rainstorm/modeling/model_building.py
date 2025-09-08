@@ -27,12 +27,12 @@ logger = logging.getLogger(__name__)
 
 # %% Model Building Functions
 
-def build_RNN(modeling_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.keras.Model:
+def build_RNN(params_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.keras.Model:
     """
     Builds a Bidirectional LSTM (RNN) model for binary classification.
 
     Args:
-        modeling_path (Path): Path to a YAML file containing modeling parameters,
+        params_path (Path): Path to the YAML file containing modeling parameters,
                               specifically the 'RNN' configuration.
         model_dict (Dict[str, np.ndarray]): Dictionary containing 'X_tr_wide'
                                             which is a sample of the training data
@@ -42,8 +42,9 @@ def build_RNN(modeling_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.kera
     Returns:
         tf.keras.Model: Compiled Keras RNN model ready for training.
     """
-    modeling_conf = load_yaml(modeling_path)
-    rnn_conf = modeling_conf.get("RNN", {})
+    params = load_yaml(params_path)
+    modeling = params.get("automatic_analysis") or {}
+    rnn_conf = modeling.get("RNN") or {}
 
     # Model configuration parameters
     units = rnn_conf.get("units", [16, 24, 32, 24, 16, 8]) # Number of units in each LSTM layer
@@ -102,7 +103,7 @@ def build_RNN(modeling_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.kera
 
 # %% Model Training Functions
 
-def train_RNN(modeling_path: Path, model: tf.keras.Model, model_dict: Dict[str, np.ndarray], model_name: str) -> Any:
+def train_RNN(params_path: Path, model: tf.keras.Model, model_dict: Dict[str, np.ndarray], model_name: str) -> Any:
     """
     Trains the given RNN model using the provided data splits.
     It incorporates a custom sigmoid-shaped learning rate schedule,
@@ -110,7 +111,7 @@ def train_RNN(modeling_path: Path, model: tf.keras.Model, model_dict: Dict[str, 
     ReduceLROnPlateau for further learning rate adjustments after warmup.
 
     Args:
-        modeling_path (Path): Path to a YAML file containing training configuration
+        params_path (Path): Path to the YAML file containing training configuration
                               parameters under the 'RNN' key.
         model (tf.keras.Model): The compiled Keras RNN model to train.
         model_dict (Dict[str, np.ndarray]): Dictionary containing the data splits:
@@ -123,18 +124,20 @@ def train_RNN(modeling_path: Path, model: tf.keras.Model, model_dict: Dict[str, 
         tf.keras.callbacks.History: The training history object, containing
                                     loss and metric values per epoch.
     """
-    rnn_conf = load_yaml(modeling_path).get("RNN", {})
+    params = load_yaml(params_path)
+    modeling = params.get("automatic_analysis") or {}
+    rnn_conf = modeling.get("RNN") or {}
 
     # Training configuration parameters
-    total_epochs = rnn_conf.get("total_epochs", 100) # Maximum number of training epochs
-    warmup_epochs = rnn_conf.get("warmup_epochs", 10) # Number of epochs for learning rate warmup/cooldown phase
-    initial_lr = rnn_conf.get("initial_lr", 1e-5) # Starting and final learning rate during warmup phase
-    peak_lr = rnn_conf.get("peak_lr", 1e-4) # Maximum learning rate during warmup phase
-    batch_size = rnn_conf.get("batch_size", 64) # Number of samples per gradient update
-    patience = rnn_conf.get("patience", 10) # Number of epochs with no improvement after which training will be stopped
+    total_epochs = rnn_conf.get("total_epochs") or 100 # Maximum number of training epochs
+    warmup_epochs = rnn_conf.get("warmup_epochs") or 10 # Number of epochs for learning rate warmup/cooldown phase
+    initial_lr = rnn_conf.get("initial_lr") or 1e-5 # Starting and final learning rate during warmup phase
+    peak_lr = rnn_conf.get("peak_lr") or 1e-4 # Maximum learning rate during warmup phase
+    batch_size = rnn_conf.get("batch_size") or 64 # Number of samples per gradient update
+    patience = rnn_conf.get("patience") or 10 # Number of epochs with no improvement after which training will be stopped
 
     # Define the save folder for logs and checkpoints
-    save_folder = Path(load_yaml(modeling_path).get("path"))
+    save_folder = Path(modeling.get("models_path"))
 
     logger.info(f"🚀 Starting training for model: {model_name}")
 
@@ -237,7 +240,7 @@ def train_RNN(modeling_path: Path, model: tf.keras.Model, model_dict: Dict[str, 
 
 # %% Model Management Functions
 
-def save_model(modeling_path: Path, model: tf.keras.Model, model_name: str) -> None:
+def save_model(params_path: Path, model: tf.keras.Model, model_name: str) -> None:
     """
     Save a trained TensorFlow model.
 
@@ -246,8 +249,9 @@ def save_model(modeling_path: Path, model: tf.keras.Model, model_name: str) -> N
         model (tf.keras.Model): The trained Keras model to save.
         model_name (str): Name for the saved model file.
     """
-    modeling = load_yaml(modeling_path)
-    save_folder = Path(modeling.get("path")) / 'trained_models'
+    params = load_yaml(params_path)
+    modeling = params.get("automatic_analysis") or {}
+    save_folder = Path(modeling.get("models_path")) / 'trained_models'
     save_folder.mkdir(parents=True, exist_ok=True)
     
     filepath = save_folder / f"{model_name}.keras"

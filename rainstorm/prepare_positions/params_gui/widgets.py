@@ -1,849 +1,598 @@
 """
 RAINSTORM - Parameters Editor GUI (Reusable Widgets)
 
-This module contains all the reusable custom Tkinter widgets used
-in the parameters editor GUI, such as tooltips, dynamic lists,
-and specialized data editors for ROIs, etc.
+This module contains reusable Tkinter widgets.
 """
-import tkinter as tk
-from tkinter import ttk, messagebox
 
-# ToolTip
+import tkinter as tk
+from tkinter import ttk
+from .gui_utils import parse_value
+
+# --- Custom Exceptions for Validation ---
+class WidgetValueError(ValueError):
+    """Custom exception for validation errors within a widget."""
+    pass
+
+# --- ToolTip Widget ---
 class ToolTip:
-    """Create a tooltip for a given widget."""
+    """Create a tooltip for a given widget. (Unchanged, already good)"""
     def __init__(self, widget, text):
         self.widget = widget
         self.text = text
         self.tooltip_window = None
-        # Bind events to show/hide tooltip
-        self.widget.bind("<Enter>", self.show_tooltip, add='+')
-        self.widget.bind("<Leave>", self.hide_tooltip, add='+')
-        self.widget.bind("<ButtonPress>", self.hide_tooltip, add='+')
+        widget.bind("<Enter>", self.show_tooltip, add='+')
+        widget.bind("<Leave>", self.hide_tooltip, add='+')
+        widget.bind("<ButtonPress>", self.hide_tooltip, add='+')
 
     def show_tooltip(self, event=None):
-        if self.tooltip_window or not self.text: 
-            return
-        
+        if self.tooltip_window or not self.text: return
         try:
-            # Get widget position
-            x = self.widget.winfo_rootx() + 25
-            y = self.widget.winfo_rooty() + 25
-            
-            # Create tooltip window
+            x, y, _, _ = self.widget.bbox("insert")
+            x += self.widget.winfo_rootx() + 25
+            y += self.widget.winfo_rooty() + 25
             self.tooltip_window = tw = tk.Toplevel(self.widget)
             tw.wm_overrideredirect(True)
             tw.wm_geometry(f"+{x}+{y}")
-            tw.attributes('-topmost', True)
-            
-            # Create tooltip label
-            label = tk.Label(tw, text=self.text, justify='left',
-                           background="#ffffe0", relief='solid', borderwidth=1,
-                           font=("tahoma", "8", "normal"), wraplength=400,
-                           padx=4, pady=2)
-            label.pack()
-            
+            label = tk.Label(tw, text=self.text, justify='left', background="#ffffe0",
+                           relief='solid', borderwidth=1, font=("tahoma", "8", "normal"))
+            label.pack(ipadx=1)
         except tk.TclError:
-            # Widget might be destroyed, ignore
             pass
 
     def hide_tooltip(self, event=None):
         if self.tooltip_window:
-            try:
-                self.tooltip_window.destroy()
-            except tk.TclError:
-                # Window might already be destroyed
-                pass
-            self.tooltip_window = None
+            self.tooltip_window.destroy()
+        self.tooltip_window = None
 
-# Dynamic List Widgets
+# --- Dynamic List Widgets ---
 class DynamicListFrame(ttk.Frame):
-    """A frame that manages a dynamic list of text entries."""
-    def __init__(self, parent, title, initial_values=None, callback=None):
+    """
+    A frame that manages a dynamic list of text entries, now bound to
+    a list within the data model.
+    """
+    def __init__(self, parent, title, data_map, key, callback=None):
         super().__init__(parent)
-        self.entries = []
+        self.data_map = data_map
+        self.key = key
         self.callback = callback
         
-        self.columnconfigure(0, weight=1)
+        # Remove the columnconfigure that was causing expansion
         if title:
-            ttk.Label(self, text=title, font=('Helvetica', 10, 'bold')).grid(row=0, column=0, columnspan=2, sticky='w', pady=(0, 5))
+            ttk.Label(self, text=title, font=('Helvetica', 10, 'bold')).grid(row=0, column=0, sticky='w', pady=(0, 5))
 
         self.items_frame = ttk.Frame(self)
-        self.items_frame.grid(row=1, column=0, columnspan=2, sticky='ew')
-        self.items_frame.columnconfigure(0, weight=1)
+        self.items_frame.grid(row=1, column=0, sticky='w')  # Changed from 'ew' to 'w'
+        # Remove the columnconfigure that was causing expansion
+        
+        ttk.Button(self, text="+", width=3, command=self._add_item).grid(row=2, column=0, sticky='w', pady=5)  # Changed from 'e' to 'w'
+        
+        self._populate_items()
 
-        add_button = ttk.Button(self, text="+", width=3, command=self._add_item)
-        add_button.grid(row=2, column=0, columnspan=2, sticky='e', pady=5)
+    def _populate_items(self):
+        for widget in self.items_frame.winfo_children():
+            widget.destroy()
+        
+        initial_values = self.data_map.get(self.key, [])
+        for value in initial_values:
+            self._create_item_row(value)
+            
+    def _create_item_row(self, value=""):
+        row_frame = ttk.Frame(self.items_frame)
+        row_frame.pack(fill='x', expand=True, pady=1)
 
-        if initial_values:
-            for value in initial_values:
-                self._add_item(value)
+        entry = ttk.Entry(row_frame)
+        entry.insert(0, str(value))
+        entry.pack(side='left', fill='x', expand=True, padx=(0, 5))
+
+        entry.bind('<KeyRelease>', lambda e: self._sync_model())
+        entry.bind('<FocusOut>', lambda e: self._sync_model())
+        
+        remove_button = ttk.Button(row_frame, text="-", width=3,
+                                 command=lambda rf=row_frame: self._remove_item(rf))
+        remove_button.pack(side='right')
 
     def _add_item(self, value=""):
-        row_frame = ttk.Frame(self.items_frame)
-        row_frame.grid(sticky='ew', pady=2, column=0)
-
-        entry = ttk.Entry(row_frame, width=20)
-        entry.insert(0, str(value))
-        entry.grid(row=0, column=0, padx=(0, 5))
-        
-        if self.callback:
-            entry.bind('<KeyRelease>', lambda e: self._trigger_callback())
-            entry.bind('<FocusOut>', lambda e: self._trigger_callback())
-
-        remove_button = ttk.Button(row_frame, text="-", width=3, command=lambda rf=row_frame: self._remove_item(rf))
-        remove_button.grid(row=0, column=1, sticky='e')
-        
-        self.entries.append((row_frame, entry))
-        
-        # Trigger callback for new item addition
-        if self.callback:
-            self._trigger_callback()
+        self.data_map.get(self.key, []).append(value)
+        self._create_item_row(value)
+        self._sync_model()
 
     def _remove_item(self, row_frame):
-        for i, (frame, _) in enumerate(self.entries):
-            if frame == row_frame:
-                frame.destroy()
-                self.entries.pop(i)
-                if self.callback: 
-                    self._trigger_callback()
-                break
+        row_frame.destroy()
+        self._sync_model()
     
-    def _trigger_callback(self):
-        """Safely trigger the callback with error handling."""
+    def _sync_model(self):
+        """Syncs the list in the data model with the current state of the UI entries."""
+        values = [
+            child.winfo_children()[0].get() for child in self.items_frame.winfo_children()
+            if child.winfo_children() and isinstance(child.winfo_children()[0], ttk.Entry)
+        ]
+        self.data_map[self.key] = [v for v in values if v] # Filter out empty strings
         if self.callback:
-            try:
-                self.callback()
-            except Exception as e:
-                print(f"Warning: Callback error in DynamicListFrame: {e}")
-    
-    def get_values(self):
-        return [entry.get() for _, entry in self.entries if entry.get()]
+            self.callback()
 
-class ScrollableDynamicListFrame(DynamicListFrame):
-    """A scrollable version of the DynamicListFrame with performance optimizations."""
-    def __init__(self, parent, title, initial_values=None, callback=None, max_height=150):
-        super().__init__(parent, title, initial_values, callback)
-        
-        # Overwrite the items_frame to be inside a canvas
-        self.items_frame.destroy()
-        
-        # Create optimized scrollable canvas
-        self.canvas = tk.Canvas(self, height=max_height, highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self._on_scroll)
-        self.items_frame = ttk.Frame(self.canvas)
-        
-        # Optimize scrolling performance
-        self._scroll_update_pending = False
-        self.items_frame.bind("<Configure>", self._on_frame_configure)
-        self.canvas.create_window((0, 0), window=self.items_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
-        
-        # Enable mouse wheel scrolling
-        self.canvas.bind("<MouseWheel>", self._on_mousewheel)
-        self.canvas.bind("<Button-4>", self._on_mousewheel)
-        self.canvas.bind("<Button-5>", self._on_mousewheel)
-        
-        self.canvas.grid(row=1, column=0, sticky='ewns')
-        self.scrollbar.grid(row=1, column=1, sticky='ns')
-        self.rowconfigure(1, weight=1)
-        self.items_frame.columnconfigure(0, weight=1)
-
-        # Re-add initial values to the new items_frame
-        self.entries = []
-        if initial_values:
-            for value in initial_values:
-                self._add_item(value)
-    
-    def _on_frame_configure(self, event):
-        """Optimized frame configuration with debounced updates."""
-        if not self._scroll_update_pending:
-            self._scroll_update_pending = True
-            self.after_idle(self._update_scroll_region)
-    
-    def _update_scroll_region(self):
-        """Update scroll region efficiently."""
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        self._scroll_update_pending = False
-    
-    def _on_scroll(self, *args):
-        """Optimized scroll handling."""
-        self.canvas.yview(*args)
-    
-    def _on_mousewheel(self, event):
-        """Handle mouse wheel scrolling."""
-        if event.delta:
-            # Windows
-            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        elif event.num == 4:
-            # Linux scroll up
-            self.canvas.yview_scroll(-1, "units")
-        elif event.num == 5:
-            # Linux scroll down
-            self.canvas.yview_scroll(1, "units")
-
-# ROI Shape Editors
-class RectangleEditor(ttk.Frame):
-    """Editor for rectangle ROI data."""
-    def __init__(self, parent, rect_data=None):
+class ScrollableDynamicListFrame(ttk.Frame):
+    """A scrollable version of the DynamicListFrame."""
+    def __init__(self, parent, title, data_map, key, callback=None, max_height=150):
         super().__init__(parent)
-        self.widgets = {}
+        self.data_map = data_map
+        self.key = key
+        self.callback = callback
         
-        if rect_data is None:
-            rect_data = {'name': '', 'type': 'rectangle', 'center': [0, 0], 'width': 100, 'height': 100, 'angle': 0}
+        # Remove the columnconfigure that was causing expansion
         
-        # Name (full width)
-        name_label = ttk.Label(self, text="Name:")
-        name_label.grid(row=0, column=0, sticky='w', padx=2, pady=1)
-        name_var = tk.StringVar(value=rect_data.get('name', ''))
-        name_entry = ttk.Entry(self, textvariable=name_var, width=25)
-        name_entry.grid(row=0, column=1, columnspan=3, padx=2, pady=1, sticky='w')
-        self.widgets['name'] = name_var
-        
-        # Add tooltip
-        ToolTip(name_label, "Name of the rectangular ROI")
-        ToolTip(name_entry, "Name of the rectangular ROI")
-        
-        # Center X, Y (compact layout)
-        ttk.Label(self, text="X:").grid(row=1, column=0, sticky='w', padx=2, pady=1)
-        center_x_var = tk.StringVar(value=str(rect_data.get('center', [0, 0])[0]))
-        ttk.Entry(self, textvariable=center_x_var, width=8).grid(row=1, column=1, padx=2, pady=1, sticky='w')
-        self.widgets['center_x'] = center_x_var
-        
-        ttk.Label(self, text="Y:").grid(row=1, column=2, sticky='w', padx=2, pady=1)
-        center_y_var = tk.StringVar(value=str(rect_data.get('center', [0, 0])[1]))
-        ttk.Entry(self, textvariable=center_y_var, width=8).grid(row=1, column=3, padx=2, pady=1, sticky='w')
-        self.widgets['center_y'] = center_y_var
-        
-        # Width, Height (compact layout)
-        ttk.Label(self, text="W:").grid(row=2, column=0, sticky='w', padx=2, pady=1)
-        width_var = tk.StringVar(value=str(rect_data.get('width', 100)))
-        ttk.Entry(self, textvariable=width_var, width=8).grid(row=2, column=1, padx=2, pady=1, sticky='w')
-        self.widgets['width'] = width_var
-        
-        ttk.Label(self, text="H:").grid(row=2, column=2, sticky='w', padx=2, pady=1)
-        height_var = tk.StringVar(value=str(rect_data.get('height', 100)))
-        ttk.Entry(self, textvariable=height_var, width=8).grid(row=2, column=3, padx=2, pady=1, sticky='w')
-        self.widgets['height'] = height_var
-        
-        # Angle (full width)
-        ttk.Label(self, text="Angle:").grid(row=3, column=0, sticky='w', padx=2, pady=1)
-        angle_var = tk.StringVar(value=str(rect_data.get('angle', 0)))
-        ttk.Entry(self, textvariable=angle_var, width=8).grid(row=3, column=1, padx=2, pady=1, sticky='w')
-        self.widgets['angle'] = angle_var
-    
-    def get_data(self):
-        try:
-            return {
-                'name': self.widgets['name'].get(),
-                'type': 'rectangle',
-                'center': [int(float(self.widgets['center_x'].get() or 0)), int(float(self.widgets['center_y'].get() or 0))],
-                'width': int(float(self.widgets['width'].get() or 100)),
-                'height': int(float(self.widgets['height'].get() or 100)),
-                'angle': float(self.widgets['angle'].get() or 0)
-            }
-        except ValueError:
-            return None
+        if title:
+            ttk.Label(self, text=title, font=('Helvetica', 10, 'bold')).grid(row=0, column=0, sticky='w', pady=(0, 5))
 
-class CircleEditor(ttk.Frame):
-    """Editor for circle ROI data."""
-    def __init__(self, parent, circle_data=None):
-        super().__init__(parent)
-        self.widgets = {}
-        
-        if circle_data is None:
-            circle_data = {'name': '', 'type': 'circle', 'center': [0, 0], 'radius': 50}
-        
-        # Name (full width)
-        ttk.Label(self, text="Name:").grid(row=0, column=0, sticky='w', padx=2, pady=1)
-        name_var = tk.StringVar(value=circle_data.get('name', ''))
-        ttk.Entry(self, textvariable=name_var, width=25).grid(row=0, column=1, columnspan=3, padx=2, pady=1, sticky='w')
-        self.widgets['name'] = name_var
-        
-        # Center X, Y (compact layout)
-        ttk.Label(self, text="X:").grid(row=1, column=0, sticky='w', padx=2, pady=1)
-        center_x_var = tk.StringVar(value=str(circle_data.get('center', [0, 0])[0]))
-        ttk.Entry(self, textvariable=center_x_var, width=8).grid(row=1, column=1, padx=2, pady=1, sticky='w')
-        self.widgets['center_x'] = center_x_var
-        
-        ttk.Label(self, text="Y:").grid(row=1, column=2, sticky='w', padx=2, pady=1)
-        center_y_var = tk.StringVar(value=str(circle_data.get('center', [0, 0])[1]))
-        ttk.Entry(self, textvariable=center_y_var, width=8).grid(row=1, column=3, padx=2, pady=1, sticky='w')
-        self.widgets['center_y'] = center_y_var
-        
-        # Radius
-        ttk.Label(self, text="Radius:").grid(row=2, column=0, sticky='w', padx=2, pady=1)
-        radius_var = tk.StringVar(value=str(circle_data.get('radius', 50)))
-        ttk.Entry(self, textvariable=radius_var, width=8).grid(row=2, column=1, padx=2, pady=1, sticky='w')
-        self.widgets['radius'] = radius_var
-    
-    def get_data(self):
-        try:
-            return {
-                'name': self.widgets['name'].get(),
-                'type': 'circle',
-                'center': [int(float(self.widgets['center_x'].get() or 0)), int(float(self.widgets['center_y'].get() or 0))],
-                'radius': int(float(self.widgets['radius'].get() or 50))
-            }
-        except ValueError:
-            return None
+        # Create scrollable area with fixed width
+        canvas_frame = ttk.Frame(self)
+        canvas_frame.grid(row=1, column=0, sticky='w')  # Changed from 'ew' to 'w'
 
-class PointEditor(ttk.Frame):
-    """Editor for point ROI data."""
-    def __init__(self, parent, point_data=None):
-        super().__init__(parent)
-        self.widgets = {}
-        
-        if point_data is None:
-            point_data = {'name': '', 'type': 'point', 'center': [0, 0]}
-        
-        # Name (full width)
-        ttk.Label(self, text="Name:").grid(row=0, column=0, sticky='w', padx=2, pady=1)
-        name_var = tk.StringVar(value=point_data.get('name', ''))
-        ttk.Entry(self, textvariable=name_var, width=25).grid(row=0, column=1, columnspan=3, padx=2, pady=1, sticky='w')
-        self.widgets['name'] = name_var
-        
-        # Center X, Y (compact layout)
-        ttk.Label(self, text="X:").grid(row=1, column=0, sticky='w', padx=2, pady=1)
-        center_x_var = tk.StringVar(value=str(point_data.get('center', [0, 0])[0]))
-        ttk.Entry(self, textvariable=center_x_var, width=8).grid(row=1, column=1, padx=2, pady=1, sticky='w')
-        self.widgets['center_x'] = center_x_var
-        
-        ttk.Label(self, text="Y:").grid(row=1, column=2, sticky='w', padx=2, pady=1)
-        center_y_var = tk.StringVar(value=str(point_data.get('center', [0, 0])[1]))
-        ttk.Entry(self, textvariable=center_y_var, width=8).grid(row=1, column=3, padx=2, pady=1, sticky='w')
-        self.widgets['center_y'] = center_y_var
-    
-    def get_data(self):
-        try:
-            return {
-                'name': self.widgets['name'].get(),
-                'type': 'point',
-                'center': [int(float(self.widgets['center_x'].get() or 0)), int(float(self.widgets['center_y'].get() or 0))]
-            }
-        except ValueError:
-            return None
+        # Set a fixed width for the canvas to prevent expansion
+        canvas_width = 250  # Fixed width that should fit in column
+        canvas = tk.Canvas(canvas_frame, height=max_height, width=canvas_width, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
 
-class DynamicROIListFrame(ttk.LabelFrame):
-    """A frame for managing dynamic lists of ROI shapes with optimized scrolling."""
-    def __init__(self, parent, title, shape_type, initial_values=None):
-        super().__init__(parent, text=title, padding=5)
-        self.shape_type = shape_type
-        self.editors = []
-        
-        # Optimized scrollable frame for shapes
-        self.canvas = tk.Canvas(self, height=100, highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self._on_scroll)
-        self.shapes_frame = ttk.Frame(self.canvas)
-        
-        # Performance optimization for scrolling
-        self._scroll_update_pending = False
-        self.shapes_frame.bind("<Configure>", self._on_frame_configure)
-        self.canvas.create_window((0, 0), window=self.shapes_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
-        
-        # Enable mouse wheel scrolling
-        self.canvas.bind("<MouseWheel>", self._on_mousewheel)
-        self.canvas.bind("<Button-4>", self._on_mousewheel)
-        self.canvas.bind("<Button-5>", self._on_mousewheel)
-        
-        self.canvas.grid(row=0, column=0, sticky='ew', pady=5)
-        self.scrollbar.grid(row=0, column=1, sticky='ns')
-        self.columnconfigure(0, weight=1)
-        
-        # Add button
-        add_button = ttk.Button(self, text=f"+ Add {shape_type.title()}", command=self._add_shape)
-        add_button.grid(row=1, column=0, sticky='ew', pady=2)
-        
-        # Initialize with existing data
-        if initial_values:
-            for shape_data in initial_values:
-                self._add_shape(shape_data)
-    
-    def _on_frame_configure(self, event):
-        """Optimized frame configuration with debounced updates."""
-        if not self._scroll_update_pending:
-            self._scroll_update_pending = True
-            self.after_idle(self._update_scroll_region)
-    
-    def _update_scroll_region(self):
-        """Update scroll region efficiently."""
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        self._scroll_update_pending = False
-    
-    def _on_scroll(self, *args):
-        """Optimized scroll handling."""
-        self.canvas.yview(*args)
-    
-    def _on_mousewheel(self, event):
-        """Handle mouse wheel scrolling."""
-        if event.delta:
-            # Windows
-            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        elif event.num == 4:
-            # Linux scroll up
-            self.canvas.yview_scroll(-1, "units")
-        elif event.num == 5:
-            # Linux scroll down
-            self.canvas.yview_scroll(1, "units")
-    
-    def _add_shape(self, shape_data=None):
-        shape_frame = ttk.Frame(self.shapes_frame, relief='ridge', borderwidth=1, padding=2)
-        shape_frame.grid(sticky='ew', pady=1, padx=1)
-        shape_frame.columnconfigure(0, weight=1)
-        
-        # Create appropriate editor
-        if self.shape_type == 'rectangle':
-            editor = RectangleEditor(shape_frame, shape_data)
-        elif self.shape_type == 'circle':
-            editor = CircleEditor(shape_frame, shape_data)
-        elif self.shape_type == 'point':
-            editor = PointEditor(shape_frame, shape_data)
-        
-        editor.grid(row=0, column=0, sticky='ew')
-        
-        # Remove button
-        remove_button = ttk.Button(shape_frame, text="×", width=3,
-                                 command=lambda sf=shape_frame: self._remove_shape(sf))
-        remove_button.grid(row=0, column=1, sticky='e', padx=(2, 0))
-        
-        self.editors.append((shape_frame, editor))
-    
-    def _remove_shape(self, shape_frame):
-        for i, (frame, editor) in enumerate(self.editors):
-            if frame == shape_frame:
-                frame.destroy()
-                self.editors.pop(i)
-                break
-    
-    def get_shapes(self):
-        shapes = []
-        for _, editor in self.editors:
-            shape_data = editor.get_data()
-            if shape_data and shape_data.get('name'):  # Only include shapes with names
-                shapes.append(shape_data)
-        return shapes
+        self.items_frame = ttk.Frame(canvas) # This is where list items will go
+        canvas.create_window((0, 0), window=self.items_frame, anchor="nw")
 
-# Specialized Data Editor Frames
+        self.items_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        
+        # Fix mousewheel binding to be specific to this canvas
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind("<MouseWheel>", on_mousewheel)
+        
+        canvas.grid(row=0, column=0, sticky='w')  # Changed from 'nsew' to 'w'
+        scrollbar.grid(row=0, column=1, sticky='ns')
+
+        ttk.Button(self, text="+", width=3, command=self._add_item).grid(row=2, column=0, sticky='w', pady=5)  # Changed from 'e' to 'w'
+        
+        self._populate_items()
+
+    def _populate_items(self):
+        for widget in self.items_frame.winfo_children():
+            widget.destroy()
+        
+        initial_values = self.data_map.get(self.key, [])
+        for value in initial_values:
+            self._create_item_row(value)
+            
+    def _create_item_row(self, value=""):
+        row_frame = ttk.Frame(self.items_frame)
+        row_frame.pack(fill='x', expand=True, pady=1)
+
+        entry = ttk.Entry(row_frame)
+        entry.insert(0, str(value))
+        entry.pack(side='left', fill='x', expand=True, padx=(0, 5))
+
+        entry.bind('<KeyRelease>', lambda e: self._sync_model())
+        entry.bind('<FocusOut>', lambda e: self._sync_model())
+        
+        remove_button = ttk.Button(row_frame, text="-", width=3,
+                                 command=lambda rf=row_frame: self._remove_item(rf))
+        remove_button.pack(side='right')
+
+    def _add_item(self, value=""):
+        self.data_map.get(self.key, []).append(value)
+        self._create_item_row(value)
+        self._sync_model()
+
+    def _remove_item(self, row_frame):
+        row_frame.destroy()
+        self._sync_model()
+    
+    def _sync_model(self):
+        """Syncs the list in the data model with the current state of the UI entries."""
+        values = [
+            child.winfo_children()[0].get() for child in self.items_frame.winfo_children()
+            if child.winfo_children() and isinstance(child.winfo_children()[0], ttk.Entry)
+        ]
+        self.data_map[self.key] = [v for v in values if v] # Filter out empty strings
+        if self.callback:
+            self.callback()
+
+# --- Specialized Data Editor Frames ---
 class ROIDataFrame(ttk.LabelFrame):
-    """A specialized frame for editing ROI data."""
-    def __init__(self, parent, roi_data=None):
+    def __init__(self, parent, roi_data):
         super().__init__(parent, text="ROI Data", padding=5)
-        self.widgets = {}
-        roi_data = roi_data or {'frame_shape': [700, 500], 'scale': 18.86, 'rectangles': [], 'circles': [], 'points': []}
-        self.create_roi_widgets(roi_data)
-    
-    def create_roi_widgets(self, roi_data):
+        self.data = roi_data
+        self._create_widgets()
+
+    def _create_widgets(self):
         # Frame Shape
-        frame_shape_frame = ttk.LabelFrame(self, text="Frame Shape", padding=5)
-        frame_shape_frame.grid(row=0, column=0, columnspan=2, sticky='ew', pady=5)
-        frame_shape_frame.columnconfigure(1, weight=1)
-        frame_shape_frame.columnconfigure(3, weight=1)
+        shape_frame = ttk.LabelFrame(self, text="Frame Shape", padding=5)
+        shape_frame.grid(row=0, column=0, sticky='ew', pady=5)
+        shape_frame.columnconfigure(1, weight=1)
+        shape_frame.columnconfigure(3, weight=1)
         
-        ttk.Label(frame_shape_frame, text="Width:").grid(row=0, column=0, sticky='w', padx=5)
-        width_var = tk.StringVar(value=str(roi_data['frame_shape'][0]))
-        ttk.Entry(frame_shape_frame, textvariable=width_var, width=8).grid(row=0, column=1, padx=5, sticky='ew')
-        
-        ttk.Label(frame_shape_frame, text="Height:").grid(row=0, column=2, sticky='w', padx=5)
-        height_var = tk.StringVar(value=str(roi_data['frame_shape'][1]))
-        ttk.Entry(frame_shape_frame, textvariable=height_var, width=8).grid(row=0, column=3, padx=5, sticky='ew')
-        
-        self.widgets['frame_shape'] = (width_var, height_var)
+        ttk.Label(shape_frame, text="Width:").grid(row=0, column=0, sticky='w')
+        w_var = tk.StringVar(value=str(self.data['frame_shape'][0]))
+        w_var.trace_add("write", lambda *_: self._update_frame_shape(0, w_var.get()))
+        ttk.Entry(shape_frame, textvariable=w_var, width=8).grid(row=0, column=1, padx=5, sticky='w')
+        ttk.Label(shape_frame, text="Height:").grid(row=0, column=2, sticky='w')
+        h_var = tk.StringVar(value=str(self.data['frame_shape'][1]))
+        h_var.trace_add("write", lambda *_: self._update_frame_shape(1, h_var.get()))
+        ttk.Entry(shape_frame, textvariable=h_var, width=8).grid(row=0, column=3, padx=5, sticky='w')
         
         # Scale
-        scale_frame = ttk.LabelFrame(self, text="Scale", padding=5)
-        scale_frame.grid(row=1, column=0, columnspan=2, sticky='ew', pady=5)
+        scale_frame = ttk.Frame(self)
+        scale_frame.grid(row=1, column=0, sticky='ew', pady=5)
         scale_frame.columnconfigure(1, weight=1)
+        ttk.Label(scale_frame, text="Scale:").grid(row=0, column=0, sticky='w')
+        scale_var = tk.StringVar(value=str(self.data.get('scale', 1.0)))
+        scale_var.trace_add("write", lambda *_: self._update_scale(scale_var.get()))
+        ttk.Entry(scale_frame, textvariable=scale_var, width=8).grid(row=0, column=1, padx=5, sticky='w')
         
-        ttk.Label(scale_frame, text="Scale (pixels/cm):").grid(row=0, column=0, sticky='w', padx=5)
-        scale_var = tk.StringVar(value=str(roi_data['scale']))
-        ttk.Entry(scale_frame, textvariable=scale_var).grid(row=0, column=1, padx=5, sticky='ew')
-        
-        self.widgets['scale'] = scale_var
+        # ROI Elements with scrollable sections
+        elements_frame = ttk.LabelFrame(self, text="ROI Elements", padding=5)
+        elements_frame.grid(row=2, column=0, sticky='w', pady=5)  # Changed from 'ew' to 'w'
+        elements_frame.configure(width=300)  # Set fixed width
         
         # Rectangles
-        self.widgets['rectangles'] = DynamicROIListFrame(self, "Rectangles", "rectangle", roi_data.get('rectangles', []))
-        self.widgets['rectangles'].grid(row=2, column=0, columnspan=2, sticky='ew', pady=5)
+        self._create_roi_element_section(elements_frame, "Rectangles", "rectangles", 0)
         
-        # Circles
-        self.widgets['circles'] = DynamicROIListFrame(self, "Circles", "circle", roi_data.get('circles', []))
-        self.widgets['circles'].grid(row=3, column=0, columnspan=2, sticky='ew', pady=5)
+        # Circles  
+        self._create_roi_element_section(elements_frame, "Circles", "circles", 1)
         
         # Points
-        self.widgets['points'] = DynamicROIListFrame(self, "Points", "point", roi_data.get('points', []))
-        self.widgets['points'].grid(row=4, column=0, columnspan=2, sticky='ew', pady=5)
+        self._create_roi_element_section(elements_frame, "Points", "points", 2)
 
-    def get_roi_data(self):
+    def _create_roi_element_section(self, parent, title, key, row):
+        """Create a scrollable section for ROI elements (rectangles, circles, points)"""
+        section_frame = ttk.LabelFrame(parent, text=f"{title} ({len(self.data.get(key, []))})", padding=3)
+        section_frame.grid(row=row, column=0, sticky='w', pady=2)  # Changed from 'ew' to 'w'
+        
+        # Create scrollable area with fixed width
+        canvas_frame = ttk.Frame(section_frame)
+        canvas_frame.grid(row=0, column=0, sticky='w')  # Changed from 'ew' to 'w'
+
+        canvas = tk.Canvas(canvas_frame, height=80, width=300, highlightthickness=0)  # Added fixed width
+        scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        content_frame = ttk.Frame(canvas)
+        canvas.create_window((0, 0), window=content_frame, anchor="nw")
+
+        content_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        
+        canvas.grid(row=0, column=0, sticky='w')  # Changed from 'ew' to 'w'
+        scrollbar.grid(row=0, column=1, sticky='ns')
+
+        # Populate with existing elements
+        elements = self.data.get(key, [])
+        for i, element in enumerate(elements):
+            self._create_element_row(content_frame, element, key, i)
+        
+        # Add button
+        add_btn = ttk.Button(section_frame, text=f"+ Add {title[:-1]}", 
+                           command=lambda: self._add_element(content_frame, key, section_frame, title))
+        add_btn.grid(row=1, column=0, sticky='w', pady=2)
+
+    def _create_element_row(self, parent, element, element_type, index):
+        """Create a multi-row layout for editing an ROI element"""
+        main_frame = ttk.LabelFrame(parent, text=f"{element.get('name', f'{element_type[:-1]}_{index+1}')}", padding=3)
+        main_frame.pack(fill='x', pady=2)
+        # Removed the columnconfigure that was causing expansion
+        
+        # Row 1: Name only
+        name_frame = ttk.Frame(main_frame)
+        name_frame.grid(row=0, column=0, columnspan=2, sticky='w', pady=1)  # Changed from 'ew' to 'w'
+        
+        ttk.Label(name_frame, text="Name:", width=6).grid(row=0, column=0, sticky='w')
+        name_var = tk.StringVar(value=element.get('name', ''))
+        name_var.trace_add("write", lambda *_: self._update_element_and_label(element_type, index, 'name', name_var.get(), main_frame))
+        ttk.Entry(name_frame, textvariable=name_var, width=15).grid(row=0, column=1, sticky='w', padx=2)  # Reduced width and changed sticky
+        
+        # Row 2: Center coordinates
+        center_frame = ttk.Frame(main_frame)
+        center_frame.grid(row=1, column=0, columnspan=2, sticky='w', pady=1)  # Changed from 'ew' to 'w'
+        
+        center = element.get('center', [0, 0])
+        ttk.Label(center_frame, text="X:", width=3).grid(row=0, column=0, sticky='w')
+        x_var = tk.StringVar(value=str(center[0]))
+        x_var.trace_add("write", lambda *_: self._update_element_center(element_type, index, 0, x_var.get()))
+        ttk.Entry(center_frame, textvariable=x_var, width=6).grid(row=0, column=1, sticky='w', padx=2)
+        
+        ttk.Label(center_frame, text="Y:", width=3).grid(row=0, column=2, sticky='w', padx=(5, 0))
+        y_var = tk.StringVar(value=str(center[1]))
+        y_var.trace_add("write", lambda *_: self._update_element_center(element_type, index, 1, y_var.get()))
+        ttk.Entry(center_frame, textvariable=y_var, width=6).grid(row=0, column=3, sticky='w', padx=2)
+        
+        # Row 3: Additional properties based on type
+        props_frame = ttk.Frame(main_frame)
+        props_frame.grid(row=2, column=0, columnspan=2, sticky='w', pady=1)  # Changed from 'ew' to 'w'
+        
+        if element_type == 'rectangles':
+            ttk.Label(props_frame, text="W:", width=3).grid(row=0, column=0, sticky='w')
+            w_var = tk.StringVar(value=str(element.get('width', 0)))
+            w_var.trace_add("write", lambda *_: self._update_element(element_type, index, 'width', w_var.get()))
+            ttk.Entry(props_frame, textvariable=w_var, width=5).grid(row=0, column=1, sticky='w', padx=2)
+            
+            ttk.Label(props_frame, text="H:", width=3).grid(row=0, column=2, sticky='w', padx=(5, 0))
+            h_var = tk.StringVar(value=str(element.get('height', 0)))
+            h_var.trace_add("write", lambda *_: self._update_element(element_type, index, 'height', h_var.get()))
+            ttk.Entry(props_frame, textvariable=h_var, width=5).grid(row=0, column=3, sticky='w', padx=2)
+            
+            ttk.Label(props_frame, text="A:", width=3).grid(row=0, column=4, sticky='w', padx=(5, 0))
+            a_var = tk.StringVar(value=str(element.get('angle', 0)))
+            a_var.trace_add("write", lambda *_: self._update_element(element_type, index, 'angle', a_var.get()))
+            ttk.Entry(props_frame, textvariable=a_var, width=5).grid(row=0, column=5, sticky='w', padx=2)
+        
+        elif element_type == 'circles':
+            ttk.Label(props_frame, text="R:", width=3).grid(row=0, column=0, sticky='w')
+            r_var = tk.StringVar(value=str(element.get('radius', 0)))
+            r_var.trace_add("write", lambda *_: self._update_element(element_type, index, 'radius', r_var.get()))
+            ttk.Entry(props_frame, textvariable=r_var, width=6).grid(row=0, column=1, sticky='w', padx=2)
+        
+        # Remove button in the top right
+        remove_btn = ttk.Button(main_frame, text="Remove", 
+                               command=lambda: self._remove_element(element_type, index, main_frame))
+        remove_btn.grid(row=0, column=2, sticky='ne', padx=5)
+
+    def _add_element(self, content_frame, element_type, section_frame, title):
+        """Add a new ROI element"""
+        if element_type not in self.data:
+            self.data[element_type] = []
+        
+        # Create default element based on type
+        if element_type == 'rectangles':
+            new_element = {'name': f'rect_{len(self.data[element_type])+1}', 'type': 'rectangle', 
+                          'center': [0, 0], 'width': 50, 'height': 50, 'angle': 0}
+        elif element_type == 'circles':
+            new_element = {'name': f'circle_{len(self.data[element_type])+1}', 'type': 'circle', 
+                          'center': [0, 0], 'radius': 25}
+        else:  # points
+            new_element = {'name': f'point_{len(self.data[element_type])+1}', 'type': 'point', 
+                          'center': [0, 0]}
+        
+        self.data[element_type].append(new_element)
+        index = len(self.data[element_type]) - 1
+        
+        # Update section title
+        section_frame.configure(text=f"{title} ({len(self.data[element_type])})")
+        
+        # Add row to UI
+        self._create_element_row(content_frame, new_element, element_type, index)
+
+    def _remove_element(self, element_type, index, row_frame):
+        """Remove an ROI element"""
+        if element_type in self.data and 0 <= index < len(self.data[element_type]):
+            del self.data[element_type][index]
+            row_frame.destroy()
+
+    def _update_element(self, element_type, index, key, value):
+        """Update an element property"""
+        if element_type in self.data and 0 <= index < len(self.data[element_type]):
+            try:
+                if key in ['width', 'height', 'radius', 'angle']:
+                    self.data[element_type][index][key] = float(value)
+                else:
+                    self.data[element_type][index][key] = value
+            except (ValueError, KeyError):
+                pass
+
+    def _update_element_and_label(self, element_type, index, key, value, label_frame):
+        """Update an element property and the label frame title"""
+        self._update_element(element_type, index, key, value)
+        if value.strip():
+            label_frame.configure(text=value.strip())
+        else:
+            label_frame.configure(text=f"{element_type[:-1]}_{index+1}")
+
+    def _update_element_center(self, element_type, index, coord_index, value):
+        """Update element center coordinates"""
+        if element_type in self.data and 0 <= index < len(self.data[element_type]):
+            try:
+                if 'center' not in self.data[element_type][index]:
+                    self.data[element_type][index]['center'] = [0, 0]
+                self.data[element_type][index]['center'][coord_index] = float(value)
+            except (ValueError, KeyError, IndexError):
+                pass
+
+    def _update_element(self, element_type, index, key, value):
+        """Update an element property"""
+        if element_type in self.data and 0 <= index < len(self.data[element_type]):
+            try:
+                if key in ['width', 'height', 'radius']:
+                    self.data[element_type][index][key] = float(value)
+                else:
+                    self.data[element_type][index][key] = value
+            except (ValueError, KeyError):
+                pass
+
+    def _update_element_center(self, element_type, index, coord_index, value):
+        """Update element center coordinates"""
+        if element_type in self.data and 0 <= index < len(self.data[element_type]):
+            try:
+                if 'center' not in self.data[element_type][index]:
+                    self.data[element_type][index]['center'] = [0, 0]
+                self.data[element_type][index]['center'][coord_index] = float(value)
+            except (ValueError, KeyError, IndexError):
+                pass
+
+    def _update_frame_shape(self, index, value):
         try:
-            width = int(self.widgets['frame_shape'][0].get())
-            height = int(self.widgets['frame_shape'][1].get())
-            scale = float(self.widgets['scale'].get())
-            
-            rectangles = self.widgets['rectangles'].get_shapes()
-            circles = self.widgets['circles'].get_shapes()
-            points = self.widgets['points'].get_shapes()
-            
-            return {
-                'frame_shape': [width, height],
-                'scale': scale,
-                'rectangles': rectangles,
-                'circles': circles,
-                'points': points
-            }
-        except (ValueError, TypeError) as e:
-            messagebox.showerror("ROI Data Error", f"Invalid ROI data format: {e}")
-            return {
-                'frame_shape': [700, 500],
-                'scale': 18.86,
-                'rectangles': [],
-                'circles': [],
-                'points': []
-            }
+            self.data['frame_shape'][index] = int(value)
+        except (ValueError, IndexError):
+            pass
+    
+    def _update_scale(self, value):
+        try:
+            self.data['scale'] = float(value)
+        except ValueError:
+            pass
 
 class TargetExplorationFrame(ttk.LabelFrame):
-    """A specialized frame for editing target exploration parameters."""
-    def __init__(self, parent, exploration_data=None):
+    def __init__(self, parent, exploration_data, model=None):
         super().__init__(parent, text="Target Exploration", padding=5)
-        self.widgets = {}
-        data = exploration_data or {'distance': 3, 'orientation': {'degree': 45, 'front': 'nose', 'pivot': 'head'}}
-        self.columnconfigure(1, weight=1)
+        self.data = exploration_data
+        self.model = model
+        self._create_widgets()
+
+    def _create_widgets(self):
+        from .gui_utils import get_comment
+        from . import config as C
         
         # Distance
         dist_label = ttk.Label(self, text="Distance:")
-        dist_label.grid(row=0, column=0, sticky='w', padx=5, pady=2)
-        dist_var = tk.StringVar(value=str(data.get('distance', 3)))
+        dist_label.grid(row=0, column=0, sticky='w')
+        dist_var = tk.StringVar(value=str(self.data.get('distance', 3)))
+        dist_var.trace_add("write", lambda *_: self._update_distance(dist_var.get()))
         dist_entry = ttk.Entry(self, textvariable=dist_var, width=8)
-        dist_entry.grid(row=0, column=1, sticky='w', padx=5, pady=2)
-        self.widgets['distance'] = dist_var
+        dist_entry.grid(row=0, column=1, sticky='w', padx=5)
         
-        # Add tooltips
-        dist_tooltip = "Maximum nose-target distance to consider exploration"
-        ToolTip(dist_label, dist_tooltip)
-        ToolTip(dist_entry, dist_tooltip)
-
+        # Add tooltip if model is available
+        if self.model:
+            comment = get_comment(self.model.data, [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_TARGET_EXPLORATION, C.KEY_DISTANCE])
+            if comment:
+                ToolTip(dist_label, comment)
+                ToolTip(dist_entry, comment)
+        
         # Orientation section
-        orient_frame = ttk.LabelFrame(self, text="Orientation", padding=5)
-        orient_frame.grid(row=1, column=0, columnspan=2, sticky='ew', pady=5)
-        orient_frame.columnconfigure(1, weight=1)
+        orientation_frame = ttk.LabelFrame(self, text="Orientation", padding=5)
+        orientation_frame.grid(row=1, column=0, columnspan=2, sticky='ew', pady=5)
         
-        orient_data = data.get('orientation', {})
+        orientation_data = self.data.get('orientation', {})
         
         # Degree
-        deg_label = ttk.Label(orient_frame, text="Degree:")
-        deg_label.grid(row=0, column=0, sticky='w', padx=5, pady=2)
-        deg_var = tk.StringVar(value=str(orient_data.get('degree', 45)))
-        deg_entry = ttk.Entry(orient_frame, textvariable=deg_var, width=8)
-        deg_entry.grid(row=0, column=1, sticky='w', padx=5, pady=2)
-        self.widgets['degree'] = deg_var
+        degree_label = ttk.Label(orientation_frame, text="Degree:")
+        degree_label.grid(row=0, column=0, sticky='w')
+        degree_var = tk.StringVar(value=str(orientation_data.get('degree', 45)))
+        degree_var.trace_add("write", lambda *_: self._update_orientation('degree', degree_var.get()))
+        degree_entry = ttk.Entry(orientation_frame, textvariable=degree_var, width=8)
+        degree_entry.grid(row=0, column=1, sticky='w', padx=5)
         
-        deg_tooltip = "Maximum head-target orientation angle to consider exploration (in degrees)"
-        ToolTip(deg_label, deg_tooltip)
-        ToolTip(deg_entry, deg_tooltip)
+        if self.model:
+            comment = get_comment(self.model.data, [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_TARGET_EXPLORATION, C.KEY_ORIENTATION, C.KEY_DEGREE])
+            if comment:
+                ToolTip(degree_label, comment)
+                ToolTip(degree_entry, comment)
         
         # Front
-        front_label = ttk.Label(orient_frame, text="Front:")
-        front_label.grid(row=1, column=0, sticky='w', padx=5, pady=2)
-        front_var = tk.StringVar(value=str(orient_data.get('front', 'nose')))
-        front_entry = ttk.Entry(orient_frame, textvariable=front_var, width=12)
-        front_entry.grid(row=1, column=1, sticky='w', padx=5, pady=2)
-        self.widgets['front'] = front_var
+        front_label = ttk.Label(orientation_frame, text="Front:")
+        front_label.grid(row=1, column=0, sticky='w')
+        front_var = tk.StringVar(value=str(orientation_data.get('front', 'nose')))
+        front_var.trace_add("write", lambda *_: self._update_orientation('front', front_var.get()))
+        front_entry = ttk.Entry(orientation_frame, textvariable=front_var, width=12)
+        front_entry.grid(row=1, column=1, sticky='w', padx=5)
         
-        front_tooltip = "Ending bodypart of the orientation line"
-        ToolTip(front_label, front_tooltip)
-        ToolTip(front_entry, front_tooltip)
+        if self.model:
+            comment = get_comment(self.model.data, [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_TARGET_EXPLORATION, C.KEY_ORIENTATION, C.KEY_FRONT])
+            if comment:
+                ToolTip(front_label, comment)
+                ToolTip(front_entry, comment)
         
         # Pivot
-        pivot_label = ttk.Label(orient_frame, text="Pivot:")
-        pivot_label.grid(row=2, column=0, sticky='w', padx=5, pady=2)
-        pivot_var = tk.StringVar(value=str(orient_data.get('pivot', 'head')))
-        pivot_entry = ttk.Entry(orient_frame, textvariable=pivot_var, width=12)
-        pivot_entry.grid(row=2, column=1, sticky='w', padx=5, pady=2)
-        self.widgets['pivot'] = pivot_var
+        pivot_label = ttk.Label(orientation_frame, text="Pivot:")
+        pivot_label.grid(row=2, column=0, sticky='w')
+        pivot_var = tk.StringVar(value=str(orientation_data.get('pivot', 'head')))
+        pivot_var.trace_add("write", lambda *_: self._update_orientation('pivot', pivot_var.get()))
+        pivot_entry = ttk.Entry(orientation_frame, textvariable=pivot_var, width=12)
+        pivot_entry.grid(row=2, column=1, sticky='w', padx=5)
         
-        pivot_tooltip = "Starting bodypart of the orientation line"
-        ToolTip(pivot_label, pivot_tooltip)
-        ToolTip(pivot_entry, pivot_tooltip)
+        if self.model:
+            comment = get_comment(self.model.data, [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_TARGET_EXPLORATION, C.KEY_ORIENTATION, C.KEY_PIVOT])
+            if comment:
+                ToolTip(pivot_label, comment)
+                ToolTip(pivot_entry, comment)
 
-    def get_exploration_data(self):
+    def _update_distance(self, value):
         try:
-            return {
-                'distance': float(self.widgets['distance'].get() or 3),
-                'orientation': {
-                    'degree': float(self.widgets['degree'].get() or 45),
-                    'front': self.widgets['front'].get() or 'nose',
-                    'pivot': self.widgets['pivot'].get() or 'head'
-                }
-            }
-        except ValueError as e:
-            messagebox.showerror("Target Exploration Error", f"Invalid exploration values: {e}")
-            return {
-                'distance': 3,
-                'orientation': {'degree': 45, 'front': 'nose', 'pivot': 'head'}
-            }
+            self.data['distance'] = float(value)
+        except ValueError:
+            pass
+    
+    def _update_orientation(self, key, value):
+        if 'orientation' not in self.data:
+            self.data['orientation'] = {}
+        if key == 'degree':
+            try:
+                self.data['orientation'][key] = float(value)
+            except ValueError:
+                pass
+        else:
+            self.data['orientation'][key] = str(value)
 
 class RNNWidthFrame(ttk.LabelFrame):
-    """A specialized frame for editing RNN width parameters."""
-    def __init__(self, parent, rnn_data=None):
+    def __init__(self, parent, rnn_data, model=None):
         super().__init__(parent, text="RNN Width", padding=5)
-        self.widgets = {}
-        data = rnn_data or {'past': 3, 'future': 3, 'broad': 1.7}
-        self.columnconfigure(1, weight=1)
-        
-        # Define tooltips for each parameter
-        tooltips = {
-            'past': "Number of past frames to include",
-            'future': "Number of future frames to include", 
-            'broad': "Broaden the window by skipping some frames as we stray further from the present"
-        }
-        
-        row = 0
-        for key in ['past', 'future', 'broad']:
-            label = ttk.Label(self, text=f"{key.title()}:")
-            label.grid(row=row, column=0, sticky='w', padx=5, pady=2)
-            
-            var = tk.StringVar(value=str(data.get(key, '')))
-            entry = ttk.Entry(self, textvariable=var, width=8)
-            entry.grid(row=row, column=1, sticky='w', padx=5, pady=2)
-            
-            # Add tooltips
-            tooltip_text = tooltips[key]
-            ToolTip(label, tooltip_text)
-            ToolTip(entry, tooltip_text)
-            
-            self.widgets[key] = var
-            row += 1
+        self.data = rnn_data
+        self.model = model
+        self._create_widgets()
 
-    def get_rnn_data(self):
+    def _create_widgets(self):
+        from .gui_utils import get_comment
+        from . import config as C
+        
+        for i, (key, val) in enumerate(self.data.items()):
+            label = ttk.Label(self, text=f"{key.title()}:")
+            label.grid(row=i, column=0, sticky='w')
+            var = tk.StringVar(value=str(val))
+            var.trace_add("write", lambda *_, k=key, v=var: self._update_value(k, v.get()))
+            entry = ttk.Entry(self, textvariable=var, width=8)
+            entry.grid(row=i, column=1, sticky='w', padx=5)
+            
+            # Add tooltips if model is available
+            if self.model:
+                # Try to get comment from nested RNN structure
+                comment = get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, C.KEY_RNN_WIDTH, key])
+                if comment:
+                    ToolTip(label, comment)
+                    ToolTip(entry, comment)
+    
+    def _update_value(self, key, value):
         try:
-            return {
-                'past': int(self.widgets['past'].get() or 3),
-                'future': int(self.widgets['future'].get() or 3),
-                'broad': float(self.widgets['broad'].get() or 1.7)
-            }
-        except ValueError as e:
-            messagebox.showerror("RNN Width Error", f"Invalid RNN width values: {e}")
-            return {'past': 3, 'future': 3, 'broad': 1.7}
+            self.data[key] = float(value)
+        except ValueError:
+            self.data[key] = value
 
 class TargetRolesFrame(ttk.LabelFrame):
-    """A specialized frame for editing target roles per trial."""
-    def __init__(self, parent, target_roles_data=None, trials_list_widget=None):
+    def __init__(self, parent, target_roles_data, trials_list_widget):
         super().__init__(parent, text="Target Roles", padding=5)
+        self.data = target_roles_data
         self.trials_list_widget = trials_list_widget
-        self.role_editors = {}  # Dictionary to store role editors for each trial
-        self.data = target_roles_data or {}
-        
-        # Configure grid
-        self.columnconfigure(0, weight=1)
-        
-        # Create main container frame
+        self.role_editors = {}
         self.main_frame = ttk.Frame(self)
-        self.main_frame.grid(row=0, column=0, sticky='ew', pady=5)
-        self.main_frame.columnconfigure(0, weight=1)
+        self.main_frame.pack(fill='both', expand=True)
+        self.update_from_trials([])
+
+    def update_from_trials(self, current_trials):
+        for widget in self.main_frame.winfo_children():
+            widget.destroy()
+        self.role_editors.clear()
+
+        valid_trials = [t for t in current_trials if t and t.strip()]
         
-        # Initialize with current data
-        self._populate_role_editors()
-    
-    def _populate_role_editors(self):
-        """Create role editors based on current trials with improved error handling."""
-        try:
-            # Clear existing editors safely
-            for widget in self.main_frame.winfo_children():
-                try:
-                    widget.destroy()
-                except tk.TclError:
-                    pass  # Widget might already be destroyed
-            self.role_editors.clear()
-            
-            # Get current trials from the trials widget if available
-            current_trials = []
-            if self.trials_list_widget:
-                try:
-                    current_trials = self.trials_list_widget.get_values()
-                except Exception as e:
-                    print(f"Warning: Could not get trials from widget: {e}")
-                    current_trials = list(self.data.keys())
-            else:
-                # Fallback to data keys if no trials widget
-                current_trials = list(self.data.keys())
-            
-            # Filter out empty or invalid trial names
-            valid_trials = [trial for trial in current_trials if trial and trial.strip()]
-            
-            # Create role editors for each valid trial
-            row = 0
-            for trial in valid_trials:
-                trial_key = trial.strip()  # Keep original case, just strip whitespace
-                
-                # Create a frame for this trial's roles
-                trial_frame = ttk.LabelFrame(self.main_frame, text=f"Trial: {trial}", padding=5)
-                trial_frame.grid(row=row, column=0, sticky='ew', pady=2)
-                trial_frame.columnconfigure(0, weight=1)
-                
-                # Get existing roles for this trial (case-sensitive lookup)
-                existing_roles = self.data.get(trial_key, [])
-                
-                # Create a dynamic list for roles
-                role_list = DynamicListFrame(trial_frame, "", existing_roles)
-                role_list.pack(fill='both', expand=True)
-                
-                # Store the role editor using the original case
-                self.role_editors[trial_key] = role_list
-                
-                row += 1
-                
-            # If no valid trials, show a helpful message
-            if not valid_trials:
-                help_label = ttk.Label(self.main_frame, text="No trials defined yet. Add trials above to configure target roles.")
-                help_label.grid(row=0, column=0, pady=10)
-                
-        except Exception as e:
-            print(f"Warning: Error populating role editors: {e}")
-            # Create a simple message if something goes wrong
-            error_label = ttk.Label(self.main_frame, text="No trials defined yet. Add trials above to configure target roles.")
-            error_label.grid(row=0, column=0, pady=10)
-            
-            # Create role editor for each valid trial
-            row = 0
-            for trial in valid_trials:
-                trial_key = trial.strip().lower()  # Strip whitespace and convert to lowercase for consistency
-                self._create_trial_role_editor(trial.strip(), trial_key, row)
-                row += 1
-                
-            # If no valid trials, show a message
-            if not valid_trials:
-                no_trials_label = ttk.Label(self.main_frame, 
-                                          text="No trials defined. Add trials above to configure target roles.",
-                                          foreground="gray")
-                no_trials_label.grid(row=0, column=0, pady=10)
-                
-        except Exception as e:
-            print(f"Error populating role editors: {e}")
-            # Create error message label
-            error_label = ttk.Label(self.main_frame, 
-                                  text="Error loading target roles. Please check trials configuration.",
-                                  foreground="red")
-            error_label.grid(row=0, column=0, pady=10)
-    
-    def _create_trial_role_editor(self, trial_display, trial_key, row):
-        """Create a role editor for a specific trial with enhanced features."""
-        try:
-            # Create frame for this trial
-            trial_frame = ttk.LabelFrame(self.main_frame, text=f"{trial_display} Roles", padding=3)
-            trial_frame.grid(row=row, column=0, sticky='ew', pady=2)
-            trial_frame.columnconfigure(0, weight=1)
-            
-            # Get existing roles for this trial
-            existing_roles = self.data.get(trial_key, [])
-            
-            # Create dynamic list for roles with callback for real-time updates
-            roles_list = DynamicListFrame(trial_frame, "", existing_roles, 
-                                        callback=lambda: self._on_roles_changed(trial_key))
-            roles_list.pack(fill='both', expand=True)
-            
-            # Store reference to the role editor
-            self.role_editors[trial_key] = roles_list
-            
-            # Add tooltip with enhanced information
-            tooltip_text = (f"Define roles that targets can take during the {trial_display} trial.\n"
-                          f"Examples: 'left', 'right', 'novel', 'known', etc.")
-            ToolTip(trial_frame, tooltip_text)
-            
-        except Exception as e:
-            print(f"Warning: Error creating role editor for trial {trial_display}: {e}")
-    
-    def _on_roles_changed(self, trial_key):
-        """Callback triggered when roles are modified for a specific trial."""
-        try:
-            # Update internal data for this trial
-            if trial_key in self.role_editors:
-                role_editor = self.role_editors[trial_key]
-                if role_editor and hasattr(role_editor, 'get_values'):
-                    roles = role_editor.get_values()
-                    valid_roles = [role.strip() for role in roles if role and role.strip()]
-                    self.data[trial_key] = valid_roles
-        except Exception as e:
-            print(f"Warning: Error updating roles for trial {trial_key}: {e}")
-    
-    def update_from_trials(self, trials):
-        """Update role editors based on new trials list with enhanced synchronization."""
-        try:
-            # Validate and clean up data against current trials
-            if self.validate_against_trials(trials):
-                # Repopulate editors with validated data
-                self._populate_role_editors()
-            else:
-                # Fallback: manual synchronization
-                self._manual_sync_with_trials(trials)
-            
-        except Exception as e:
-            print(f"Warning: Error updating target roles from trials: {e}")
-            # Fallback: just repopulate with current data
-            self._populate_role_editors()
-    
-    def _manual_sync_with_trials(self, trials):
-        """Manual synchronization fallback method."""
-        try:
-            # Create new data structure based on current trials preserving case
-            preserved_data = {}
-            
-            for trial in trials:
-                if trial.strip():
-                    trial_key = trial.strip()  # Keep original case
-                    
-                    # Get existing roles if they exist (case-sensitive)
-                    existing_roles = self.data.get(trial_key, [])
-                    preserved_data[trial_key] = existing_roles
-            
-            # Update internal data with preserved and new data
-            self.data = preserved_data
-            
-            # Repopulate editors with new trials
-            self._populate_role_editors()
-            
-        except Exception as e:
-            print(f"Warning: Error in manual sync: {e}")
-            self._populate_role_editors()
-    
-    def get_target_roles_data(self):
-        """Return dictionary of trial -> roles mapping with validation."""
-        result = {}
+        # Check if we have demo targets and trials to populate default roles
+        has_demo_data = (len(valid_trials) > 0 and 
+                        any(trial in ['Hab', 'TR', 'TS'] for trial in valid_trials))
         
-        try:
-            for trial_key, role_editor in self.role_editors.items():
-                if role_editor and hasattr(role_editor, 'get_values'):
-                    roles = role_editor.get_values()
-                    # Filter out empty roles
-                    valid_roles = [role.strip() for role in roles if role and role.strip()]
-                    result[trial_key] = valid_roles
+        if not valid_trials:
+            ttk.Label(self.main_frame, text="Add targets and trials above to configure roles.").pack(pady=10)
+            return
+
+        for trial in valid_trials:
+            # Initialize with demo content if available
+            if trial not in self.data:
+                if has_demo_data:
+                    if trial == 'Hab':
+                        self.data[trial] = []
+                    elif trial == 'TR':
+                        self.data[trial] = ["Left", "Right"]
+                    elif trial == 'TS':
+                        self.data[trial] = ["Novel", "Known"]
+                    else:
+                        self.data[trial] = []
                 else:
-                    result[trial_key] = []
-        except Exception as e:
-            print(f"Warning: Error getting target roles data: {e}")
-            # Return current data as fallback
-            result = self.data.copy()
-        
-        return result
-    
-    def validate_against_trials(self, current_trials):
-        """Validate that target roles match current trials and clean up orphaned data."""
-        try:
-            current_trials_set = set(trial.strip() for trial in current_trials if trial.strip())
+                    self.data[trial] = []
             
-            # Get current data preserving case
-            cleaned_data = {}
+            # Capitalize existing role names
+            if isinstance(self.data[trial], list):
+                self.data[trial] = [role.capitalize() if isinstance(role, str) else role for role in self.data[trial]]
             
-            # Preserve existing data for trials that still exist (case-sensitive)
-            for trial in current_trials:
-                if trial.strip():
-                    trial_key = trial.strip()  # Keep original case
-                    
-                    # Get existing roles if they exist
-                    existing_roles = self.data.get(trial_key, [])
-                    cleaned_data[trial_key] = existing_roles
-            
-            # Update internal data
-            self.data = cleaned_data
-            return True
-            
-        except Exception as e:
-            print(f"Warning: Error validating target roles against trials: {e}")
-            return False
+            trial_frame = ttk.LabelFrame(self.main_frame, text=f"Trial: {trial}", padding=5)
+            trial_frame.pack(fill='x', expand=True, pady=2)
+            editor = DynamicListFrame(trial_frame, "", self.data, trial)
+            editor.pack(fill='both', expand=True)
+            self.role_editors[trial] = editor

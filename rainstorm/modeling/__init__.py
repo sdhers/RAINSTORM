@@ -9,8 +9,10 @@ when importing the 'rainstorm.modeling' package.
 from ..utils import configure_logging
 configure_logging()
 
+# Import the params_editor module from the submodule
+from ..prepare_positions import open_params_editor
+
 from .create_colabels import create_colabels
-from .create_modeling_file import create_modeling
 from .data_handling import prepare_data, focus, split_tr_ts_val, save_split, load_split
 from .plotting import plot_example_data, plot_history, plot_lr_schedule, plot_cosine_sim, plot_PCA, plot_performance_on_video, polar_graph
 from .model_building import build_RNN, train_RNN, save_model

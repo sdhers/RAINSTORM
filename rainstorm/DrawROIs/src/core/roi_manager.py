@@ -15,9 +15,9 @@ class ROIManager:
         self.metadata = {
             'frame_shape': list(frame_shape), 
             'scale': None,
-            'areas': [],   
-            'points': [],  
-            'circles': []  
+            'rectangles': [],
+            'circles': [],
+            'points': []
         }
         self.history_stack = [] # For undo functionality
         if initial_rois:
@@ -30,10 +30,10 @@ class ROIManager:
             logger.warning(f"Loaded ROIs frame size {rois_data['frame_shape']} differs from current {self.metadata['frame_shape']}.")
         
         self.metadata['scale'] = rois_data.get('scale')
-        self.metadata['areas'] = rois_data.get('areas', [])
-        self.metadata['points'] = rois_data.get('points', [])
+        self.metadata['rectangles'] = rois_data.get('rectangles', [])
         self.metadata['circles'] = rois_data.get('circles', [])
-        logger.info(f"Loaded {len(self.metadata['areas'])} areas, {len(self.metadata['points'])} points, {len(self.metadata['circles'])} circles.")
+        self.metadata['points'] = rois_data.get('points', [])
+        logger.info(f"Loaded {len(self.metadata['rectangles'])} rectangles, {len(self.metadata['circles'])} circles, {len(self.metadata['points'])} points.")
 
     def _add_to_history(self, action_type, category, data):
         """Adds an action to the history stack for undo."""
@@ -42,8 +42,8 @@ class ROIManager:
     def add_rectangle_roi(self, name: str, center: list, width: int, height: int, angle: float = 0):
         """Adds a new rectangular ROI and logs it to history."""
         area = {'name': name, 'type': 'rectangle', 'center': center, 'width': int(width), 'height': int(height), 'angle': angle}
-        self.metadata['areas'].append(area)
-        self._add_to_history('add', 'areas', area)
+        self.metadata['rectangles'].append(area)
+        self._add_to_history('add', 'rectangles', area)
         logger.debug(f"Added rectangle ROI: {name}")
 
     def add_circle_roi(self, name: str, center: list, radius: int):
@@ -93,16 +93,16 @@ class ROIManager:
 
     def clear_all_rois(self):
         """Clears all defined ROIs, points, and scale."""
-        self.metadata['areas'].clear()
-        self.metadata['points'].clear()
+        self.metadata['rectangles'].clear()
         self.metadata['circles'].clear()
+        self.metadata['points'].clear()
         self.metadata['scale'] = None
         self.history_stack.clear()
         logger.info("Cleared all ROIs and history.")
 
     def find_roi_at_point(self, x: int, y: int):
         """Finds the topmost ROI at a given coordinate."""
-        all_rois = self.metadata.get('areas', []) + self.metadata.get('points', []) + self.metadata.get('circles', [])
+        all_rois = self.metadata.get('rectangles', []) + self.metadata.get('circles', []) + self.metadata.get('points', [])
         
         for roi in reversed(all_rois):
             center_x, center_y = roi['center']

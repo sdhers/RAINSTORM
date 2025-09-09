@@ -45,9 +45,9 @@ def plot_positions(params_path: str, file: str, scaling: bool = True) -> None:
     pivot = orientation_params.get("pivot") or 'head'
 
     # Style config for Plotly traces
-    symbols = ['square', 'circle', 'diamond', 'cross', 'x']
-    colors = ['blue', 'darkred', 'darkgreen', 'purple', 'goldenrod']
-    trace_colors = ['turquoise', 'orangered', 'limegreen', 'magenta', 'gold']
+    symbols = ['square', 'circle', 'diamond', 'cross', 'x', 'triangle-down']
+    colors = ['blue', 'darkred', 'darkgreen', 'purple', 'darkgoldenrod', 'steelblue']
+    trace_colors = ['turquoise', 'orangered', 'limegreen', 'magenta', 'gold', 'black']
 
     target_styles = {
         tgt: {
@@ -112,8 +112,8 @@ def plot_positions(params_path: str, file: str, scaling: bool = True) -> None:
             angle = Vector.angle(head_nose, head_tgt)
 
             # Mask for points where nose is towards the target and within a reasonable distance for visualization
-            # The original code used max_distance * 3, which is a good heuristic for visualization range
-            mask = (angle < max_angle) & (dist < max_distance * 3)
+            # The original code used max_distance * 2, which is a good heuristic for visualization range
+            mask = (angle < max_angle) & (dist < max_distance * 2)
             towards_tgt = nose.positions[mask]
 
             traces.extend([
@@ -230,7 +230,7 @@ def plot_heatmap(params_path, file, bodypart='body', bins=100, colorscale="hot",
     params = load_yaml(params_path)
     geom_params = params.get("geometric_analysis") or {}
     roi_data = geom_params.get("roi_data") or {}
-    areas = roi_data.get("areas") or []
+    rectangles = roi_data.get("rectangles") or []
     circles = roi_data.get("circles") or [] # Load circles
     points = roi_data.get("points") or []   # Load points
     frame_shape = roi_data.get("frame_shape") or []
@@ -274,10 +274,10 @@ def plot_heatmap(params_path, file, bodypart='body', bins=100, colorscale="hot",
     fig.update_yaxes(autorange="reversed")
 
     # Plot ROIs (Rectangles)
-    for area in areas:
-        center_x, center_y = area["center"]
-        width, height = area["width"], area["height"]
-        angle = area["angle"]
+    for rectangle in rectangles:
+        center_x, center_y = rectangle["center"]
+        width, height = rectangle["width"], rectangle["height"]
+        angle = rectangle["angle"]
 
         # Get the SVG path for the rotated rectangle
         rotated_rect_path = rotate_rectangle(center_x, center_y, width, height, angle)
@@ -293,7 +293,7 @@ def plot_heatmap(params_path, file, bodypart='body', bins=100, colorscale="hot",
         fig.add_annotation(
             x=center_x,
             y=center_y,
-            text=area["name"],
+            text=rectangle["name"],
             showarrow=False,
             font=dict(color="white", size=10),
             bgcolor="rgba(0,0,0,0.5)",
@@ -462,20 +462,44 @@ def plot_freezing_events(params_path: Path, file: Path, movement: pd.DataFrame):
 
 
 def plot_roi_activity(params_path: Path, file: Path, roi_activity: pd.DataFrame, bodypart: str = 'body'):
-    """Plots freezing events and movement in a video using Plotly.
+    """
+    Plots the time spent in each Region of Interest (ROI).
 
     Args:
         params_path (Path): Path to the YAML parameters file.
         file (Path): Path to the .csv file containing the data.
-        roi_activity (pd.DataFrame): A DataFrame with a new column `location` indicating the ROI label per frame.
+        roi_activity (pd.DataFrame): A DataFrame that should contain a 'location' column
+                                     indicating the ROI label per frame.
         bodypart (str): Name of the body part to analyze. Default is 'body'.
     """
+    # 1. Check if the DataFrame is None or empty
+    if roi_activity is None or roi_activity.empty:
+        message = f"No ROI activity data provided for {file.name}. Skipping plot."
+        logging.warning(message)
+        print(message)
+        return  # Exit the function early
+
+    # 2. Check if the required 'location' column exists
+    if 'location' not in roi_activity.columns:
+        message = f"Column 'location' not found in ROI activity data for {file.name}. Skipping plot."
+        logging.warning(message)
+        print(message)
+        return  # Exit the function early
+
     params = load_yaml(params_path)
     fps = params.get("fps") or 30
 
     # Time spent in each area
     time_spent = roi_activity['location'].value_counts().sort_index()
     time_spent = time_spent[time_spent.index != 'other']
+    
+    # 3. Check if there's any data left to plot after filtering
+    if time_spent.empty:
+        message = f"No time spent in any defined ROIs for {file.name}. Skipping plot."
+        logging.info(message) # Use info level as this isn't necessarily an error
+        print(message)
+        return # Exit the function early
+
     time_spent_seconds = time_spent / fps
 
     # Plotting
@@ -483,13 +507,13 @@ def plot_roi_activity(params_path: Path, file: Path, roi_activity: pd.DataFrame,
         go.Bar(
             x=time_spent_seconds.index,
             y=time_spent_seconds.values,
-            marker_color='skyblue' # You can customize colors further
+            marker_color='skyblue'
         )
     ])
     fig.update_layout(
-        title=f'Time Spent in Each ROI for {Path(file).name} ({bodypart})',
+        title=f'Time Spent in Each ROI for {file.name} ({bodypart})',
         xaxis_title='ROI',
         yaxis_title='Time (seconds)',
-        template='plotly_white' # Use a clean template
+        template='plotly_white'
     )
     fig.show()

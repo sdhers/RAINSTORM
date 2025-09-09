@@ -32,9 +32,8 @@ class Config:
     max_angle: int = 45
     front: str = 'nose'
     pivot: str = 'head'
-    seize_labels: Dict[str, Any] = field(default_factory=dict)
+    target_roles: Dict[str, Any] = field(default_factory=dict)
     trials: List[str] = field(default_factory=list)
-    label_type: Optional[str] = None
     role_color_map: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
@@ -42,48 +41,50 @@ class Config:
         """Loads parameters from a YAML file and creates a Config instance."""
         try:
             params = load_yaml(params_path)
-            base_path = Path(params["path"])
-            # Set index to 'Video' for faster lookups
+            base_path = Path(params.get("path"))
+            
             reference_df = pd.read_csv(base_path / 'reference.csv').set_index('Video')
 
-            geo_params = params.get("geometric_analysis", {})
-            target_exp = geo_params.get("target_exploration", {})
-            orientation = target_exp.get("orientation", {})
-            seize_labels = params.get("seize_labels", {})
+            geo_params = params.get("geometric_analysis") or {}
+            roi_data=geo_params.get("roi_data") or {}
+            target_exp = geo_params.get("target_exploration") or {}
+            orientation = target_exp.get("orientation") or {}
+            target_roles = params.get("target_roles") or {}
             
-            filenames = params.get("filenames", [])
+            filenames = params.get("filenames") or []
             common_name = find_common_name(filenames)
-            trials = seize_labels.get("trials", [common_name])
+            trials = params.get("trials") or [common_name]
 
-            role_color_map = cls._generate_role_color_map(seize_labels)
+            role_color_map = cls._generate_role_color_map(target_roles)
 
             return cls(
                 base_path=base_path,
                 reference_df=reference_df,
-                fps=params.get("fps", 30),
-                targets=params.get("targets", []),
-                scale=geo_params.get("roi_data", {}).get("scale", 1.0),
-                max_dist=target_exp.get("distance", 2.5),
-                max_angle=orientation.get("degree", 45),
-                front=orientation.get("front", 'nose'),
-                pivot=orientation.get("pivot", 'head'),
-                seize_labels=seize_labels,
+                fps=params.get("fps") or 30,
+                targets=params.get("targets") or [],
+                scale=roi_data.get("scale") or 1.0,
+                max_dist=target_exp.get("distance") or 2.5,
+                max_angle=orientation.get("degree") or 45,
+                front=orientation.get("front") or 'nose',
+                pivot=orientation.get("pivot") or 'head',
+                target_roles=target_roles,
                 trials=trials,
-                label_type=seize_labels.get("label_type"),
                 role_color_map=role_color_map
             )
-        except (KeyError, FileNotFoundError) as e:
+        except Exception as e:
             logger.error(f"Error loading or parsing parameters from {params_path}: {e}")
+            logger.error(f"Exception type: {type(e).__name__}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             raise
 
     @staticmethod
-    def _generate_role_color_map(seize_labels: Dict) -> Dict[str, str]:
+    def _generate_role_color_map(target_roles: Dict) -> Dict[str, str]:
         """Dynamically generates a color map for all possible target roles."""
         all_roles = set()
-        if 'target_roles' in seize_labels:
-            for trial_roles_list in seize_labels['target_roles'].values():
-                if trial_roles_list:
-                    all_roles.update(trial_roles_list)
+        for trial_roles_list in target_roles.values():
+            if trial_roles_list:
+                all_roles.update(trial_roles_list)
         
         unique_roles = sorted(list(all_roles))
         num_roles = len(unique_roles)
@@ -142,7 +143,7 @@ def _plot_distance_covered(df: pd.DataFrame, ax: plt.Axes):
     ax.legend(loc='upper left', fancybox=True, shadow=True)
     ax.grid(True)
 
-def _plot_target_exploration(df: pd.DataFrame, ordered_roles: list, label_type: str, color_map: dict, ax: plt.Axes):
+def _plot_target_exploration(df: pd.DataFrame, ordered_roles: list, color_map: dict, ax: plt.Axes, label_type: str = 'geolabels'):
     """Plots cumulative exploration time for specified target roles."""
     for role in ordered_roles:
         col_name = f'{role}_{label_type}_cumsum'
@@ -188,7 +189,7 @@ def _plot_positions(nose, towards1, towards2, tgt1, tgt2, max_dist, colors: list
 
 # --- Core Processing Function ---
 
-def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Config, show: bool):
+def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Config, label_type: Optional[str] = 'geolabels', show: bool = False):
     """Loads data for a single video, performs calculations, and generates a plot."""
     try:
         video_name_stem = summary_path.stem.replace('_summary', '')
@@ -200,7 +201,7 @@ def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Confi
     # --- Corrected Logic for Targets and Roles ---
     # 1. Get the ordered roles for the trial (e.g., ['Novel', 'Familiar']).
     #    The 'or []' handles cases where the trial has no roles (e.g., habituation).
-    ordered_roles = cfg.seize_labels.get('target_roles', {}).get(trial) or []
+    ordered_roles = cfg.target_roles.get(trial) or []
 
     # 2. Create a reverse map from role -> target_name (e.g., 'Novel' -> 'Left').
     #    This is used to find the correct body part names for the position plot.
@@ -221,14 +222,14 @@ def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Confi
     )
 
     # --- Plotting Logic ---
-    has_two_ordered_roles = len(ordered_roles) == 2 and cfg.label_type is not None
+    has_two_ordered_roles = len(ordered_roles) == 2 and label_type is not None
     
     if has_two_ordered_roles:
         logger.info(f"Plotting {video_name_stem} with DI analysis.")
         fig, axes = plt.subplots(2, 2, figsize=(12, 8))
         
         # Calculate exploration and DI using the ordered roles
-        full_role_names = [f'{role}_{cfg.label_type}' for role in ordered_roles]
+        full_role_names = [f'{role}_{label_type}' for role in ordered_roles]
         df = calculate_cumsum(df, full_role_names)
         for col in df.columns:
             if col.endswith('_cumsum'):
@@ -236,7 +237,7 @@ def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Confi
         df = calculate_DI(df, full_role_names)
 
         _plot_distance_covered(df, axes[0, 0])
-        _plot_target_exploration(df, ordered_roles, cfg.label_type, cfg.role_color_map, axes[0, 1])
+        _plot_target_exploration(df, ordered_roles, cfg.role_color_map, axes[0, 1], label_type)
         _plot_discrimination_index(df, axes[1, 0])
         ax_pos = axes[1, 1]
     else:
@@ -270,15 +271,17 @@ def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Confi
 
 # --- Main Execution Function ---
 
-def run_individual_analysis(params_path: Path, show: bool = False):
+def run_individual_analysis(params_path: Path, label_type: Optional[str] = 'geolabels', show: bool = False):
     """
     Generates and saves a plot for each individual summary file, showing
     various behavioral analyses based on a centralized configuration.
     """
     try:
         cfg = Config.from_params(params_path)
-    except Exception:
-        logger.error("Failed to initialize configuration. Aborting.")
+    except Exception as e:
+        logger.error(f"Failed to initialize configuration: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         return
 
     summary_root = cfg.base_path / "summary"
@@ -293,7 +296,7 @@ def run_individual_analysis(params_path: Path, show: bool = False):
 
             for summary_file_path in summary_folder.glob('*_summary.csv'):
                 try:
-                    _process_single_video(summary_file_path, trial, group, cfg, show)
+                    _process_single_video(summary_file_path, trial, group, cfg, label_type, show)
                 except Exception as e:
                     logger.error(f"Failed to process {summary_file_path.name}: {e}", exc_info=True)
     

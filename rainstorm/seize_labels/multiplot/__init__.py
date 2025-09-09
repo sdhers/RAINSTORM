@@ -14,6 +14,7 @@ from .lineplot_cumulative import lineplot_cumulative_distance, lineplot_cumulati
 from .lineplot_index import lineplot_DI, lineplot_diff
 from .boxplot import boxplot_total_exploration_time, boxplot_DI_auc, boxplot_avg_time_bias
 from .plot_roi_activity import boxplot_roi_time, boxplot_roi_distance, boxplot_alternation_proportion
+from .bout_plot import boxplot_exploration_bouts, boxplot_roi_bouts
 
 __all__ = [
     'plot_multiple_analyses',
@@ -28,4 +29,6 @@ __all__ = [
     'boxplot_roi_time',
     'boxplot_roi_distance',
     'boxplot_alternation_proportion',
+    'boxplot_exploration_bouts',
+    'boxplot_roi_bouts',
 ]

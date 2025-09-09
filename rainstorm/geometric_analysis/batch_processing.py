@@ -25,9 +25,8 @@ def batch_process_positions(params_path: Path, roi_bp: str = 'body', nose_bp: st
     params = load_yaml(params_path)
     folder_path = Path(params.get("path"))
     filenames = params.get("filenames") or []
-    seize_labels = params.get("seize_labels") or {}
     common_name = find_common_name(filenames)
-    trials = seize_labels.get("trials") or [common_name]
+    trials = params.get("trials") or [common_name]
 
     # Construct the list of files to process
     files_to_process = []

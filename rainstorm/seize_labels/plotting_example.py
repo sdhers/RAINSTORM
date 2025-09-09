@@ -21,6 +21,7 @@ def create_video(
     params_path: Path,
     position_file: Path,
     video_path: Optional[Path] = None,
+    label_type: Optional[str] = 'geolabels',
     skeleton_links: list[list[str]] = [
         ["nose", "head"], ["head", "neck"], ["neck", "body"], ["body", "tail_base"],
         ["tail_base", "tail_mid"], ["tail_mid", "tail_end"],
@@ -67,9 +68,6 @@ def create_video(
         distance = target_exploration.get("distance") or 2.5  # Default distance in cm
         scale = roi_data.get("scale") or 1  # Default scale factor
         obj_size = int(scale * distance * (2 / 3))
-
-        seize_labels = params.get("seize_labels") or {}
-        label_type = seize_labels.get("label_type") or None
 
         bodyparts_list = params.get("bodyparts") or []
         targets_list = params.get("targets") or []
@@ -386,7 +384,7 @@ def plot_positions(
                     angle = Vector.angle(head_nose, head_tgt)
 
                     # Filter nose positions oriented towards the target
-                    towards_tgt_indices = (angle < max_angle) & (dist < max_dist * 3)
+                    towards_tgt_indices = (angle < max_angle) & (dist < max_dist * 2)
                     towards_tgt = nose.positions[towards_tgt_indices]
 
                     if towards_tgt.size > 0:
@@ -436,7 +434,7 @@ def plot_positions(
 
 # Main function to plot mouse exploration
 
-def plot_mouse_exploration(params_path: Path, position_file: Path) -> None:
+def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: Optional[str] = 'geolabels', save: bool = False) -> None:
     """
     Generates and displays plots for target exploration time and animal positions.
 
@@ -465,8 +463,6 @@ def plot_mouse_exploration(params_path: Path, position_file: Path) -> None:
         max_angle = orientation.get("degree") or 45  # Default max angle in degrees
         front = orientation.get("front") or 'nose'
         pivot = orientation.get("pivot") or 'head'
-        seize_labels = params.get("seize_labels") or {}
-        label_type = seize_labels.get("label_type") or None
 
         if not targets:
             logger.warning("No targets specified in parameters. Plots might be empty.")
@@ -510,16 +506,16 @@ def plot_mouse_exploration(params_path: Path, position_file: Path) -> None:
         logger.info("No 'label_type' specified in parameters. Skipping labels plot.")
 
     # --- Define symbols and colors ---
-    symbol_list = ['o', 's', 'D', 'P', 'h']
-    color_list = ['blue', 'darkred', 'darkgreen', 'purple', 'goldenrod']
-    trace_color_list = ['turquoise', 'orangered', 'limegreen', 'magenta', 'gold']
+    symbols = ['s', 'o', 'D', 'P', 'X', 'v']
+    colors = ['blue', 'darkred', 'darkgreen', 'purple', 'darkgoldenrod', 'steelblue']
+    trace_colors = ['turquoise', 'orangered', 'limegreen', 'magenta', 'gold', 'black']
 
     # Create a dictionary mapping each target to its style properties
     target_styles = {
         tgt: {
-            "symbol": symbol_list[idx % len(symbol_list)],
-            "color": color_list[idx % len(color_list)],
-            "trace_color": trace_color_list[idx % len(trace_color_list)]
+            "symbol": symbols[idx % len(symbols)],
+            "color": colors[idx % len(colors)],
+            "trace_color": trace_colors[idx % len(trace_colors)]
         }
         for idx, tgt in enumerate(targets)
     }
@@ -529,7 +525,7 @@ def plot_mouse_exploration(params_path: Path, position_file: Path) -> None:
 
     # Plot exploration time (only if labels_df is not empty)
     if not labels_df.empty:
-        plot_target_exploration(labels_df, targets, axes[0], trace_color_list)
+        plot_target_exploration(labels_df, targets, axes[0], trace_colors)
     else:
         logger.info("Labels DataFrame is empty. Skipping target exploration plot.")
         axes[0].set_title('Target Exploration (No Data)')
@@ -545,17 +541,18 @@ def plot_mouse_exploration(params_path: Path, position_file: Path) -> None:
     plt.suptitle(f"Analysis of {session_name}", y=0.98, fontsize=16)
     plt.tight_layout(rect=[0, 0, 0.95, 0.96]) # Adjust layout to make space for suptitle and legend
 
-    # Create 'plots/individual' folder inside the specified output path
-    plots_folder = output_base_dir / 'plots' / 'individual'
-    plots_folder.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Plots output directory ensured: {plots_folder}")
+    if save:
+        # Create 'plots/individual' folder inside the specified output path
+        plots_folder = output_base_dir / 'plots' / 'individual'
+        plots_folder.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Plots output directory ensured: {plots_folder}")
 
-    plot_output_path = plots_folder / f"{session_name}_exploration_plot.png"
-    try:
-        fig.savefig(plot_output_path, dpi=300, bbox_inches='tight')
-        logger.info(f"Plot saved successfully to: {plot_output_path}")
-    except Exception as e:
-        logger.error(f"Error saving plot to {plot_output_path}: {e}")
+        plot_output_path = plots_folder / f"{session_name}_exploration_plot.png"
+        try:
+            fig.savefig(plot_output_path, dpi=300, bbox_inches='tight')
+            logger.info(f"Plot saved successfully to: {plot_output_path}")
+        except Exception as e:
+            logger.error(f"Error saving plot to {plot_output_path}: {e}")
 
     plt.show(fig)
 

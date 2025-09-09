@@ -9,13 +9,14 @@ import pandas as pd
 import logging
 from pathlib import Path
 import re
+import math
 
 from ..geometric_classes import Point, Vector
 from ..utils import configure_logging, load_yaml
 configure_logging()
 logger = logging.getLogger(__name__)
 
-def point_in_roi(x: float, y: float, center: list, width: float, height: float, angle: float) -> bool:
+def point_in_rectangle(x: float, y: float, center: list, width: float, height: float, angle: float) -> bool:
     """
     Check if a point (x, y) is inside a rotated rectangle (ROI).
 
@@ -43,20 +44,37 @@ def point_in_roi(x: float, y: float, center: list, width: float, height: float, 
     # Check if the point falls within the unrotated rectangle's bounds
     return (-width / 2 <= x_rot <= width / 2) and (-height / 2 <= y_rot <= height / 2)
 
+
+def point_in_circle(x: float, y: float, center: list, radius: float) -> bool:
+    """
+    Check if a point (x, y) is inside a circle.
+
+    Args:
+        x (float): X-coordinate of the point.
+        y (float): Y-coordinate of the point.
+        center (list): [x, y] coordinates of the circle's center.
+        radius (float): Radius of the circle.
+
+    Returns:
+        bool: True if the point is inside the ROI, False otherwise.
+    """
+    # Calculate the distance from the point to the circle's center
+    distance = math.sqrt((x - center[0])**2 + (y - center[1])**2)
+    # Check if the distance is less than or equal to the radius
+    return distance <= radius
+
+
 def detect_roi_activity(params_path: Path, file: Path, bodypart: str = 'body') -> pd.DataFrame:
     """
-    Assigns an ROI area to each frame based on the bodypart's coordinates
-    and optionally plots time spent per area.
+    Assigns a ROI area to each frame based on the bodypart's coordinates.
 
     Args:
         params_path (Path): Path to the YAML file containing experimental parameters.
         file (Path): Path to the CSV file with tracking data.
         bodypart (str): Name of the body part to analyze. Default is 'body'.
-        plot_activity (bool): Whether to plot the ROI activity. Default is False.
-        verbose (bool): Whether to print log messages. Default is True.
 
     Returns:
-        pd.DataFrame: A DataFrame with a new column `location` indicating the ROI label per frame.
+        pd.DataFrame: A DataFrame with a new column `location` indicating the ROI label(s) per frame.
                       Returns an empty DataFrame if no ROIs are defined or if the bodypart
                       coordinates are missing.
     """
@@ -64,9 +82,29 @@ def detect_roi_activity(params_path: Path, file: Path, bodypart: str = 'body') -
     params = load_yaml(Path(params_path))
     geom_params = params.get("geometric_analysis") or {}
     roi_data = geom_params.get("roi_data") or {}
-    areas = roi_data.get("areas") or []
+    
+    # Get lists for both rectangles and circles, defaulting to empty lists if not found
+    rectangles = roi_data.get("rectangles", [])
+    circles = roi_data.get("circles", [])
 
-    if not areas:
+    # Combine all ROIs into a single list
+    all_rois = []
+    for rect in rectangles:
+        all_rois.append({
+            "name": rect["name"],
+            "type": "rectangle",
+            "check_function": point_in_rectangle,
+            "params": rect
+        })
+    for circle in circles:
+        all_rois.append({
+            "name": circle["name"],
+            "type": "circle",
+            "check_function": point_in_circle,
+            "params": circle
+        })
+
+    if not all_rois:
         logger.info("No ROIs found in the parameters file. Skipping ROI activity analysis.")
         return pd.DataFrame()
 
@@ -85,15 +123,24 @@ def detect_roi_activity(params_path: Path, file: Path, bodypart: str = 'body') -
 
     roi_activity = pd.DataFrame(index=df.index)
 
-    # Assign ROI label per frame
-    # If ROIs overlap, their order in the params.yaml file is critical. 
-    # The ROIs that come later in the list will always oclude the ones that come before.
-    # If a point is in multiple ROIs, it will be assigned the label of the one that was drawn last.
-    roi_activity['location'] = [
-        next((area["name"] for area in reversed(areas) if point_in_roi(row[f"{bodypart}_x"], row[f"{bodypart}_y"], area["center"], area["width"], area["height"], area["angle"])), 'other')
-        for _, row in df.iterrows()
-    ]
+    # Assign a single ROI label per frame (last-one-wins logic)
+    locations = []
+    # Reverse the list to give precedence to later-defined ROIs
+    for _, row in df.iterrows():
+        x, y = row[f"{bodypart}_x"], row[f"{bodypart}_y"]
+        assigned_location = 'other'
+        for roi in reversed(all_rois):
+            if roi["type"] == "rectangle":
+                if point_in_rectangle(x, y, roi["params"]["center"], roi["params"]["width"], roi["params"]["height"], roi["params"]["angle"]):
+                    assigned_location = roi["name"]
+                    break  # Found the highest-precedence ROI, so stop searching
+            elif roi["type"] == "circle":
+                if point_in_circle(x, y, roi["params"]["center"], roi["params"]["radius"]):
+                    assigned_location = roi["name"]
+                    break  # Found the highest-precedence ROI, so stop searching
+        locations.append(assigned_location)
 
+    roi_activity['location'] = locations
     roi_activity.insert(0, "Frame", roi_activity.index + 1) # Add 'Frame' column
 
     return roi_activity

@@ -30,16 +30,13 @@ def create_autolabels(params_path: Path) -> None:
         logger.error(f"Base folder path not found: {folder_path}")
         return
 
-    filenames_base = params.get("filenames", [])
-    if not filenames_base:
+    filenames = params.get("filenames") or []
+    if not filenames:
         logger.error("No 'filenames' specified in parameters. Cannot proceed with automatic labeling.")
         return
-
-    filenames = params.get("filenames") or []
-    seize_labels = params.get("seize_labels") or {}
     common_name = find_common_name(filenames)
-    trials = seize_labels.get("trials") or [common_name]
-    targets = params.get("targets", [])
+    trials = params.get("trials") or [common_name]
+    targets = params.get("targets") or []
     
     if not targets:
         logger.warning("No 'targets' specified in parameters. Autolabels will be generated but not associated with specific targets.")
@@ -50,8 +47,8 @@ def create_autolabels(params_path: Path) -> None:
         scale = 1.0
 
     # Load automatic analysis parameters
-    model_params = params.get("automatic_analysis", {})
-    model_path = Path(model_params.get("model_path"))
+    modeling = params.get("automatic_analysis") or {}
+    model_path = Path(modeling.get("models_path")) / "trained_models" / Path(modeling.get("analyze_with"))
     if not model_path:
         logger.error("No 'model_path' specified under 'automatic_analysis'. Cannot load model.")
         return
@@ -67,25 +64,25 @@ def create_autolabels(params_path: Path) -> None:
         logger.error(f"Error loading model from {model_path}: {e}")
         return
 
-    model_bodyparts = model_params.get("model_bodyparts", [])
+    model_bodyparts = modeling.get("model_bodyparts") or []
     if not model_bodyparts:
         logger.warning("No 'model_bodyparts' specified. Ensure your model can process the input data correctly.")
         # If no bodyparts are specified, the use_model function will raise an error if it can't find features.
 
-    rescaling = model_params.get("rescaling", True)
-    reshaping = model_params.get("reshaping", False)
-    
-    rnn_width = model_params.get("RNN_width", {})
-    past = rnn_width.get("past", 3)
-    future = rnn_width.get("future", 3)
-    broad = rnn_width.get("broad", 1.7)
+    RNN = modeling.get("RNN") or {}
+    rescaling = RNN.get("rescaling", True)
+    reshaping = RNN.get("reshaping", False)
+    rnn_width = RNN.get("RNN_width") or {}
+    past = rnn_width.get("past") or 3
+    future = rnn_width.get("future") or 3
+    broad = rnn_width.get("broad") or 1.7
 
     # Collect all position files to be processed
     all_position_files: List[Path] = []
     for trial_name in trials:
         trial_positions_dir = folder_path / trial_name / 'positions'
         if trial_positions_dir.is_dir():
-            for fname_base in filenames_base:
+            for fname_base in filenames:
                 file_path = trial_positions_dir / f"{fname_base}_positions.csv"
                 if file_path.is_file():
                     all_position_files.append(file_path)

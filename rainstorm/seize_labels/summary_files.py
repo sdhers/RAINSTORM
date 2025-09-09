@@ -25,14 +25,15 @@ def create_reference_file(params_path: Path, overwrite: bool = False) -> Path:
     folder = Path(params.get("path"))
     filenames = params.get("filenames") or []
     targets = params.get("targets") or []
-    seize_labels = params.get("seize_labels") or {}
     common_name = find_common_name(filenames)
-    trials = seize_labels.get("trials") or [common_name]
+    trials = params.get("trials") or [common_name]
 
     # Get ROI area names from geometric_analysis parameters and add a '_roi' suffix
     geometric_analysis = params.get("geometric_analysis") or {}
     roi_data = geometric_analysis.get("roi_data") or {}
-    areas = roi_data.get("areas") or []
+    rectangles = roi_data.get("rectangles") or []
+    circles = roi_data.get("circles") or []
+    areas = rectangles + circles
     roi_area_names = [f"{area['name']}_roi" for area in areas if "name" in area] # Add _roi suffix here
 
     reference_path = folder / 'reference.csv'
@@ -41,11 +42,11 @@ def create_reference_file(params_path: Path, overwrite: bool = False) -> Path:
     if reference_path.exists():
         if not overwrite:
             logger.info(f"Reference file '{reference_path}' already exists. Skipping creation as overwrite is False.")
-            print(f"Reference file already exists at {reference_path}. Use overwrite=True to recreate it.")
+            print(f"Reference file {reference_path} already exists. Use overwrite=True to recreate it.")
             return reference_path
         else:
             logger.info(f"Reference file '{reference_path}' exists. Overwriting as overwrite is True.")
-            print(f"Overwriting existing reference file at {reference_path}.")
+            print(f"Overwriting existing reference file at {reference_path}")
 
     all_labels_files = []
 
@@ -165,7 +166,9 @@ def _process_and_save_summary_file(
     # --- Add Location column ---
     geometric_analysis = params.get("geometric_analysis") or {}
     roi_data = geometric_analysis.get("roi_data") or {}
-    areas = roi_data.get("areas") or []
+    rectangles = roi_data.get("rectangles") or []
+    circles = roi_data.get("circles") or []
+    areas = rectangles + circles
 
     roi_activity_path = folder / trial / 'roi_activity' / f'{video_name}_roi_activity.csv'
 
@@ -214,7 +217,7 @@ def _process_and_save_summary_file(
     logger.info(f"Processed and saved: '{new_path}'")
     return new_path
 
-def create_summary_files(params_path: Path, overwrite: bool = False) -> Path:
+def create_summary_files(params_path: Path, label_type: str = 'geolabels', overwrite: bool = False) -> Path:
     """
     Creates a subfolder named "summary" and populates it with processed
     and renamed CSV files based on the 'reference.csv' file and parameters.
@@ -227,7 +230,7 @@ def create_summary_files(params_path: Path, overwrite: bool = False) -> Path:
     Returns:
         Path: The path to the created (or existing) "summary" folder.
     """
-    params = load_yaml(params_path) # Load params once
+    params = load_yaml(params_path)
     folder = Path(params.get("path"))
     reference_path = folder / 'reference.csv'
 
@@ -239,13 +242,11 @@ def create_summary_files(params_path: Path, overwrite: bool = False) -> Path:
         return summary_path
 
     targets = params.get("targets") or []
-    seize_labels = params.get("seize_labels") or {}
-    label_type = seize_labels.get("label_type") or None
     if not label_type:
         print("Label type not defined on params file, label data will be missing.")
     filenames = params.get("filenames") or []
     common_name = find_common_name(filenames)
-    trials = seize_labels.get("trials") or [common_name]
+    trials = params.get("trials") or [common_name]
 
     reference = pd.read_csv(reference_path)
     reference['Group'] = reference['Group'].fillna(common_name) # Fill NaN values in 'Group' with common_name

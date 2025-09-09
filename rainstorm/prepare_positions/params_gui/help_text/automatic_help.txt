@@ -1,0 +1,36 @@
+﻿Automatic Analysis Parameters
+
+MODEL CONFIGURATION:
+• models_path : Path to the models folder containing trained neural networks
+• analyze_with : Model file to use for analysis (.keras format)
+• model_bodyparts : Bodyparts used to train the model (subset of all bodyparts)
+
+COLABELS CONFIGURATION:
+• colabels_path : Path to the colabels file containing manual annotations
+• labelers : List of labelers on the colabels file (as found in the columns)
+• target : Name of the target column on the colabels file
+
+DATA SPLIT SETTINGS:
+• focus_distance : Window of frames to consider around an exploration event
+• validation : Percentage of the data to use for validation (e.g., 0.15 = 15%)
+• test : Percentage of the data to use for testing (e.g., 0.15 = 15%)
+
+RNN CONFIGURATION:
+• rescaling : Whether to rescale the data for neural network input
+• reshaping : Whether to reshape the data (set to True for RNN)
+
+RNN_width - Defines the temporal window of the RNN:
+  • past : Number of past frames to include in RNN window
+  • future : Number of future frames to include in RNN window  
+  • broad : Broaden window by skipping frames further from the present
+
+• units : Number of neurons on each layer (list of integers, e.g., [32, 16, 8])
+
+TRAINING PARAMETERS:
+• batch_size : Number of training samples processed before updating weights
+• dropout : Randomly turn off a fraction of neurons (0.0-1.0, e.g., 0.2 = 20%)
+• total_epochs : Each epoch is a complete pass through the training dataset
+• warmup_epochs : Epochs with increasing learning rate at the start
+• initial_lr : Initial learning rate (e.g., 1e-05 = 0.00001)
+• peak_lr : Peak learning rate reached after warmup (e.g., 0.0001)
+• patience : Number of epochs to wait before early stopping if no improvement

@@ -72,21 +72,23 @@ def evaluate(y_pred: np.ndarray, y_true: np.ndarray, show_report: bool = False) 
 
     return metrics
 
-def build_evaluation_dict(modeling_path: Path) -> Dict[str, pd.DataFrame]:
+
+def build_evaluation_dict(params_path: Path) -> Dict[str, pd.DataFrame]:
     """
     Creates a dictionary to evaluate the performance of the models.
 
     Args:
-        modeling_path (Path): Path to modeling.yaml with colabel settings.
+        params_path (Path): Path to params.yaml with colabel settings.
 
     Returns:
         Dict[str, pd.DataFrame]: Dictionary mapping model names to their evaluation dataframes.
     """
     # Load parameters
-    modeling = load_yaml(modeling_path)
-    colabels = modeling.get("colabels", {})
+    params = load_yaml(params_path)
+    modeling = params.get("automatic_analysis") or {}
+    colabels = modeling.get("colabels") or {}
     colabels_path = colabels.get("colabels_path")
-    labelers = colabels.get("labelers", [])
+    labelers = colabels.get("labelers") or []
 
     # Open the colabels file
     colabels_df = pd.read_csv(colabels_path)
@@ -156,12 +158,23 @@ def create_chimera_and_loo_mean(df: pd.DataFrame, seed: int = None) -> Dict[str,
     return {"chimera": chimera, "loo_mean": loo_mean}
 
 
-def build_and_run_models(modeling_path: Path, model_paths: Dict[str, Path], position_df: pd.DataFrame) -> Dict[str, np.ndarray]:
+def build_model_paths(params_path: Path, model_names: list[str]) -> dict[str, Path]:
+    """
+    Build a dictionary of model names and their paths.
+    """
+    params = load_yaml(params_path)
+    modeling = params.get("automatic_analysis") or {}
+    models_folder = Path(modeling.get("models_path"))
+    
+    return {name: models_folder / "trained_models" / f"{name}.keras" for name in model_names}
+
+
+def build_and_run_models(params_path: Path, model_paths: Dict[str, Path], position_df: pd.DataFrame) -> Dict[str, np.ndarray]:
     """
     Loads specified models, prepares input data for each, and generates predictions.
 
     Args:
-        modeling_path (Path): Path to the modeling.yaml file.
+        params_path (Path): Path to the params.yaml file.
         model_paths (Dict[str, Path]): Dictionary mapping model names to their file paths.
         position_df (pd.DataFrame): DataFrame containing the full position data.
 
@@ -169,9 +182,11 @@ def build_and_run_models(modeling_path: Path, model_paths: Dict[str, Path], posi
         Dict[str, np.ndarray]: Dictionary mapping model names (prefixed with 'model_')
                                to their prediction arrays.
     """
-    modeling = load_yaml(modeling_path)
-    bodyparts = modeling.get("bodyparts", [])
-    target = modeling.get("colabels", {}).get("target", 'tgt')
+    params = load_yaml(params_path)
+    modeling = params.get("automatic_analysis") or {}
+    bodyparts = modeling.get("model_bodyparts") or []
+    colabels = modeling.get("colabels") or {}
+    target = colabels.get("target") or 'tgt'
     targets = [target] # Because 'use_model' only accepts a list of targets
 
     X_all = position_df.copy()

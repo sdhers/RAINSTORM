@@ -434,7 +434,7 @@ def plot_positions(
 
 # Main function to plot mouse exploration
 
-def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: Optional[str] = 'geolabels') -> None:
+def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: Optional[str] = 'geolabels', save: bool = False) -> None:
     """
     Generates and displays plots for target exploration time and animal positions.
 
@@ -541,17 +541,18 @@ def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: O
     plt.suptitle(f"Analysis of {session_name}", y=0.98, fontsize=16)
     plt.tight_layout(rect=[0, 0, 0.95, 0.96]) # Adjust layout to make space for suptitle and legend
 
-    # Create 'plots/individual' folder inside the specified output path
-    plots_folder = output_base_dir / 'plots' / 'individual'
-    plots_folder.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Plots output directory ensured: {plots_folder}")
+    if save:
+        # Create 'plots/individual' folder inside the specified output path
+        plots_folder = output_base_dir / 'plots' / 'individual'
+        plots_folder.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Plots output directory ensured: {plots_folder}")
 
-    plot_output_path = plots_folder / f"{session_name}_exploration_plot.png"
-    try:
-        fig.savefig(plot_output_path, dpi=300, bbox_inches='tight')
-        logger.info(f"Plot saved successfully to: {plot_output_path}")
-    except Exception as e:
-        logger.error(f"Error saving plot to {plot_output_path}: {e}")
+        plot_output_path = plots_folder / f"{session_name}_exploration_plot.png"
+        try:
+            fig.savefig(plot_output_path, dpi=300, bbox_inches='tight')
+            logger.info(f"Plot saved successfully to: {plot_output_path}")
+        except Exception as e:
+            logger.error(f"Error saving plot to {plot_output_path}: {e}")
 
     plt.show(fig)
 

@@ -42,11 +42,11 @@ def create_reference_file(params_path: Path, overwrite: bool = False) -> Path:
     if reference_path.exists():
         if not overwrite:
             logger.info(f"Reference file '{reference_path}' already exists. Skipping creation as overwrite is False.")
-            print(f"Reference file already exists at {reference_path}. Use overwrite=True to recreate it.")
+            print(f"Reference file {reference_path} already exists. Use overwrite=True to recreate it.")
             return reference_path
         else:
             logger.info(f"Reference file '{reference_path}' exists. Overwriting as overwrite is True.")
-            print(f"Overwriting existing reference file at {reference_path}.")
+            print(f"Overwriting existing reference file at {reference_path}")
 
     all_labels_files = []
 
@@ -230,7 +230,7 @@ def create_summary_files(params_path: Path, label_type: str = 'geolabels', overw
     Returns:
         Path: The path to the created (or existing) "summary" folder.
     """
-    params = load_yaml(params_path) # Load params once
+    params = load_yaml(params_path)
     folder = Path(params.get("path"))
     reference_path = folder / 'reference.csv'
 

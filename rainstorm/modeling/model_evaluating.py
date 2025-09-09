@@ -72,6 +72,7 @@ def evaluate(y_pred: np.ndarray, y_true: np.ndarray, show_report: bool = False) 
 
     return metrics
 
+
 def build_evaluation_dict(params_path: Path) -> Dict[str, pd.DataFrame]:
     """
     Creates a dictionary to evaluate the performance of the models.
@@ -155,6 +156,17 @@ def create_chimera_and_loo_mean(df: pd.DataFrame, seed: int = None) -> Dict[str,
     loo_mean = pd.DataFrame(remaining_means, columns=['loo_mean'])
 
     return {"chimera": chimera, "loo_mean": loo_mean}
+
+
+def build_model_paths(params_path: Path, model_names: list[str]) -> dict[str, Path]:
+    """
+    Build a dictionary of model names and their paths.
+    """
+    params = load_yaml(params_path)
+    modeling = params.get("automatic_analysis") or {}
+    models_folder = Path(modeling.get("models_path"))
+    
+    return {name: models_folder / "trained_models" / f"{name}.keras" for name in model_names}
 
 
 def build_and_run_models(params_path: Path, model_paths: Dict[str, Path], position_df: pd.DataFrame) -> Dict[str, np.ndarray]:

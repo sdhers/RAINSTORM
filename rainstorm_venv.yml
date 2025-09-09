@@ -31,3 +31,4 @@ dependencies:
       - tables==3.9.2
       - tensorflow==2.10.1
       - tqdm==4.67.1
+      - ttkthemes==3.2.2

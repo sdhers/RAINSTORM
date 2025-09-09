@@ -1,6 +1,6 @@
 <div align="center">
 
-# **RAINSTORM**
+# 🌧️ **RAINSTORM** 🌧️
 
 ### Real & Artificial Intelligence for Neuroscience – Simple Tracker for Object Recognition Memory
 
@@ -10,9 +10,9 @@
 
 </div>
 
-**RAINSTORM** is a Python-based tool for scoring exploratory behavior in rodents 🐭. It takes pose-estimation data (e.g., from DeepLabCut) and provides a full workflow to process, analyze, and visualize recognition memory performance, from manual labeling to AI-powered automation.
+**RAINSTORM** is a comprehensive Python toolkit for analyzing rodent exploratory behavior 🐭. Transform pose-estimation data (e.g., from DeepLabCut or SLEAP) into meaningful behavioral insights through an intuitive workflow that spans from manual annotation to AI-powered automation.
 
------
+---
 
 ## Table of Contents 📋
 
@@ -26,18 +26,18 @@
 * [Contributing 🤝](#contributing-)
 * [Contact 📫](#contact-)
 
------
+---
 
 ## Features ✨
 
-* **🎯 Frame-by-Frame Behavioral Labeling:** A versatile tool for precise manual scoring and for generating training data for your AI models.
+* **🎯 Frame-by-Frame Behavioral Labeling:** A versatile tool for precise manual annotation, it generates training data for your AI models.
 * **🔧 Pre & Post-DLC Data Processing:** Align video points, clean tracking glitches, and interpolate data for smooth and reliable analysis.
 * **📐 Geometric Analysis:** Automatically identify object exploration using distance and angle metrics.
 * **🧊 Immobility Detection:** Label freezing behavior based on motion, a key indicator in memory studies.
 * **⚙️ AI-Powered Automatic Labeling:** Train and deploy neural networks (including LSTMs) to automatically detect complex exploration patterns.
 * **📊 Visual Label Comparison:** Easily compare manual, geometric, and AI-generated labels with intuitive visualizations.
 
------
+---
 
 ## Installation 💾
 
@@ -49,10 +49,7 @@ First, ensure you have the following software installed on your system.
 * [Visual Studio Code](https://code.visualstudio.com/Download)
 * [Git](https://git-scm.com/downloads)
 
-> [!TIP]
-> During the Miniconda installation, select the option to **add Conda to your system's PATH**. This will make it easier to run `conda` commands from any terminal.
-> 
-> Make sure to **reboot** your computer to ensure the new software is properly installed.
+> [!TIP] > **First Time Setup**: During Miniconda installation, select **"Add Conda to PATH"** for easier terminal access. Restart your computer after installation to ensure all components are properly configured.
 
 ### Setup Steps
 
@@ -88,19 +85,33 @@ First, ensure you have the following software installed on your system.
 
 You are all set! You can now run the notebooks to explore the RAINSTORM workflow.
 
------
+---
 
 ## Usage 💻
 
-RAINSTORM offers two main functionalities: a full analysis pipeline using Jupyter notebooks and a standalone tool for manual video labeling.
+RAINSTORM provides a comprehensive workflow through 7 interactive Jupyter notebooks, plus standalone GUI tools for video processing and behavioral labeling.
 
------
+Transform your data from raw videos to publication-ready results through our intuitive 7-step workflow:
+
+| Step   | Notebook                      | Purpose                    | Output                            |
+| ------ | ----------------------------- | -------------------------- | --------------------------------- |
+| **0**  | `0-Video_handling.ipynb`      | 🎥 Prepare videos          | Trimmed, cropped, aligned videos  |
+| **1**  | `1-Behavioral_labeler.ipynb`  | ✍️ Manual annotation       | Frame-by-frame behavioral labels  |
+| **2a** | `2a-Prepare_positions.ipynb`  | 🧹 Clean tracking data     | Filtered, smoothed position files |
+| **2b** | `2b-Geometric_analysis.ipynb` | 📐 Geometric detection     | Rule-based behavioral labels      |
+| **3a** | `3a-Create_models.ipynb`      | 🤖 Train AI models         | Custom neural networks            |
+| **3b** | `3b-Automatic_analysis.ipynb` | 🧠 AI-powered labeling     | Automated behavioral detection    |
+| **4**  | `4-Seize_labels.ipynb`        | 📊 Results & visualization | Personalized plots & analyses        |
+
+
+---
 
 ### Video Handling 🎥
 
 We offer a quick and easy way to prepare videos for pose estimation and behavioral analysis.
 
 **Open the file `0-Video_handling.ipynb`**
+
 1.  **Run the Video Handling app**
     This app allows you to:
     * Trim the video to the desired length.
@@ -111,13 +122,14 @@ We offer a quick and easy way to prepare videos for pose estimation and behavior
     * Draw ROIs and points on the video.
     * Select a distance for scaling.
 
------
+---
 
 ### RAINSTORM Behavioral Labeler ✍️
 
 For precise, frame-by-frame annotation, use the **RAINSTORM Behavioral Labeler**.
 
 **Open and run the file `1-Behavioral_labeler.ipynb`**
+
 1.  **Select the video you want to label.**
 
 2.  **(Optional) Load a previous labeling `.csv` file.**
@@ -132,13 +144,9 @@ For precise, frame-by-frame annotation, use the **RAINSTORM Behavioral Labeler**
 4.  **Start Labeling!**
     After pressing 'Start Labeling', the video will load, and you can begin annotating frame by frame using the keys you defined.
 
------
+---
 
 ### The RAINSTORM Pipeline 🔬
-
-The core of this project is a series of Jupyter notebooks designed to guide you from raw data to final results.
-
------
 
 #### `2a-Prepare_positions.ipynb`
 
@@ -150,7 +158,7 @@ The core of this project is a series of Jupyter notebooks designed to guide you 
 
 ![1-Prepare_positions](examples/images/1-Prepare_positions.png)
 
------
+---
 
 #### `2b-Geometric_analysis.ipynb`
 
@@ -163,7 +171,7 @@ The core of this project is a series of Jupyter notebooks designed to guide you 
 
 ![2-Geometric_analysis](examples/images/2-Geometric_analysis.png)
 
------
+---
 
 #### `3a-Create_Models.ipynb`
 
@@ -176,7 +184,7 @@ The core of this project is a series of Jupyter notebooks designed to guide you 
 * Evaluates model performance against human labelers using Principal Components Analysis (PCA).
     ![4-Evaluate_models_a](examples/images/4-Evaluate_models_a.png)
 
------
+---
 
 #### `3b-Automatic_analysis.ipynb`
 
@@ -187,41 +195,91 @@ The core of this project is a series of Jupyter notebooks designed to guide you 
 
 ![6-Compare_Labels](examples/images/6-Compare_labels.png)
 
------
+---
 
 #### `4-Seize_Labels.ipynb`
 
 📊 **Extract, summarize, and visualize your final data.**
 
-* Calculates key metrics like the Discrimination Index.
+* Calculates key metrics like Discrimination Index.
 * Generates publication-ready plots to compare behavior across different experimental groups and sessions.
 
 ![7-Seize_Labels_ts](examples/images/7-Seize_labels_ts.png)
 
------
+---
 
 ## Citation 📜
 
-If you use RAINSTORM in your research, please cite:
+If you use RAINSTORM in your research, please cite our paper:
 
-D'hers et al. (2025). RAINSTORM: Automated Analysis of Mouse Exploratory Behavior using Artificial Neural Networks. *Current Protocols*. [DOI: 10.1002/cpz1.70171](https://doi.org/10.1002/cpz1.70171)
+```bibtex
+@article{dhers2025rainstorm,
+  title={RAINSTORM: Automated Analysis of Mouse Exploratory Behavior using Artificial Neural Networks},
+  author={D'hers, Santiago and others},
+  journal={Current Protocols},
+  year={2025},
+  doi={10.1002/cpz1.70171},
+  url={https://doi.org/10.1002/cpz1.70171}
+}
+```
 
------
+**APA Format:**
+D'hers, S., et al. (2025). RAINSTORM: Automated Analysis of Mouse Exploratory Behavior using Artificial Neural Networks. _Current Protocols_. https://doi.org/10.1002/cpz1.70171
+
+---
 
 ## Contributing 🤝
 
-Contributions are welcome! If you have suggestions or find a bug, please feel free to open an issue or submit a pull request.
+We welcome contributions from the community! Here's how you can help:
 
------
+### **🐛 Report Issues**
+
+- Found a bug? [Open an issue](https://github.com/sdhers/rainstorm/issues)
+- Include your Python version, OS, and a minimal example
+
+### **💡 Suggest Features**
+
+- Have an idea? [Start a discussion](https://github.com/sdhers/rainstorm/discussions)
+- Describe your use case and proposed solution
+
+### **🔧 Submit Code**
+
+- Fork the repository and create a feature branch
+- Follow our coding standards and add tests
+- Submit a pull request with a clear description
+
+### **📚 Improve Documentation**
+
+- Fix typos, clarify instructions, add examples
+- Documentation improvements are always appreciated!
+
+---
 
 ## Contact 📫
 
-For any questions or collaborations, please reach out to sdhers@fbmc.fcen.uba.ar.
+### **🆘 Get Help**
 
------
+- **Documentation**: Check the notebook tutorials and docstrings
+- **Issues**: [GitHub Issues](https://github.com/sdhers/rainstorm/issues) for bugs and technical problems
+- **Discussions**: [GitHub Discussions](https://github.com/sdhers/rainstorm/discussions) for questions and ideas
 
-*Thanks for exploring RAINSTORM!*
+### **👨‍🔬 Research Collaboration**
+
+For research collaborations and academic inquiries:
+
+- **Email**: sdhers@fbmc.fcen.uba.ar
+- **Institution**: Facultad de Ciencias Exactas y Naturales, Universidad de Buenos Aires
+
+### **🌟 Stay Updated**
+
+- ⭐ **Star** this repository to stay notified of updates
+- 👀 **Watch** for new releases and features
+- 🐦 Follow development progress and announcements
+
+---
+
+_Thanks for exploring RAINSTORM!_
 
 ![mouse_exploring](examples/images/mouse_exploring.gif)
 
------
+---

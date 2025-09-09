@@ -246,14 +246,6 @@ We welcome contributions from the community! Here's how you can help:
 
 ## Contact 📫
 
-### **🆘 Get Help**
-
-- **Documentation**: Check the notebook tutorials and docstrings
-- **Issues**: [GitHub Issues](https://github.com/sdhers/rainstorm/issues) for bugs and technical problems
-- **Discussions**: [GitHub Discussions](https://github.com/sdhers/rainstorm/discussions) for questions and ideas
-
-### **👨‍🔬 Research Collaboration**
-
 For research collaborations and academic inquiries:
 
 - **Email**: sdhers@fbmc.fcen.uba.ar

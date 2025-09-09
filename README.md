@@ -49,7 +49,8 @@ First, ensure you have the following software installed on your system.
 * [Visual Studio Code](https://code.visualstudio.com/Download)
 * [Git](https://git-scm.com/downloads)
 
-> [!TIP] > **First Time Setup**: During Miniconda installation, select **"Add Conda to PATH"** for easier terminal access. Restart your computer after installation to ensure all components are properly configured.
+> [!TIP]
+> **First Time Setup**: During Miniconda installation, select **"Add Conda to PATH"** for easier terminal access. Restart your computer after installation to ensure all components are properly configured.
 
 ### Setup Steps
 

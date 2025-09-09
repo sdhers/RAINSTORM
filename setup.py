@@ -43,4 +43,5 @@ setup(
         "Intended Audience :: Science/Research",
     ],
     python_requires='>=3.9',
+    license="MIT",
 )

@@ -1,7 +1,7 @@
 ﻿Geometric Analysis Parameters
 
 REGIONS OF INTEREST:
-• roi_data : Loaded from ROIs.json
+• roi_data: Loaded from ROIs.json
 • frame_shape: Shape of the video frames ([width, height])
 • scale: Scale of the video in px/cm
 • rectangles: Rectangular areas in the frames
@@ -9,11 +9,12 @@ REGIONS OF INTEREST:
 • points: Key points within the frames
 
 TARGET EXPLORATION:
-• distance : Maximum nose-target distance to consider exploration
+• distance: Maximum nose-target distance to consider exploration
 • orientation: Set up orientation analysis
 • degree: Maximum head-target orientation angle to consider exploration (in degrees)
 • front: Ending bodypart of the orientation line
 • pivot: Starting bodypart of the orientation line
 
 OTHER BEHAVIORS:
-• freezing_threshold : Movement threshold to consider freezing, computed as the mean std of all body parts over 1 second
+• freezing_threshold: Movement threshold to consider freezing, computed as the mean std of all body parts over a time window
+• freezing_time_window: Time window in seconds for calculating immobility (how long to look around)

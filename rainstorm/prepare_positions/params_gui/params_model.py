@@ -209,7 +209,16 @@ class ParamsModel:
             except Exception as backup_error:
                 self.logger.warning(f"Could not create backup: {backup_error}")
 
+            # Preserve the header when saving
+            header = (
+                "# Rainstorm Parameters file\n\n"
+                "# Edit this file to customize Rainstorm's behavioral analysis.\n"
+                "# All parameters are set to work with the demo data.\n"
+                "# You can edit, add or remove parameters as you see fit for your data.\n\n"
+            )
+            
             with open(self.params_path, 'w', encoding='utf-8') as f:
+                f.write(header)
                 self.yaml.dump(self.data, f)
 
             # Show success message with conversion summary

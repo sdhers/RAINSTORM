@@ -69,10 +69,10 @@ class ParamsBuilder:
             }),
             C.KEY_TARGETS: C.DEFAULT_TARGETS.copy(),
             C.KEY_TRIALS: C.DEFAULT_TRIALS.copy(),
-            C.KEY_TARGET_ROLES: C.DEFAULT_TARGET_ROLES.copy(),
             C.KEY_GEOMETRIC_ANALYSIS: dict_to_commented_map({
                 C.KEY_ROI_DATA: self.load_roi_data(rois_path),
                 C.KEY_FREEZING_THRESHOLD: 0.01,
+                C.KEY_FREEZING_TIME_WINDOW: C.DEFAULT_FREEZING_TIME_WINDOW,
                 C.KEY_TARGET_EXPLORATION: {
                     C.KEY_DISTANCE: 3,
                     C.KEY_ORIENTATION: {C.KEY_DEGREE: 45, C.KEY_FRONT: 'nose', C.KEY_PIVOT: 'head'}
@@ -148,7 +148,6 @@ class ParamsBuilder:
         self.parameters.yaml_add_eol_comment("List of all tracked bodyparts", key=C.KEY_BODYPARTS)
         self.parameters.yaml_add_eol_comment("List of expected exploration targets", key=C.KEY_TARGETS)
         self.parameters.yaml_add_eol_comment("List of trial names for the experiment", key=C.KEY_TRIALS)
-        self.parameters.yaml_add_eol_comment("Roles targets can take on each trial (e.g., Novel, Known). Must match trial names.", key=C.KEY_TARGET_ROLES)
 
         # --- prepare_positions Comments ---
         prep = self.parameters[C.KEY_PREPARE_POSITIONS]
@@ -171,6 +170,7 @@ class ParamsBuilder:
 
         # --- Immobility detection Comments ---
         geom.yaml_add_eol_comment("Movement threshold for freezing (mean std of all bodyparts over a time window)", key=C.KEY_FREEZING_THRESHOLD)
+        geom.yaml_add_eol_comment("Time window in seconds for calculating immobility (how long to look around)", key=C.KEY_FREEZING_TIME_WINDOW)
 
         # --- automatic_analysis Comments ---
         auto = self.parameters[C.KEY_AUTOMATIC_ANALYSIS]

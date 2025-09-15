@@ -25,4 +25,3 @@ PARAMETERS FOR PREPROCESSING POSITIONS:
 EXPERIMENT DESIGN:
 • targets: Exploration targets
 • trials: If your experiment has multiple trials, list the trial names here
-• target_roles: State the roles targets can take on each trial (e.g., 'Hab': None, 'TR': ['left', 'right'], 'TS': ['novel', 'known'])

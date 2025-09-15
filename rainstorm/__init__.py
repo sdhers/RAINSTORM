@@ -17,6 +17,7 @@ try:
     from . import seize_labels
     from . import utils
     from . import geometric_classes
+
 except ImportError:
     # Handle cases where some modules might not be available
     pass

@@ -1,8 +1,8 @@
 import logging
 from pathlib import Path
-from glob import glob
+import json
 import pandas as pd
-import csv
+from ruamel.yaml import YAML
 
 from ..utils import configure_logging, load_yaml, find_common_name
 configure_logging()
@@ -12,68 +12,86 @@ logger = logging.getLogger(__name__)
 
 def create_reference_file(params_path: Path, overwrite: bool = False) -> Path:
     """
-    Creates a 'reference.csv' file in the experiment folder, listing video files.
+    Creates a 'reference.json' file in the experiment folder.
 
-    Parameters:
+    This file lists all video files and provides a structure for assigning
+    them to groups and defining roles for targets and ROIs.
+
+    Args:
         params_path (Path): Path to the YAML parameters file.
-        overwrite (bool): If True, overwrites the existing reference file. If False, skips if it exists.
+        overwrite (bool): If True, overwrites an existing reference file.
 
     Returns:
-        Path: The path to the created (or existing) 'reference.csv' file.
+        Path: The path to the created (or existing) 'reference.json' file.
     """
-    params = load_yaml(params_path)
+    yaml = YAML()
+    with open(params_path, 'r') as f:
+        params = yaml.load(f)
+    
     folder = Path(params.get("path"))
+    reference_path = folder / 'reference.json'
+
+    # Handle overwrite logic
+    if reference_path.exists() and not overwrite:
+        logger.info(f"Reference file '{reference_path}' already exists. Skipping creation.")
+        return reference_path
+    
+    if reference_path.exists() and overwrite:
+        logger.info(f"Overwriting existing reference file at '{reference_path}'.")
+
+    # --- Extract necessary info from params ---
     filenames = params.get("filenames") or []
     targets = params.get("targets") or []
-    common_name = find_common_name(filenames)
-    trials = params.get("trials") or [common_name]
+    trials = params.get("trials") or []
+    
+    # Get ROI area names from 'geometric_analysis'
+    geo_analysis = params.get("geometric_analysis", {})
+    roi_data = geo_analysis.get("roi_data", {})
+    rectangles = roi_data.get("rectangles", [])
+    circles = roi_data.get("circles", [])
+    roi_area_names = [f"{area['name']}_roi" for area in rectangles + circles if "name" in area]
 
-    # Get ROI area names from geometric_analysis parameters and add a '_roi' suffix
-    geometric_analysis = params.get("geometric_analysis") or {}
-    roi_data = geometric_analysis.get("roi_data") or {}
-    rectangles = roi_data.get("rectangles") or []
-    circles = roi_data.get("circles") or []
-    areas = rectangles + circles
-    roi_area_names = [f"{area['name']}_roi" for area in areas if "name" in area] # Add _roi suffix here
-
-    reference_path = folder / 'reference.csv'
-
-    # Check if Reference.csv already exists and handle overwrite
-    if reference_path.exists():
-        if not overwrite:
-            logger.info(f"Reference file '{reference_path}' already exists. Skipping creation as overwrite is False.")
-            print(f"Reference file {reference_path} already exists. Use overwrite=True to recreate it.")
-            return reference_path
-        else:
-            logger.info(f"Reference file '{reference_path}' exists. Overwriting as overwrite is True.")
-            print(f"Overwriting existing reference file at {reference_path}")
-
-    all_labels_files = []
-
-    # Get a list of all positions files in the labels folder for each trial
+    # --- Build the JSON structure ---
+    reference_data = {
+        'target_roles': {},
+        'groups': ['control', 'treatment'], # Default groups
+        'files': {}
+    }
+    
+    # Initialize target roles for each trial with defaults
     for trial in trials:
-        # Using Path.glob for pattern matching and Path.joinpath for path construction
-        labels_files = sorted(folder.joinpath(f"{trial}/positions").glob("*positions.csv"))
-        all_labels_files.extend(labels_files)
+        if trial == 'TR':
+            reference_data['target_roles'][trial] = ['Left', 'Right']
+        elif trial == 'TS':
+            reference_data['target_roles'][trial] = ['Novel', 'Known']
+        else:
+            reference_data['target_roles'][trial] = []
+    
+    # Create file entries for all files found in the labels folders
+    # This ensures all processed videos are included in the reference.
+    all_video_names = set()
+    for trial in trials:
+        positions_dir = folder / trial / "positions"
+        if positions_dir.exists():
+            for file in positions_dir.glob("*_positions.csv"):
+                clean_name = file.stem.replace('_positions', '')
+                all_video_names.add(clean_name)
 
-    if not all_labels_files:
-        logger.error("No valid positions files found in the specified trials. Cannot create reference file.")
-        return reference_path
+    if not all_video_names:
+        logger.warning("No position files found. The 'files' section in reference.json will be empty.")
 
-    # Create a new CSV file with a header 'Video', 'Group', 'Targets', and 'ROI Area Names'
-    with open(reference_path, 'w', newline='') as output_file:
-        csv_writer = csv.writer(output_file)
-        # Combine all column lists
-        col_list = ['Video', 'Group'] + targets + roi_area_names
-        csv_writer.writerow(col_list)
+    for name in sorted(list(all_video_names)):
+        reference_data['files'][name] = {
+            'group': '',
+            'targets': {target: '' for target in targets},
+            'rois': {roi: '' for roi in roi_area_names}
+        }
 
-        # Write each positions file name in the 'Videos' column
-        for file in all_labels_files:
-            clean_name = file.stem.replace('_positions', '')
-            csv_writer.writerow([clean_name])
+    # Save the JSON file
+    with open(reference_path, 'w') as f:
+        json.dump(reference_data, f, indent=2)
 
-    logger.info(f"CSV file '{reference_path}' created successfully with the list of video files and ROI columns.")
-    print(f"Reference file created at {reference_path}")
+    logger.info(f"Reference file created successfully at '{reference_path}'.")
     return reference_path
 
 def _process_and_save_summary_file(
@@ -83,7 +101,7 @@ def _process_and_save_summary_file(
     targets: list,
     folder: Path,
     group_path: Path,
-    reference_row: pd.Series,
+    file_data: dict, # Changed from pd.Series to dict for JSON structure
     params: dict, # Pass params down
     overwrite_individual_file: bool # New parameter to control individual file overwrite
 ) -> Path:
@@ -98,7 +116,7 @@ def _process_and_save_summary_file(
         targets (list): List of target names for label column renaming.
         folder (Path): Base experiment folder path.
         group_path (Path): Path to the group's summary folder.
-        reference_row (pd.Series): Row from the reference DataFrame for the current video.
+        file_data (dict): File data from the reference JSON for the current video.
         params (dict): The loaded parameters dictionary.
         overwrite_individual_file (bool): If True, overwrites the individual summary file.
 
@@ -145,11 +163,11 @@ def _process_and_save_summary_file(
                 for col in df_label.columns:
                     # Check if the column is one of the 'targets' from params
                     if col in targets:
-                        new_target_name = reference_row.get(col)
-                        if pd.notna(new_target_name) and new_target_name != '':
+                        new_target_name = file_data.get('targets', {}).get(col, '')
+                        if new_target_name and new_target_name != '':
                             renamed_label_cols[col] = f"{new_target_name}_{label_type}" # Add suffix
                         else:
-                            logger.info(f"Target '{col}' in reference.csv is empty for video '{video_name}'. Skipping rename for this target and adding {label_type} suffix.")
+                            logger.info(f"Target '{col}' in reference.json is empty for video '{video_name}'. Skipping rename for this target and adding {label_type} suffix.")
                             renamed_label_cols[col] = f"{col}_{label_type}" # Still add suffix even if original name is used
                     else:
                         renamed_label_cols[col] = col # Keep 'Frame' and non target columns as is
@@ -187,17 +205,17 @@ def _process_and_save_summary_file(
             if not df_roi_activity['Frame'].equals(df['Frame']):
                 logger.warning(f"Frame columns in ROI activity file '{roi_activity_path}' and movement file do not match. Skipping ROI data merge for '{video_name}'.")
             else:
-                # Create a mapping dictionary from original ROI names to new names from reference.csv
+                # Create a mapping dictionary from original ROI names to new names from reference.json
                 roi_name_mapping = {}
                 for area in areas:
                     if "name" in area:
                         original_roi_name = area['name']
-                        # Get the corresponding renamed value from the reference row
-                        renamed_roi_value = reference_row.get(f"{original_roi_name}_roi")
-                        if pd.notna(renamed_roi_value) and renamed_roi_value != '':
+                        # Get the corresponding renamed value from the file data
+                        renamed_roi_value = file_data.get('rois', {}).get(f"{original_roi_name}_roi", '')
+                        if renamed_roi_value and renamed_roi_value != '':
                             roi_name_mapping[original_roi_name] = renamed_roi_value
                         else:
-                            logger.info(f"Renamed ROI value for '{original_roi_name}' is empty in reference.csv for video '{video_name}'. Using original name.")
+                            logger.info(f"Renamed ROI value for '{original_roi_name}' is empty in reference.json for video '{video_name}'. Using original name.")
                             roi_name_mapping[original_roi_name] = original_roi_name # Fallback to original
 
                 # Apply the renaming to the 'location' column
@@ -220,7 +238,7 @@ def _process_and_save_summary_file(
 def create_summary_files(params_path: Path, label_type: str = 'geolabels', overwrite: bool = False) -> Path:
     """
     Creates a subfolder named "summary" and populates it with processed
-    and renamed CSV files based on the 'reference.csv' file and parameters.
+    and renamed CSV files based on the 'reference.json' file and parameters.
     This orchestrates the _process_and_save_summary_file for each video.
 
     Parameters:
@@ -232,7 +250,7 @@ def create_summary_files(params_path: Path, label_type: str = 'geolabels', overw
     """
     params = load_yaml(params_path)
     folder = Path(params.get("path"))
-    reference_path = folder / 'reference.csv'
+    reference_path = folder / 'reference.json'
 
     summary_path = folder / 'summary'
     summary_path.mkdir(parents=True, exist_ok=True) # Ensure summary directory exists
@@ -248,12 +266,14 @@ def create_summary_files(params_path: Path, label_type: str = 'geolabels', overw
     common_name = find_common_name(filenames)
     trials = params.get("trials") or [common_name]
 
-    reference = pd.read_csv(reference_path)
-    reference['Group'] = reference['Group'].fillna(common_name) # Fill NaN values in 'Group' with common_name
+    # Load JSON reference data
+    with open(reference_path, 'r') as f:
+        reference_data = json.load(f)
+    
+    files_data = reference_data.get('files', {})
 
-    for index, row in reference.iterrows():
-        video_name = row['Video']
-        group = row['Group']
+    for video_name, file_data in files_data.items():
+        group = file_data.get('group', common_name)  # Use common_name as fallback
 
         # --- Robust trial identification ---
         identified_trial = None
@@ -273,7 +293,7 @@ def create_summary_files(params_path: Path, label_type: str = 'geolabels', overw
         try:
             _process_and_save_summary_file( # Pass overwrite parameter to helper
                 video_name, video_trial,
-                label_type, targets, folder, group_path, row, params,
+                label_type, targets, folder, group_path, file_data, params,
                 overwrite_individual_file=overwrite
             )
         except FileNotFoundError as e:

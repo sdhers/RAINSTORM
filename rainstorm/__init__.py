@@ -9,6 +9,7 @@ __version__ = "1.0.5"
 __author__ = "Santiago D'hers"
 __email__ = "sdhers@fbmc.fcen.uba.ar"
 
+"""
 # Import main modules for easier access
 try:
     from . import prepare_positions
@@ -17,6 +18,8 @@ try:
     from . import seize_labels
     from . import utils
     from . import geometric_classes
+
 except ImportError:
     # Handle cases where some modules might not be available
     pass
+"""

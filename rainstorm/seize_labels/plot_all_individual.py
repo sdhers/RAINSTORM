@@ -11,9 +11,8 @@ from matplotlib.colors import to_rgb, to_hex, rgb_to_hsv, hsv_to_rgb
 # Assuming these are in the same project structure
 from .calculate_index import calculate_cumsum, calculate_DI
 from ..geometric_classes import Point, Vector
-from ..utils import configure_logging, load_yaml, find_common_name
 
-# --- Initial Setup ---
+from ..utils import configure_logging, load_yaml, load_json, find_common_name
 configure_logging()
 logger = logging.getLogger(__name__)
 
@@ -41,15 +40,25 @@ class Config:
         """Loads parameters from a YAML file and creates a Config instance."""
         try:
             params = load_yaml(params_path)
-            base_path = Path(params.get("path"))
+            folder_path = Path(params.get("path"))
+
+            # Load reference file
+            reference_path = folder_path / "reference.json"
+            if not reference_path.is_file():
+                logger.error(f"Reference file not found at {reference_path}")
+                raise FileNotFoundError(f"Reference file not found at {reference_path}")
+            try: 
+                reference = load_json(reference_path)
+            except Exception as e:
+                logger.error(f"Error loading or parsing reference file from {reference_path}: {e}")
             
-            reference_df = pd.read_csv(base_path / 'reference.csv').set_index('Video')
+            reference_df = pd.DataFrame.from_dict(reference["files"], orient="index")
+            target_roles = reference.get("target_roles") or {}
 
             geo_params = params.get("geometric_analysis") or {}
             roi_data=geo_params.get("roi_data") or {}
             target_exp = geo_params.get("target_exploration") or {}
             orientation = target_exp.get("orientation") or {}
-            target_roles = params.get("target_roles") or {}
             
             filenames = params.get("filenames") or []
             common_name = find_common_name(filenames)
@@ -58,7 +67,7 @@ class Config:
             role_color_map = cls._generate_role_color_map(target_roles)
 
             return cls(
-                base_path=base_path,
+                base_path=folder_path,
                 reference_df=reference_df,
                 fps=params.get("fps") or 30,
                 targets=params.get("targets") or [],
@@ -198,18 +207,25 @@ def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Confi
         logger.warning(f"No entry for video '{video_name_stem}' in reference.csv. Skipping.")
         return
 
-    # --- Corrected Logic for Targets and Roles ---
     # 1. Get the ordered roles for the trial (e.g., ['Novel', 'Familiar']).
-    #    The 'or []' handles cases where the trial has no roles (e.g., habituation).
     ordered_roles = cfg.target_roles.get(trial) or []
 
-    # 2. Create a reverse map from role -> target_name (e.g., 'Novel' -> 'Left').
-    #    This is used to find the correct body part names for the position plot.
-    role_to_target_map = {role: target for target, role in reference_row[cfg.targets].items()}
-    
-    # 3. Get the target names (e.g., ['Left', 'Right']) in the correct order.
-    ordered_target_names = [role_to_target_map.get(role) for role in ordered_roles]
-    ordered_target_names = [t for t in ordered_target_names if t] # Filter out Nones
+    # 2. Extract targets dict from the row.
+    targets = reference_row.get("targets") or {}
+
+    # 3. Create a reverse map from role -> target_name, skipping empty/None roles.
+    role_to_target_map = {
+        role: target
+        for target, role in targets.items()
+        if role and role != "None"
+    }
+
+    # 4. Get the target names in the correct order (skip any missing ones).
+    ordered_target_names = [
+        role_to_target_map.get(role)
+        for role in ordered_roles
+        if role and role != "None"
+    ]
 
     df = pd.read_csv(summary_path)
     positions_path = cfg.base_path / trial / 'positions' / f"{video_name_stem}_positions.csv"

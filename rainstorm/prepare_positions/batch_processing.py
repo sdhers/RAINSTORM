@@ -13,10 +13,9 @@ from pathlib import Path
 # Import functions from other modules
 from .data_loading import open_h5_file
 from .data_processing import add_targets, filter_and_smooth_df
+
 from ..utils import load_yaml, configure_logging
 configure_logging()
-
-# Logging setup
 logger = logging.getLogger(__name__)
 
 # %%

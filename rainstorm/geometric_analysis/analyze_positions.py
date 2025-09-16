@@ -161,12 +161,13 @@ def calculate_movement(params_path: Path, file: Path, nose_bp: str = 'nose', bod
     """
     # Load parameters
     params = load_yaml(params_path)
-    fps = params.get("fps", 30)
+    fps = params.get("fps") or 30
     targets = params.get("targets") or []
     geom_params = params.get("geometric_analysis") or {}
     roi_data = geom_params.get("roi_data") or {}
     scale = roi_data.get("scale") or 1
-    threshold = geom_params.get("freezing_threshold", 0.01)
+    threshold = geom_params.get("freezing_threshold") or 0.01
+    freezing_time_window = geom_params.get("freezing_time_window") or 1.0
 
     # Load the CSV
     df = pd.read_csv(file)
@@ -184,7 +185,7 @@ def calculate_movement(params_path: Path, file: Path, nose_bp: str = 'nose', bod
     position = df.filter(regex='_x|_y').filter(regex=pattern).copy()
 
     # Define the window size for rolling calculations
-    window_size = int(fps)*2
+    window_size = int(fps*freezing_time_window)
 
     # Use a centered rolling window to calculate the standard deviation of frame-to-frame position changes, averaged across all tracked body parts.
     movement = position.diff().rolling(

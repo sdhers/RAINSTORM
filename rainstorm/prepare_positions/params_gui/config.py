@@ -44,7 +44,7 @@ DEFAULT_BODYPARTS = [
 DEFAULT_MODEL_BODYPARTS = ["nose", "left_ear", "right_ear", "head", "neck", "body"]
 DEFAULT_TARGETS = ["obj_1", "obj_2"]
 DEFAULT_TRIALS = ['Hab', 'TR', 'TS']
-DEFAULT_TARGET_ROLES = {"Hab": [], "TR": ["Left", "Right"], "TS": ["Novel", "Known"]}
+DEFAULT_FREEZING_TIME_WINDOW = 1.0  # Default time window in seconds for freezing detection
 
 
 # --- YAML Parameter Keys (as constants to avoid typos) ---
@@ -66,12 +66,12 @@ KEY_MAX_OUTLIER_CONNECTIONS = "max_outlier_connections"
 # Experiment design
 KEY_TARGETS = "targets"
 KEY_TRIALS = "trials"
-KEY_TARGET_ROLES = "target_roles"
 
 # 'geometric_analysis' sub-keys
 KEY_GEOMETRIC_ANALYSIS = "geometric_analysis"
 KEY_ROI_DATA = "roi_data"
 KEY_FREEZING_THRESHOLD = "freezing_threshold"
+KEY_FREEZING_TIME_WINDOW = "freezing_time_window"
 KEY_TARGET_EXPLORATION = "target_exploration"
 
 # 'target_exploration' sub-keys

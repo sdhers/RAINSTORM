@@ -13,7 +13,7 @@ from tkinter import ttk, filedialog
 import logging
 from .widgets import (
     ToolTip, ScrollableDynamicListFrame, DynamicListFrame,
-    ROIDataFrame, TargetExplorationFrame, RNNWidthFrame, TargetRolesFrame
+    ROIDataFrame, TargetExplorationFrame, RNNWidthFrame
 )
 from .gui_utils import get_comment
 from .type_registry import get_parameter_type, is_numeric_parameter
@@ -352,23 +352,10 @@ class ExperimentDesignSection(SectionFrame):
         targets_frame.grid(row=0, column=0, sticky='ew', pady=2)
         DynamicListFrame(targets_frame, "", data, C.KEY_TARGETS).pack(fill='both', expand=True)
         
-        # Trials - with callback to update target roles
+        # Trials
         trials_frame = ttk.LabelFrame(self, text="Trials", padding=3)
         trials_frame.grid(row=1, column=0, sticky='ew', pady=2)
-        trials_list_widget = DynamicListFrame(trials_frame, "", data, C.KEY_TRIALS, self._on_trials_changed)
-        trials_list_widget.pack(fill='both', expand=True)
-        
-        # Target Roles - initialize with current trials
-        current_trials = data.get(C.KEY_TRIALS, [])
-        self.target_roles_editor = TargetRolesFrame(self, data.get(C.KEY_TARGET_ROLES, {}), trials_list_widget)
-        self.target_roles_editor.grid(row=2, column=0, sticky='ew', pady=2)
-        # Initialize target roles display with current trials
-        self.target_roles_editor.update_from_trials(current_trials)
-
-    def _on_trials_changed(self):
-        if hasattr(self, 'target_roles_editor'):
-            current_trials = self.model.get(C.KEY_TRIALS, [])
-            self.target_roles_editor.update_from_trials(current_trials)
+        DynamicListFrame(trials_frame, "", data, C.KEY_TRIALS).pack(fill='both', expand=True)
 
 class GeometricAnalysisSection(SectionFrame):
     def __init__(self, parent, model, row, layout_manager=None, error_manager=None):
@@ -384,7 +371,7 @@ class GeometricAnalysisSection(SectionFrame):
             if self.layout_manager:
                 self.layout_manager.configure_roi_section_responsive(roi_editor)
 
-        # Freezing Threshold
+        # Freezing Analysis
         if C.KEY_FREEZING_THRESHOLD in self.sub_data:
             thresh_frame = ttk.LabelFrame(self, text="Freezing Analysis", padding=3)
             thresh_frame.grid(row=1, column=0, sticky='ew', pady=2)
@@ -392,6 +379,12 @@ class GeometricAnalysisSection(SectionFrame):
             comment = get_comment(self.model.data, [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_FREEZING_THRESHOLD])
             parameter_path = [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_FREEZING_THRESHOLD]
             self._create_entry(thresh_frame, "Freezing Threshold:", self.sub_data, C.KEY_FREEZING_THRESHOLD, comment, 0, 'number', parameter_path)
+            
+            # Add freezing time window if it exists
+            if C.KEY_FREEZING_TIME_WINDOW in self.sub_data:
+                comment = get_comment(self.model.data, [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_FREEZING_TIME_WINDOW])
+                parameter_path = [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_FREEZING_TIME_WINDOW]
+                self._create_entry(thresh_frame, "Freezing Time Window:", self.sub_data, C.KEY_FREEZING_TIME_WINDOW, comment, 1, 'number', parameter_path)
 
         # Target Exploration
         if C.KEY_TARGET_EXPLORATION in self.sub_data:

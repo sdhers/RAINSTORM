@@ -4,7 +4,7 @@ import logging
 from typing import Optional, List
 from matplotlib.colors import hsv_to_rgb, to_hex
 
-from ...utils import configure_logging, load_yaml, find_common_name
+from ...utils import configure_logging, load_yaml, load_json, find_common_name
 configure_logging()
 logger = logging.getLogger(__name__)
 
@@ -41,14 +41,23 @@ def plot_multiple_analyses(
         filenames = params.get("filenames") or []
         fps = params.get("fps") or 30
         targets = params.get("targets") or []
-        target_roles_data = params.get("target_roles") or {}
 
     except Exception as e:
         logger.error(f"Error loading or parsing parameters from {params_path}: {e}")
         raise
-
-    summary_path = folder_path / "summary"
-    groups = [item.name for item in summary_path.iterdir() if item.is_dir()]
+    
+    reference_path = folder_path / "reference.json"
+    if not reference_path.is_file():
+        logger.error(f"Reference file not found at {reference_path}")
+        raise FileNotFoundError(f"Reference file not found at {reference_path}")
+    
+    try: 
+        reference = load_json(reference_path)
+        target_roles = reference.get("target_roles") or {}
+        groups = reference.get("groups") or []
+    
+    except Exception as e:
+        logger.error(f"Error loading or parsing reference file from {reference_path}: {e}")
     
     if not trial:
         trial = find_common_name(filenames)
@@ -75,8 +84,8 @@ def plot_multiple_analyses(
             group_hue = (start_hue + group_idx * hue_step) % 1.0
             group_base_color = hsv_to_rgb((group_hue, 1.0, 1.0))
 
-            novelty_targets = target_roles_data.get(trial, targets)
-            
+            novelty_targets = target_roles.get(trial) or targets
+
             try:
                 plot_func(
                     base_path=folder_path,

@@ -27,6 +27,7 @@ NUMERIC_PARAMETERS: Dict[Tuple[str, ...], str] = {
     
     # geometric_analysis parameters
     ('geometric_analysis', 'freezing_threshold'): 'float',
+    ('geometric_analysis', 'freezing_time_window'): 'float',
     ('geometric_analysis', 'target_exploration', 'distance'): 'int',
     ('geometric_analysis', 'target_exploration', 'orientation', 'degree'): 'int',
     

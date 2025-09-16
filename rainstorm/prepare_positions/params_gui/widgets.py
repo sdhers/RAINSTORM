@@ -511,26 +511,6 @@ class TargetExplorationFrame(ttk.LabelFrame):
         # Add tooltip with validation info
         from .widgets import ToolTip
         ToolTip(dist_entry, "Distance value (integer expected)")
-
-    def _update_distance_with_conversion(self, value):
-        """Update distance with enhanced type-aware conversion and error handling"""
-        try:
-            # Validate input first
-            if not validate_numeric_input(value, 'int'):
-                logger.warning(f"Invalid distance value '{value}' - expected integer")
-                return
-            
-            param_path = ['geometric_analysis', 'target_exploration', 'distance']
-            converted_value = convert_with_fallback(value, 'int', value, param_path)
-            
-            if isinstance(converted_value, int):
-                self.data['distance'] = converted_value
-                logger.debug(f"Updated target exploration distance to {converted_value}")
-            else:
-                logger.warning(f"Failed to convert distance value '{value}' to int, keeping original")
-        except Exception as e:
-            logger.error(f"Error updating target exploration distance: {e}")
-            # Don't raise exception to keep GUI responsive
         
         # Add tooltip if model is available
         if self.model:
@@ -563,7 +543,7 @@ class TargetExplorationFrame(ttk.LabelFrame):
         front_label = ttk.Label(orientation_frame, text="Front:")
         front_label.grid(row=1, column=0, sticky='w')
         front_var = tk.StringVar(value=str(orientation_data.get('front', 'nose')))
-        front_var.trace_add("write", lambda *_: self._update_orientation('front', front_var.get()))
+        front_var.trace_add("write", lambda *_: self._update_orientation_with_conversion('front', front_var.get()))
         front_entry = ttk.Entry(orientation_frame, textvariable=front_var, width=12)
         front_entry.grid(row=1, column=1, sticky='w', padx=5)
         
@@ -577,7 +557,7 @@ class TargetExplorationFrame(ttk.LabelFrame):
         pivot_label = ttk.Label(orientation_frame, text="Pivot:")
         pivot_label.grid(row=2, column=0, sticky='w')
         pivot_var = tk.StringVar(value=str(orientation_data.get('pivot', 'head')))
-        pivot_var.trace_add("write", lambda *_: self._update_orientation('pivot', pivot_var.get()))
+        pivot_var.trace_add("write", lambda *_: self._update_orientation_with_conversion('pivot', pivot_var.get()))
         pivot_entry = ttk.Entry(orientation_frame, textvariable=pivot_var, width=12)
         pivot_entry.grid(row=2, column=1, sticky='w', padx=5)
         
@@ -691,52 +671,3 @@ class RNNWidthFrame(ttk.LabelFrame):
             logger.error(f"Error updating RNN width {key}: {e}")
             self.data[key] = value
 
-class TargetRolesFrame(ttk.LabelFrame):
-    def __init__(self, parent, target_roles_data, trials_list_widget):
-        super().__init__(parent, text="Target Roles", padding=5)
-        self.data = target_roles_data
-        self.trials_list_widget = trials_list_widget
-        self.role_editors = {}
-        self.main_frame = ttk.Frame(self)
-        self.main_frame.pack(fill='both', expand=True)
-        self.update_from_trials([])
-
-    def update_from_trials(self, current_trials):
-        for widget in self.main_frame.winfo_children():
-            widget.destroy()
-        self.role_editors.clear()
-
-        valid_trials = [t for t in current_trials if t and t.strip()]
-        
-        # Check if we have demo targets and trials to populate default roles
-        has_demo_data = (len(valid_trials) > 0 and 
-                        any(trial in ['Hab', 'TR', 'TS'] for trial in valid_trials))
-        
-        if not valid_trials:
-            ttk.Label(self.main_frame, text="Add targets and trials above to configure roles.").pack(pady=10)
-            return
-
-        for trial in valid_trials:
-            # Initialize with demo content if available
-            if trial not in self.data:
-                if has_demo_data:
-                    if trial == 'Hab':
-                        self.data[trial] = []
-                    elif trial == 'TR':
-                        self.data[trial] = ["Left", "Right"]
-                    elif trial == 'TS':
-                        self.data[trial] = ["Novel", "Known"]
-                    else:
-                        self.data[trial] = []
-                else:
-                    self.data[trial] = []
-            
-            # Capitalize existing role names
-            if isinstance(self.data[trial], list):
-                self.data[trial] = [role.capitalize() if isinstance(role, str) else role for role in self.data[trial]]
-            
-            trial_frame = ttk.LabelFrame(self.main_frame, text=f"Trial: {trial}", padding=5)
-            trial_frame.pack(fill='x', expand=True, pady=2)
-            editor = DynamicListFrame(trial_frame, "", self.data, trial)
-            editor.pack(fill='both', expand=True)
-            self.role_editors[trial] = editor

@@ -8,6 +8,7 @@ This script contains various utility functions used across the Rainstorm project
 import logging
 from pathlib import Path
 import yaml
+import json
 import re
 from typing import List, Optional
 import random
@@ -65,6 +66,37 @@ def load_yaml(file_path: Path) -> dict:
         raise
     except Exception as e:
         logger.error(f"An unexpected error occurred while loading YAML file '{file_path}': {e}")
+        raise
+
+
+def load_json(file_path: Path) -> dict:
+    """
+    Loads data from a JSON file.
+
+    Parameters:
+        file_path (Path): Path to the JSON file.
+
+    Returns:
+        dict: Loaded data from the JSON file.
+
+    Raises:
+        FileNotFoundError: If the JSON file does not exist.
+        json.JSONDecodeError: If there's an error parsing the JSON file.
+    """
+    file_path = Path(file_path)
+    if not file_path.is_file():
+        logger.error(f"JSON file not found: '{file_path}'")
+        raise FileNotFoundError(f"JSON file not found at '{file_path}'")
+    try:
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+        logger.info(f"Successfully loaded JSON file: '{file_path}'")
+        return data
+    except json.JSONDecodeError as e:
+        logger.error(f"Error parsing JSON file '{file_path}': {e}")
+        raise
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while loading JSON file '{file_path}': {e}")
         raise
 
 

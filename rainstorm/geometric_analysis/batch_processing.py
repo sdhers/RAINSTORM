@@ -5,13 +5,15 @@ This module uses the analyze positions functions to batch process all experiment
 """
 import logging
 from pathlib import Path
+from typing import List, Optional
 
 from .analyze_positions import detect_roi_activity, calculate_movement, calculate_exploration_geolabels
+
 from ..utils import configure_logging, load_yaml, find_common_name
 configure_logging()
 logger = logging.getLogger(__name__)
 
-def batch_process_positions(params_path: Path, roi_bp: str = 'body', nose_bp: str = 'nose', body_bp: str = 'body'):
+def batch_process_positions(params_path: Path, roi_bp: str = 'body', nose_bp: str = 'nose', body_bp: str = 'body', targetless_trials: Optional[List[str]] = None):
     """
     Processes multiple tracking data files to calculate ROI activity, movement, and exploration geolabels,
     saving the results to CSV files.
@@ -21,12 +23,17 @@ def batch_process_positions(params_path: Path, roi_bp: str = 'body', nose_bp: st
         roi_bp (str): The body part to use for ROI activity detection (default 'body').
         nose_bp (str): The body part to use for nose tracking in movement calculation (default 'nose').
         body_bp (str): The body part to use for general body tracking in movement calculation (default 'body').
+        targetless_trials (List[str], optional): Substrings of filenames to skip adding targets.
     """
+    if targetless_trials is None:
+        targetless_trials = []
+    
     params = load_yaml(params_path)
     folder_path = Path(params.get("path"))
     filenames = params.get("filenames") or []
     common_name = find_common_name(filenames)
     trials = params.get("trials") or [common_name]
+    targets = params.get("targets") or []
 
     # Construct the list of files to process
     files_to_process = []
@@ -91,17 +98,17 @@ def batch_process_positions(params_path: Path, roi_bp: str = 'body', nose_bp: st
             logger.warning(f"No movement data generated for {file_path.name}. Output will not be saved.")
 
         # Process Exploration Geolabels
-        targets = params.get("targets") or []
         if targets:
-            geo_output_dir = output_root_dir / 'geolabels'
-            geo_output_dir.mkdir(parents=True, exist_ok=True)
-            geolabels = calculate_exploration_geolabels(params_path, file_path)
-            if not geolabels.empty:
-                geo_output_path = geo_output_dir / f'{input_filename_stem}_geolabels.csv'
-                geolabels.to_csv(geo_output_path, index=False)
-                logger.info(f"Saved geolabels to {geo_output_path}")
-            else:
-                logger.warning(f"No geolabels generated for {file_path.name}. Output will not be saved.")
+            if not any(trial in file_path.name for trial in targetless_trials):
+                geo_output_dir = output_root_dir / 'geolabels'
+                geo_output_dir.mkdir(parents=True, exist_ok=True)
+                geolabels = calculate_exploration_geolabels(params_path, file_path)
+                if not geolabels.empty:
+                    geo_output_path = geo_output_dir / f'{input_filename_stem}_geolabels.csv'
+                    geolabels.to_csv(geo_output_path, index=False)
+                    logger.info(f"Saved geolabels to {geo_output_path}")
+                else:
+                    logger.warning(f"No geolabels generated for {file_path.name}. Output will not be saved.")
         else:
             logger.info("No targets defined in the parameters file. Skipping geolabel calculation.")
 

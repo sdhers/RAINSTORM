@@ -1,106 +1,18 @@
+"""
+Creates a "summary" folder with processed and renamed CSV files
+based on the 'reference.json' file and parameters.
+"""
+
 import logging
 from pathlib import Path
 import json
 import pandas as pd
-from ruamel.yaml import YAML
 
 from ..utils import configure_logging, load_yaml, find_common_name
 configure_logging()
 logger = logging.getLogger(__name__)
 
 # %% Functions
-
-def create_reference_file(params_path: Path, overwrite: bool = False) -> Path:
-    """
-    Creates a 'reference.json' file in the experiment folder.
-
-    This file lists all video files and provides a structure for assigning
-    them to groups and defining roles for targets and ROIs.
-
-    Args:
-        params_path (Path): Path to the YAML parameters file.
-        overwrite (bool): If True, overwrites an existing reference file.
-
-    Returns:
-        Path: The path to the created (or existing) 'reference.json' file.
-    """
-    yaml = YAML()
-    with open(params_path, 'r') as f:
-        params = yaml.load(f)
-    
-    folder = Path(params.get("path"))
-    reference_path = folder / 'reference.json'
-
-    # Handle overwrite logic
-    if reference_path.exists() and not overwrite:
-        logger.info(f"Reference file '{reference_path}' already exists. Skipping creation.")
-        return reference_path
-    
-    if reference_path.exists() and overwrite:
-        logger.info(f"Overwriting existing reference file at '{reference_path}'.")
-
-    # --- Extract necessary info from params ---
-    filenames = params.get("filenames") or []
-    targets = params.get("targets") or []
-    trials = params.get("trials") or []
-    
-    # Get ROI area names from 'geometric_analysis'
-    geo_analysis = params.get("geometric_analysis", {})
-    roi_data = geo_analysis.get("roi_data", {})
-    all_areas = roi_data.get("rectangles", []) + roi_data.get("circles", [])
-    roi_area_names = [f"{area['name']}_roi" for area in all_areas if area.get("name")]
-
-    # --- Build the JSON structure ---
-    reference_data = {
-        'target_roles': {},
-        'groups': ['24_hs', '1_week'], # Default groups
-        'files': {}
-    }
-    
-    # Initialize target roles for each trial with defaults
-    default_target_roles = {
-        'TR': ['Left', 'Right'],
-        'TS': ['Novel', 'Known']
-    }
-    reference_data['target_roles'] = {trial: default_target_roles.get(trial, []) for trial in trials}
-    
-    # Create file entries using filenames from params
-    # Extract video names from filenames (remove extensions and common suffixes)
-    video_names = []
-    for filename in filenames:
-        # Remove file extension and common suffixes to get clean video name
-        clean_name = Path(filename).stem
-        # Remove common suffixes if they exist
-        for suffix in ['_video', '_movement', '_positions', '_labels', '_geolabels', '_roi_activity']:
-            if clean_name.endswith(suffix):
-                clean_name = clean_name[:-len(suffix)]
-                break
-        video_names.append(clean_name)
-    
-    # Remove duplicates while preserving order
-    unique_video_names = list(dict.fromkeys(video_names))
-    
-    if not unique_video_names:
-        logger.warning("No filenames found in params. The 'files' section in reference.json will be empty.")
-
-    # Create file entries efficiently
-    empty_targets = {target: '' for target in targets}
-    empty_rois = {roi: '' for roi in roi_area_names}
-    
-    for name in unique_video_names:
-        reference_data['files'][name] = {
-            'group': '',
-            'targets': empty_targets.copy(),
-            'rois': empty_rois.copy()
-        }
-
-    # Save the JSON file
-    with open(reference_path, 'w') as f:
-        json.dump(reference_data, f, indent=2)
-
-    logger.info(f"Reference file created successfully at '{reference_path}'.")
-    print(f"Reference file created at {reference_path}")
-    return reference_path
 
 def _process_and_save_summary_file(
     video_name: str,
@@ -187,7 +99,7 @@ def _process_and_save_summary_file(
         else:
             logger.warning(f"Label file '{label_path}' not found. No label data will be used for '{video_name}'.")
     else:
-        logger.info(f"label_type not found on params. Skipping label data merge for '{video_name}'.")
+        logger.info(f"label_type not stated. Skipping label data merge for '{video_name}'.")
 
     # --- Add Location column ---
     geometric_analysis = params.get("geometric_analysis") or {}
@@ -268,11 +180,12 @@ def create_summary_files(params_path: Path, label_type: str = 'geolabels', overw
         return summary_path
 
     targets = params.get("targets") or []
-    if not label_type:
-        print("Label type not defined on params file, label data will be missing.")
     filenames = params.get("filenames") or []
     common_name = find_common_name(filenames)
     trials = params.get("trials") or [common_name]
+
+    if not label_type:
+        print("Label type not defined on params file, label data will be missing.")
 
     # Load JSON reference data
     with open(reference_path, 'r') as f:

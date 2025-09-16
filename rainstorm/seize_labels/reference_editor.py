@@ -1,8 +1,5 @@
 """
-Reference Editor - Legacy wrapper for backward compatibility.
-
-This module provides a simple wrapper around the new refactored reference editor
-to maintain backward compatibility with existing code.
+Reference Editor - Edit the reference.json file via a GUI application.
 """
 
 import logging
@@ -19,9 +16,6 @@ logger = logging.getLogger(__name__)
 def open_reference_editor(reference_path: Optional[str] = None):
     """
     Open the reference editor GUI application.
-    
-    This function maintains backward compatibility with the original interface
-    while using the new refactored reference editor.
     
     Args:
         reference_path (Optional[str]): Path to an existing reference.json file to load.

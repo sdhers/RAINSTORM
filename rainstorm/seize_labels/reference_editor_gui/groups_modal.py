@@ -1,8 +1,7 @@
 """
 Flexible groups modification modal dialog.
 
-This module provides a modal window for adding, editing, and removing groups
-from the reference data. It works with any number of groups and any group names.
+This module provides a modal window for adding, editing, and removing groups from the reference data.
 """
 
 import customtkinter as ctk
@@ -42,7 +41,7 @@ class GroupsModal:
         """Create the modal window and its components."""
         self.modal = ctk.CTkToplevel(self.parent)
         self.modal.title("Modify Groups")
-        self.modal.geometry("400x400")
+        self.modal.geometry("325x340")
         self.modal.transient(self.parent)
         self.modal.grab_set()
         

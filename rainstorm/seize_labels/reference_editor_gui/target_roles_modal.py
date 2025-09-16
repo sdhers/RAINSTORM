@@ -43,7 +43,7 @@ class TargetRolesModal:
         """Create the modal window and its components."""
         self.modal = ctk.CTkToplevel(self.parent)
         self.modal.title("Modify Target Roles")
-        self.modal.geometry("500x500")
+        self.modal.geometry("440x410")
         self.modal.transient(self.parent)
         self.modal.grab_set()
         
@@ -55,7 +55,7 @@ class TargetRolesModal:
         self._create_tabs()
         
         # Create add new trial type section
-        self._create_add_trial_type_section()
+        self._create_add_trial_section()
         
         # Create save/cancel buttons
         self._create_action_buttons()
@@ -65,18 +65,17 @@ class TargetRolesModal:
     def _create_tabs(self):
         """Create tabs for each trial type present in the data."""
         # Get all trial types from current data
-        trial_types = list(self.current_target_roles.keys())
+        trial_names = list(self.current_target_roles.keys())
         
-        # If no trial types exist, create a default one
-        if not trial_types:
-            trial_types = ["Default"]
-            self.current_target_roles["Default"] = []
+        # If no trial types exist, create a temporary "General" tab for UI purposes only
+        if not trial_names:
+            trial_names = ["General"]
         
-        for trial_type in trial_types:
-            tab = self.tab_view.add(trial_type)
-            self.tabs[trial_type] = {
+        for trial_name in trial_names:
+            tab = self.tab_view.add(trial_name)
+            self.tabs[trial_name] = {
                 "frames": [],
-                "initial_roles": list(self.current_target_roles.get(trial_type, []))
+                "initial_roles": list(self.current_target_roles.get(trial_name, []))
             }
             
             # Create scrollable frame for roles
@@ -84,28 +83,28 @@ class TargetRolesModal:
             scroll_frame.pack(expand=True, fill="both", pady=5)
             
             # Display existing roles
-            self._create_existing_roles(trial_type, scroll_frame)
+            self._create_existing_roles(trial_name, scroll_frame)
             
             # Create add new role section
-            self._create_add_role_section(trial_type, scroll_frame)
+            self._create_add_role_section(trial_name, scroll_frame)
     
-    def _create_existing_roles(self, trial_type: str, scroll_frame):
+    def _create_existing_roles(self, trial_name: str, scroll_frame):
         """
         Create UI elements for existing roles in a specific tab.
         
         Args:
-            trial_type (str): Type of trial (e.g., "Hab", "TR", "TS", "Abuela", etc.)
+            trial_name (str): Name of trial (e.g., "Hab", "TR", "TS", etc.)
             scroll_frame: The scrollable frame to add roles to
         """
-        for role in self.current_target_roles.get(trial_type, []):
-            self._create_role_entry(trial_type, role, scroll_frame)
+        for role in self.current_target_roles.get(trial_name, []):
+            self._create_role_entry(trial_name, role, scroll_frame)
     
-    def _create_role_entry(self, trial_type: str, role_name: str, scroll_frame):
+    def _create_role_entry(self, trial_name: str, role_name: str, scroll_frame):
         """
         Create a single role entry with delete functionality.
         
         Args:
-            trial_type (str): Type of trial
+            trial_name (str): Name of trial
             role_name (str): Name of the role
             scroll_frame: The scrollable frame to add the role to
         """
@@ -116,100 +115,109 @@ class TargetRolesModal:
         label.pack(side="left", padx=10)
         
         # Keep reference to frame for deletion
-        self.tabs[trial_type]["frames"].append(frame)
+        self.tabs[trial_name]["frames"].append(frame)
         
         delete_button = ctk.CTkButton(
             frame, 
             text="Remove", 
             width=80, 
             fg_color="red",
-            command=lambda f=frame: self._delete_role_entry(trial_type, f)
+            command=lambda f=frame: self._delete_role_entry(trial_name, f)
         )
         delete_button.pack(side="right", padx=5, pady=5)
     
-    def _create_add_role_section(self, trial_type: str, scroll_frame):
+    def _create_add_role_section(self, trial_name: str, scroll_frame):
         """
         Create the section for adding new roles.
         
         Args:
-            trial_type (str): Type of trial
+            trial_name (str): Name of trial
             scroll_frame: The scrollable frame to add the section to
         """
         add_frame = ctk.CTkFrame(scroll_frame)
         add_frame.pack(fill="x", pady=5)
         
-        new_role_entry = ctk.CTkEntry(add_frame, placeholder_text=f"New {trial_type} role")
+        new_role_entry = ctk.CTkEntry(add_frame, placeholder_text=f"New {trial_name} role")
         new_role_entry.pack(side="left", expand=True, fill="x", padx=5, pady=5)
         
         add_button = ctk.CTkButton(
             add_frame, 
             text="Add", 
-            command=lambda: self._add_new_role(trial_type, new_role_entry, scroll_frame)
+            command=lambda: self._add_new_role(trial_name, new_role_entry, scroll_frame)
         )
         add_button.pack(side="right", padx=5)
     
-    def _create_add_trial_type_section(self):
-        """Create section for adding new trial types."""
+    def _create_add_trial_section(self):
+        """Create section for adding and removing trials."""
         add_trial_frame = ctk.CTkFrame(self.modal)
         add_trial_frame.pack(fill="x", padx=15, pady=(0, 5))
         
-        ctk.CTkLabel(add_trial_frame, text="Add New Trial Type:").pack(side="left", padx=5)
+        ctk.CTkLabel(add_trial_frame, text="Trial Management:").pack(side="left", padx=5)
         
-        self.new_trial_entry = ctk.CTkEntry(add_trial_frame, placeholder_text="Trial type name")
+        self.new_trial_entry = ctk.CTkEntry(add_trial_frame, placeholder_text="Trial name")
         self.new_trial_entry.pack(side="left", expand=True, fill="x", padx=5, pady=5)
         
         add_trial_button = ctk.CTkButton(
             add_trial_frame, 
-            text="Add Trial Type", 
-            command=self._add_new_trial_type
+            text="Add Trial", 
+            command=self._add_new_trial
         )
         add_trial_button.pack(side="right", padx=5, pady=5)
+        
+        remove_trial_button = ctk.CTkButton(
+            add_trial_frame, 
+            text="Remove Trial", 
+            command=self._remove_trial,
+            fg_color="#DC2626",
+            hover_color="#B91C1C"
+        )
+        remove_trial_button.pack(side="right", padx=(0, 5), pady=5)
     
-    def _add_new_role(self, trial_type: str, entry, scroll_frame):
+    def _add_new_role(self, trial_name: str, entry, scroll_frame):
         """
         Add a new role to the specified trial type.
         
         Args:
-            trial_type (str): Type of trial
+            trial_name (str): Type of trial
             entry: The entry widget containing the new role name
             scroll_frame: The scrollable frame to add the role to
         """
         new_role = entry.get().strip()
         if not new_role:
-            logger.warning(f"Attempted to add empty {trial_type} role")
+            logger.warning(f"Attempted to add empty {trial_name} role")
             return
         
         # Check if role already exists
         existing_roles = []
-        for frame in self.tabs[trial_type]["frames"]:
+        for frame in self.tabs[trial_name]["frames"]:
             if frame.winfo_exists():
                 label = frame.winfo_children()[0]
                 if isinstance(label, ctk.CTkLabel):
                     existing_roles.append(label.cget("text"))
         
         if new_role in existing_roles:
-            logger.warning(f"Role '{new_role}' already exists for {trial_type}")
+            logger.warning(f"Role '{new_role}' already exists for {trial_name}")
             return
         
-        self._create_role_entry(trial_type, new_role, scroll_frame)
+        self._create_role_entry(trial_name, new_role, scroll_frame)
         entry.delete(0, 'end')
-        logger.debug(f"Added new {trial_type} role: {new_role}")
+        logger.debug(f"Added new {trial_name} role: {new_role}")
     
-    def _add_new_trial_type(self):
-        """Add a new trial type tab."""
-        new_trial_type = self.new_trial_entry.get().strip()
-        if not new_trial_type:
-            logger.warning("Attempted to add empty trial type")
+    def _add_new_trial(self):
+        """Add a new trial tab."""
+        new_trial_name = self.new_trial_entry.get().strip()
+        if not new_trial_name:
+            logger.warning("Attempted to add empty trial name")
             return
         
         # Check if trial type already exists
-        if new_trial_type in self.tabs:
-            logger.warning(f"Trial type '{new_trial_type}' already exists")
+        if new_trial_name in self.tabs:
+            logger.warning(f"Trial '{new_trial_name}' already exists")
             return
         
         # Add new tab
-        tab = self.tab_view.add(new_trial_type)
-        self.tabs[new_trial_type] = {
+        tab = self.tab_view.add(new_trial_name)
+        self.tabs[new_trial_name] = {
             "frames": [],
             "initial_roles": []
         }
@@ -219,24 +227,58 @@ class TargetRolesModal:
         scroll_frame.pack(expand=True, fill="both", pady=5)
         
         # Create add new role section
-        self._create_add_role_section(new_trial_type, scroll_frame)
+        self._create_add_role_section(new_trial_name, scroll_frame)
         
         self.new_trial_entry.delete(0, 'end')
-        logger.debug(f"Added new trial type: {new_trial_type}")
+        logger.debug(f"Added new trial: {new_trial_name}")
     
-    def _delete_role_entry(self, trial_type: str, frame):
+    def _remove_trial(self):
+        """Remove a trial tab."""
+        trial_name = self.new_trial_entry.get().strip()
+        if not trial_name:
+            logger.warning("No trial name specified for removal")
+            return
+        
+        # Check if trial exists
+        if trial_name not in self.tabs:
+            logger.warning(f"Trial '{trial_name}' does not exist")
+            return
+        
+        # Prevent removing "General" trial (it's UI-only)
+        if trial_name == "General":
+            logger.warning("Cannot remove 'General' trial - it's a UI placeholder")
+            return
+        
+        # Check if it's the last real trial (prevent removing all trials except General)
+        real_trials = [name for name in self.tabs.keys() if name != "General"]
+        if len(real_trials) <= 1 and trial_name in real_trials:
+            logger.warning("Cannot remove the last remaining real trial")
+            return
+        
+        # Remove from tab view
+        self.tab_view.delete(trial_name)
+        
+        # Remove from tabs dictionary
+        del self.tabs[trial_name]
+        
+        # Clear the entry field
+        self.new_trial_entry.delete(0, 'end')
+        
+        logger.debug(f"Removed trial: {trial_name}")
+    
+    def _delete_role_entry(self, trial_name: str, frame):
         """
         Delete a role entry from the UI.
         
         Args:
-            trial_type (str): Type of trial
+            trial_name (str): Type of trial
             frame: The frame containing the role entry to delete
         """
-        if frame in self.tabs[trial_type]["frames"]:
-            self.tabs[trial_type]["frames"].remove(frame)
+        if frame in self.tabs[trial_name]["frames"]:
+            self.tabs[trial_name]["frames"].remove(frame)
         
         frame.destroy()
-        logger.debug(f"Deleted {trial_type} role entry")
+        logger.debug(f"Deleted {trial_name} role entry")
     
     def _create_action_buttons(self):
         """Create save and cancel buttons."""
@@ -262,7 +304,11 @@ class TargetRolesModal:
         """Save the current target roles and close the modal."""
         new_target_roles = {}
         
-        for trial_type, tab_data in self.tabs.items():
+        for trial_name, tab_data in self.tabs.items():
+            # Skip "General" trial - it's UI-only and shouldn't be saved
+            if trial_name == "General":
+                continue
+                
             new_roles = []
             
             # Check all frames that haven't been destroyed
@@ -273,7 +319,7 @@ class TargetRolesModal:
                         new_roles.append(label.cget("text"))
             
             # Check for newly added roles that are not in the original list
-            scroll_frame = self.tab_view.tab(trial_type).winfo_children()[0]
+            scroll_frame = self.tab_view.tab(trial_name).winfo_children()[0]
             for frame in scroll_frame.winfo_children():
                 label = frame.winfo_children()[0]
                 if isinstance(label, ctk.CTkLabel):
@@ -281,7 +327,7 @@ class TargetRolesModal:
                     if role_text not in new_roles:
                         new_roles.append(role_text)
             
-            new_target_roles[trial_type] = new_roles
+            new_target_roles[trial_name] = new_roles
         
         logger.info(f"Saving target roles: {new_target_roles}")
         self.on_save(new_target_roles)

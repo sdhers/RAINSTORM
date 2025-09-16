@@ -13,8 +13,9 @@ configure_logging()
 from ..prepare_positions import open_params_editor
 
 from .plotting_example import create_video, plot_mouse_exploration
-from .summary_files import create_reference_file, create_summary_files
+from .reference_file import create_reference_file
 from .reference_editor import open_reference_editor
+from .summary_files import create_summary_files
 
 from .multiplot.multiplot import plot_multiple_analyses
 from .multiplot.lineplot_cumulative import lineplot_cumulative_distance, lineplot_cumulative_exploration_time, lineplot_cumulative_freezing_time

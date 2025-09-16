@@ -14,7 +14,7 @@ from typing import Optional
 # Assuming these are available in the same package structure
 from .calculate_index import calculate_cumsum, calculate_DI
 from .multiplot.plot_roi_activity import _count_alternations_and_entries
-from ..utils import configure_logging, load_yaml
+from ..utils import configure_logging, load_yaml, load_json
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -56,36 +56,42 @@ def create_results_file(
     
     # Load parameters and setup
     params = load_yaml(params_path)
-    base_folder = Path(params.get("path"))
+    folder_path = Path(params.get("path"))
     fps = params.get("fps", 30)
-    target_roles = params.get("target_roles") or {}
-    
-    logger.info(f"📁 Base folder: {base_folder}")
-    logger.info(f"🎯 Target roles: {target_roles}")
-    
-    results_path = base_folder / 'results.csv'
     
     # Check for existing file and overwrite preference
+    results_path = folder_path / 'results.csv'
     if results_path.exists() and not overwrite:
         logger.warning(f"Results file '{results_path}' already exists and overwrite is set to False. Skipping file creation.")
         print(f"Results file already exists at {results_path}\nNot overwritten.")
         return results_path
 
     # Validate required directories
-    if not _validate_directories(base_folder):
+    if not _validate_directories(folder_path):
         return results_path
     
     # Load reference file
-    reference_df = _load_reference_file(base_folder)
-    if reference_df is None:
+    reference_path = folder_path / "reference.json"
+    if not reference_path.is_file():
+        logger.error(f"Reference file not found at {reference_path}")
+        raise FileNotFoundError(f"Reference file not found at {reference_path}")
+    try: 
+        reference = load_json(reference_path)
+    except Exception as e:
+        logger.error(f"Error loading or parsing reference file from {reference_path}: {e}")
         return results_path
     
+    target_roles = reference.get("target_roles") or {}
+
+    logger.info(f"📁 Base folder: {folder_path}")
+    logger.info(f"🎯 Target roles: {target_roles}")
+    
     # Get ROI columns for consistent output structure
-    all_renamed_roi_columns = _get_roi_columns(params, reference_df)
+    all_renamed_roi_columns = _get_roi_columns(params, reference)
     
     # Process all summary files
     results = _process_all_summary_files(
-        base_folder, target_roles, label_type, fps, 
+        folder_path, target_roles, label_type, fps, 
         start_time, end_time, distance_col_name, all_renamed_roi_columns
     )
     
@@ -99,37 +105,19 @@ def create_results_file(
     
     logger.info(f"✅ Results file saved successfully at {results_path}")
     print(f"Results file saved at {results_path}")
-    return results_path
+    return # results_path
 
 
-def _validate_directories(base_folder: Path) -> bool:
+def _validate_directories(folder_path: Path) -> bool:
     """Validate that required directories exist."""
-    if not base_folder.exists():
-        logger.error(f"Base path '{base_folder}' does not exist. Cannot create results file.")
+    if not folder_path.exists():
+        logger.error(f"Base path '{folder_path}' does not exist. Cannot create results file.")
         return False
-    
-    summary_base_path = base_folder / "summary"
+    summary_base_path = folder_path / "summary"
     if not summary_base_path.exists():
         logger.warning(f"Summary directory '{summary_base_path}' does not exist. No summary files to process.")
         return False
-    
     return True
-
-
-def _load_reference_file(base_folder: Path) -> Optional[pd.DataFrame]:
-    """Load and validate the reference file."""
-    reference_path = base_folder / 'reference.csv'
-    if not reference_path.exists():
-        logger.error(f"Reference file '{reference_path}' not found. Cannot create results file without it.")
-        return None
-
-    try:
-        reference_df = pd.read_csv(reference_path)
-        logger.info(f"📋 Reference file loaded with {len(reference_df)} rows")
-        return reference_df
-    except Exception as e:
-        logger.error(f"Error reading reference file '{reference_path}': {e}")
-        return None
 
 
 def _get_roi_columns(params: dict, reference_df: pd.DataFrame) -> set:
@@ -152,13 +140,13 @@ def _get_roi_columns(params: dict, reference_df: pd.DataFrame) -> set:
 
 
 def _process_all_summary_files(
-    base_folder: Path, target_roles: dict, label_type: str, fps: int,
+    folder_path: Path, target_roles: dict, label_type: str, fps: int,
     start_time: Optional[int], end_time: Optional[int], 
     distance_col_name: str, all_renamed_roi_columns: set
 ) -> list:
     """Process all summary files and extract results."""
     results = []
-    summary_base_path = base_folder / "summary"
+    summary_base_path = folder_path / "summary"
     
     for group_dir in summary_base_path.iterdir():
         if not group_dir.is_dir():

@@ -47,44 +47,51 @@ def create_reference_file(params_path: Path, overwrite: bool = False) -> Path:
     # Get ROI area names from 'geometric_analysis'
     geo_analysis = params.get("geometric_analysis", {})
     roi_data = geo_analysis.get("roi_data", {})
-    rectangles = roi_data.get("rectangles", [])
-    circles = roi_data.get("circles", [])
-    roi_area_names = [f"{area['name']}_roi" for area in rectangles + circles if "name" in area]
+    all_areas = roi_data.get("rectangles", []) + roi_data.get("circles", [])
+    roi_area_names = [f"{area['name']}_roi" for area in all_areas if area.get("name")]
 
     # --- Build the JSON structure ---
     reference_data = {
         'target_roles': {},
-        'groups': ['control', 'treatment'], # Default groups
+        'groups': ['24_hs', '1_week'], # Default groups
         'files': {}
     }
     
     # Initialize target roles for each trial with defaults
-    for trial in trials:
-        if trial == 'TR':
-            reference_data['target_roles'][trial] = ['Left', 'Right']
-        elif trial == 'TS':
-            reference_data['target_roles'][trial] = ['Novel', 'Known']
-        else:
-            reference_data['target_roles'][trial] = []
+    default_target_roles = {
+        'TR': ['Left', 'Right'],
+        'TS': ['Novel', 'Known']
+    }
+    reference_data['target_roles'] = {trial: default_target_roles.get(trial, []) for trial in trials}
     
-    # Create file entries for all files found in the labels folders
-    # This ensures all processed videos are included in the reference.
-    all_video_names = set()
-    for trial in trials:
-        positions_dir = folder / trial / "positions"
-        if positions_dir.exists():
-            for file in positions_dir.glob("*_positions.csv"):
-                clean_name = file.stem.replace('_positions', '')
-                all_video_names.add(clean_name)
+    # Create file entries using filenames from params
+    # Extract video names from filenames (remove extensions and common suffixes)
+    video_names = []
+    for filename in filenames:
+        # Remove file extension and common suffixes to get clean video name
+        clean_name = Path(filename).stem
+        # Remove common suffixes if they exist
+        for suffix in ['_video', '_movement', '_positions', '_labels', '_geolabels', '_roi_activity']:
+            if clean_name.endswith(suffix):
+                clean_name = clean_name[:-len(suffix)]
+                break
+        video_names.append(clean_name)
+    
+    # Remove duplicates while preserving order
+    unique_video_names = list(dict.fromkeys(video_names))
+    
+    if not unique_video_names:
+        logger.warning("No filenames found in params. The 'files' section in reference.json will be empty.")
 
-    if not all_video_names:
-        logger.warning("No position files found. The 'files' section in reference.json will be empty.")
-
-    for name in sorted(list(all_video_names)):
+    # Create file entries efficiently
+    empty_targets = {target: '' for target in targets}
+    empty_rois = {roi: '' for roi in roi_area_names}
+    
+    for name in unique_video_names:
         reference_data['files'][name] = {
             'group': '',
-            'targets': {target: '' for target in targets},
-            'rois': {roi: '' for roi in roi_area_names}
+            'targets': empty_targets.copy(),
+            'rois': empty_rois.copy()
         }
 
     # Save the JSON file
@@ -92,6 +99,7 @@ def create_reference_file(params_path: Path, overwrite: bool = False) -> Path:
         json.dump(reference_data, f, indent=2)
 
     logger.info(f"Reference file created successfully at '{reference_path}'.")
+    print(f"Reference file created at {reference_path}")
     return reference_path
 
 def _process_and_save_summary_file(

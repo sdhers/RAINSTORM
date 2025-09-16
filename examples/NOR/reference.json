@@ -1,0 +1,411 @@
+{
+  "target_roles": {
+    "Hab": [
+      "None"
+    ],
+    "TR": [
+      "Left",
+      "Right"
+    ],
+    "TS": [
+      "Novel",
+      "Known"
+    ]
+  },
+  "groups": [
+    "24_hs",
+    "1_week"
+  ],
+  "files": {
+    "NOR_Hab_01": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "None",
+        "obj_2": "None"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_Hab_02": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "None",
+        "obj_2": "None"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_Hab_03": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "None",
+        "obj_2": "None"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_Hab_04": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "None",
+        "obj_2": "None"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_Hab_05": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "None",
+        "obj_2": "None"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_Hab_06": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "None",
+        "obj_2": "None"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_Hab_07": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "None",
+        "obj_2": "None"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_Hab_08": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "None",
+        "obj_2": "None"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_Hab_09": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "None",
+        "obj_2": "None"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_Hab_10": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "None",
+        "obj_2": "None"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TR_01": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "Left",
+        "obj_2": "Right"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TR_02": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "Left",
+        "obj_2": "Right"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TR_03": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "Left",
+        "obj_2": "Right"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TR_04": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "Left",
+        "obj_2": "Right"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TR_05": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "Left",
+        "obj_2": "Right"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TR_06": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "Left",
+        "obj_2": "Right"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TR_07": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "Left",
+        "obj_2": "Right"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TR_08": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "Left",
+        "obj_2": "Right"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TR_09": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "Left",
+        "obj_2": "Right"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TR_10": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "Left",
+        "obj_2": "Right"
+      },
+      "rois": {
+        "top_right_roi": "top_left_corner",
+        "top_left_roi": "top_right_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TS_01": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "Novel",
+        "obj_2": "Known"
+      },
+      "rois": {
+        "top_right_roi": "Novel_corner",
+        "top_left_roi": "Known_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TS_02": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "Known",
+        "obj_2": "Novel"
+      },
+      "rois": {
+        "top_right_roi": "Known_corner",
+        "top_left_roi": "Novel_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TS_03": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "Known",
+        "obj_2": "Novel"
+      },
+      "rois": {
+        "top_right_roi": "Known_corner",
+        "top_left_roi": "Novel_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TS_04": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "Novel",
+        "obj_2": "Known"
+      },
+      "rois": {
+        "top_right_roi": "Novel_corner",
+        "top_left_roi": "Known_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TS_05": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "Novel",
+        "obj_2": "Known"
+      },
+      "rois": {
+        "top_right_roi": "Novel_corner",
+        "top_left_roi": "Known_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TS_06": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "Novel",
+        "obj_2": "Known"
+      },
+      "rois": {
+        "top_right_roi": "Novel_corner",
+        "top_left_roi": "Known_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TS_07": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "Known",
+        "obj_2": "Novel"
+      },
+      "rois": {
+        "top_right_roi": "Known_corner",
+        "top_left_roi": "Novel_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TS_08": {
+      "group": "24_hs",
+      "targets": {
+        "obj_1": "Novel",
+        "obj_2": "Known"
+      },
+      "rois": {
+        "top_right_roi": "Novel_corner",
+        "top_left_roi": "Known_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TS_09": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "Known",
+        "obj_2": "Novel"
+      },
+      "rois": {
+        "top_right_roi": "Known_corner",
+        "top_left_roi": "Novel_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    },
+    "NOR_TS_10": {
+      "group": "1_week",
+      "targets": {
+        "obj_1": "Known",
+        "obj_2": "Novel"
+      },
+      "rois": {
+        "top_right_roi": "Known_corner",
+        "top_left_roi": "Novel_corner",
+        "bottom_left_roi": "bottom_left_corner",
+        "bottom_right_roi": "bottom_right_corner"
+      }
+    }
+  }
+}

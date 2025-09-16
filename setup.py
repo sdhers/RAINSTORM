@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="rainstorm",
-    version="1.0.5",
+    version="1.0.6",
     description="Real & Artificial Intelligence for Neuroscience – Simple Tracker for Object Recognition Memory",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
@@ -34,6 +34,7 @@ setup(
         "tensorflow==2.10.1",
         "tqdm==4.67.1",
         "ttkthemes==3.2.2",
+        "customtkinter==5.2.2",
     ],
     classifiers=[
         "Programming Language :: Python :: 3.9",

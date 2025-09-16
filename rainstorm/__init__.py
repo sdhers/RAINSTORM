@@ -5,7 +5,7 @@ Simple Tracker for Object Recognition Memory
 A complete toolkit for analyzing rodent exploratory behavior in object recognition tasks.
 """
 
-__version__ = "1.0.5"
+__version__ = "1.0.6"
 __author__ = "Santiago D'hers"
 __email__ = "sdhers@fbmc.fcen.uba.ar"
 

@@ -6,10 +6,11 @@ acts as the "Controller". It initializes the Model (data) and the View
 (UI sections), and handles user interactions like saving.
 """
 
+import customtkinter as ctk
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from pathlib import Path
-from ttkthemes import ThemedTk
+import logging
 
 from .sections import (
     BasicSetupSection, ExperimentDesignSection,
@@ -20,209 +21,165 @@ from .help_system import HelpSystem
 from .params_model import ParamsModel
 from .widgets import ToolTip
 from .error_handling import ErrorNotificationManager, DebugInfoCollector
+from . import config as C
 from ruamel.yaml import CommentedMap
-import logging 
 
-class ParamsEditor(ThemedTk):
+class ParamsEditor(ctk.CTk):
     """
     Main application window. Acts as the Controller, coordinating the
     Model (ParamsModel) and the View (the various UI sections).
-    Enhanced with comprehensive error handling and logging.
     """
     def __init__(self, params_path: str):
         super().__init__()
-        self.set_theme("arc")
-
-        self.params_path = Path(params_path)
-        self.title(f"Rainstorm - Parameters Editor - {self.params_path.name}")
         
-        # Initialize logging for the GUI session
+        # --- Basic Setup ---
+        self.params_path = Path(params_path)
         self.logger = logging.getLogger(__name__)
         self.logger.info(f"Starting Parameters Editor for: {self.params_path}")
 
-        # Initialize the Model to manage data
+        # --- Appearance ---
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("blue")
+        self.configure(fg_color=C.APP_BACKGROUND_COLOR)
+        self.title(f"Rainstorm Parameters Editor - {self.params_path.name}")
+        
+        # --- Model Initialization ---
         self.model = ParamsModel(params_path)
         if not self.model.load():
-            self.destroy()
+            self.after(100, self.destroy) # Schedule destruction if load fails
             return
 
-        # Initialize error handling system
+        # --- System Initialization ---
         self.error_manager = ErrorNotificationManager(self)
-        self.logger.info("Error handling system initialized")
-
-        # Initialize UI components
-        self.layout_manager = ResponsiveLayoutManager()
+        self.layout_manager = ResponsiveLayoutManager(self)
         self.help_system = HelpSystem(self)
-        self.geometry(self.layout_manager.get_window_geometry())
+        self.geometry(self.layout_manager.get_initial_window_geometry())
+        self.logger.info("Core systems initialized")
 
-        # Create error styling for entry widgets
-        self._setup_error_styles()
-
+        # --- UI Creation ---
         self.create_widgets()
         self.populate_sections()
+        self.logger.info("UI constructed successfully")
 
-        # Bind events
-        self.bind('<Configure>', self._on_window_resize)
+        # --- Event Bindings ---
         self.help_system.bind_help_shortcuts()
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
         
-        self.logger.info("Parameters Editor initialization completed")
+        self.logger.info("Parameters Editor initialization complete.")
 
     def create_widgets(self):
         """Creates the main window layout, including columns and buttons."""
-        # Title and Help Button
-        title_frame = ttk.Frame(self, padding="10 10 10 0")
-        title_frame.pack(fill=tk.X)
-        title_text = f"Parameters Editor - {self.params_path.name}"
-        ttk.Label(title_frame, text=title_text, font=("Segoe UI", 12, "bold")).pack(side=tk.LEFT)
-        help_button = ttk.Button(title_frame, text="?", width=3, command=self.help_system.show_help)
-        help_button.pack(side=tk.RIGHT)
-        ToolTip(help_button, "Click for help and navigation instructions (F1)")
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
 
-        # Main 3-column layout
-        main_frame = ttk.Frame(self, padding="0 10 10 10")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        # --- Title Bar ---
+        title_frame = ctk.CTkFrame(self, fg_color="transparent")
+        title_frame.grid(row=0, column=0, sticky='ew', padx=C.MAIN_PADDING, pady=(C.MAIN_PADDING, C.SECTION_SPACING))
+        title_frame.grid_columnconfigure(0, weight=1)
+        
+        title_text = f"Editing: {self.params_path.name}"
+        ctk.CTkLabel(
+            title_frame, text=title_text,
+            font=(C.FONT_FAMILY, C.TITLE_FONT_SIZE, "bold"), text_color=C.TITLE_COLOR
+        ).grid(row=0, column=0, sticky='w')
+        
+        help_button = ctk.CTkButton(
+            title_frame, text="?", width=30, command=self.help_system.show_help,
+            font=(C.FONT_FAMILY, C.BUTTON_FONT_SIZE, "bold"),
+            corner_radius=C.BUTTON_CORNER_RADIUS, hover_color=C.BUTTON_HOVER_COLOR
+        )
+        help_button.grid(row=0, column=1, sticky='e')
+        ToolTip(help_button, "Show help (F1)")
+
+        # --- Main 3-Column Layout using PanedWindow ---
+        main_frame = ctk.CTkFrame(self, fg_color="transparent")
+        main_frame.grid(row=1, column=0, sticky='nsew', padx=C.MAIN_PADDING, pady=(0, C.MAIN_PADDING))
+        main_frame.grid_columnconfigure(0, weight=1)
+        main_frame.grid_rowconfigure(0, weight=1)
+        
         self.paned_window = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
-        self.paned_window.pack(fill=tk.BOTH, expand=True)
-        self.layout_manager.configure_paned_window(self.paned_window)
+        self.paned_window.grid(row=0, column=0, sticky='nsew')
+        
+        # Style the paned window sash for better visibility
+        s = ttk.Style()
+        s.configure('TPanedwindow', background=C.APP_BACKGROUND_COLOR)
+        s.configure('TPanedwindow.Sash', background=C.SECTION_BORDER_COLOR, sashthickness=6)
 
-        # Create scrollable columns with weight distribution
-        self.col1_scrollable = self.layout_manager.create_scrollable_column(self.paned_window, weight=1)
-        self.col2_scrollable = self.layout_manager.create_scrollable_column(self.paned_window, weight=1)
-        self.col3_scrollable = self.layout_manager.create_scrollable_column(self.paned_window, weight=1)
+        self.col1_scrollable = self.layout_manager.create_scrollable_column(self.paned_window)
+        self.col2_scrollable = self.layout_manager.create_scrollable_column(self.paned_window)
+        self.col3_scrollable = self.layout_manager.create_scrollable_column(self.paned_window)
 
-        # Action Buttons
-        button_frame = ttk.Frame(self)
-        button_frame.pack(fill='x', padx=10, pady=10)
-        ttk.Button(button_frame, text="Save and Close", command=self.save_and_close).pack(side='right', padx=5)
-        ttk.Button(button_frame, text="Cancel", command=self.destroy).pack(side='right')
+        # --- Action Buttons ---
+        button_frame = ctk.CTkFrame(self, fg_color="transparent")
+        button_frame.grid(row=2, column=0, sticky='e', padx=C.MAIN_PADDING, pady=(0, C.MAIN_PADDING))
+        
+        ctk.CTkButton(
+            button_frame, text="Cancel", command=self._on_closing,
+            font=(C.FONT_FAMILY, C.BUTTON_FONT_SIZE), corner_radius=C.BUTTON_CORNER_RADIUS,
+            fg_color="transparent", border_color=C.SECTION_BORDER_COLOR, border_width=1,
+            hover_color=C.SECTION_BG_COLOR
+        ).pack(side='left', padx=C.BUTTON_PADDING)
+        
+        ctk.CTkButton(
+            button_frame, text="Save and Close", command=self.save_and_close,
+            font=(C.FONT_FAMILY, C.BUTTON_FONT_SIZE, "bold"), corner_radius=C.BUTTON_CORNER_RADIUS,
+            hover_color=C.BUTTON_HOVER_COLOR
+        ).pack(side='left', padx=C.BUTTON_PADDING)
 
     def populate_sections(self):
-        """
-        Initializes all UI sections (the "View") and passes them the data model.
-        Enhanced with error handling integration.
-        """
-        # Pass the model and error manager to each section so they can bind to the data
-        # and handle errors appropriately
+        """Initializes all UI sections (the "View") and places them in the columns."""
         try:
-            BasicSetupSection(self.col1_scrollable, self.model, 0, self.layout_manager, self.error_manager)
-            ExperimentDesignSection(self.col1_scrollable, self.model, 1, self.layout_manager, self.error_manager)
-            GeometricAnalysisSection(self.col2_scrollable, self.model, 0, self.layout_manager, self.error_manager)
-            AutomaticAnalysisSection(self.col3_scrollable, self.model, 0, self.layout_manager, self.error_manager)
-            self.logger.info("All GUI sections initialized successfully")
+            # Column 1
+            BasicSetupSection(self.col1_scrollable, self.model, self.error_manager).grid(row=0, column=0, sticky='ew')
+            ExperimentDesignSection(self.col1_scrollable, self.model, self.error_manager).grid(row=1, column=0, sticky='ew', pady=(C.SECTION_SPACING, 0))
+            
+            # Column 2
+            GeometricAnalysisSection(self.col2_scrollable, self.model, self.error_manager).grid(row=0, column=0, sticky='ew')
+            
+            # Column 3
+            AutomaticAnalysisSection(self.col3_scrollable, self.model, self.error_manager).grid(row=0, column=0, sticky='ew')
+            
+            self.logger.info("All GUI sections populated successfully")
         except Exception as e:
-            self.logger.error(f"Error initializing GUI sections: {e}", exc_info=True)
-            self.error_manager.show_conversion_error("GUI Initialization", str(e), "system", suggestions=False, blocking=True)
+            self.logger.error(f"Fatal error during UI section initialization: {e}", exc_info=True)
+            self.error_manager.show_conversion_error(
+                "UI Initialization Failed", 
+                "A critical error occurred while building the user interface.", 
+                "system", suggestions=False, blocking=True
+            )
+            self.after(100, self.destroy)
 
     def save_and_close(self):
-        """
-        Handles the save action. The Controller tells the Model to save its
-        current state. Enhanced with comprehensive error handling.
-        """
-        try:
-            self.logger.info("Starting save and close operation")
-            
-            # Validate all parameters before saving
-            validation_errors = self._validate_all_parameters()
-            if validation_errors:
-                self.logger.warning(f"Found {len(validation_errors)} validation errors before save")
-                error_msg = "The following parameters have validation errors:\n\n"
-                error_msg += "\n".join(validation_errors[:10])  # Show first 10 errors
-                if len(validation_errors) > 10:
-                    error_msg += f"\n... and {len(validation_errors) - 10} more errors"
-                error_msg += "\n\nDo you want to save anyway? Invalid values will be saved as text."
-                
-                import tkinter.messagebox as mb
-                if not mb.askyesno("Validation Errors", error_msg):
-                    self.logger.info("Save cancelled due to validation errors")
-                    return
-            
-            if self.model.save():
-                self.logger.info("Save operation completed successfully")
-                self.destroy()
-                print(f"Parameters file edited successfully at {self.params_path}")
-            else:
-                self.logger.error("Save operation failed")
-                
-        except Exception as e:
-            self.logger.error(f"Error during save and close: {e}", exc_info=True)
-            self.error_manager.show_conversion_error("Save Operation", str(e), "system", suggestions=False, blocking=True)
-
-    def _on_window_resize(self, event):
-        """Handle window resize events."""
-        if event.widget == self:
-            self.layout_manager.update_layout(self)
-
-    def _setup_error_styles(self):
-        """Setup custom styles for error indication."""
-        try:
-            style = ttk.Style()
-            style.configure("Error.TEntry", fieldbackground="lightcoral", bordercolor="red")
-            self.logger.debug("Error styles configured successfully")
-        except Exception as e:
-            self.logger.warning(f"Could not configure error styles: {e}")
-
-    def _validate_all_parameters(self) -> list:
-        """
-        Validate all parameters in the model and return a list of validation errors.
-        
-        Returns:
-            List of error messages for invalid parameters
-        """
-        from .type_conversion import validate_numeric_input
-        from .type_registry import get_parameter_type, is_numeric_parameter
-        
-        validation_errors = []
-        
-        def validate_recursive(data, path=[]):
-            if isinstance(data, (dict, CommentedMap)):
-                for key, value in data.items():
-                    current_path = path + [str(key)]
-                    if isinstance(value, (dict, CommentedMap, list)):
-                        validate_recursive(value, current_path)
-                    elif isinstance(value, str) and is_numeric_parameter(current_path):
-                        param_type = get_parameter_type(current_path)
-                        if param_type and not validate_numeric_input(value, param_type, current_path):
-                            param_name = ' -> '.join(current_path)
-                            validation_errors.append(f"{param_name}: '{value}' (expected {param_type})")
-            elif isinstance(data, list):
-                for i, item in enumerate(data):
-                    validate_recursive(item, path + [f"[{i}]"])
-        
-        try:
-            validate_recursive(self.model.data)
-            self.logger.debug(f"Parameter validation completed - found {len(validation_errors)} errors")
-        except Exception as e:
-            self.logger.error(f"Error during parameter validation: {e}")
-            validation_errors.append(f"Validation system error: {e}")
-        
-        return validation_errors
+        """Handles the save action, triggering validation and model saving."""
+        self.logger.info("Attempting to save and close.")
+        if self.model.save():
+            self.logger.info("Save successful. Closing application.")
+            self._on_closing()
+        else:
+            self.logger.warning("Save operation failed. Application remains open.")
+            messagebox.showerror("Save Failed", "Could not save the parameters file. Please check the logs for more details.")
 
     def _on_closing(self):
-        """Handle window closing with proper cleanup and error handling."""
+        """Handle window closing with proper cleanup."""
+        self.logger.info("Closing Parameters Editor window.")
         try:
-            self.logger.info("Closing Parameters Editor")
+            if self.model.has_unsaved_changes():
+                 if not messagebox.askyesno("Unsaved Changes", "You have unsaved changes. Are you sure you want to exit?"):
+                     self.logger.info("User cancelled closing due to unsaved changes.")
+                     return
             
-            # Export debug information if there were errors
-            from .type_conversion import get_conversion_error_history
-            errors = get_conversion_error_history()
-            if errors:
+            # Export debug info if errors occurred
+            if self.error_manager.notification_queue or self.model.get_last_save_errors():
                 try:
-                    debug_file = self.params_path.parent / "debug_conversion_errors.json"
+                    debug_file = self.params_path.parent / f"debug_info_{self.params_path.stem}.json"
                     DebugInfoCollector.export_debug_info(str(debug_file))
                     self.logger.info(f"Debug information exported to {debug_file}")
                 except Exception as e:
-                    self.logger.warning(f"Could not export debug information: {e}")
-            
-            # Cleanup
-            self.help_system.cleanup()
-            self.logger.info("Parameters Editor closed successfully")
-            
-        except Exception as e:
-            self.logger.error(f"Error during cleanup: {e}")
-        finally:
-            super().destroy()
+                    self.logger.warning(f"Could not export debug information: {e}", exc_info=True)
 
-    def destroy(self):
-        """Override destroy to ensure proper cleanup."""
-        self._on_closing()
+            self.help_system.cleanup()
+        except Exception as e:
+            self.logger.error(f"Error during cleanup: {e}", exc_info=True)
+        finally:
+            self.logger.info("Destroying main window.")
+            self.destroy()

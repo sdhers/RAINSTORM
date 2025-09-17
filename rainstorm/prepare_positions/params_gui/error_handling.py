@@ -5,11 +5,9 @@ This module provides comprehensive error handling, user-friendly notifications,
 and debugging utilities for the parameters editor.
 """
 
-import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox
 import logging
 from typing import Optional, Callable, Any
-import threading
 import time
 from .type_conversion import get_user_friendly_error_message, get_conversion_suggestions
 
@@ -22,7 +20,7 @@ class ErrorNotificationManager:
     Ensures the GUI remains responsive during error conditions.
     """
     
-    def __init__(self, parent_window: tk.Tk):
+    def __init__(self, parent_window):
         self.parent = parent_window
         self.notification_queue = []
         self.is_showing_notification = False
@@ -158,7 +156,7 @@ class SafeOperationWrapper:
             return result
             
         except Exception as e:
-            logger.error(f"Safe operation failed - {operation_name}: {e}")
+            logger.error(f"Safe operation failed - {operation_name}: {e}", exc_info=True)
             
             if show_errors:
                 error_msg = f"Operation '{operation_name}' failed: {str(e)}"
@@ -210,7 +208,7 @@ class ValidationHelper:
             return True, converted
             
         except Exception as e:
-            logger.error(f"Validation failed for {parameter_name}: {e}")
+            logger.error(f"Validation failed for {parameter_name}: {e}", exc_info=True)
             if show_errors:
                 self.error_manager.show_conversion_error(
                     parameter_name, value, target_type, suggestions=True
@@ -255,13 +253,13 @@ class DebugInfoCollector:
         try:
             debug_info = DebugInfoCollector.collect_conversion_debug_info()
             
-            with open(filepath, 'w') as f:
+            with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(debug_info, f, indent=2, default=str)
             
             logger.info(f"Debug information exported to: {filepath}")
             
         except Exception as e:
-            logger.error(f"Failed to export debug information: {e}")
+            logger.error(f"Failed to export debug information: {e}", exc_info=True)
 
 
 class ResponsiveErrorHandler:
@@ -269,7 +267,7 @@ class ResponsiveErrorHandler:
     Ensures the GUI remains responsive during error conditions.
     """
     
-    def __init__(self, parent_window: tk.Tk):
+    def __init__(self, parent_window):
         self.parent = parent_window
         self.error_count = 0
         self.max_errors_per_session = 50
@@ -285,11 +283,12 @@ class ResponsiveErrorHandler:
         self.error_count += 1
         
         # Log the error
-        logger.error(f"Error in {context}: {error}")
+        logger.error(f"Error in {context}: {error}", exc_info=True)
         
         # Throttle error notifications if too many occur
         if self.error_count > self.max_errors_per_session:
-            logger.warning(f"Error throttling activated - too many errors ({self.error_count})")
+            if self.error_count == self.max_errors_per_session + 1:
+                 logger.warning(f"Error throttling activated - too many errors ({self.error_count})")
             return
         
         # Show error in a non-blocking way
@@ -300,13 +299,13 @@ class ResponsiveErrorHandler:
         try:
             if self.error_count <= 10:  # Show first 10 errors normally
                 messagebox.showerror("Error", f"Error in {context}:\n{error_msg}", parent=self.parent)
-            elif self.error_count <= 20:  # Show next 10 as warnings
+            elif self.error_count == 11:  # Show a summary warning
                 messagebox.showwarning("Multiple Errors", 
-                                     f"Multiple errors detected. Latest in {context}:\n{error_msg}", 
+                                     f"Multiple errors detected. Further errors will be logged to console.", 
                                      parent=self.parent)
-            # After 20 errors, only log them
+            # After that, only log them
         except Exception as e:
-            logger.error(f"Failed to show error dialog: {e}")
+            logger.error(f"Failed to show error dialog: {e}", exc_info=True)
     
     def reset_error_count(self):
         """Reset the error count (e.g., when starting a new session)."""

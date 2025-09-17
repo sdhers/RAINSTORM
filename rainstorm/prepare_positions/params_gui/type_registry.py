@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # Value: string representing the expected data type
 NUMERIC_PARAMETERS: Dict[Tuple[str, ...], str] = {
     # Top-level parameters
-    ('fps',): 'int',
+    ('fps',): 'float',
     
     # prepare_positions parameters
     ('prepare_positions', 'confidence'): 'int',
@@ -25,11 +25,28 @@ NUMERIC_PARAMETERS: Dict[Tuple[str, ...], str] = {
     ('prepare_positions', 'far_dist'): 'float',
     ('prepare_positions', 'max_outlier_connections'): 'int',
     
+    # geometric_analysis roi_data parameters
+    ('geometric_analysis', 'roi_data', 'frame_shape'): 'list_int',
+    ('geometric_analysis', 'roi_data', 'scale'): 'float',
+    
+    # ROI rectangle parameters
+    ('geometric_analysis', 'roi_data', 'rectangles', 'center'): 'list_int',
+    ('geometric_analysis', 'roi_data', 'rectangles', 'width'): 'int',
+    ('geometric_analysis', 'roi_data', 'rectangles', 'height'): 'int',
+    ('geometric_analysis', 'roi_data', 'rectangles', 'angle'): 'int',
+
+    # ROI circle parameters
+    ('geometric_analysis', 'roi_data', 'circles', 'center'): 'list_int',
+    ('geometric_analysis', 'roi_data', 'circles', 'radius'): 'int',
+
+    # ROI point parameters
+    ('geometric_analysis', 'roi_data', 'points', 'center'): 'list_int',
+
     # geometric_analysis parameters
     ('geometric_analysis', 'freezing_threshold'): 'float',
     ('geometric_analysis', 'freezing_time_window'): 'float',
-    ('geometric_analysis', 'target_exploration', 'distance'): 'int',
-    ('geometric_analysis', 'target_exploration', 'orientation', 'degree'): 'int',
+    ('geometric_analysis', 'target_exploration', 'distance'): 'float',
+    ('geometric_analysis', 'target_exploration', 'orientation', 'degree'): 'float',
     
     # automatic_analysis split parameters
     ('automatic_analysis', 'split', 'focus_distance'): 'int',

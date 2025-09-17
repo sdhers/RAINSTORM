@@ -71,11 +71,11 @@ class ParamsBuilder:
             C.KEY_TRIALS: C.DEFAULT_TRIALS.copy(),
             C.KEY_GEOMETRIC_ANALYSIS: dict_to_commented_map({
                 C.KEY_ROI_DATA: self.load_roi_data(rois_path),
-                C.KEY_FREEZING_THRESHOLD: 0.01,
+                C.KEY_FREEZING_THRESHOLD: C.DEFAULT_FREEZING_THRESHOLD,
                 C.KEY_FREEZING_TIME_WINDOW: C.DEFAULT_FREEZING_TIME_WINDOW,
                 C.KEY_TARGET_EXPLORATION: {
-                    C.KEY_DISTANCE: 3,
-                    C.KEY_ORIENTATION: {C.KEY_DEGREE: 45, C.KEY_FRONT: 'nose', C.KEY_PIVOT: 'head'}
+                    C.KEY_DISTANCE: C.DEFAULT_DISTANCE,
+                    C.KEY_ORIENTATION: {C.KEY_DEGREE: C.DEFAULT_DEGREE, C.KEY_FRONT: C.DEFAULT_FRONT, C.KEY_PIVOT: C.DEFAULT_PIVOT}
                 }
             }),
             C.KEY_AUTOMATIC_ANALYSIS: dict_to_commented_map({

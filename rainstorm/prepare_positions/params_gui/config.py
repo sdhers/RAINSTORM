@@ -9,6 +9,8 @@ from pathlib import Path
 
 # --- Project Structure ---
 try:
+    # This structure assumes the config file is in a sub-package.
+    # Adjust if your script's entry point is different.
     RAINSTORM_DIR = Path(__file__).resolve().parent.parent.parent.parent
 except NameError:
     RAINSTORM_DIR = Path.cwd()
@@ -20,17 +22,64 @@ HELP_CONTENT_DIR = Path(__file__).resolve().parent / "help_text"
 
 # --- UI Dimensions & Layout ---
 WINDOW_WIDTH = 1100
-WINDOW_HEIGHT = 620
+WINDOW_HEIGHT = 550
 SCROLLBAR_WIDTH = 20
-MAIN_PADDING = 20
-COLUMN_PADDING = 8
-BUTTON_FRAME_HEIGHT = 70
-TITLE_BAR_HEIGHT = 30
+MAIN_PADDING = 15
+COLUMN_PADDING = 10
+BUTTON_FRAME_HEIGHT = 60
+TITLE_BAR_HEIGHT = 40
 MIN_COLUMN_WIDTH = 300
-MIN_CONTENT_HEIGHT = 400
-PATH_FIELD_WIDTH_CHARS = 38
-NUMBER_FIELD_WIDTH_CHARS = 10
-TEXT_FIELD_WIDTH_CHARS = 20
+MIN_CONTENT_HEIGHT = 300
+
+# --- Field Sizing (in characters/units appropriate for CTk) ---
+PATH_FIELD_WIDTH = 360
+NUMBER_FIELD_WIDTH = 60
+TEXT_FIELD_WIDTH = 120
+
+# --- Spacing & Padding ---
+SECTION_PADDING_X = 10
+SECTION_PADDING_Y = 10
+SECTION_SPACING = 15
+WIDGET_PADDING = 5
+LABEL_PADDING = 5
+ENTRY_PADDING = 3
+BUTTON_PADDING = 5
+SUBSECTION_PADDING = (10, 5)
+
+# --- Font Styling ---
+FONT_FAMILY = "Segoe UI"
+TITLE_FONT_SIZE = 18
+SECTION_TITLE_FONT_SIZE = 14
+SUBSECTION_TITLE_FONT_SIZE = 12
+LABEL_FONT_SIZE = 11
+ENTRY_FONT_SIZE = 11
+BUTTON_FONT_SIZE = 11
+
+# --- Colors and Visual Styling ---
+# Theme: Dark with blue accents
+APP_BACKGROUND_COLOR = "#242424"
+SECTION_BG_COLOR = "#2b2b2b"
+SECTION_BORDER_COLOR = "#3c3c3c"
+TITLE_COLOR = "#ffffff"
+SUBTITLE_COLOR = "#d0d0d0"
+LABEL_COLOR = "#c0c0c0"
+VALUE_COLOR = "#ffffff"
+BUTTON_HOVER_COLOR = "#1f6aa5"
+ENTRY_BORDER_COLOR = "#555555"
+ENTRY_FOCUS_COLOR = "#1f6aa5"
+ENTRY_ERROR_BORDER_COLOR = "#e53935"
+
+# --- Component-Specific Styling ---
+SECTION_BORDER_WIDTH = 2
+SECTION_CORNER_RADIUS = 8
+ENTRY_CORNER_RADIUS = 5
+BUTTON_CORNER_RADIUS = 5
+ENTRY_BORDER_WIDTH = 1
+
+# --- List Frame Settings ---
+DYNAMIC_LIST_MAX_HEIGHT = 150
+SCROLLABLE_LIST_MAX_HEIGHT = 80
+ROI_ELEMENT_HEIGHT = 80
 
 
 # --- Default Parameter Values ---
@@ -44,7 +93,13 @@ DEFAULT_BODYPARTS = [
 DEFAULT_MODEL_BODYPARTS = ["nose", "left_ear", "right_ear", "head", "neck", "body"]
 DEFAULT_TARGETS = ["obj_1", "obj_2"]
 DEFAULT_TRIALS = ['Hab', 'TR', 'TS']
+DEFAULT_FREEZING_THRESHOLD = 0.01
 DEFAULT_FREEZING_TIME_WINDOW = 1.0  # Default time window in seconds for freezing detection
+
+DEFAULT_DISTANCE = 3
+DEFAULT_DEGREE = 45
+DEFAULT_FRONT = "nose"
+DEFAULT_PIVOT = "head"
 
 
 # --- YAML Parameter Keys (as constants to avoid typos) ---
@@ -97,7 +152,7 @@ KEY_FOCUS_DISTANCE = "focus_distance"
 KEY_VALIDATION = "validation"
 KEY_TEST = "test"
 
-# 'RNN_width' sub-keys
+# 'RNN' sub-keys
 KEY_RNN = "RNN"
 KEY_RESCALING = "rescaling"
 KEY_RESHAPING = "reshaping"

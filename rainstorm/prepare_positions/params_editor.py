@@ -28,10 +28,10 @@ def open_params_editor(params_path: str):
 
 if __name__ == '__main__':
     # This allows you to run the editor directly for testing by selecting a file.
-    import tkinter as tk
+    import customtkinter as ctk
     from tkinter import filedialog
     
-    root = tk.Tk()
+    root = ctk.CTk()
     root.withdraw()
     file_path = filedialog.askopenfilename(
         title="Select a params.yaml file",

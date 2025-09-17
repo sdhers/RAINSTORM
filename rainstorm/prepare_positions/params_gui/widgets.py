@@ -1,55 +1,49 @@
 """
 RAINSTORM - Parameters Editor GUI (Reusable Widgets)
 
-This module contains reusable Tkinter widgets.
+This module contains reusable and styled Tkinter widgets for the application.
 """
 
+import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk
 import logging
-from .gui_utils import parse_value
+from .gui_utils import get_comment
 from .type_registry import get_parameter_type, is_numeric_parameter
-from .type_conversion import convert_with_fallback, format_for_display, validate_numeric_input, get_user_friendly_error_message
+from .type_conversion import convert_with_fallback
+from . import config as C
 
 logger = logging.getLogger(__name__)
 
-# --- Custom Exceptions for Validation ---
-class WidgetValueError(ValueError):
-    """Custom exception for validation errors within a widget."""
-    pass
-
-class WidgetValidationError(Exception):
-    """Exception raised when widget validation fails."""
-    def __init__(self, message, widget_name=None, invalid_value=None):
-        self.widget_name = widget_name
-        self.invalid_value = invalid_value
-        super().__init__(message)
-
 # --- ToolTip Widget ---
 class ToolTip:
-    """Create a tooltip for a given widget. (Unchanged, already good)"""
+    """Create a modern, styled tooltip for a given widget."""
     def __init__(self, widget, text):
         self.widget = widget
         self.text = text
         self.tooltip_window = None
-        widget.bind("<Enter>", self.show_tooltip, add='+')
-        widget.bind("<Leave>", self.hide_tooltip, add='+')
-        widget.bind("<ButtonPress>", self.hide_tooltip, add='+')
+        self.widget.bind("<Enter>", self.show_tooltip)
+        self.widget.bind("<Leave>", self.hide_tooltip)
+        self.widget.bind("<ButtonPress>", self.hide_tooltip)
 
     def show_tooltip(self, event=None):
-        if self.tooltip_window or not self.text: return
-        try:
-            x, y, _, _ = self.widget.bbox("insert")
-            x += self.widget.winfo_rootx() + 25
-            y += self.widget.winfo_rooty() + 25
-            self.tooltip_window = tw = tk.Toplevel(self.widget)
-            tw.wm_overrideredirect(True)
-            tw.wm_geometry(f"+{x}+{y}")
-            label = tk.Label(tw, text=self.text, justify='left', background="#ffffe0",
-                           relief='solid', borderwidth=1, font=("tahoma", "8", "normal"))
-            label.pack(ipadx=1)
-        except tk.TclError:
-            pass
+        if self.tooltip_window or not self.text:
+            return
+        
+        x = self.widget.winfo_rootx() + self.widget.winfo_width() // 2
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
+
+        self.tooltip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        tw.wm_attributes("-topmost", True)
+
+        label = tk.Label(
+            tw, text=self.text, justify='left',
+            background="#333333", foreground="#eeeeee", relief='solid', borderwidth=1,
+            font=(C.FONT_FAMILY, 10, "normal"), padx=8, pady=5
+        )
+        label.pack()
 
     def hide_tooltip(self, event=None):
         if self.tooltip_window:
@@ -57,26 +51,27 @@ class ToolTip:
         self.tooltip_window = None
 
 # --- Dynamic List Widgets ---
-class DynamicListFrame(ttk.Frame):
-    """
-    A frame that manages a dynamic list of text entries, now bound to
-    a list within the data model.
-    """
-    def __init__(self, parent, title, data_map, key, callback=None):
-        super().__init__(parent)
+class DynamicListFrame(ctk.CTkFrame):
+    """A frame for managing a dynamic list of text entries bound to the data model."""
+    def __init__(self, parent, data_map, key):
+        super().__init__(parent, fg_color="transparent")
         self.data_map = data_map
         self.key = key
-        self.callback = callback
         
-        # Remove the columnconfigure that was causing expansion
-        if title:
-            ttk.Label(self, text=title, font=('Helvetica', 10, 'bold')).grid(row=0, column=0, sticky='w', pady=(0, 5))
-
-        self.items_frame = ttk.Frame(self)
-        self.items_frame.grid(row=1, column=0, sticky='w')  # Changed from 'ew' to 'w'
-        # Remove the columnconfigure that was causing expansion
+        self.grid_columnconfigure(0, weight=1)
         
-        ttk.Button(self, text="+", width=3, command=self._add_item).grid(row=2, column=0, sticky='w', pady=5)  # Changed from 'e' to 'w'
+        self.items_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.items_frame.grid(row=0, column=0, sticky='ew')
+        self.items_frame.grid_columnconfigure(0, weight=1)
+        
+        add_button = ctk.CTkButton(
+            self, text="+ Add Item", width=4,
+            font=(C.FONT_FAMILY, C.BUTTON_FONT_SIZE),
+            corner_radius=C.BUTTON_CORNER_RADIUS,
+            hover_color=C.BUTTON_HOVER_COLOR,
+            command=self._add_item
+        )
+        add_button.grid(row=1, column=0, sticky='w', pady=(C.BUTTON_PADDING, 0))
         
         self._populate_items()
 
@@ -84,29 +79,37 @@ class DynamicListFrame(ttk.Frame):
         for widget in self.items_frame.winfo_children():
             widget.destroy()
         
-        initial_values = self.data_map.get(self.key, [])
-        for value in initial_values:
+        for value in self.data_map.get(self.key, []):
             self._create_item_row(value)
             
     def _create_item_row(self, value=""):
-        row_frame = ttk.Frame(self.items_frame)
-        row_frame.pack(fill='x', expand=True, pady=1)
+        row_frame = ctk.CTkFrame(self.items_frame, fg_color="transparent")
+        row_frame.grid(row=len(self.items_frame.winfo_children()), column=0, sticky='ew', pady=(0, C.ENTRY_PADDING))
+        row_frame.grid_columnconfigure(0, weight=1)
 
-        entry = ttk.Entry(row_frame)
+        entry = ctk.CTkEntry(
+            row_frame, font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE),
+            corner_radius=C.ENTRY_CORNER_RADIUS, border_width=C.ENTRY_BORDER_WIDTH,
+            border_color=C.ENTRY_BORDER_COLOR, fg_color=C.SECTION_BG_COLOR,
+            text_color=C.VALUE_COLOR
+        )
         entry.insert(0, str(value))
-        entry.pack(side='left', fill='x', expand=True, padx=(0, 5))
+        entry.grid(row=0, column=0, sticky='ew', padx=(0, C.BUTTON_PADDING))
 
         entry.bind('<KeyRelease>', lambda e: self._sync_model())
         entry.bind('<FocusOut>', lambda e: self._sync_model())
         
-        remove_button = ttk.Button(row_frame, text="-", width=3,
-                                 command=lambda rf=row_frame: self._remove_item(rf))
-        remove_button.pack(side='right')
+        remove_button = ctk.CTkButton(
+            row_frame, text="-", width=28, height=28,
+            font=(C.FONT_FAMILY, C.BUTTON_FONT_SIZE), corner_radius=C.BUTTON_CORNER_RADIUS,
+            hover_color=C.BUTTON_HOVER_COLOR, fg_color=C.SECTION_BORDER_COLOR,
+            command=lambda rf=row_frame: self._remove_item(rf)
+        )
+        remove_button.grid(row=0, column=1, sticky='w')
 
-    def _add_item(self, value=""):
-        self.data_map.get(self.key, []).append(value)
-        self._create_item_row(value)
-        self._sync_model()
+    def _add_item(self):
+        self._create_item_row()
+        self._sync_model() # Sync to add an empty string to the model
 
     def _remove_item(self, row_frame):
         row_frame.destroy()
@@ -116,558 +119,759 @@ class DynamicListFrame(ttk.Frame):
         """Syncs the list in the data model with the current state of the UI entries."""
         values = [
             child.winfo_children()[0].get() for child in self.items_frame.winfo_children()
-            if child.winfo_children() and isinstance(child.winfo_children()[0], ttk.Entry)
+            if child.winfo_children() and isinstance(child.winfo_children()[0], ctk.CTkEntry)
         ]
         self.data_map[self.key] = [v for v in values if v] # Filter out empty strings
-        if self.callback:
-            self.callback()
 
-class ScrollableDynamicListFrame(ttk.Frame):
-    """A scrollable version of the DynamicListFrame."""
-    def __init__(self, parent, title, data_map, key, callback=None, max_height=150):
-        super().__init__(parent)
-        self.data_map = data_map
-        self.key = key
-        self.callback = callback
-        
-        # Remove the columnconfigure that was causing expansion
-        
+class ScrollableDynamicListFrame(DynamicListFrame):
+    """A scrollable version of the DynamicListFrame with borders and optional title."""
+    def __init__(self, parent, data_map, key, title=None):
+        # We need a container to put the scrollable frame in
+        container = ctk.CTkFrame(parent, fg_color="transparent")
+        container.grid(row=0, column=0, sticky='ew')
+        container.grid_columnconfigure(0, weight=1)
+
+        # Add title if provided
         if title:
-            ttk.Label(self, text=title, font=('Helvetica', 10, 'bold')).grid(row=0, column=0, sticky='w', pady=(0, 5))
+            title_label = ctk.CTkLabel(
+                container,
+                text=title,
+                font=(C.FONT_FAMILY, C.SUBSECTION_TITLE_FONT_SIZE, "bold"),
+                text_color=C.SUBTITLE_COLOR,
+                anchor="w"
+            )
+            title_label.grid(row=0, column=0, sticky="ew", pady=(0, C.WIDGET_PADDING))
 
-        # Create scrollable area with fixed width
-        canvas_frame = ttk.Frame(self)
-        canvas_frame.grid(row=1, column=0, sticky='w')  # Changed from 'ew' to 'w'
+        scrollable_container = ctk.CTkScrollableFrame(
+            container, 
+            height=C.SCROLLABLE_LIST_MAX_HEIGHT,
+            fg_color=C.SECTION_BG_COLOR,
+            border_color=C.SECTION_BORDER_COLOR,
+            border_width=1,
+            corner_radius=C.SECTION_CORNER_RADIUS,
+            label_text=None
+        )
+        scrollable_container.grid(row=1, column=0, sticky='ew')
+        scrollable_container.grid_columnconfigure(0, weight=1)
 
-        # Set a fixed width for the canvas to prevent expansion
-        canvas_width = 250  # Fixed width that should fit in column
-        canvas = tk.Canvas(canvas_frame, height=max_height, width=canvas_width, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=canvas.yview)
-        canvas.configure(yscrollcommand=scrollbar.set)
+        # Initialize the parent DynamicListFrame inside the scrollable area
+        super().__init__(scrollable_container, data_map, key)
+        self.grid(row=0, column=0, sticky='ew')
 
-        self.items_frame = ttk.Frame(canvas) # This is where list items will go
-        canvas.create_window((0, 0), window=self.items_frame, anchor="nw")
-
-        self.items_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        
-        # Fix mousewheel binding to be specific to this canvas
-        def on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        canvas.bind("<MouseWheel>", on_mousewheel)
-        
-        canvas.grid(row=0, column=0, sticky='w')  # Changed from 'nsew' to 'w'
-        scrollbar.grid(row=0, column=1, sticky='ns')
-
-        ttk.Button(self, text="+", width=3, command=self._add_item).grid(row=2, column=0, sticky='w', pady=5)  # Changed from 'e' to 'w'
-        
-        self._populate_items()
-
-    def _populate_items(self):
-        for widget in self.items_frame.winfo_children():
-            widget.destroy()
-        
-        initial_values = self.data_map.get(self.key, [])
-        for value in initial_values:
-            self._create_item_row(value)
-            
-    def _create_item_row(self, value=""):
-        row_frame = ttk.Frame(self.items_frame)
-        row_frame.pack(fill='x', expand=True, pady=1)
-
-        entry = ttk.Entry(row_frame)
-        entry.insert(0, str(value))
-        entry.pack(side='left', fill='x', expand=True, padx=(0, 5))
-
-        entry.bind('<KeyRelease>', lambda e: self._sync_model())
-        entry.bind('<FocusOut>', lambda e: self._sync_model())
-        
-        remove_button = ttk.Button(row_frame, text="-", width=3,
-                                 command=lambda rf=row_frame: self._remove_item(rf))
-        remove_button.pack(side='right')
-
-    def _add_item(self, value=""):
-        self.data_map.get(self.key, []).append(value)
-        self._create_item_row(value)
-        self._sync_model()
-
-    def _remove_item(self, row_frame):
-        row_frame.destroy()
-        self._sync_model()
-    
-    def _sync_model(self):
-        """Syncs the list in the data model with the current state of the UI entries."""
-        values = [
-            child.winfo_children()[0].get() for child in self.items_frame.winfo_children()
-            if child.winfo_children() and isinstance(child.winfo_children()[0], ttk.Entry)
-        ]
-        self.data_map[self.key] = [v for v in values if v] # Filter out empty strings
-        if self.callback:
-            self.callback()
 
 # --- Specialized Data Editor Frames ---
-class ROIDataFrame(ttk.LabelFrame):
+class ValidatedFrame(ctk.CTkFrame):
+    """Base class for frames that need validation functionality."""
+    
+    def _add_validation_feedback(self, entry_widget, string_var, param_type, param_path):
+        """Adds visual feedback for validation on an entry widget."""
+        from .type_conversion import validate_numeric_input
+
+        def validate_live(*_):
+            value = string_var.get()
+            if not value.strip(): # Ignore empty
+                entry_widget.configure(border_color=C.ENTRY_BORDER_COLOR)
+                return
+
+            if validate_numeric_input(value, param_type, param_path):
+                entry_widget.configure(border_color=C.ENTRY_FOCUS_COLOR)
+            else:
+                entry_widget.configure(border_color=C.ENTRY_ERROR_BORDER_COLOR)
+        
+        def on_focus_out(event):
+             entry_widget.configure(border_color=C.ENTRY_BORDER_COLOR)
+             validate_live() # Re-validate to show error if left invalid
+
+        string_var.trace_add("write", validate_live)
+        entry_widget.bind("<FocusOut>", on_focus_out)
+        entry_widget.bind("<FocusIn>", lambda e: validate_live())
+
+    def _update_value(self, key, value, data_map=None, param_path=None):
+        """Generic method to update a value with type conversion."""
+        # If data_map is not provided, use self.data
+        if data_map is None:
+            data_map = self.data
+            
+        # If param_path is not provided, try to build it from the calling context
+        if param_path is None:
+            # This is a fallback - subclasses should provide the path
+            param_path = []
+            
+        if is_numeric_parameter(param_path):
+            target_type = get_parameter_type(param_path)
+            if target_type:
+                converted_value = convert_with_fallback(value, target_type, value, param_path)
+                data_map[key] = converted_value
+            else:
+                data_map[key] = value
+        else:
+            data_map[key] = value
+
+class ROIDataFrame(ValidatedFrame):
     def __init__(self, parent, roi_data):
-        super().__init__(parent, text="ROI Data", padding=5)
+        super().__init__(parent, fg_color="transparent")
+        self.grid_columnconfigure(0, weight=1)
         self.data = roi_data
         self._create_widgets()
 
     def _create_widgets(self):
-        # Frame Shape
-        shape_frame = ttk.LabelFrame(self, text="Frame Shape", padding=5)
-        shape_frame.grid(row=0, column=0, sticky='ew', pady=5)
-        shape_frame.columnconfigure(1, weight=1)
-        shape_frame.columnconfigure(3, weight=1)
+        # Frame Shape & Scale
+        shape_frame = ctk.CTkFrame(self, fg_color="transparent")
+        shape_frame.grid(row=0, column=0, sticky='ew', pady=C.WIDGET_PADDING)
         
-        ttk.Label(shape_frame, text="Width:").grid(row=0, column=0, sticky='w')
+        ctk.CTkLabel(shape_frame, text="Width:", font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE)).pack(side='left')
         w_var = tk.StringVar(value=str(self.data['frame_shape'][0]))
-        w_var.trace_add("write", lambda *_: self._update_frame_shape_with_conversion(0, w_var.get()))
-        ttk.Entry(shape_frame, textvariable=w_var, width=8).grid(row=0, column=1, padx=5, sticky='w')
-        ttk.Label(shape_frame, text="Height:").grid(row=0, column=2, sticky='w')
+        w_var.trace_add("write", lambda *_: self._update_data_with_conversion(['frame_shape', 0], w_var.get()))
+        w_entry = ctk.CTkEntry(
+            shape_frame, 
+            textvariable=w_var, 
+            width=60,
+            font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE),
+            corner_radius=C.ENTRY_CORNER_RADIUS,
+            border_width=C.ENTRY_BORDER_WIDTH,
+            border_color=C.ENTRY_BORDER_COLOR,
+            fg_color=C.SECTION_BG_COLOR,
+            text_color=C.VALUE_COLOR
+        )
+        w_entry.pack(side='left', padx=5)
+        self._add_validation_feedback(w_entry, w_var, 'int', ['geometric_analysis', 'roi_data', 'frame_shape', 0])
+        
+        ctk.CTkLabel(shape_frame, text="Height:", font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE)).pack(side='left', padx=(10, 0))
         h_var = tk.StringVar(value=str(self.data['frame_shape'][1]))
-        h_var.trace_add("write", lambda *_: self._update_frame_shape_with_conversion(1, h_var.get()))
-        ttk.Entry(shape_frame, textvariable=h_var, width=8).grid(row=0, column=3, padx=5, sticky='w')
-        
-        # Scale
-        scale_frame = ttk.Frame(self)
-        scale_frame.grid(row=1, column=0, sticky='ew', pady=5)
-        scale_frame.columnconfigure(1, weight=1)
-        ttk.Label(scale_frame, text="Scale:").grid(row=0, column=0, sticky='w')
+        h_var.trace_add("write", lambda *_: self._update_data_with_conversion(['frame_shape', 1], h_var.get()))
+        h_entry = ctk.CTkEntry(
+            shape_frame, 
+            textvariable=h_var, 
+            width=60,
+            font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE),
+            corner_radius=C.ENTRY_CORNER_RADIUS,
+            border_width=C.ENTRY_BORDER_WIDTH,
+            border_color=C.ENTRY_BORDER_COLOR,
+            fg_color=C.SECTION_BG_COLOR,
+            text_color=C.VALUE_COLOR
+        )
+        h_entry.pack(side='left', padx=5)
+        self._add_validation_feedback(h_entry, h_var, 'int', ['geometric_analysis', 'roi_data', 'frame_shape', 1])
+
+        ctk.CTkLabel(shape_frame, text="Scale:", font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE)).pack(side='left', padx=(10, 0))
         scale_var = tk.StringVar(value=str(self.data.get('scale', 1.0)))
-        scale_var.trace_add("write", lambda *_: self._update_scale_with_conversion(scale_var.get()))
-        ttk.Entry(scale_frame, textvariable=scale_var, width=8).grid(row=0, column=1, padx=5, sticky='w')
+        scale_var.trace_add("write", lambda *_: self._update_data_with_conversion(['scale'], scale_var.get()))
+        scale_entry = ctk.CTkEntry(
+            shape_frame, 
+            textvariable=scale_var, 
+            width=60,
+            font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE),
+            corner_radius=C.ENTRY_CORNER_RADIUS,
+            border_width=C.ENTRY_BORDER_WIDTH,
+            border_color=C.ENTRY_BORDER_COLOR,
+            fg_color=C.SECTION_BG_COLOR,
+            text_color=C.VALUE_COLOR
+        )
+        scale_entry.pack(side='left', padx=5)
+        self._add_validation_feedback(scale_entry, scale_var, 'float', ['geometric_analysis', 'roi_data', 'scale'])
         
-        # ROI Elements with scrollable sections
-        elements_frame = ttk.LabelFrame(self, text="ROI Elements", padding=5)
-        elements_frame.grid(row=2, column=0, sticky='w', pady=5)  # Changed from 'ew' to 'w'
-        elements_frame.configure(width=300)  # Set fixed width
+        # ROI Elements Tabs
+        self.tab_container = ctk.CTkFrame(self, fg_color="transparent")
+        self.tab_container.grid(row=1, column=0, sticky='ew', pady=C.WIDGET_PADDING)
+        self.tab_container.grid_columnconfigure(0, weight=1)
         
-        # Rectangles
-        self._create_roi_element_section(elements_frame, "Rectangles", "rectangles", 0)
+        # Create tab buttons
+        self.tab_buttons_frame = ctk.CTkFrame(self.tab_container, fg_color="transparent")
+        self.tab_buttons_frame.grid(row=0, column=0, sticky='ew', pady=(0, 5))
         
-        # Circles  
-        self._create_roi_element_section(elements_frame, "Circles", "circles", 1)
+        self.tab_buttons = {}
+        self.tab_content_frames = {}
         
-        # Points
-        self._create_roi_element_section(elements_frame, "Points", "points", 2)
+        self._create_element_tab("Rectangles", "rectangles")
+        self._create_element_tab("Circles", "circles")
+        self._create_element_tab("Points", "points")
+        
+        # Set default active tab
+        self._switch_tab("Rectangles")
 
-    def _create_roi_element_section(self, parent, title, key, row):
-        """Create a scrollable section for ROI elements (rectangles, circles, points)"""
-        section_frame = ttk.LabelFrame(parent, text=f"{title} ({len(self.data.get(key, []))})", padding=3)
-        section_frame.grid(row=row, column=0, sticky='w', pady=2)  # Changed from 'ew' to 'w'
+    def _create_element_tab(self, title, key):
+        # Create tab button
+        tab_button = ctk.CTkButton(
+            self.tab_buttons_frame,
+            text=f"{title} ({len(self.data.get(key, []))})",
+            command=lambda: self._switch_tab(title),
+            font=(C.FONT_FAMILY, C.BUTTON_FONT_SIZE),
+            corner_radius=C.BUTTON_CORNER_RADIUS,
+            fg_color=C.SECTION_BG_COLOR,
+            hover_color=C.BUTTON_HOVER_COLOR,
+            text_color=C.LABEL_COLOR,
+            border_width=1,
+            border_color=C.SECTION_BORDER_COLOR,
+            width=100,
+            height=30
+        )
+        tab_button.pack(side='left', padx=(0, 5))
+        self.tab_buttons[title] = tab_button
         
-        # Create scrollable area with fixed width
-        canvas_frame = ttk.Frame(section_frame)
-        canvas_frame.grid(row=0, column=0, sticky='w')  # Changed from 'ew' to 'w'
-
-        canvas = tk.Canvas(canvas_frame, height=80, width=300, highlightthickness=0)  # Added fixed width
-        scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=canvas.yview)
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        content_frame = ttk.Frame(canvas)
-        canvas.create_window((0, 0), window=content_frame, anchor="nw")
-
-        content_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        # Create content frame
+        content_frame = ctk.CTkScrollableFrame(
+            self.tab_container, 
+            label_text=None, 
+            height=C.ROI_ELEMENT_HEIGHT,
+            fg_color=C.SECTION_BG_COLOR,
+            border_color=C.SECTION_BORDER_COLOR,
+            border_width=1,
+            corner_radius=C.SECTION_CORNER_RADIUS
+        )
+        content_frame.grid_columnconfigure(0, weight=1)
+        self.tab_content_frames[title] = content_frame
         
-        canvas.grid(row=0, column=0, sticky='w')  # Changed from 'ew' to 'w'
-        scrollbar.grid(row=0, column=1, sticky='ns')
+        # Create elements container
+        elements_container = ctk.CTkFrame(content_frame, fg_color="transparent")
+        elements_container.pack(fill='both', expand=True, pady=5, padx=5)
+        elements_container.grid_columnconfigure(0, weight=1)
 
-        # Populate with existing elements
-        elements = self.data.get(key, [])
-        for i, element in enumerate(elements):
-            self._create_element_row(content_frame, element, key, i)
+        for i, element in enumerate(self.data.get(key, [])):
+            self._create_element_row(elements_container, element, key, i)
         
-        # Add button
-        add_btn = ttk.Button(section_frame, text=f"+ Add {title[:-1]}", 
-                           command=lambda: self._add_element(content_frame, key, section_frame, title))
-        add_btn.grid(row=1, column=0, sticky='w', pady=2)
+        # Create add button with proper styling - place it in elements_container for consistency
+        add_button = ctk.CTkButton(
+            elements_container,
+            text=f"+ Add {title[:-1]}",
+            command=lambda: self._add_element(elements_container, key),
+            font=(C.FONT_FAMILY, C.BUTTON_FONT_SIZE),
+            corner_radius=C.BUTTON_CORNER_RADIUS,
+            fg_color=C.BUTTON_HOVER_COLOR,
+            hover_color="#2a7bb8",
+            text_color=C.TITLE_COLOR,
+            height=30,
+            width=120
+        )
+        add_button.grid(row=len(self.data.get(key, [])), column=0, pady=10, sticky='')
+
+    def _switch_tab(self, tab_name):
+        """Switch between tabs and update button appearances."""
+        # Hide all content frames
+        for frame in self.tab_content_frames.values():
+            frame.grid_remove()
+        
+        # Show selected content frame
+        self.tab_content_frames[tab_name].grid(row=1, column=0, sticky='ew')
+        
+        # Update button appearances
+        for title, button in self.tab_buttons.items():
+            if title == tab_name:
+                # Active tab
+                button.configure(
+                    fg_color=C.BUTTON_HOVER_COLOR,
+                    text_color=C.TITLE_COLOR
+                )
+            else:
+                # Inactive tab
+                button.configure(
+                    fg_color=C.SECTION_BG_COLOR,
+                    text_color=C.LABEL_COLOR
+                )
 
     def _create_element_row(self, parent, element, element_type, index):
-        """Create a multi-row layout for editing an ROI element"""
-        main_frame = ttk.LabelFrame(parent, text=f"{element.get('name', f'{element_type[:-1]}_{index+1}')}", padding=3)
-        main_frame.pack(fill='x', pady=2)
-        # Removed the columnconfigure that was causing expansion
+        main_frame = ctk.CTkFrame(parent, border_color=C.SECTION_BORDER_COLOR, border_width=1, corner_radius=C.ENTRY_CORNER_RADIUS)
+        main_frame.grid(row=index, column=0, sticky='ew', pady=5, padx=5)
+        main_frame.grid_columnconfigure(0, weight=1)
+
+        # Row 1: Name and Remove button
+        top_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        top_frame.grid(row=0, column=0, sticky='ew', padx=5, pady=5)
+        top_frame.grid_columnconfigure(0, weight=1)
         
-        # Row 1: Name only
-        name_frame = ttk.Frame(main_frame)
-        name_frame.grid(row=0, column=0, columnspan=2, sticky='w', pady=1)  # Changed from 'ew' to 'w'
-        
-        ttk.Label(name_frame, text="Name:", width=6).grid(row=0, column=0, sticky='w')
+        ctk.CTkLabel(
+            top_frame, 
+            text="Name:",
+            font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE),
+            text_color=C.LABEL_COLOR
+        ).pack(side='left')
         name_var = tk.StringVar(value=element.get('name', ''))
-        name_var.trace_add("write", lambda *_: self._update_element_and_label(element_type, index, 'name', name_var.get(), main_frame))
-        ttk.Entry(name_frame, textvariable=name_var, width=15).grid(row=0, column=1, sticky='w', padx=2)  # Reduced width and changed sticky
+        name_var.trace_add("write", lambda *_: self._update_element(element_type, index, 'name', name_var.get()))
+        ctk.CTkEntry(
+            top_frame, 
+            textvariable=name_var, 
+            width=120,
+            font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE),
+            corner_radius=C.ENTRY_CORNER_RADIUS,
+            border_width=C.ENTRY_BORDER_WIDTH,
+            border_color=C.ENTRY_BORDER_COLOR,
+            fg_color=C.SECTION_BG_COLOR,
+            text_color=C.VALUE_COLOR
+        ).pack(side='left', padx=5)
         
-        # Row 2: Center coordinates
-        center_frame = ttk.Frame(main_frame)
-        center_frame.grid(row=1, column=0, columnspan=2, sticky='w', pady=1)  # Changed from 'ew' to 'w'
+        ctk.CTkButton(top_frame, text="X", width=25, command=lambda: self._remove_element(element_type, index, main_frame)).pack(side='right')
+
+        # Row 2: Center Coordinates
+        center_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        center_frame.grid(row=1, column=0, sticky='w', padx=5, pady=5)
         
         center = element.get('center', [0, 0])
-        ttk.Label(center_frame, text="X:", width=3).grid(row=0, column=0, sticky='w')
+        ctk.CTkLabel(
+            center_frame, 
+            text="Center    X:",
+            font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE),
+            text_color=C.LABEL_COLOR
+        ).pack(side='left')
         x_var = tk.StringVar(value=str(center[0]))
-        x_var.trace_add("write", lambda *_: self._update_element_center_with_conversion(element_type, index, 0, x_var.get()))
-        ttk.Entry(center_frame, textvariable=x_var, width=6).grid(row=0, column=1, sticky='w', padx=2)
+        x_var.trace_add("write", lambda *_: self._update_element_coordinate(element_type, index, 0, x_var.get()))
+        ctk.CTkEntry(
+            center_frame, 
+            textvariable=x_var, 
+            width=60,
+            font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE),
+            corner_radius=C.ENTRY_CORNER_RADIUS,
+            border_width=C.ENTRY_BORDER_WIDTH,
+            border_color=C.ENTRY_BORDER_COLOR,
+            fg_color=C.SECTION_BG_COLOR,
+            text_color=C.VALUE_COLOR
+        ).pack(side='left', padx=5)
         
-        ttk.Label(center_frame, text="Y:", width=3).grid(row=0, column=2, sticky='w', padx=(5, 0))
+        ctk.CTkLabel(
+            center_frame, 
+            text="Y:",
+            font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE),
+            text_color=C.LABEL_COLOR
+        ).pack(side='left')
         y_var = tk.StringVar(value=str(center[1]))
-        y_var.trace_add("write", lambda *_: self._update_element_center_with_conversion(element_type, index, 1, y_var.get()))
-        ttk.Entry(center_frame, textvariable=y_var, width=6).grid(row=0, column=3, sticky='w', padx=2)
+        y_var.trace_add("write", lambda *_: self._update_element_coordinate(element_type, index, 1, y_var.get()))
+        ctk.CTkEntry(
+            center_frame, 
+            textvariable=y_var, 
+            width=60,
+            font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE),
+            corner_radius=C.ENTRY_CORNER_RADIUS,
+            border_width=C.ENTRY_BORDER_WIDTH,
+            border_color=C.ENTRY_BORDER_COLOR,
+            fg_color=C.SECTION_BG_COLOR,
+            text_color=C.VALUE_COLOR
+        ).pack(side='left', padx=5)
         
-        # Row 3: Additional properties based on type
-        props_frame = ttk.Frame(main_frame)
-        props_frame.grid(row=2, column=0, columnspan=2, sticky='w', pady=1)  # Changed from 'ew' to 'w'
+        # Row 3: Additional Properties (below center coordinates) - only create if needed
+        if element_type in ['rectangles', 'circles']:
+            props_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+            props_frame.grid(row=2, column=0, sticky='w', padx=5, pady=5)
         
         if element_type == 'rectangles':
-            ttk.Label(props_frame, text="W:", width=3).grid(row=0, column=0, sticky='w')
+            ctk.CTkLabel(
+                props_frame, 
+                text="W:",
+                font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE),
+                text_color=C.LABEL_COLOR
+            ).pack(side='left')
             w_var = tk.StringVar(value=str(element.get('width', 0)))
-            w_var.trace_add("write", lambda *_: self._update_element_with_conversion(element_type, index, 'width', w_var.get()))
-            ttk.Entry(props_frame, textvariable=w_var, width=5).grid(row=0, column=1, sticky='w', padx=2)
+            w_var.trace_add("write", lambda *_: self._update_data_with_conversion([element_type, index, 'width'], w_var.get()))
+            ctk.CTkEntry(
+                props_frame, 
+                textvariable=w_var, 
+                width=50,
+                font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE),
+                corner_radius=C.ENTRY_CORNER_RADIUS,
+                border_width=C.ENTRY_BORDER_WIDTH,
+                border_color=C.ENTRY_BORDER_COLOR,
+                fg_color=C.SECTION_BG_COLOR,
+                text_color=C.VALUE_COLOR
+            ).pack(side='left', padx=5)
             
-            ttk.Label(props_frame, text="H:", width=3).grid(row=0, column=2, sticky='w', padx=(5, 0))
+            ctk.CTkLabel(
+                props_frame, 
+                text="H:",
+                font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE),
+                text_color=C.LABEL_COLOR
+            ).pack(side='left')
             h_var = tk.StringVar(value=str(element.get('height', 0)))
-            h_var.trace_add("write", lambda *_: self._update_element_with_conversion(element_type, index, 'height', h_var.get()))
-            ttk.Entry(props_frame, textvariable=h_var, width=5).grid(row=0, column=3, sticky='w', padx=2)
-            
-            ttk.Label(props_frame, text="A:", width=3).grid(row=0, column=4, sticky='w', padx=(5, 0))
-            a_var = tk.StringVar(value=str(element.get('angle', 0)))
-            a_var.trace_add("write", lambda *_: self._update_element_with_conversion(element_type, index, 'angle', a_var.get()))
-            ttk.Entry(props_frame, textvariable=a_var, width=5).grid(row=0, column=5, sticky='w', padx=2)
-        
-        elif element_type == 'circles':
-            ttk.Label(props_frame, text="R:", width=3).grid(row=0, column=0, sticky='w')
-            r_var = tk.StringVar(value=str(element.get('radius', 0)))
-            r_var.trace_add("write", lambda *_: self._update_element_with_conversion(element_type, index, 'radius', r_var.get()))
-            ttk.Entry(props_frame, textvariable=r_var, width=6).grid(row=0, column=1, sticky='w', padx=2)
-        
-        # Remove button in the top right
-        remove_btn = ttk.Button(main_frame, text="Remove", 
-                               command=lambda: self._remove_element(element_type, index, main_frame))
-        remove_btn.grid(row=0, column=2, sticky='ne', padx=5)
+            h_var.trace_add("write", lambda *_: self._update_data_with_conversion([element_type, index, 'height'], h_var.get()))
+            ctk.CTkEntry(
+                props_frame, 
+                textvariable=h_var, 
+                width=50,
+                font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE),
+                corner_radius=C.ENTRY_CORNER_RADIUS,
+                border_width=C.ENTRY_BORDER_WIDTH,
+                border_color=C.ENTRY_BORDER_COLOR,
+                fg_color=C.SECTION_BG_COLOR,
+                text_color=C.VALUE_COLOR
+            ).pack(side='left', padx=5)
 
-    def _add_element(self, content_frame, element_type, section_frame, title):
-        """Add a new ROI element"""
-        if element_type not in self.data:
-            self.data[element_type] = []
+            ctk.CTkLabel(
+                props_frame, 
+                text="Angle:",
+                font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE),
+                text_color=C.LABEL_COLOR
+            ).pack(side='left')
+            a_var = tk.StringVar(value=str(element.get('angle', 0)))
+            a_var.trace_add("write", lambda *_: self._update_data_with_conversion([element_type, index, 'angle'], a_var.get()))
+            ctk.CTkEntry(
+                props_frame, 
+                textvariable=a_var, 
+                width=50,
+                font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE),
+                corner_radius=C.ENTRY_CORNER_RADIUS,
+                border_width=C.ENTRY_BORDER_WIDTH,
+                border_color=C.ENTRY_BORDER_COLOR,
+                fg_color=C.SECTION_BG_COLOR,
+                text_color=C.VALUE_COLOR
+            ).pack(side='left', padx=5)
+        elif element_type == 'circles':
+            ctk.CTkLabel(
+                props_frame, 
+                text="Radius:",
+                font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE),
+                text_color=C.LABEL_COLOR
+            ).pack(side='left')
+            r_var = tk.StringVar(value=str(element.get('radius', 0)))
+            r_var.trace_add("write", lambda *_: self._update_data_with_conversion([element_type, index, 'radius'], r_var.get()))
+            ctk.CTkEntry(
+                props_frame, 
+                textvariable=r_var, 
+                width=60,
+                font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE),
+                corner_radius=C.ENTRY_CORNER_RADIUS,
+                border_width=C.ENTRY_BORDER_WIDTH,
+                border_color=C.ENTRY_BORDER_COLOR,
+                fg_color=C.SECTION_BG_COLOR,
+                text_color=C.VALUE_COLOR
+            ).pack(side='left', padx=5)
+
+    def _update_data_with_conversion(self, path, value):
+        """Helper to update nested data, applying immediate type conversion for numeric values."""        
+        d = self.data
+        try:
+            for key in path[:-1]:
+                d = d[key]
+            
+            # Check if this is a numeric parameter that needs conversion
+            # First check the exact path, then check parent path for indexed access
+            target_type = get_parameter_type(path)
+            if not target_type and len(path) > 1:
+                # Check parent path (for indexed access like ['frame_shape', 0])
+                parent_path = path[:-1]
+                parent_type = get_parameter_type(parent_path)
+                if parent_type in ['list_int', 'list_float']:
+                    # This is an element of a list, convert based on list element type
+                    element_type = 'int' if parent_type == 'list_int' else 'float'
+                    converted_value = convert_with_fallback(value, element_type, value, path)
+                    
+                    # Ensure we don't create nested lists - if the current element is a list, flatten it
+                    if isinstance(d[path[-1]], list):
+                        # Replace the nested list with the single converted value
+                        d[path[-1]] = converted_value
+                    else:
+                        d[path[-1]] = converted_value
+                else:
+                    d[path[-1]] = value
+            elif target_type:
+                # Convert the value immediately
+                converted_value = convert_with_fallback(value, target_type, value, path)
+                d[path[-1]] = converted_value
+            else:
+                d[path[-1]] = value
+        except (KeyError, IndexError, TypeError) as e:
+            logger.warning(f"Could not update ROI data at path {path}: {e}")
+            
+    def _add_element(self, parent, element_type):
+        """Add a new element to the specified element type with default values."""
+        logger.info(f"Adding element to {element_type}")
         
         # Create default element based on type
         if element_type == 'rectangles':
-            new_element = {'name': f'rect_{len(self.data[element_type])+1}', 'type': 'rectangle', 
-                          'center': [0, 0], 'width': 50, 'height': 50, 'angle': 0}
+            default_element = {
+                'name': f'rectangle_{len(self.data[element_type]) + 1}',
+                'type': 'rectangle',
+                'center': [100, 100],
+                'width': 100,
+                'height': 100,
+                'angle': 0
+            }
         elif element_type == 'circles':
-            new_element = {'name': f'circle_{len(self.data[element_type])+1}', 'type': 'circle', 
-                          'center': [0, 0], 'radius': 25}
-        else:  # points
-            new_element = {'name': f'point_{len(self.data[element_type])+1}', 'type': 'point', 
-                          'center': [0, 0]}
+            default_element = {
+                'name': f'circle_{len(self.data[element_type]) + 1}',
+                'type': 'circle',
+                'center': [100, 100],
+                'radius': 50
+            }
+        elif element_type == 'points':
+            default_element = {
+                'name': f'point_{len(self.data[element_type]) + 1}',
+                'type': 'point',
+                'center': [100, 100]
+            }
+        else:
+            logger.error(f"Unknown element type: {element_type}")
+            return
+            
+        # Add to data
+        self.data[element_type].append(default_element)
         
-        self.data[element_type].append(new_element)
-        index = len(self.data[element_type]) - 1
+        # Refresh the UI for this tab
+        self._refresh_tab_content(element_type)
         
-        # Update section title
-        section_frame.configure(text=f"{title} ({len(self.data[element_type])})")
-        
-        # Add row to UI
-        self._create_element_row(content_frame, new_element, element_type, index)
+        # Update tab button count
+        self._update_tab_button_text(element_type)
 
-    def _remove_element(self, element_type, index, row_frame):
-        """Remove an ROI element"""
+    def _remove_element(self, element_type, index, frame):
+        """Remove an element from the data and refresh the UI."""
+        logger.info(f"Removing {element_type} at index {index}")
+        
+        # Remove from data
         if element_type in self.data and 0 <= index < len(self.data[element_type]):
             del self.data[element_type][index]
-            row_frame.destroy()
-
+            
+        # Destroy the frame
+        frame.destroy()
+        
+        # Refresh the UI for this tab
+        self._refresh_tab_content(element_type)
+        
+        # Update tab button count
+        self._update_tab_button_text(element_type)
+        
     def _update_element(self, element_type, index, key, value):
-        """Update an element property"""
+        """Update an element's property in the data."""
         if element_type in self.data and 0 <= index < len(self.data[element_type]):
-            try:
-                if key in ['width', 'height', 'radius', 'angle']:
-                    self.data[element_type][index][key] = float(value)
-                else:
-                    self.data[element_type][index][key] = value
-            except (ValueError, KeyError):
-                pass
-
-    def _update_element_and_label(self, element_type, index, key, value, label_frame):
-        """Update an element property and the label frame title"""
-        self._update_element(element_type, index, key, value)
-        if value.strip():
-            label_frame.configure(text=value.strip())
-        else:
-            label_frame.configure(text=f"{element_type[:-1]}_{index+1}")
-
-    def _update_element_center(self, element_type, index, coord_index, value):
-        """Update element center coordinates"""
-        if element_type in self.data and 0 <= index < len(self.data[element_type]):
-            try:
-                if 'center' not in self.data[element_type][index]:
-                    self.data[element_type][index]['center'] = [0, 0]
-                self.data[element_type][index]['center'][coord_index] = float(value)
-            except (ValueError, KeyError, IndexError):
-                pass
-
-
-    
-    def _update_frame_shape_with_conversion(self, index, value):
-        """Update frame shape with enhanced type-aware conversion and error handling"""
-        try:
-            # Validate input first
-            if not validate_numeric_input(value, 'int'):
-                logger.warning(f"Invalid frame shape value '{value}' - expected integer")
-                return
-            
-            converted_value = convert_with_fallback(value, 'int', value, ['geometric_analysis', 'roi_data', 'frame_shape', str(index)])
-            if isinstance(converted_value, int):
-                self.data['frame_shape'][index] = converted_value
-                logger.debug(f"Updated frame_shape[{index}] to {converted_value}")
-            else:
-                logger.warning(f"Failed to convert frame shape value '{value}' to int, keeping original")
-        except (IndexError, Exception) as e:
-            logger.error(f"Error updating frame shape[{index}]: {e}")
-            # Don't raise exception to keep GUI responsive
-    
-    def _update_scale_with_conversion(self, value):
-        """Update scale with enhanced type-aware conversion and error handling"""
-        try:
-            # Validate input first
-            if not validate_numeric_input(value, 'float'):
-                logger.warning(f"Invalid scale value '{value}' - expected number")
-                return
-            
-            converted_value = convert_with_fallback(value, 'float', value, ['geometric_analysis', 'roi_data', 'scale'])
-            if isinstance(converted_value, (int, float)):
-                self.data['scale'] = float(converted_value)
-                logger.debug(f"Updated scale to {converted_value}")
-            else:
-                logger.warning(f"Failed to convert scale value '{value}' to float, keeping original")
-        except Exception as e:
-            logger.error(f"Error updating scale: {e}")
-            # Don't raise exception to keep GUI responsive
-    
-    def _update_element_center_with_conversion(self, element_type, index, coord_index, value):
-        """Update element center coordinates with enhanced type-aware conversion and error handling"""
-        if element_type in self.data and 0 <= index < len(self.data[element_type]):
-            try:
-                # Validate input first
-                if not validate_numeric_input(value, 'float'):
-                    logger.warning(f"Invalid coordinate value '{value}' for {element_type}[{index}].center[{coord_index}] - expected number")
-                    return
-                
-                if 'center' not in self.data[element_type][index]:
-                    self.data[element_type][index]['center'] = [0, 0]
-                
-                param_path = ['geometric_analysis', 'roi_data', element_type, str(index), 'center', str(coord_index)]
-                converted_value = convert_with_fallback(value, 'float', value, param_path)
-                
-                if isinstance(converted_value, (int, float)):
-                    self.data[element_type][index]['center'][coord_index] = float(converted_value)
-                    logger.debug(f"Updated {element_type}[{index}].center[{coord_index}] to {converted_value}")
-                else:
-                    logger.warning(f"Failed to convert center coordinate '{value}' to float, keeping original")
-            except (ValueError, KeyError, IndexError, Exception) as e:
-                logger.error(f"Error updating element center for {element_type}[{index}].center[{coord_index}]: {e}")
-                # Don't raise exception to keep GUI responsive
-    
-    def _update_element_with_conversion(self, element_type, index, key, value):
-        """Update an element property with enhanced type-aware conversion and error handling"""
-        if element_type in self.data and 0 <= index < len(self.data[element_type]):
-            try:
-                if key in ['width', 'height', 'radius', 'angle']:
-                    # Validate input first
-                    if not validate_numeric_input(value, 'float'):
-                        logger.warning(f"Invalid {key} value '{value}' for {element_type}[{index}] - expected number")
-                        return
-                    
-                    param_path = ['geometric_analysis', 'roi_data', element_type, str(index), key]
-                    converted_value = convert_with_fallback(value, 'float', value, param_path)
-                    
-                    if isinstance(converted_value, (int, float)):
-                        self.data[element_type][index][key] = float(converted_value)
-                        logger.debug(f"Updated {element_type}[{index}].{key} to {converted_value}")
+            # Handle type conversion for numeric values
+            if key in ['center'] and isinstance(value, str):
+                # For center coordinates, try to convert to int
+                try:
+                    if ',' in value:
+                        # Handle comma-separated values
+                        coords = [int(x.strip()) for x in value.split(',')]
+                        self.data[element_type][index][key] = coords
                     else:
-                        logger.warning(f"Failed to convert {key} value '{value}' to float, keeping original")
-                else:
+                        # Single value
+                        self.data[element_type][index][key] = int(value)
+                except ValueError:
+                    # If conversion fails, store as string
                     self.data[element_type][index][key] = value
-                    logger.debug(f"Updated {element_type}[{index}].{key} to '{value}' (string)")
-            except (ValueError, KeyError, Exception) as e:
-                logger.error(f"Error updating element property {key} for {element_type}[{index}]: {e}")
-                # Don't raise exception to keep GUI responsive
+            elif key in ['width', 'height', 'angle', 'radius']:
+                # Convert numeric values
+                try:
+                    self.data[element_type][index][key] = int(value)
+                except ValueError:
+                    try:
+                        self.data[element_type][index][key] = float(value)
+                    except ValueError:
+                        # If conversion fails, store as string
+                        self.data[element_type][index][key] = value
+            else:
+                # For other keys (like 'name'), store as string
+                self.data[element_type][index][key] = value
+                
+    def _update_element_coordinate(self, element_type, index, coord_index, value):
+        """Update a specific coordinate (X or Y) of an element's center."""
+        if element_type in self.data and 0 <= index < len(self.data[element_type]):
+            try:
+                # Convert to int
+                coord_value = int(value)
+                # Update the specific coordinate
+                self.data[element_type][index]['center'][coord_index] = coord_value
+            except ValueError:
+                # If conversion fails, store as string (will be handled by validation)
+                self.data[element_type][index]['center'][coord_index] = value
+                
+    def _update_tab_button_text(self, element_type):
+        """Update the tab button text to show current element count."""
+        # Find the tab title for this element type
+        title_map = {'rectangles': 'Rectangles', 'circles': 'Circles', 'points': 'Points'}
+        title = title_map.get(element_type)
+        
+        if title and title in self.tab_buttons:
+            count = len(self.data.get(element_type, []))
+            self.tab_buttons[title].configure(text=f"{title} ({count})")
+    
+    def _refresh_tab_content(self, element_type):
+        """Refresh the content of a specific tab after data changes."""
+        # Find the content frame for this element type
+        title_map = {'rectangles': 'Rectangles', 'circles': 'Circles', 'points': 'Points'}
+        title = title_map.get(element_type)
+        content_frame = self.tab_content_frames.get(title)
+        
+        if content_frame:
+            # Clear existing content (both elements container and add button)
+            for widget in content_frame.winfo_children():
+                widget.destroy()
+            
+            # Recreate elements container
+            elements_container = ctk.CTkFrame(content_frame, fg_color="transparent")
+            elements_container.pack(fill='both', expand=True, pady=5, padx=5)
+            elements_container.grid_columnconfigure(0, weight=1)
+            
+            # Recreate all elements
+            for i, element in enumerate(self.data[element_type]):
+                self._create_element_row(elements_container, element, element_type, i)
+            
+            # Recreate add button - always place it in elements_container for consistency
+            add_button = ctk.CTkButton(
+                elements_container,
+                text=f"+ Add {title[:-1]}",
+                command=lambda: self._add_element(elements_container, element_type),
+                font=(C.FONT_FAMILY, C.BUTTON_FONT_SIZE),
+                corner_radius=C.BUTTON_CORNER_RADIUS,
+                fg_color=C.BUTTON_HOVER_COLOR,
+                hover_color="#2a7bb8",
+                text_color=C.TITLE_COLOR,
+                height=30,
+                width=120
+            )
+            add_button.grid(row=len(self.data[element_type]), column=0, pady=10, sticky='')
+            
 
-class TargetExplorationFrame(ttk.LabelFrame):
-    def __init__(self, parent, exploration_data, model=None):
-        super().__init__(parent, text="Target Exploration", padding=5)
+class TargetExplorationFrame(ValidatedFrame):
+    def __init__(self, parent, exploration_data, model):
+        super().__init__(parent, fg_color="transparent")
+        self.grid_columnconfigure(0, weight=1)
         self.data = exploration_data
         self.model = model
         self._create_widgets()
 
     def _create_widgets(self):
-        from .gui_utils import get_comment
-        from . import config as C
+        # Subsection Title
+        ctk.CTkLabel(
+            self, text="Target Exploration",
+            font=(C.FONT_FAMILY, C.SUBSECTION_TITLE_FONT_SIZE, "bold"),
+            text_color=C.SUBTITLE_COLOR, anchor="w"
+        ).pack(anchor='w', pady=(0, C.WIDGET_PADDING))
+
+        # Fields container
+        fields_frame = ctk.CTkFrame(self, fg_color="transparent")
+        fields_frame.pack(fill='x', expand=True)
+        fields_frame.grid_columnconfigure(1, weight=1)
+
+        # Distance field
+        self._create_field("Distance:", 'distance', 3, fields_frame, 0)
         
-        # Distance
-        dist_label = ttk.Label(self, text="Distance:")
-        dist_label.grid(row=0, column=0, sticky='w')
-        dist_var = tk.StringVar(value=str(self.data.get('distance', 3)))
-        dist_var.trace_add("write", lambda *_: self._update_distance_with_conversion(dist_var.get()))
-        dist_entry = ttk.Entry(self, textvariable=dist_var, width=8)
-        dist_entry.grid(row=0, column=1, sticky='w', padx=5)
-        
-        # Add tooltip with validation info
-        from .widgets import ToolTip
-        ToolTip(dist_entry, "Distance value (integer expected)")
-        
-        # Add tooltip if model is available
-        if self.model:
-            comment = get_comment(self.model.data, [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_TARGET_EXPLORATION, C.KEY_DISTANCE])
-            if comment:
-                ToolTip(dist_label, comment)
-                ToolTip(dist_entry, comment)
-        
-        # Orientation section
-        orientation_frame = ttk.LabelFrame(self, text="Orientation", padding=5)
-        orientation_frame.grid(row=1, column=0, columnspan=2, sticky='ew', pady=5)
-        
+        # Orientation fields
         orientation_data = self.data.get('orientation', {})
-        
-        # Degree
-        degree_label = ttk.Label(orientation_frame, text="Degree:")
-        degree_label.grid(row=0, column=0, sticky='w')
-        degree_var = tk.StringVar(value=str(orientation_data.get('degree', 45)))
-        degree_var.trace_add("write", lambda *_: self._update_orientation_with_conversion('degree', degree_var.get()))
-        degree_entry = ttk.Entry(orientation_frame, textvariable=degree_var, width=8)
-        degree_entry.grid(row=0, column=1, sticky='w', padx=5)
-        
-        if self.model:
-            comment = get_comment(self.model.data, [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_TARGET_EXPLORATION, C.KEY_ORIENTATION, C.KEY_DEGREE])
-            if comment:
-                ToolTip(degree_label, comment)
-                ToolTip(degree_entry, comment)
-        
-        # Front
-        front_label = ttk.Label(orientation_frame, text="Front:")
-        front_label.grid(row=1, column=0, sticky='w')
-        front_var = tk.StringVar(value=str(orientation_data.get('front', 'nose')))
-        front_var.trace_add("write", lambda *_: self._update_orientation_with_conversion('front', front_var.get()))
-        front_entry = ttk.Entry(orientation_frame, textvariable=front_var, width=12)
-        front_entry.grid(row=1, column=1, sticky='w', padx=5)
-        
-        if self.model:
-            comment = get_comment(self.model.data, [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_TARGET_EXPLORATION, C.KEY_ORIENTATION, C.KEY_FRONT])
-            if comment:
-                ToolTip(front_label, comment)
-                ToolTip(front_entry, comment)
-        
-        # Pivot
-        pivot_label = ttk.Label(orientation_frame, text="Pivot:")
-        pivot_label.grid(row=2, column=0, sticky='w')
-        pivot_var = tk.StringVar(value=str(orientation_data.get('pivot', 'head')))
-        pivot_var.trace_add("write", lambda *_: self._update_orientation_with_conversion('pivot', pivot_var.get()))
-        pivot_entry = ttk.Entry(orientation_frame, textvariable=pivot_var, width=12)
-        pivot_entry.grid(row=2, column=1, sticky='w', padx=5)
-        
-        if self.model:
-            comment = get_comment(self.model.data, [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_TARGET_EXPLORATION, C.KEY_ORIENTATION, C.KEY_PIVOT])
-            if comment:
-                ToolTip(pivot_label, comment)
-                ToolTip(pivot_entry, comment)
+        self._create_field("Degree:", 'degree', 45, fields_frame, 1, parent_map=orientation_data, map_key='orientation')
+        self._create_field("Front:", 'front', 'nose', fields_frame, 2, parent_map=orientation_data, map_key='orientation')
+        self._create_field("Pivot:", 'pivot', 'head', fields_frame, 3, parent_map=orientation_data, map_key='orientation')
 
+    def _create_field(self, label_text, key, default, parent_frame, row_idx, parent_map=None, map_key=None):
+        if parent_map is None:
+            parent_map = self.data
 
-    
-    def _update_distance_with_conversion(self, value):
-        """Update distance with type-aware conversion"""
-        try:
-            # Distance parameter path: ['geometric_analysis', 'target_exploration', 'distance']
-            parameter_path = ['geometric_analysis', 'target_exploration', 'distance']
-            param_type = get_parameter_type(parameter_path)
-            if param_type:
-                converted_value = convert_with_fallback(value, param_type, value)
-                if isinstance(converted_value, (int, float)):
-                    self.data['distance'] = converted_value
-                    logger.debug(f"Updated target exploration distance to {converted_value}")
-                else:
-                    logger.warning(f"Failed to convert distance value '{value}' to {param_type}")
-            else:
-                # Fallback to float conversion
-                converted_value = convert_with_fallback(value, 'float', value)
-                if isinstance(converted_value, (int, float)):
-                    self.data['distance'] = float(converted_value)
-        except Exception as e:
-            logger.error(f"Error updating distance: {e}")
-    
+        # Create field frame for each entry (like _create_entry method)
+        field_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
+        field_frame.grid(row=row_idx, column=0, sticky="ew", pady=C.ENTRY_PADDING)
+        field_frame.grid_columnconfigure(1, weight=1)
 
-    
-    def _update_orientation_with_conversion(self, key, value):
-        """Update orientation with type-aware conversion"""
-        if 'orientation' not in self.data:
-            self.data['orientation'] = {}
+        # Create label
+        label = ctk.CTkLabel(
+            field_frame, 
+            text=label_text, 
+            font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE),
+            text_color=C.LABEL_COLOR
+        )
+        label.grid(row=0, column=0, sticky="w", padx=(0, C.LABEL_PADDING))
         
-        try:
-            if key == 'degree':
-                # Degree parameter path: ['geometric_analysis', 'target_exploration', 'orientation', 'degree']
-                parameter_path = ['geometric_analysis', 'target_exploration', 'orientation', 'degree']
-                param_type = get_parameter_type(parameter_path)
-                if param_type:
-                    converted_value = convert_with_fallback(value, param_type, value)
-                    if isinstance(converted_value, (int, float)):
-                        self.data['orientation'][key] = converted_value
-                        logger.debug(f"Updated orientation degree to {converted_value}")
-                    else:
-                        logger.warning(f"Failed to convert degree value '{value}' to {param_type}")
-                else:
-                    # Fallback to float conversion
-                    converted_value = convert_with_fallback(value, 'float', value)
-                    if isinstance(converted_value, (int, float)):
-                        self.data['orientation'][key] = float(converted_value)
-            else:
-                self.data['orientation'][key] = str(value)
-        except Exception as e:
-            logger.error(f"Error updating orientation {key}: {e}")
+        # Create entry
+        var = tk.StringVar(value=str(parent_map.get(key, default)))
+        var.trace_add("write", lambda *_, k=key, p=parent_map: self._update_value(p, k, var.get()))
+        
+        # Determine field width based on field type
+        field_width = C.NUMBER_FIELD_WIDTH if key in ['distance', 'degree'] else C.TEXT_FIELD_WIDTH
+        
+        entry = ctk.CTkEntry(
+            field_frame, 
+            textvariable=var, 
+            width=field_width,
+            font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE),
+            corner_radius=C.ENTRY_CORNER_RADIUS,
+            border_width=C.ENTRY_BORDER_WIDTH,
+            border_color=C.ENTRY_BORDER_COLOR,
+            fg_color=C.SECTION_BG_COLOR,
+            text_color=C.VALUE_COLOR
+        )
+        entry.grid(row=0, column=1, sticky="w")
+        
+        # Add validation for numeric fields
+        if key in ['distance', 'degree']:
+            path = [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_TARGET_EXPLORATION]
+            if map_key:
+                path.append(map_key)
+            path.append(key)
+            param_type = 'int' if key == 'distance' else 'int'
+            self._add_validation_feedback(entry, var, param_type, path)
+        
+        # Add tooltip if comment exists
+        path = [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_TARGET_EXPLORATION]
+        if map_key:
+            path.append(map_key)
+        path.append(key)
+        comment = get_comment(self.model.data, path)
+        if comment:
+            ToolTip(label, comment)
 
-class RNNWidthFrame(ttk.LabelFrame):
-    def __init__(self, parent, rnn_data, model=None):
-        super().__init__(parent, text="RNN Width", padding=5)
+    def _update_value(self, data_map, key, value):
+        """Update value with type conversion for numeric parameters."""        
+        # Build the parameter path for type checking
+        path = [C.KEY_GEOMETRIC_ANALYSIS, C.KEY_TARGET_EXPLORATION, key]
+        super()._update_value(key, value, data_map, path)
+
+class RNNWidthFrame(ValidatedFrame):
+    def __init__(self, parent, rnn_data, model):
+        super().__init__(parent, fg_color="transparent")
         self.data = rnn_data
         self.model = model
-        self._create_widgets()
-
-    def _create_widgets(self):
-        from .gui_utils import get_comment
-        from . import config as C
         
-        for i, (key, val) in enumerate(self.data.items()):
-            label = ttk.Label(self, text=f"{key.title()}:")
-            label.grid(row=i, column=0, sticky='w')
-            var = tk.StringVar(value=str(val))
-            var.trace_add("write", lambda *_, k=key, v=var: self._update_value_with_conversion(k, v.get()))
-            entry = ttk.Entry(self, textvariable=var, width=8)
-            entry.grid(row=i, column=1, sticky='w', padx=5)
-            
-            # Add tooltips if model is available
-            if self.model:
-                # Try to get comment from nested RNN structure
-                comment = get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, C.KEY_RNN_WIDTH, key])
-                if comment:
-                    ToolTip(label, comment)
-                    ToolTip(entry, comment)
-    
-    def _update_value_with_conversion(self, key, value):
-        """Update RNN width value with type-aware conversion"""
-        try:
-            # RNN width parameter path: ['automatic_analysis', 'RNN', 'RNN_width', key]
-            parameter_path = ['automatic_analysis', 'RNN', 'RNN_width', key]
-            param_type = get_parameter_type(parameter_path)
-            if param_type:
-                converted_value = convert_with_fallback(value, param_type, value)
-                if isinstance(converted_value, (int, float)):
-                    self.data[key] = converted_value
-                    logger.debug(f"Updated RNN width {key} to {converted_value}")
-                else:
-                    logger.warning(f"Failed to convert RNN width {key} value '{value}' to {param_type}")
-                    self.data[key] = value
-            else:
-                # Fallback to float conversion
-                converted_value = convert_with_fallback(value, 'float', value)
-                if isinstance(converted_value, (int, float)):
-                    self.data[key] = float(converted_value)
-                else:
-                    self.data[key] = value
-        except Exception as e:
-            logger.error(f"Error updating RNN width {key}: {e}")
-            self.data[key] = value
+        ctk.CTkLabel(
+            self, 
+            text="RNN Width", 
+            font=(C.FONT_FAMILY, C.SUBSECTION_TITLE_FONT_SIZE, "bold"),
+            text_color=C.SUBTITLE_COLOR
+        ).pack(anchor='w')
+        
+        fields_frame = ctk.CTkFrame(self, fg_color="transparent")
+        fields_frame.pack(fill='x', expand=True)
+        fields_frame.grid_columnconfigure(1, weight=1)
 
+        row_idx = 0
+        for key, val in self.data.items():
+            # Create field frame for each entry (like _create_entry method)
+            field_frame = ctk.CTkFrame(fields_frame, fg_color="transparent")
+            field_frame.grid(row=row_idx, column=0, sticky="ew", pady=C.ENTRY_PADDING)
+            field_frame.grid_columnconfigure(1, weight=1)
+
+            # Create label
+            label = ctk.CTkLabel(
+                field_frame, 
+                text=f"{key.title()}:",
+                font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE),
+                text_color=C.LABEL_COLOR
+            )
+            label.grid(row=0, column=0, sticky="w", padx=(0, C.LABEL_PADDING))
+            
+            # Create entry
+            var = tk.StringVar(value=str(val))
+            var.trace_add("write", lambda *_, k=key, v=var: self._update_value(k, v.get()))
+            
+            entry = ctk.CTkEntry(
+                field_frame, 
+                textvariable=var, 
+                width=C.NUMBER_FIELD_WIDTH,
+                font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE),
+                corner_radius=C.ENTRY_CORNER_RADIUS,
+                border_width=C.ENTRY_BORDER_WIDTH,
+                border_color=C.ENTRY_BORDER_COLOR,
+                fg_color=C.SECTION_BG_COLOR,
+                text_color=C.VALUE_COLOR
+            )
+            entry.grid(row=0, column=1, sticky="w")
+            
+            # Add validation for numeric fields
+            comment_path = [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, C.KEY_RNN_WIDTH, key]
+            if is_numeric_parameter(comment_path):
+                param_type = get_parameter_type(comment_path)
+                if param_type:
+                    self._add_validation_feedback(entry, var, param_type, comment_path)
+            
+            # Add tooltip if comment exists
+            comment = get_comment(self.model.data, comment_path)
+            if comment:
+                ToolTip(label, comment)
+            
+            row_idx += 1
+
+    def _update_value(self, key, value):
+        """Update value with type conversion for numeric parameters."""        
+        # Build the parameter path for type checking
+        path = [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, C.KEY_RNN_WIDTH, key]
+        super()._update_value(key, value, self.data, path)

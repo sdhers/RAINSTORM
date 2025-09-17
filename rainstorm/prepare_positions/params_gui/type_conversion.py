@@ -45,7 +45,7 @@ def _log_conversion_error(operation: str, value: str, target_type: str, error: E
         conversion_errors.pop(0)
     
     # Log the error
-    path_str = ' -> '.join(parameter_path) if parameter_path else 'unknown'
+    path_str = ' -> '.join(str(item) for item in parameter_path) if parameter_path else 'unknown'
     logger.error(f"Type conversion failed - Operation: {operation}, "
                 f"Parameter: {path_str}, Value: '{value}', "
                 f"Target: {target_type}, Error: {error}")
@@ -271,23 +271,44 @@ def convert_to_type(value: str, target_type: str, parameter_path: Optional[List[
         ValueError: If conversion fails
     """
     logger.debug(f"Converting value '{value}' to type '{target_type}' (parameter: {parameter_path})")
-    
-    if not isinstance(value, str):
-        # If it's already the correct type, return as-is
-        if target_type == 'int' and isinstance(value, int):
-            logger.debug(f"Value is already an integer: {value}")
-            return value
-        elif target_type == 'float' and isinstance(value, (int, float)):
-            result = float(value)
-            logger.debug(f"Value converted to float: {result}")
+
+    # If it's already the correct type, return as-is
+    if target_type == 'int' and isinstance(value, int):
+        logger.debug(f"Value is already an integer: {value}")
+        return value
+    elif target_type == 'float' and isinstance(value, (int, float)):
+        result = float(value)
+        logger.debug(f"Value converted to float: {result}")
+        return result
+    elif target_type in ['list_int', 'list_float'] and isinstance(value, list):
+        # Check if this is a list of lists that needs to be flattened
+        if value and isinstance(value[0], list):
+            logger.debug(f"Flattening list of lists: {value}")
+            flattened = []
+            for item in value:
+                if isinstance(item, list):
+                    flattened.extend(item)
+                else:
+                    flattened.append(item)
+            # Convert elements to the target type
+            conversion_func = safe_int_conversion if target_type == 'list_int' else safe_float_conversion
+            result = []
+            for elem in flattened:
+                try:
+                    converted = conversion_func(str(elem), parameter_path)
+                    result.append(converted)
+                except ValueError:
+                    logger.warning(f"Could not convert element {elem} to {target_type}, keeping as string")
+                    result.append(elem)
+            logger.debug(f"Flattened and converted list: {result}")
             return result
-        elif target_type in ['list_int', 'list_float'] and isinstance(value, list):
-            logger.debug(f"Value is already a list: {value}")
-            return value
         else:
-            # Convert to string first
-            logger.debug(f"Converting {type(value).__name__} to string for processing")
-            value = str(value)
+            logger.debug(f"Value is already a flat list: {value}")
+            return value
+    else:
+        # Convert to string first
+        logger.debug(f"Converting {type(value).__name__} to string for processing")
+        value = str(value)
     
     try:
         if target_type == 'int':
@@ -330,7 +351,7 @@ def convert_with_fallback(value: str, target_type: str, fallback_value: Any = No
         return result
     except ValueError as e:
         fallback = fallback_value if fallback_value is not None else value
-        path_str = ' -> '.join(parameter_path) if parameter_path else 'unknown'
+        path_str = ' -> '.join(str(item) for item in parameter_path) if parameter_path else 'unknown'
         logger.warning(f"Conversion failed for parameter '{path_str}', using fallback value '{fallback}': {e}")
         return fallback
 

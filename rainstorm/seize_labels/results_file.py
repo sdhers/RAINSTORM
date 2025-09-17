@@ -268,7 +268,7 @@ def _process_exploration_metrics(
 ) -> None:
     """Process exploration-related metrics (exploration time, DI, diff)."""
     novelties = target_roles.get(trial_name)
-    if not novelties:
+    if not novelties  or novelties == ["None"]:
         logger.info(f"ℹ️ No target roles defined for trial '{trial_name}'. Skipping exploration metrics.")
         return
 

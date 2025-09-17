@@ -111,8 +111,7 @@ class ParamsBuilder:
     def write_yaml(self, overwrite: bool = False):
         """Writes the parameters to a YAML file with comments."""
         if self.params_path.exists() and not overwrite:
-            logger.info(f"params.yaml already exists at {self.params_path}. Use overwrite=True.")
-            print(f"params.yaml already exists at {self.params_path}\nUse overwrite=True to create it again.")
+            logger.warning(f"params.yaml already exists at {self.params_path}\nUse overwrite=True to overwrite it.")
             return
 
         if self.params_path.exists():

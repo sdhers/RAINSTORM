@@ -8,6 +8,8 @@ from typing import Optional
 from rainstorm.VideoHandling.tools import config, image_utils
 from rainstorm.VideoHandling.gui import gui_utils as gui
 
+import logging
+logger = logging.getLogger(__name__)
 class Aligner:
     """
     Interactive aligner that:
@@ -111,7 +113,7 @@ class Aligner:
         base_frame = self.merged_frames_cache.get(vp)
 
         if base_frame is None:
-            print(f"Error: Merged frame for {vp} not found in cache.")
+            logger.error(f"Merged frame for {vp} not found in cache.")
             error_img = np.zeros((480, 640, 3), dtype=np.uint8)
             cv2.putText(error_img, f"Error: Frame for {os.path.basename(vp)} missing", (50, 240),
                         getattr(config, 'FONT', cv2.FONT_HERSHEY_SIMPLEX), 1, 

@@ -28,10 +28,10 @@ def create_video_dict() -> dict:
         video_info = get_video_info(file_path)
         video_dict[file_path] = {
             "info": video_info,
-            "trim": None,      # Placeholder for {"start_seconds": s, "end_seconds": e}
-            "align": None,     # Placeholder for {"points": [[x1,y1], [x2,y2]]}
-            "crop": None,      # Placeholder for {"center": [x,y], "width": w, "height": h, "angle_degrees": a}
-            "rotate": None     # Placeholder for {"angle_degrees": a}
+            "trim": None,      # Video trimming parameters: {"start_seconds": s, "end_seconds": e}
+            "align": None,     # Video alignment parameters: {"points": [[x1,y1], [x2,y2]]}
+            "crop": None,      # Video cropping parameters: {"center": [x,y], "width": w, "height": h, "angle_degrees": a}
+            "rotate": None     # Video rotation parameters: {"angle_degrees": a}
         }
     return video_dict
 

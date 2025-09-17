@@ -17,7 +17,7 @@ from .plotting import plot_positions, plot_heatmap, plot_freezing_events, plot_r
 from .analyze_positions import detect_roi_activity, calculate_movement, calculate_exploration_geolabels
 from .batch_processing import batch_process_positions
 
-# Define __all__ for explicit export (optional but good practice)
+# Define __all__ for explicit export
 __all__ = [
     'configure_logging',
     'choose_example_positions',

@@ -62,8 +62,7 @@ def create_results_file(
     # Check for existing file and overwrite preference
     results_path = folder_path / 'results.csv'
     if results_path.exists() and not overwrite:
-        logger.warning(f"Results file '{results_path}' already exists and overwrite is set to False. Skipping file creation.")
-        print(f"Results file already exists at {results_path}\nNot overwritten.")
+        logger.warning(f"Results file already exists at {results_path}\nUse overwrite=True to overwrite it.")
         return results_path
 
     # Validate required directories

@@ -95,7 +95,7 @@ def parse_value(value_str: str, var_type: str):
     """
     try:
         if var_type == 'bool':
-            # This is handled by BooleanVar, but as a fallback:
+            # BooleanVar handles this automatically, but provide explicit conversion:
             return value_str.lower() in ['true', '1', 'yes']
         if var_type == 'int':
             return int(value_str)

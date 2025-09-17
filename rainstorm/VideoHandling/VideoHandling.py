@@ -2,7 +2,7 @@
 
 def run_app():
     """
-    Initializes and runs the DrawROIs application.
+    Initializes and runs the VideoHandling application.
     This function can be called from other scripts or notebooks.
     """
     # --- Imports ---

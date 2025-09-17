@@ -1,8 +1,0 @@
-# requirements.txt
-
-opencv-python
-numpy
-pandas
-keyboard
-pillow
-tqdm

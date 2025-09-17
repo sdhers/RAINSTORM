@@ -194,7 +194,7 @@ class ValidatedFrame(ctk.CTkFrame):
             
         # If param_path is not provided, try to build it from the calling context
         if param_path is None:
-            # This is a fallback - subclasses should provide the path
+            # Default empty path - subclasses should provide the specific path
             param_path = []
             
         if is_numeric_parameter(param_path):

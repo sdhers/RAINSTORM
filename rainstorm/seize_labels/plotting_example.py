@@ -10,9 +10,9 @@ from matplotlib.patches import Circle
 
 from .calculate_index import calculate_cumsum
 from ..geometric_classes import Point, Vector
+
 from ..utils import configure_logging, load_yaml
 configure_logging()
-
 logger = logging.getLogger(__name__)
 
 # %% Create video function

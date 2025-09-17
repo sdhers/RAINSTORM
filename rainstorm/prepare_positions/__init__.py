@@ -19,7 +19,7 @@ from .batch_processing import process_position_files
 from .params_builder import create_params
 from .params_editor import open_params_editor
 
-# Define __all__ for explicit export (optional but good practice)
+# Define __all__ for explicit export
 __all__ = [
     'backup_folder',
     'rename_files',

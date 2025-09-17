@@ -20,9 +20,12 @@ from .model_evaluating import evaluate, build_evaluation_dict, create_chimera_an
 from .automatic_analysis import create_autolabels, prepare_label_comparison, accuracy_scores
 
 import tensorflow as tf
-print(f"rainstorm.modeling successfully imported. GPU devices detected: {tf.config.list_physical_devices('GPU')}")
 
-# Define __all__ for explicit export (optional but good practice)
+# Print GPU availability
+gpu_devices = tf.config.list_physical_devices('GPU')
+print(f"rainstorm.modeling successfully imported. GPU devices detected: {gpu_devices}")
+
+# Define __all__ for explicit export
 __all__ = [
     'configure_logging',
     'open_params_editor',

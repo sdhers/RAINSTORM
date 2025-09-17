@@ -13,7 +13,7 @@ from typing import Dict
 from pathlib import Path
 
 from .aux_functions import use_model
-from ..geometric_classes import Point, Vector # Import Point and Vector
+from ..geometric_classes import Point, Vector
 from ..utils import configure_logging, load_yaml
 configure_logging()
 logger = logging.getLogger(__name__)

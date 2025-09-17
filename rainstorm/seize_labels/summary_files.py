@@ -50,8 +50,7 @@ def _process_and_save_summary_file(
     new_path = trial_path / new_name
 
     if new_path.exists() and not overwrite_individual_file:
-        logger.info(f"Summary file '{new_path}' already exists. Skipping creation as overwrite is False.")
-        print(f"Summary file already exists at {new_path}. Use overwrite=True to recreate it.")
+        logger.info(f"Summary file already exists at {new_path}\nUse overwrite=True to overwrite it.")
         return new_path
 
     # --- Load movement data and filter columns (mandatory base) ---

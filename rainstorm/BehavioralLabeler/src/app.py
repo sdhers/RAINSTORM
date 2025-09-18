@@ -2,8 +2,12 @@
 
 import logging
 import cv2
-from tkinter import Tk
+import customtkinter as ctk
 from pathlib import Path
+
+# Configure customtkinter appearance
+ctk.set_appearance_mode("System")
+ctk.set_default_color_theme("blue")
 
 # Use relative imports for modules within the same package structure
 # '..' means go up one level from 'src' (to 'BehavioralLabeler'), then into 'gui'
@@ -63,8 +67,7 @@ class LabelingApp:
         while True:
             # --- 1. Configuration Phase ---
             logger.info("Showing Main Menu to start a new labeling session.")
-            root = Tk()
-            root.withdraw()
+            root = ctk.CTk()
             
             main_menu_window = mmw.MainMenuWindow(
                 root,

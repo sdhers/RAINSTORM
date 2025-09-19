@@ -1,4 +1,4 @@
-"""Video processing functionality for the Behavioral Labeler."""
+# src/video_processor.py
 
 import cv2
 import logging
@@ -26,7 +26,7 @@ class VideoHandler:
         Returns:
             bool: True if the video was opened successfully, False otherwise.
         """
-        self.release_video()
+        self.release_video() # Ensure any previous video is released
         self.cap = cv2.VideoCapture(video_path)
         if not self.cap.isOpened():
             logger.error(f"Error opening video file: {video_path}")

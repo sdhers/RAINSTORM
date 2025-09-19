@@ -1,4 +1,4 @@
-"""Frame display functionality for the Behavioral Labeler."""
+# gui/frame_display.py
 
 import cv2
 import numpy as np
@@ -6,10 +6,12 @@ from tkinter import Tk
 import logging
 from pathlib import Path
 
+# Initialize logger for this module
 logger = logging.getLogger(__name__)
 
 def get_screen_width() -> int:
-    """Get the width of the current screen in a multi-screen setup.
+    """
+    Workaround to get the width of the current screen in a multi-screen setup.
 
     Returns:
         width (int): The width of the monitor screen in pixels.
@@ -26,7 +28,8 @@ def get_screen_width() -> int:
         return width
     except Exception as e:
         logger.error(f"Failed to get screen width using Tkinter: {e}")
-        return 1200
+        # Fallback to a default or handle gracefully
+        return 1200 # A reasonable default if detection fails
 
 def resize_frame(img: np.uint8, screen_width: int) -> np.uint8:
     """
@@ -52,7 +55,7 @@ def resize_frame(img: np.uint8, screen_width: int) -> np.uint8:
     new_width = int(width * scale_factor)
     new_height = int(height * scale_factor)
     
-    if new_width <= 0 or new_height <= 0:
+    if new_width <= 0 or new_height <= 0: # Ensure dimensions are positive
         logger.warning(f"Calculated new dimensions are invalid: ({new_width}, {new_height}). Returning original frame.")
         return img
 
@@ -131,7 +134,9 @@ def draw_text(img: np.uint8,
     text_size, _ = cv2.getTextSize(text, font, font_scale, font_thickness)
     text_w, text_h = text_size
 
-    cv2.rectangle(img, pos, (x + text_w, y + text_h + int(font_scale*5)), text_color_bg, -1)
+    # Draw background rectangle
+    cv2.rectangle(img, pos, (x + text_w, y + text_h + int(font_scale*5)), text_color_bg, -1) # Adjusted background height slightly for padding
+    # Draw text
     cv2.putText(img, text, (x, y + text_h + font_scale -1), font, font_scale, text_color, font_thickness)
     logger.debug(f"Drew text '{text}' at position {pos}")
 
@@ -163,7 +168,7 @@ def show_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames
     if margin_location == "bottom":
         MARGIN_RATIO*=2 # Increase margin for bottom to ensure enough space for text
 
-    display_frame = frame.copy()
+    display_frame = frame.copy() # Ensure the image array is writable
     display_frame = add_margin(display_frame, margin_ratio=MARGIN_RATIO, orientation=margin_location)
     display_frame = resize_frame(display_frame, screen_width)
 
@@ -173,8 +178,9 @@ def show_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames
 
     df_height, df_width = display_frame.shape[:2]
     
-    txt_scale = 2
-    base_gap = df_width // 80
+    txt_scale = 2 
+    # Using df_width (width of frame with margin, after resize) for gap calculations. This keeps visual consistency for spacing relative to the overall display area.
+    base_gap = df_width // 80 
     line_k_spacing = df_width // 40
 
     # Calculate starting position for the text based on margin_location
@@ -182,25 +188,29 @@ def show_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames
     text_start_y = 0
 
     if margin_location == "right":
+        # Video content occupies the left part, margin on the right
         original_content_scaled_width = int(df_width / (1 + MARGIN_RATIO))
-        text_start_x = original_content_scaled_width + base_gap
-        text_start_y = base_gap
+        text_start_x = original_content_scaled_width + base_gap # Start text in the margin area
+        text_start_y = base_gap # Start text from the top of the margin area
         logger.debug(f"Margin on right. Text starts at x={text_start_x}, y={text_start_y}")
     elif margin_location == "bottom":
+        # Video content occupies the top part, margin at the bottom
         original_content_scaled_height = int(df_height / (1 + MARGIN_RATIO))
-        text_start_x = base_gap
-        text_start_y = original_content_scaled_height + base_gap
+        text_start_x = base_gap # Start text from the left of the frame
+        text_start_y = original_content_scaled_height + base_gap # Start text in the margin area (below video)
         logger.debug(f"Margin at bottom. Text starts at x={text_start_x}, y={text_start_y}")
     else:
         logger.error(f"Invalid margin_location: {margin_location}. Defaulting to 'right'.")
+        # Fallback to right margin to prevent visual errors
         original_content_scaled_width = int(df_width / (1 + MARGIN_RATIO))
-        text_start_x = original_content_scaled_width + base_gap
+        text_start_x = original_content_scaled_width + base_gap 
         text_start_y = base_gap
 
     current_y = text_start_y
-    default_font_scale = 1
+    default_font_scale = 1 
     default_font_thickness = 1
-    
+
+    # Add general info
     draw_text(display_frame, "RAINSTORM Behavioral Labeler",
               pos=(text_start_x, current_y),
               font_scale=txt_scale, font_thickness=txt_scale,
@@ -236,6 +246,7 @@ def show_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames
     current_y += base_gap # Add extra space before "Behaviors:"
 
     if margin_location == "bottom":
+        # If margin is at the bottom, adjust the starting position for behaviors to make two columns
         text_start_x = df_width // 2 + base_gap
         current_y = text_start_y
     
@@ -258,7 +269,7 @@ def show_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames
                   text_color=text_color)
         current_y += line_k_spacing
     
-    current_y += base_gap
+    current_y += base_gap # Add extra space
 
     draw_text(display_frame, f"none / delete ({operant_keys['erase']})",
               pos=(text_start_x, current_y),
@@ -269,7 +280,9 @@ def show_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames
     return display_frame
 
 def get_user_key_input():
-    """Wait for a keystroke and return its ASCII value."""
+    """
+    Waits for a keystroke and returns its ASCII value.
+    """
     key = cv2.waitKey(0)
     logger.debug(f"User pressed key: {key} (char: {chr(key) if key != -1 else 'None'})")
     return key

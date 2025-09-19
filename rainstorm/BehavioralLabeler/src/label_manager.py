@@ -1,4 +1,4 @@
-"""Label management functionality for the Behavioral Labeler."""
+# src/label_manager.py
 
 import pandas as pd
 import csv
@@ -40,10 +40,10 @@ def find_checkpoint(df: pd.DataFrame, behaviors: list) -> int:
         # Check if any of the specified behavior columns contain '-'
         if any(str(row[col]) == '-' for col in valid_behaviors):
             logger.info(f"Found checkpoint at frame {index} (0-indexed) due to '-' in behavior columns.")
-            return index
+            return index # Return the 0-indexed frame number
 
     logger.info("No incomplete frames found. All frames appear labeled or dataframe is empty.")
-    return 0
+    return 0 # If no '-' is found, the file is fully labeled, return 0
 
 def load_labels(csv_path: Path, total_frames: int, behaviors: list) -> tuple:
     """
@@ -63,7 +63,7 @@ def load_labels(csv_path: Path, total_frames: int, behaviors: list) -> tuple:
     frame_labels = {}
     initial_frame = 0 # Default to start from 0
 
-    if csv_path and csv_path.exists():
+    if csv_path.exists():
         try:
             # Load the CSV file, using the converter for behavior columns
             labels_df = pd.read_csv(csv_path, converters={j: converter for j in behaviors})
@@ -89,7 +89,8 @@ def load_labels(csv_path: Path, total_frames: int, behaviors: list) -> tuple:
                     logger.warning(f"Behavior '{behavior}' not found in CSV columns. Initializing with '-' for this behavior.")
                     frame_labels[behavior] = ['-'] * total_frames
             
-            # Determine checkpoint
+            # Determine checkpoint, but don't set current_frame here directly
+            # The decision to use it will be made in app.py based on user's choice.
             initial_frame = find_checkpoint(labels_df, behaviors)
 
             logger.info(f"Loaded labels from {csv_path}. Suggested start frame: {initial_frame}.")
@@ -147,8 +148,9 @@ def build_behavior_info(behaviors: list, keys: list, behavior_sums: dict, curren
     behavior_info = {}
     for i, behavior_name in enumerate(behaviors):
         behavior_info[behavior_name] = {
-            'key': keys[i] if i < len(keys) else 'N/A',
+            'key': keys[i] if i < len(keys) else 'N/A', # Assign the corresponding key
             'sum': behavior_sums.get(behavior_name, 0),
+            # Display 0 for '-' in the UI, but keep '-' in the underlying data
             'current_behavior': current_frame_labels.get(behavior_name, '-') if current_frame_labels.get(behavior_name, '-') != '-' else 0
         }
     logger.debug(f"Built behavior info: {behavior_info}")

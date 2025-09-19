@@ -9,8 +9,6 @@ import logging
 from typing import Dict, List, Tuple, Optional, Iterator, Union
 from tqdm import tqdm
 
-from rainstorm.VideoHandling.tools import config
-
 logger = logging.getLogger(__name__)
 
 def get_rotated_dimensions(w: int, h: int, angle_degrees: float) -> Tuple[int, int]:
@@ -176,7 +174,7 @@ def _iterate_video_frames(
     Updates the provided tqdm progress bar.
     """
     frames_iterated_in_segment = 0 # How many frames we've conceptually passed in the segment
-    max_consecutive_skip_attempts = config.MAX_CONSECUTIVE_SKIP_ATTEMPTS
+    max_consecutive_skip_attempts = 1200 # Maximum number of skip attempts before giving up
     consecutive_skip_attempts_made = 0
     frames_to_jump = 1 # Skip a minimum number of frames.
 
@@ -230,6 +228,7 @@ def _iterate_video_frames(
                 frame_pbar.update(frames_to_jump) # Update pbar for the conceptual jump
                 frames_iterated_in_segment += frames_to_jump # Advance our counter past the skipped section
                 consecutive_skip_attempts_made += 1
+                # frames_to_jump *= 2 # Each attempt, jump twice the frames
                 continue # Retry cap.read() at the new position
             else: # Actual end of video, or no skip attempts left, or not considered premature for skipping
                 if premature_stop_for_skip and consecutive_skip_attempts_made >= max_consecutive_skip_attempts:
@@ -533,7 +532,7 @@ def run_video_processing_pipeline(video_dict: Dict[str, Dict],
             failed_count += 1
         video_iterable.set_description("Overall Progress") # Reset after processing one video or keep it updated
 
-    logger.info("--- VideoHandling Summary ---")
+    logger.info("--- Video Processing Summary ---")
     logger.info(f"Total videos attempted: {total_videos}")
     summary_ops = []
     if apply_trim_op: summary_ops.append("Trim")

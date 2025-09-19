@@ -285,6 +285,13 @@ class TargetRolesModal:
         button_frame = ctk.CTkFrame(self.modal)
         button_frame.pack(fill="x", padx=15, pady=(5, 15))
         
+        save_button = ctk.CTkButton(
+            button_frame, 
+            text="Save", 
+            command=self._save_and_close
+        )
+        save_button.pack(side="right", padx=5)
+        
         cancel_button = ctk.CTkButton(
             button_frame, 
             text="Cancel", 
@@ -292,13 +299,6 @@ class TargetRolesModal:
             fg_color="gray"
         )
         cancel_button.pack(side="right")
-        
-        save_button = ctk.CTkButton(
-            button_frame, 
-            text="Save", 
-            command=self._save_and_close
-        )
-        save_button.pack(side="right", padx=5)
     
     def _save_and_close(self):
         """Save the current target roles and close the modal."""

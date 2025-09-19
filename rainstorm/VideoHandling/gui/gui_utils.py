@@ -1,14 +1,13 @@
 # gui/gui_utils.py
 
-import customtkinter as ctk
-from tkinter import filedialog, simpledialog, messagebox
+from tkinter import Tk, filedialog, simpledialog, messagebox
 from typing import Optional, Tuple, List
 
 # Centralized Tkinter dialog wrappers to avoid repeating root creation/withdrawal
 
 def _get_root():
     """Creates and withdraws a hidden root window."""
-    root = ctk.CTk()
+    root = Tk()
     root.withdraw()
     return root
 

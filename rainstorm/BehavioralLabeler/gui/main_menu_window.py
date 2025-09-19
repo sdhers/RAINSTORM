@@ -1,149 +1,143 @@
-"""Main menu window for the Behavioral Labeler application."""
+# gui/main_menu_window.py
 
-import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import Tk, simpledialog, messagebox, filedialog, Frame, Label, Entry, Button, StringVar, BooleanVar, Checkbutton, Canvas, Scrollbar, Text
 import logging
 from pathlib import Path
 from typing import Union
-
-from ..src import config
+from rainstorm.BehavioralLabeler.src import config
 
 logger = logging.getLogger(__name__)
 
+def ask_file_path(title: str, filetypes: list) -> str:
+    root = Tk(); root.withdraw(); file_path = filedialog.askopenfilename(title=title, filetypes=filetypes); root.destroy(); logger.info(f"User selected file: {file_path}"); return file_path
 def show_messagebox(title: str, message: str, type: str = "info") -> bool:
-    """Display a message box and return user response."""
-    root = ctk.CTk()
-    root.withdraw()
-    response = False
-    if type == "info":
-        messagebox.showinfo(title, message)
-        response = True
-    elif type == "warning":
-        messagebox.showwarning(title, message)
-        response = True
-    elif type == "error":
-        messagebox.showerror(title, message)
-        response = True
-    elif type == "question":
-        response = messagebox.askquestion(title, message) == 'yes'
-    root.destroy()
-    logger.info(f"Messagebox '{title}' displayed. User response: {response}")
-    return response
+    root = Tk(); root.withdraw(); response = False
+    if type == "info": messagebox.showinfo(title, message); response = True
+    elif type == "warning": messagebox.showwarning(title, message); response = True
+    elif type == "error": messagebox.showerror(title, message); response = True
+    elif type == "question": response = messagebox.askquestion(title, message) == 'yes'
+    root.destroy(); logger.info(f"Messagebox '{title}' displayed. User response: {response}"); return response
+def ask_for_input(title: str, prompt: str, initial_value: str = "") -> str:
+    root = Tk(); root.withdraw(); user_input = simpledialog.askstring(title, prompt, initial_value=initial_value); root.destroy(); logger.info(f"Input dialog '{title}' displayed. User input: {user_input}"); return user_input
 
 class MainMenuWindow:
-    """
-    A modern main menu for the Behavioral Labeler application using customtkinter.
-    It handles user configuration for a labeling session.
-    """
     FIXED_CONTROL_KEY_CHARS = set(config.FIXED_CONTROL_KEYS.values())
 
-    def __init__(self, master: ctk.CTk, initial_behaviors: list, initial_keys: list, initial_operant_keys: dict):
+    def __init__(self, master, initial_behaviors: list, initial_keys: list, initial_operant_keys: dict):
         self.master = master
-        self.master.title("Behavioral Labeler - Main Menu")
-        self.master.geometry("850x550") # Adjusted default size
-        self.master.resizable(True, True)
-        self.master.minsize(700, 450) # Set a minimum size
+        self.master.title("Video Frame Labeler - Main Menu")
+        self.master.geometry("950x600")
+        self.master.resizable(False, False)
 
-        self.master.deiconify() # Ensure window is visible
-        self.master.lift() # Ensure window is above other windows
-        self.master.attributes("-topmost", True) # Ensure window is always on top
-        
-        self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
-        self.entries = []  # List to hold (row_frame, behavior_entry, key_entry) tuples
+        self.master.deiconify(); self.master.lift(); self.master.attributes("-topmost", True)
 
-        # CTk Variables for widget binding
-        self.next_key_var = ctk.StringVar(value=initial_operant_keys.get('next', ''))
-        self.prev_key_var = ctk.StringVar(value=initial_operant_keys.get('prev', ''))
-        self.ffw_key_var = ctk.StringVar(value=initial_operant_keys.get('ffw', ''))
-        self.erase_key_var = ctk.StringVar(value=initial_operant_keys.get('erase', ''))
-        self.video_path_var = ctk.StringVar()
-        self.csv_path_var = ctk.StringVar()
-        self.continue_checkbox_var = ctk.BooleanVar(value=False)
-        
+        self.behaviors = []; self.keys = []; self.entries = []
+        self.initial_operant_keys = initial_operant_keys
+
+        self.next_key_var = StringVar(self.master, value=initial_operant_keys.get('next', ''))
+        self.prev_key_var = StringVar(self.master, value=initial_operant_keys.get('prev', ''))
+        self.ffw_key_var = StringVar(self.master, value=initial_operant_keys.get('ffw', ''))
+        self.erase_key_var = StringVar(self.master, value=initial_operant_keys.get('erase', ''))
+
         self.result_config = {
-            'behaviors': None, 'keys': None, 'operant_keys': None,
-            'video_path': None, 'csv_path': None,
+            'behaviors': None, 'keys': None, 'operant_keys': None, 
+            'video_path': None, 'csv_path': None, 
             'continue_from_checkpoint': False, 'cancelled': True
         }
+        self.video_path_var = StringVar(self.master)
+        self.csv_path_var = StringVar(self.master)
+        self.continue_checkbox_var = BooleanVar(self.master, value=False)
+
+        self.main_frame = Frame(master)
+        self.main_frame.pack(padx=10, pady=10, fill='both', expand=True)
 
         self.create_widgets()
         self.populate_initial_values(initial_behaviors, initial_keys)
 
+        self.master.update_idletasks()
+        screen_width = self.master.winfo_screenwidth(); screen_height = self.master.winfo_screenheight()
+        window_width = self.master.winfo_reqwidth(); window_height = self.master.winfo_reqheight()
+        x = int((screen_width / 2) - (window_width / 2)); y = int((screen_height / 2) - (window_height / 2))
+        self.master.geometry(f"+{x}+{y}")
+        self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
+
     def create_widgets(self):
-        """Creates and arranges all the widgets in the main window."""
-        self.master.grid_columnconfigure(0, weight=1)
-        self.master.grid_rowconfigure(1, weight=1)
+        # --- File Selection Section ---
+        file_selection_frame = Frame(self.main_frame, bd=2, relief='groove', padx=10, pady=10)
+        file_selection_frame.pack(fill='x', pady=(5,0))
+        Label(file_selection_frame, text="Video File:").grid(row=0, column=0, sticky='w', padx=5, pady=2)
+        self.video_path_label = Label(file_selection_frame, textvariable=self.video_path_var, wraplength=600, justify='left', bd=1, relief='solid')
+        self.video_path_label.grid(row=0, column=1, sticky='ew', padx=5, pady=2)
+        Button(file_selection_frame, text="Select Video", command=self._select_video).grid(row=0, column=2, padx=5, pady=2)
+        Label(file_selection_frame, text="Labels CSV (Optional):").grid(row=1, column=0, sticky='w', padx=5, pady=2)
+        self.csv_path_label = Label(file_selection_frame, textvariable=self.csv_path_var, wraplength=600, justify='left', bd=1, relief='solid')
+        self.csv_path_label.grid(row=1, column=1, sticky='ew', padx=5, pady=2)
+        Button(file_selection_frame, text="Select CSV", command=self._select_csv).grid(row=1, column=2, padx=5, pady=2)
+        self.continue_checkbox = Checkbutton(file_selection_frame, text="Continue from last checkpoint", variable=self.continue_checkbox_var, state='disabled')
+        self.continue_checkbox.grid(row=2, column=0, columnspan=3, sticky='w', padx=5, pady=5)
+        file_selection_frame.grid_columnconfigure(1, weight=1)
 
-        # File Selection Section
-        file_frame = ctk.CTkFrame(self.master)
-        file_frame.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="ew")
-        file_frame.grid_columnconfigure(1, weight=1)
+        # --- Operant Key Configuration Section ---
+        operant_keys_frame = Frame(self.main_frame, bd=2, relief='groove', padx=10, pady=10)
+        operant_keys_frame.pack(fill='x', pady=5)
         
-        ctk.CTkLabel(file_frame, text="Video File").grid(row=0, column=0, padx=10, pady=5, sticky="w")
-        ctk.CTkEntry(file_frame, textvariable=self.video_path_var, state="readonly").grid(row=0, column=1, padx=5, pady=5, sticky="ew")
-        ctk.CTkButton(file_frame, text="Select Video", command=self._select_video, width=120).grid(row=0, column=2, padx=10, pady=5)
-        
-        ctk.CTkLabel(file_frame, text="Labels CSV").grid(row=1, column=0, padx=10, pady=5, sticky="w")
-        ctk.CTkEntry(file_frame, textvariable=self.csv_path_var, state="readonly").grid(row=1, column=1, padx=5, pady=5, sticky="ew")
-        ctk.CTkButton(file_frame, text="Select CSV", command=self._select_csv, width=120).grid(row=1, column=2, padx=10, pady=5)
-        
-        self.continue_checkbox = ctk.CTkCheckBox(file_frame, text="Continue from last checkpoint", variable=self.continue_checkbox_var, state='disabled')
-        self.continue_checkbox.grid(row=2, column=0, columnspan=3, padx=8, pady=8, sticky="w")
-        
-        # Main Content Area
-        main_content_frame = ctk.CTkFrame(self.master, fg_color="transparent")
-        main_content_frame.grid(row=1, column=0, padx=20, pady=10, sticky="nsew")
-        main_content_frame.grid_columnconfigure(0, weight=1)
-        main_content_frame.grid_columnconfigure(1, weight=1)
-        main_content_frame.grid_rowconfigure(0, weight=1)
-        left_frame = ctk.CTkFrame(main_content_frame)
-        left_frame.grid(row=0, column=0, padx=(0, 10), sticky="nsew")
-        left_frame.grid_rowconfigure(2, weight=1)
-        left_frame.grid_columnconfigure(0, weight=1)
-        
-        right_frame = ctk.CTkFrame(main_content_frame)
-        right_frame.grid(row=0, column=1, padx=(10, 0), sticky="nsew")
-        right_frame.grid_rowconfigure(1, weight=1)
-        right_frame.grid_columnconfigure(0, weight=1)
+        Label(operant_keys_frame, text="Configure Operant Keys:", font=('Arial', 10, 'bold')).grid(row=0, column=0, columnspan=8, pady=(0,10), sticky='w')
 
-        # Operant Keys Section
-        op_keys_frame = ctk.CTkFrame(left_frame)
-        op_keys_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
-        op_keys_frame.grid_columnconfigure((0,1,2,3,4,5,6,7), weight=1)
+        Label(operant_keys_frame, text="Next:").grid(row=1, column=0, sticky='e', padx=(5,0), pady=2)
+        Entry(operant_keys_frame, textvariable=self.next_key_var, width=3).grid(row=1, column=1, padx=(0,10), pady=2, sticky='w')
         
-        ctk.CTkLabel(op_keys_frame, text="Operant Keys", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, columnspan=8, pady=(0,0))
-        ctk.CTkLabel(op_keys_frame, text="Next:", anchor="e").grid(row=1, column=0, sticky='ew', padx=(10,3), pady=(5,5)); ctk.CTkEntry(op_keys_frame, textvariable=self.next_key_var, width=25).grid(row=1, column=1, sticky='ew')
-        ctk.CTkLabel(op_keys_frame, text="Prev:", anchor="e").grid(row=1, column=2, sticky='ew', padx=(10,3), pady=(5,5)); ctk.CTkEntry(op_keys_frame, textvariable=self.prev_key_var, width=25).grid(row=1, column=3, sticky='ew')
-        ctk.CTkLabel(op_keys_frame, text="Erase:", anchor="e").grid(row=1, column=4, sticky='ew', padx=(10,3), pady=(5,5)); ctk.CTkEntry(op_keys_frame, textvariable=self.erase_key_var, width=25).grid(row=1, column=5, sticky='ew')
-        ctk.CTkLabel(op_keys_frame, text="FFW:", anchor="e").grid(row=1, column=6, sticky='ew', padx=(10,3), pady=(5,5)); ctk.CTkEntry(op_keys_frame, textvariable=self.ffw_key_var, width=25).grid(row=1, column=7, sticky='ew')
+        Label(operant_keys_frame, text="Prev:").grid(row=1, column=2, sticky='e', padx=(5,0), pady=2)
+        Entry(operant_keys_frame, textvariable=self.prev_key_var, width=3).grid(row=1, column=3, padx=(0,10), pady=2, sticky='w')
 
-        # Behaviors Header
-        behaviors_header_frame = ctk.CTkFrame(left_frame, fg_color="transparent")
-        behaviors_header_frame.grid(row=1, column=0, padx=15, pady=(0, 0), sticky="ew")
-        behaviors_header_frame.grid_columnconfigure(0, weight=1)
-        behaviors_header_frame.grid_columnconfigure(1, weight=0)
-        ctk.CTkLabel(behaviors_header_frame, text="Behavior Name", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, sticky="ew")
-        ctk.CTkLabel(behaviors_header_frame, text="Key", font=ctk.CTkFont(weight="bold"), width=50, anchor="center").grid(row=0, column=1, padx=(5,15))
+        Label(operant_keys_frame, text="FFW:").grid(row=1, column=4, sticky='e', padx=(5,0), pady=2)
+        Entry(operant_keys_frame, textvariable=self.ffw_key_var, width=3).grid(row=1, column=5, padx=(0,10), pady=2, sticky='w')
 
-        # Behaviors Scrollable List
-        self.scrollable_frame = ctk.CTkScrollableFrame(left_frame, fg_color="transparent")
-        self.scrollable_frame.grid(row=2, column=0, padx=10, pady=0, sticky="nsew")
+        Label(operant_keys_frame, text="Erase:").grid(row=1, column=6, sticky='e', padx=(5,0), pady=2)
+        Entry(operant_keys_frame, textvariable=self.erase_key_var, width=3).grid(row=1, column=7, padx=(0,5), pady=2, sticky='w')
+        
+        for i in [0,2,4,6]: operant_keys_frame.grid_columnconfigure(i, weight=0) # Labels take natural width
+        for i in [1,3,5,7]: operant_keys_frame.grid_columnconfigure(i, weight=0) # Entries take specified width
+
+        # --- Combined Behavior Configuration and Instructions Section ---
+        config_and_instructions_frame = Frame(self.main_frame, bd=2, relief='groove', padx=5, pady=5)
+        config_and_instructions_frame.configure(height=300) # give the whole frame a fixed height and prevent it from growing
+        config_and_instructions_frame.pack_propagate(False)
+        config_and_instructions_frame.pack(fill='x', pady=(5,10))
+
+        # Left Column: Behavior/Key Configuration
+        left_column_frame = Frame(config_and_instructions_frame, padx=5, pady=5)
+        left_column_frame.pack(side="left", fill="both", expand=False)
+
+        Label(left_column_frame, text="Behavior Name        Key", font=('Arial', 10, 'bold')).grid(row=0, column=0, padx=5, pady=5, sticky='w')
+        self.entry_canvas = Canvas(left_column_frame, height=250) # cap the canvas at 250px tall
+        self.entry_scrollbar = Scrollbar(left_column_frame, orient="vertical", command=self.entry_canvas.yview)
+        self.scrollable_frame = Frame(self.entry_canvas)
+        self.scrollable_frame.bind("<Configure>", lambda e: self.entry_canvas.configure(scrollregion=self.entry_canvas.bbox("all")))
+        self.entry_canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.entry_canvas.configure(yscrollcommand=self.entry_scrollbar.set)
+        self.entry_canvas.grid(row=1, column=0, sticky='nsew')
+        self.entry_scrollbar.grid(row=1, column=1, sticky='ns')
+        left_column_frame.grid_rowconfigure(1, weight=0)
+        left_column_frame.grid_columnconfigure(0, weight=1)
         self.scrollable_frame.grid_columnconfigure(0, weight=1)
-
-        # Add/Remove Row Buttons
-        behavior_buttons_frame = ctk.CTkFrame(left_frame, fg_color="transparent")
-        behavior_buttons_frame.grid(row=3, column=0, pady=10)
-        ctk.CTkButton(behavior_buttons_frame, text="Add Row", command=self.add_row).pack(side="left", padx=5)
-        ctk.CTkButton(behavior_buttons_frame, text="Remove Last Row", command=self.remove_last_row).pack(side="left", padx=5)
-
-        # Instructions Section
-        ctk.CTkLabel(right_frame, text="App Usage Instructions", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(5, 0))
         
-        fixed_controls = ", ".join([f"{k.replace('_', ' ').title()}: '{v}'" for k, v in config.FIXED_CONTROL_KEYS.items()])
-        instructions = f"""Rainstorm Behavioral Labeler:
+        # Right Column: Instructions
+        right_column_frame = Frame(config_and_instructions_frame, padx=5, pady=5)
+        right_column_frame.pack(side="right", fill="both", expand=False)
+        
+        Label(right_column_frame, text="App Usage Instructions", font=('Arial', 10, 'bold')).pack(pady=(0,5), anchor='n')
+        
+        fixed_controls_pairs = [
+            f"{action.replace('_', ' ').title()}: '{key}'"
+            for action, key in config.FIXED_CONTROL_KEYS.items()
+        ]
+        fixed_controls_display_line = ", ".join(fixed_controls_pairs)
+
+        instructions_text = f"""
+Rainstorm Behavioral Labeler:
 1. Select a video file (e.g., .mp4, .avi, .mov).
 2. Optionally, select a previously saved CSV labels file.
-3. Define operant keys. Defaults: Next = '{self.next_key_var.get()}', Prev = '{self.prev_key_var.get()}', Erase = '{self.erase_key_var.get()}', Fast Forward = '{self.ffw_key_var.get()}')
+3. Define operant keys. Defaults: Next='{self.initial_operant_keys.get('next', '')}', Prev='{self.initial_operant_keys.get('prev', '')}', FFW='{self.initial_operant_keys.get('ffw', '')}', Erase='{self.initial_operant_keys.get('erase', '')}')
 4. Define behaviors and their corresponding keys in the columns on the left.
 5. Click "Start Labeling".
 
@@ -151,162 +145,107 @@ Labeling Window Controls:
 - Behavior Keys: Press the key for a behavior to label the current frame.
 - Navigate the video using the operant keys above.
 
-Display Controls: {fixed_controls}
+Display Controls: {fixed_controls_display_line}
 
 Note: Keys should be unique, single characters, different from the operant and fixed control keys.
 """
-        instructions_textbox = ctk.CTkTextbox(right_frame, wrap='word', corner_radius=6)
-        instructions_textbox.grid(row=1, column=0, padx=10, pady=(5, 10), sticky="nsew")
-        instructions_textbox.insert("1.0", instructions)
-        instructions_textbox.configure(state="disabled")
 
-        # Control Buttons
-        control_buttons_frame = ctk.CTkFrame(self.master, fg_color="transparent")
-        control_buttons_frame.grid(row=2, column=0, padx=20, pady=(0, 20), sticky="e")
-        ctk.CTkButton(control_buttons_frame, text="Start Labeling", command=self._start_labeling, fg_color="#2E7D32", hover_color="#1B5E20").pack(side="right", padx=(10,0))
-        ctk.CTkButton(control_buttons_frame, text="Cancel", command=self.on_cancel, fg_color="#D32F2F", hover_color="#B71C1C", width=100).pack(side="right")
+        instructions_area = Text(right_column_frame, wrap='word', relief='sunken', bd=1, padx=5, pady=5, font=('Arial', 9), height=15) # Set height
+        instructions_area.insert('1.0', instructions_text.strip())
+        instructions_area.config(state='disabled') 
+        instructions_area.pack(fill='both', expand=False)
 
-
-    def add_row(self, behavior_name: str = "", key_char: str = ""):
-        """Adds a new row of entry widgets for a behavior and its key."""
-        row_frame = ctk.CTkFrame(self.scrollable_frame, fg_color="transparent")
-        row_frame.pack(fill="x", padx=5, pady=2)
-        row_frame.grid_columnconfigure(0, weight=1)
-
-        beh_entry = ctk.CTkEntry(row_frame, placeholder_text="Behavior Name", textvariable=ctk.StringVar(value=behavior_name))
-        beh_entry.grid(row=0, column=0, padx=(0, 5), sticky="ew")
-
-        key_entry = ctk.CTkEntry(row_frame, placeholder_text="Key", width=50, textvariable=ctk.StringVar(value=key_char))
-        key_entry.grid(row=0, column=1, padx=(5, 0))
-
-        self.entries.append((row_frame, beh_entry, key_entry))
-
-    def remove_last_row(self):
-        """Removes the last behavior row from the list."""
-        if self.entries:
-            row_frame, _, _ = self.entries.pop()
-            row_frame.destroy()
-            logger.debug("Removed last row.")
-        else:
-            show_messagebox("Warning", "No rows to remove.", type="warning")
-            
-    def populate_initial_values(self, initial_behaviors: list, initial_keys: list):
-        """Populates the behavior list with initial or last-used values."""
-        if not initial_behaviors and not initial_keys:
-             self.add_row()
-             return
-        for i in range(max(len(initial_behaviors), len(initial_keys))):
-            self.add_row(
-                initial_behaviors[i] if i < len(initial_behaviors) else "",
-                initial_keys[i] if i < len(initial_keys) else ""
-            )
-       
-
-    def _select_video(self):
-        """Opens a file dialog to select a video file."""
-        filetypes = [("Video files", "*.mp4 *.avi *.mov *.mkv"), ("All files", "*.*")]
-        path = filedialog.askopenfilename(title="Select Video File", filetypes=filetypes)
-        if path:
-            self.video_path_var.set(path)
-            logger.info(f"Selected video: {path}")
-
-    def _select_csv(self):
-        """Opens a file dialog to select a CSV labels file."""
-        filetypes = [("CSV files", "*.csv"), ("All files", "*.*")]
-        path = filedialog.askopenfilename(title="Select Labels CSV (Optional)", filetypes=filetypes)
-        if path:
-            self.csv_path_var.set(path)
-            self.continue_checkbox.configure(state='normal')
-            logger.info(f"Selected CSV: {path}")
-        else:
-            self.csv_path_var.set("")
-            self.continue_checkbox_var.set(False)
-            self.continue_checkbox.configure(state='disabled')
+        # --- Control Buttons ---
+        button_frame = Frame(self.main_frame)
+        button_frame.pack(pady=10, side='bottom')
+        Button(button_frame, text="Add Row", command=self.add_row).pack(side='left', padx=10)
+        Button(button_frame, text="Remove Last Row", command=self.remove_last_row).pack(side='left', padx=10)
+        Button(button_frame, text="Start Labeling", command=self._start_labeling).pack(side='left', padx=10)
+        Button(button_frame, text="Cancel", command=self.on_cancel).pack(side='left', padx=10)
 
     def _validate_operant_keys(self) -> Union[tuple[bool, dict], tuple[bool, None]]:
-        """Validates the operant key configuration."""
-        op_keys = {
+        op_keys_values = {
             'next': self.next_key_var.get().strip().lower(),
             'prev': self.prev_key_var.get().strip().lower(),
             'ffw': self.ffw_key_var.get().strip().lower(),
             'erase': self.erase_key_var.get().strip().lower()
         }
-        seen = set()
-        for name, key in op_keys.items():
-            if not key or len(key) != 1:
-                show_messagebox("Validation Error", f"Key for '{name.title()}' must be a single character.", "error")
-                return False, None
-            if key in self.FIXED_CONTROL_KEY_CHARS or key in seen:
-                show_messagebox("Validation Error", f"Key '{key}' is reserved or already in use.", "error")
-                return False, None
-            seen.add(key)
-        logger.info(f"Operant keys validated: {op_keys}")
-        return True, op_keys
+        key_names_map = {'next': "Next", 'prev': "Prev", 'ffw': "FFW", 'erase': "Erase"} # Shorter for messages
+        seen_keys = set()
+        for name, key_char in op_keys_values.items():
+            key_name_readable = key_names_map[name]
+            if not key_char: show_messagebox("Validation Error", f"Operant key for '{key_name_readable}' empty.", type="error"); return False, None
+            if len(key_char) != 1: show_messagebox("Validation Error", f"Operant key for '{key_name_readable}' ('{key_char}') must be 1 char.", type="error"); return False, None
+            if key_char in self.FIXED_CONTROL_KEY_CHARS: show_messagebox("Validation Error", f"Operant key '{key_char}' for '{key_name_readable}' is a reserved control key. Choose another.", type="error"); return False, None
+            if key_char in seen_keys: show_messagebox("Validation Error", f"Duplicate operant key '{key_char}'. Must be unique.", type="error"); return False, None
+            seen_keys.add(key_char)
+        logger.info(f"Operant keys validated: {op_keys_values}"); return True, op_keys_values
 
-    def _validate_behavior_keys(self, operant_keys: dict) -> bool:
-        """Validates the behavior names and keys."""
-        behaviors, keys = [], []
-        forbidden = self.FIXED_CONTROL_KEY_CHARS.union(operant_keys.values())
-        
-        for _, beh_entry, key_entry in self.entries:
-            beh_name, key_char = beh_entry.get().strip(), key_entry.get().strip().lower()
+    def _validate_behavior_keys(self, configured_operant_keys: dict) -> bool:
+        behaviors = []; keys = []
+        forbidden_keys = self.FIXED_CONTROL_KEY_CHARS.copy()
+        forbidden_keys.update(configured_operant_keys.values())
+        for beh_entry, key_entry in self.entries:
+            beh_name = beh_entry.get().strip(); key_char = key_entry.get().strip().lower()
             if not beh_name and not key_char: continue
-            if not beh_name or not key_char or len(key_char) != 1:
-                show_messagebox("Validation Error", "Each behavior must have a name and a single character key.", "error")
-                return False
-            if key_char in forbidden or key_char in keys:
-                show_messagebox("Validation Error", f"Behavior key '{key_char}' is reserved or already in use.", "error")
-                return False
-            if beh_name in behaviors:
-                show_messagebox("Validation Error", f"Behavior name '{beh_name}' is a duplicate.", "error")
-                return False
-            behaviors.append(beh_name)
-            keys.append(key_char)
-            
-        if not behaviors:
-            show_messagebox("Validation Error", "Please define at least one behavior.", "error")
-            return False
-            
-        self.behaviors, self.keys = behaviors, keys
-        logger.info("Behavior keys validated.")
-        return True
+            if not beh_name: show_messagebox("Validation Error", "Behavior names cannot be empty.", type="error"); return False
+            if not key_char: show_messagebox("Validation Error", f"Key for behavior '{beh_name}' empty.", type="error"); return False
+            if len(key_char) != 1: show_messagebox("Validation Error", f"Key for behavior '{beh_name}' ('{key_char}') must be 1 char.", type="error"); return False
+            if key_char in forbidden_keys:
+                reason = "a fixed control key" if key_char in self.FIXED_CONTROL_KEY_CHARS else "an operant key"
+                show_messagebox("Validation Error", f"Behavior key '{key_char}' for '{beh_name}' is already used as {reason}.", type="error"); return False
+            behaviors.append(beh_name); keys.append(key_char)
+        if not behaviors: show_messagebox("Validation Error", "Please enter at least one behavior.", type="error"); return False
+        if len(set(behaviors)) != len(behaviors): show_messagebox("Validation Error", "Duplicate behavior names.", type="error"); return False
+        if len(set(keys)) != len(keys): show_messagebox("Validation Error", "Duplicate keys for behaviors.", type="error"); return False
+        self.behaviors = behaviors; self.keys = keys; logger.info("Behavior keys validated."); return True
     
     def _start_labeling(self):
-        """Validates all inputs and closes the window to start the labeling session."""
-        is_valid_ops, operant_keys = self._validate_operant_keys()
-        if not is_valid_ops: return
-        if not self._validate_behavior_keys(operant_keys): return
-
+        operant_keys_valid, configured_operant_keys = self._validate_operant_keys()
+        if not operant_keys_valid: return
+        if not self._validate_behavior_keys(configured_operant_keys): return
         video_path = Path(self.video_path_var.get().strip())
-        if not self.video_path_var.get() or not video_path.exists():
-            show_messagebox("Validation Error", "Please select a valid video file.", "error")
-            return
-        
-        csv_p_str = self.csv_path_var.get().strip()
-        csv_path = Path(csv_p_str) if csv_p_str else None
-        if csv_path and not csv_path.exists():
-            show_messagebox("Validation Error", "Selected CSV file does not exist.", "error")
-            return
-        
+        if not video_path: show_messagebox("Validation Error", "Please select a video file.", type="error"); return
+        if not video_path.exists(): show_messagebox("Validation Error", "Selected video file does not exist.", type="error"); return
+        csv_path = Path(self.csv_path_var.get().strip())
+        if csv_path and not csv_path.exists(): show_messagebox("Validation Error", "Selected CSV file does not exist.", type="error"); return
         self.result_config.update({
-            'behaviors': self.behaviors, 'keys': self.keys, 'operant_keys': operant_keys,
-            'video_path': video_path, 'csv_path': csv_path,
+            'behaviors': self.behaviors, 'keys': self.keys, 'operant_keys': configured_operant_keys,
+            'video_path': video_path, 'csv_path': csv_path if csv_path else None,
             'continue_from_checkpoint': self.continue_checkbox_var.get(), 'cancelled': False
-        })
-        logger.info("Configuration confirmed. Closing main menu.")
-        self.master.destroy()
+        }); logger.info(f"Main menu configuration confirmed: {self.result_config}"); self.master.destroy()
 
-    def on_cancel(self):
-        """Handles the cancel button action."""
-        self.result_config['cancelled'] = True
-        logger.info("Main menu cancelled by user.")
-        self.master.destroy()
-
-    def on_closing(self):
-        """Handles the window close button action."""
-        self.on_cancel()
-
-    def get_config(self) -> dict:
-        """Waits for the window to be destroyed and returns the configuration."""
-        self.master.wait_window()
-        return self.result_config
+    def _select_video(self):
+        # Cross-platform file dialog filetypes
+        filetypes = [
+            ("Video files", "*.mp4 *.avi *.mov *.mkv *.wmv *.flv *.webm"),
+            ("MP4 files", "*.mp4"),
+            ("AVI files", "*.avi"),
+            ("MOV files", "*.mov"),
+            ("All files", "*.*")
+        ]
+        path = filedialog.askopenfilename(title="Select Video File", filetypes=filetypes)
+        if path: self.video_path_var.set(path); logger.info(f"Selected video: {path}")
+        else: self.video_path_var.set(""); logger.info("Video selection cancelled.")
+    def _select_csv(self):
+        filetypes = [
+            ("CSV files", "*.csv"),
+            ("All files", "*.*")
+        ]
+        path = filedialog.askopenfilename(title="Select Labels CSV (Optional)", filetypes=filetypes)
+        if path: self.csv_path_var.set(path); self.continue_checkbox.config(state='normal'); logger.info(f"Selected CSV: {path}")
+        else: self.csv_path_var.set(""); self.continue_checkbox_var.set(False); self.continue_checkbox.config(state='disabled'); logger.info("CSV selection cancelled.")
+    def add_row(self, behavior_name="", key_char=""):
+        row_num = len(self.entries); beh_var = StringVar(self.scrollable_frame, value=behavior_name); key_var = StringVar(self.scrollable_frame, value=key_char)
+        beh_entry = Entry(self.scrollable_frame, textvariable=beh_var); key_entry = Entry(self.scrollable_frame, textvariable=key_var, width=5) # Reduced key entry width
+        beh_entry.grid(row=row_num, column=0, padx=5, pady=2, sticky='ew'); key_entry.grid(row=row_num, column=1, padx=(0,5), pady=2, sticky='w')
+        self.entries.append((beh_entry, key_entry)); logger.debug(f"Added row {row_num}"); self.entry_canvas.update_idletasks(); self.entry_canvas.yview_moveto(1.0)
+    def remove_last_row(self):
+        if self.entries: beh_entry, key_entry = self.entries.pop(); beh_entry.destroy(); key_entry.destroy(); logger.debug("Removed last row.")
+        else: show_messagebox("Warning", "No rows to remove.", type="warning")
+    def populate_initial_values(self, initial_behaviors, initial_keys):
+        for i in range(max(len(initial_behaviors), len(initial_keys))): self.add_row(initial_behaviors[i] if i < len(initial_behaviors) else "", initial_keys[i] if i < len(initial_keys) else "")
+        if not self.entries: self.add_row()
+    def on_cancel(self): self.result_config['cancelled'] = True; logger.info("Main menu cancelled."); self.master.destroy()
+    def on_closing(self): self.on_cancel()
+    def get_config(self) -> dict: self.master.wait_window(self.master); return self.result_config

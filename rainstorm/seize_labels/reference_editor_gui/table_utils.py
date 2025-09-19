@@ -100,31 +100,14 @@ class UIConstants:
     WINDOW_SIZE = "1150x500"
     
     # Button colors
-    # Save button (pink)
-    SAVE_COLOR = "#EC4899"
-    SAVE_HOVER = "#DB2777"
-    
-    # Cancel button (gray)
+    IMPORT_COLOR = "#16A34A"
+    IMPORT_HOVER = "#15803D"
+    SAVE_COLOR = "#4F46E5"
+    SAVE_HOVER = "#4338CA"
     CANCEL_COLOR = "#4B5563"
     CANCEL_HOVER = "#374151"
-    
-    # JSON Import/Export buttons (purple shades)
-    JSON_IMPORT_COLOR = "#7C3AED"
-    JSON_IMPORT_HOVER = "#5B21B6"
-    JSON_EXPORT_COLOR = "#8B5CF6"
-    JSON_EXPORT_HOVER = "#6D28D9"
-    
-    # CSV Import/Export buttons (green shades)
-    CSV_IMPORT_COLOR = "#16A34A"
-    CSV_IMPORT_HOVER = "#14532D"
-    CSV_EXPORT_COLOR = "#22C55E"
-    CSV_EXPORT_HOVER = "#15803D"
-    
-    # Toggle buttons (orange shades)
-    TOGGLE_TARGET_COLOR = "#F97316"
-    TOGGLE_TARGET_HOVER = "#C2410C"
-    TOGGLE_ROI_COLOR = "#FB923C"
-    TOGGLE_ROI_HOVER = "#EA580C"
+    EXPORT_COLOR = "#7C3AED"
+    EXPORT_HOVER = "#6D28D9"
     
     # Bulk edit button styling
     BULK_EDIT_BUTTON_WIDTH = 80

@@ -1,4 +1,4 @@
-"""Configuration settings for the Behavioral Labeler."""
+# src/config.py
 
 # Default behaviors for labeling
 DEFAULT_BEHAVIORS = [
@@ -17,7 +17,6 @@ OPERANT_KEYS = {
     'erase': '0',          # Erase current frame's label (set to 0)
 }
 
-# Fixed control keys that cannot be changed
 FIXED_CONTROL_KEYS = {
     'quit': 'q',           # Quit the labeler
     'zoom_in': '+',        # Zoom in
@@ -25,5 +24,5 @@ FIXED_CONTROL_KEYS = {
     'margin_toggle': 'm',  # Toggle margin location
 }
 
-# Initial screen width for display
-INITIAL_SCREEN_WIDTH = 1200
+# Initial screen width for display, will be dynamically updated
+INITIAL_SCREEN_WIDTH = 1200 # A reasonable default if get_screen_width fails

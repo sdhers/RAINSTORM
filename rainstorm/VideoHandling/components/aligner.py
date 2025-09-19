@@ -33,7 +33,7 @@ class Aligner:
                 self.merged_frames_cache[vp] = image_utils.merge_frames([vp])
                 valid_video_paths.append(vp)
             except Exception as e:
-                print(f"Warning: Error merging frame for {vp}, it will be skipped. Error: {e}")
+                logger.warning(f"Error merging frame for {vp}, it will be skipped. Error: {e}")
         
         self.video_paths = valid_video_paths 
         if not self.video_paths: 
@@ -74,7 +74,7 @@ class Aligner:
                     if len(parsed_points) == 2:
                          self.confirmed_points_for_video = parsed_points
                 except (TypeError, ValueError) as e:
-                     print(f"Warning: Could not parse points for {vp}: {e}. Resetting points for this video.")
+                     logger.warning(f"Could not parse points for {vp}: {e}. Resetting points for this video.")
                      self.confirmed_points_for_video = [] 
         self.current_point_preview = None
         self.display_state_changed = True
@@ -147,7 +147,7 @@ class Aligner:
                 )
                 frame[oy1:oy2, ox1:ox2] = inset
             except Exception as e:
-                print(f"Error creating zoom inset: {e}")
+                logger.error(f"Error creating zoom inset: {e}")
 
         num_selected = len(self.confirmed_points_for_video)
         point_status = f"Point {num_selected + 1}/2" if num_selected < 2 else "2/2 points selected"
@@ -197,7 +197,7 @@ class Aligner:
             self.display_state_changed = True
             gui.show_info("Points Erased", "Points for the current video have been erased.", parent=parent_for_dialog)
         else:
-            self.display_state_changed = True # Still redraw if user cancels to clear any temporary state
+            self.display_state_changed = True
 
     def _handle_back_action(self):
         if len(self.confirmed_points_for_video) == 2: 
@@ -214,7 +214,7 @@ class Aligner:
             vp = self.video_paths[self.current_video_idx]
             base_frame = self.merged_frames_cache.get(vp)
             if base_frame is None:
-                print(f"Error: Frame for {vp} not in cache during nudge. Skipping nudge.")
+                logger.error(f"Frame for {vp} not in cache during nudge. Skipping nudge.")
                 return
 
             frame_h, frame_w = base_frame.shape[:2]
@@ -264,7 +264,7 @@ class Aligner:
                 if current_display_frame is not None:
                     cv2.imshow(self.WINDOW_NAME, current_display_frame)
                 else:
-                    print(f"Warning: Could not get display frame for video index {self.current_video_idx}")
+                    logger.warning(f"Could not get display frame for video index {self.current_video_idx}")
                 self.display_state_changed = False
 
             key_code = cv2.waitKey(30) & 0xFF 

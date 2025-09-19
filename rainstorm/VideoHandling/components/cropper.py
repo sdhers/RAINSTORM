@@ -1,11 +1,14 @@
 # components/cropper.py
 
+import logging
 import cv2
 import numpy as np
 from typing import Optional, Dict, List, Tuple
 
 from rainstorm.VideoHandling.tools import config, image_utils
 from rainstorm.VideoHandling.gui import gui_utils as gui
+
+logger = logging.getLogger(__name__)
 
 class Cropper:
     """
@@ -46,8 +49,7 @@ class Cropper:
                     (int(cx - half_w), int(cy - half_h)),
                     (int(cx + half_w), int(cy + half_h))
                 ]
-                print(f"Cropper: Loaded existing crop: C={center}, W={width}, H={height}, A={self.angle_deg}")
-
+                logger.info(f"Cropper: Loaded existing crop: C={center}, W={width}, H={height}, A={self.angle_deg}")
 
         # Mouse interaction state
         self.is_drawing: bool = False      # LButton down for initial draw
@@ -190,7 +192,7 @@ class Cropper:
             center_px_list, width_px, height_px = image_utils.define_rectangle_properties(*self.corners)
             center_px_tuple = tuple(int(c) for c in center_px_list) # Ensure it's a tuple of ints for drawing
 
-            # Draw the defined crop rectangle (yellow for temporary/active)
+            # Draw the defined crop rectangle
             image_utils.draw_rotated_rectangle(display_frame, center_px_tuple, width_px, height_px, 
                                                self.angle_deg, 
                                                getattr(config, 'COLOR_YELLOW', (0, 255, 255)), # Use config color
@@ -212,7 +214,7 @@ class Cropper:
                 )
                 display_frame[oy1:oy2, ox1:ox2] = inset
             except Exception as e:
-                print(f"Error creating zoom inset for Cropper: {e}")
+                logger.error(f"Error creating zoom inset for Cropper: {e}")
         
         # Status text at the bottom
         image_utils.draw_text_on_frame(display_frame, status_text, position="bottom",

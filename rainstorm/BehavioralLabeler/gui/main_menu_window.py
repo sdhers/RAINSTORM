@@ -1,13 +1,17 @@
 """Main menu window for the Behavioral Labeler application."""
 
-import customtkinter as ctk
-from tkinter import filedialog, messagebox
-import logging
+
 from pathlib import Path
 from typing import Union
+from tkinter import filedialog, messagebox
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 from ..src import config
 
+import logging
 logger = logging.getLogger(__name__)
 
 def show_messagebox(title: str, message: str, type: str = "info") -> bool:

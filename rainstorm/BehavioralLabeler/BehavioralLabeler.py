@@ -4,11 +4,13 @@ A GUI application for labeling behavioral data in video files.
 """
 
 import logging
-import customtkinter as ctk
-from tkinter import messagebox
 from pathlib import Path
 import sys
+from tkinter import messagebox
 
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 def run_app():
     """Initializes and runs the BehavioralLabeler application."""

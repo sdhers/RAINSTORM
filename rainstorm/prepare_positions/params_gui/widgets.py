@@ -4,15 +4,18 @@ RAINSTORM - Parameters Editor GUI (Reusable Widgets)
 This module contains reusable and styled Tkinter widgets for the application.
 """
 
-import customtkinter as ctk
 import tkinter as tk
-from tkinter import ttk
-import logging
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
+
 from .gui_utils import get_comment
 from .type_registry import get_parameter_type, is_numeric_parameter
 from .type_conversion import convert_with_fallback
 from . import config as C
 
+import logging
 logger = logging.getLogger(__name__)
 
 # --- ToolTip Widget ---

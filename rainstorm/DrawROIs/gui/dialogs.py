@@ -1,9 +1,15 @@
-# gui/dialogs.py
+"""
+Rainstorm DrawROIs Dialogs
+This module provides a collection of static methods for displaying common dialogs.
+"""
+
+from tkinter import filedialog
 
 import customtkinter as ctk
-from tkinter import filedialog
-import logging
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
+import logging
 logger = logging.getLogger(__name__)
 
 class Dialogs:
@@ -18,8 +24,6 @@ class Dialogs:
         """Initializes the single, hidden CTk root window."""
         if cls._root is None:
             cls._root = ctk.CTk()
-            ctk.set_appearance_mode("System")
-            ctk.set_default_color_theme("blue")
             cls._root.withdraw() 
             logger.debug("Dialogs: CustomTkinter root initialized.")
 

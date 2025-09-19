@@ -1,9 +1,14 @@
-# gui/main_window.py
+"""
+Rainstorm DrawROIs Main Window
+This module provides the main window for the DrawROIs application.
+"""
 
 import cv2
 import numpy as np
-import logging
+
 import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 from rainstorm.DrawROIs.src.config import (
     INITIAL_ZOOM, MIN_ZOOM, MAX_ZOOM, 
@@ -12,6 +17,7 @@ from rainstorm.DrawROIs.src.config import (
 )
 from rainstorm.DrawROIs.src.core.drawing_utils import DrawingUtils
 
+import logging
 logger = logging.getLogger(__name__)
 
 class MainWindow:

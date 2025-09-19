@@ -4,9 +4,13 @@ RAINSTORM - Parameters Editor GUI (Help System)
 Load and display help content from external text files.
 """
 
-import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
+
 from . import config as C
 
 class HelpDialog(ctk.CTkToplevel):

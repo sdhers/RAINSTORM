@@ -5,12 +5,17 @@ This module provides comprehensive logging setup with different levels for
 development, debugging, and production use.
 """
 
-import logging
-import logging.handlers
 from pathlib import Path
 import sys
 from datetime import datetime
+import platform
 
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
+
+import logging
+logger = logging.getLogger(__name__)
 
 class GUILoggerSetup:
     """
@@ -99,9 +104,7 @@ class GUILoggerSetup:
     
     def log_system_info(self):
         """Log system information for debugging purposes."""
-        import platform
-        import customtkinter as ctk
-        
+
         logging.info("=== System Information ===")
         logging.info(f"Platform: {platform.platform()}")
         logging.info(f"Python version: {sys.version}")

@@ -4,14 +4,17 @@ Flexible groups modification modal dialog.
 This module provides a modal window for adding, editing, and removing groups from the reference data.
 """
 
-import customtkinter as ctk
-import logging
 from typing import Callable, List
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 from ...utils import configure_logging
 configure_logging()
-logger = logging.getLogger(__name__)
 
+import logging
+logger = logging.getLogger(__name__)
 
 class GroupsModal:
     """

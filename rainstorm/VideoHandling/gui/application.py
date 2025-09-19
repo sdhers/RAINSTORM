@@ -1,13 +1,16 @@
 # gui/application.py
 
 import os
-import logging
+
 import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 from rainstorm.VideoHandling.gui import gui_utils as gui
 from rainstorm.VideoHandling.tools import video_manager, video_processor, config
 from rainstorm.VideoHandling.components import aligner, cropper, trimmer, rotator
 
+import logging
 logger = logging.getLogger(__name__)  # Use module-specific logger
 
 class VideoProcessorGUI:
@@ -15,10 +18,6 @@ class VideoProcessorGUI:
         self.root = root
         self.root.title("VideoHandling Pipeline")
         self.root.geometry("800x750")
-        
-        # --- Appearance Settings ---
-        ctk.set_appearance_mode("Dark")  # Modes: "System" (default), "Dark", "Light"
-        ctk.set_default_color_theme("blue")  # Themes: "blue" (default), "green", "dark-blue"
 
         self.video_dict = None
         self.project_file_path = None

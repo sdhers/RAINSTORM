@@ -1,11 +1,15 @@
 # components/trimmer.py
 
-import logging
-import customtkinter as ctk
 from typing import Optional, Dict
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
+
 from rainstorm.VideoHandling.gui import gui_utils as gui
 from rainstorm.VideoHandling.tools import config
 
+import logging
 logger = logging.getLogger(__name__)  # Use module-specific logger
 
 def convert_time_to_seconds(time_str: str) -> Optional[int]:

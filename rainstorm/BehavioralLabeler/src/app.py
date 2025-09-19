@@ -1,9 +1,11 @@
 """Main application class for the Behavioral Labeler."""
 
-import logging
 import cv2
-import customtkinter as ctk
 from pathlib import Path
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 from ..gui import main_menu_window as mmw
 from ..gui import frame_display as fd
@@ -11,6 +13,7 @@ from . import video_processor
 from . import label_manager
 from . import config
 
+import logging
 logger = logging.getLogger(__name__)
 
 class LabelingApp:

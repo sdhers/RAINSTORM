@@ -5,12 +5,16 @@ This module provides a reusable bulk editing dialog for updating multiple ROI va
 at once in the reference editor.
 """
 
+from typing import Callable
+
 import customtkinter as ctk
-import logging
-from typing import Dict, Any, Callable
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 from ...utils import configure_logging
 configure_logging()
+
+import logging
 logger = logging.getLogger(__name__)
 
 

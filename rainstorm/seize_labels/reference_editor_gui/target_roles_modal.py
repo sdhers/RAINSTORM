@@ -6,12 +6,16 @@ for any trial types. It dynamically creates tabs based on the
 trial types present in the data.
 """
 
-import customtkinter as ctk
-import logging
 from typing import Callable, Dict, List
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 from ...utils import configure_logging
 configure_logging()
+
+import logging
 logger = logging.getLogger(__name__)
 
 

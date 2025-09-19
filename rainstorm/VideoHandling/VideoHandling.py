@@ -3,10 +3,15 @@ Rainstorm Video Handling
 A GUI application for batch editing video files.
 """
 
-import logging
-import customtkinter as ctk
 from pathlib import Path
 import sys
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
+
+import logging
+logger = logging.getLogger(__name__)
 
 def run_app():
     """Initializes and runs the VideoHandling application."""

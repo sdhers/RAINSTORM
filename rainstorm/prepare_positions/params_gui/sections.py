@@ -6,10 +6,12 @@ pattern, these classes are part of the "View". They are responsible for
 displaying the data from the Model.
 """
 
-import customtkinter as ctk
 import tkinter as tk
 from tkinter import filedialog
-import logging
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 from .widgets import (
     ToolTip, ScrollableDynamicListFrame, DynamicListFrame,
@@ -21,6 +23,7 @@ from .type_conversion import format_for_display
 from .error_handling import ValidationHelper, ResponsiveErrorHandler
 from . import config as C
 
+import logging
 logger = logging.getLogger(__name__)
 
 class SectionFrame(ctk.CTkFrame):

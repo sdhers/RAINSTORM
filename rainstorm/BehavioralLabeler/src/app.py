@@ -1,16 +1,12 @@
-# src/app.py
+"""Main application class for the Behavioral Labeler."""
 
 import logging
 import cv2
-from tkinter import Tk
+import customtkinter as ctk
 from pathlib import Path
 
-# Use relative imports for modules within the same package structure
-# '..' means go up one level from 'src' (to 'BehavioralLabeler'), then into 'gui'
 from ..gui import main_menu_window as mmw
 from ..gui import frame_display as fd
-
-# '.' means within the current package ('src')
 from . import video_processor
 from . import label_manager
 from . import config
@@ -20,22 +16,20 @@ logger = logging.getLogger(__name__)
 class LabelingApp:
     def __init__(self):
 
-        # --- State that will persist between sessions ---
-        # Initialize with defaults from config file
+        # State that persists between sessions
         self.behaviors = config.DEFAULT_BEHAVIORS.copy()
         self.keys = config.DEFAULT_KEYS.copy()
         self.operant_keys_map = config.OPERANT_KEYS.copy()
-        # --- Fixed keys do not change ---
         self.fixed_control_keys = config.FIXED_CONTROL_KEYS.copy()
         
-        # --- State that is reset for each session ---
+        # State that resets for each session
         self.video_path = None
         self.csv_path = None
         self.frame_labels = None
         self.current_frame = 0
         self.total_frames = 0
         self.video_name = ""
-        self.screen_width = 1200 # Using as default, will be updated
+        self.screen_width = 1200
         self.video_handler = video_processor.VideoHandler()
         self.last_processed_frame = -1
         self.margin_display_location = "right"
@@ -59,26 +53,26 @@ class LabelingApp:
 
     def run(self):
         logger.info("Behavioral Labeler application started.")
-        # --- Main Application Loop ---
+        
         while True:
-            # --- 1. Configuration Phase ---
+            # Configuration Phase
             logger.info("Showing Main Menu to start a new labeling session.")
-            root = Tk()
+            root = ctk.CTk()
             root.withdraw()
             
             main_menu_window = mmw.MainMenuWindow(
                 root,
-                self.behaviors,  # Use the current (last-used) behaviors
-                self.keys,       # Use the current (last-used) keys
-                self.operant_keys_map # Use the current (last-used) operant keys
+                self.behaviors,
+                self.keys,
+                self.operant_keys_map
             )
             app_config = main_menu_window.get_config()
 
             if app_config['cancelled']:
                 logger.info("User cancelled from the Main Menu. Exiting application.")
-                break  # Exit the main application loop
+                break
 
-            # --- 2. Session Initialization Phase ---
+            # Session Initialization Phase
             self.behaviors = app_config['behaviors']
             self.keys = app_config['keys']
             self.operant_keys_map = app_config['operant_keys']
@@ -86,13 +80,13 @@ class LabelingApp:
             self.csv_path = app_config['csv_path']
             continue_from_checkpoint = app_config['continue_from_checkpoint']
             self.video_name = (self.video_path).name
-            self.margin_display_location = "right"  # Reset margin to default for each new video
+            self.margin_display_location = "right"
 
             logger.info(f"Starting new session with Video='{self.video_name}'")
 
             if not self.video_handler.open_video(self.video_path):
                 mmw.show_messagebox("Video Error", "Could not open video file.", type="error")
-                continue  # Skip to the next iteration of the outer loop (show main menu)
+                continue
         
             self.total_frames = self.video_handler.get_total_frames()
             if self.total_frames == 0:
@@ -107,7 +101,7 @@ class LabelingApp:
             self.last_processed_frame = self.current_frame -1
             self.screen_width = fd.get_screen_width()
 
-            # --- 3. Labeling Phase (Inner Session Loop) ---
+            # Labeling Phase
             save_on_exit = False
             while self.current_frame < self.total_frames:
                 self.last_processed_frame = max(self.last_processed_frame, self.current_frame)
@@ -129,11 +123,20 @@ class LabelingApp:
                 
                 if key == ord(self.fixed_control_keys['quit']):
                     do_save, do_exit = self._handle_exit_prompt()
-                    if do_exit: save_on_exit = do_save; break 
-                    continue # If not exiting, continue loop
-                elif key == ord(self.fixed_control_keys['zoom_out']): self.screen_width = int(self.screen_width * 0.95); logger.info(f"Zoom out. New screen width: {self.screen_width}");continue
-                elif key == ord(self.fixed_control_keys['zoom_in']): self.screen_width = int(self.screen_width * 1.05); logger.info(f"Zoom in. New screen width: {self.screen_width}"); continue
-                elif key == ord(self.fixed_control_keys['margin_toggle']): self.margin_display_location = "bottom" if self.margin_display_location == "right" else "right";logger.info(f"Toggled margin location to: {self.margin_display_location}"); continue
+                    if do_exit: save_on_exit = do_save; break
+                    continue
+                elif key == ord(self.fixed_control_keys['zoom_out']):
+                    self.screen_width = int(self.screen_width * 0.95)
+                    logger.info(f"Zoom out. New screen width: {self.screen_width}")
+                    continue
+                elif key == ord(self.fixed_control_keys['zoom_in']):
+                    self.screen_width = int(self.screen_width * 1.05)
+                    logger.info(f"Zoom in. New screen width: {self.screen_width}")
+                    continue
+                elif key == ord(self.fixed_control_keys['margin_toggle']):
+                    self.margin_display_location = "bottom" if self.margin_display_location == "right" else "right"
+                    logger.info(f"Toggled margin location to: {self.margin_display_location}")
+                    continue
                 elif key == ord(self.operant_keys_map['erase']):
                     for behavior_name in self.behaviors:
                         self.frame_labels[behavior_name][self.current_frame] = 0
@@ -154,7 +157,6 @@ class LabelingApp:
                         if key == ord(bh_key): selected_behavior_index = i; break
                     if selected_behavior_index != -1: move=1; [self.frame_labels[b].__setitem__(self.current_frame, 1 if i == selected_behavior_index else 0) for i,b in enumerate(self.behaviors)]
                 
-                # Check if the intended move will land on or jump past the last frame.
                 will_finish_video = self.total_frames > 0 and (self.current_frame + move >= self.total_frames - 1) and (move > 0)
 
                 if will_finish_video:
@@ -163,7 +165,7 @@ class LabelingApp:
                     if do_exit:
                         save_on_exit = do_save
                         self.current_frame += move
-                        break # Break the inner (session) loop
+                        break
                     else:
                         logger.info(f"Capping move to land on the last frame.")
                         move = (self.total_frames - 1) - self.current_frame
@@ -171,7 +173,7 @@ class LabelingApp:
                 self.current_frame += move
                 self.current_frame = max(0, min(self.current_frame, self.total_frames))
 
-            # --- 4. Session Teardown Phase ---
+            # Session Teardown Phase
             logger.info("Labeling session ended.")
 
             if save_on_exit:
@@ -185,5 +187,5 @@ class LabelingApp:
             cv2.destroyAllWindows()
             logger.info("Session cleanup complete. Returning to Main Menu.")
 
-        # --- 5. Application Exit ---
+        # Application Exit
         logger.info("Application closed.")

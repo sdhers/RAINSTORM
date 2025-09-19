@@ -1,8 +1,11 @@
 # tools/image_utils.py
 
+import logging
 import cv2
 import numpy as np
 from rainstorm.VideoHandling.tools import config
+
+logger = logging.getLogger(__name__)
 
 def merge_frames(video_files: list) -> np.ndarray:
     """
@@ -19,7 +22,7 @@ def merge_frames(video_files: list) -> np.ndarray:
         for path in video_files:
             cap = cv2.VideoCapture(path)
             if not cap.isOpened():
-                print(f"Warning: Cannot open video for merging: {path}")
+                logger.warning(f"Cannot open video for merging: {path}")
                 continue
             ok, frm = cap.read()
             cap.release()

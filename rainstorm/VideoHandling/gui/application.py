@@ -2,187 +2,183 @@
 
 import os
 import logging
-import tkinter as tk
-from tkinter import ttk, scrolledtext
+import customtkinter as ctk
 
 from rainstorm.VideoHandling.gui import gui_utils as gui
 from rainstorm.VideoHandling.tools import video_manager, video_processor, config
 from rainstorm.VideoHandling.components import aligner, cropper, trimmer, rotator
 
-logger = logging.getLogger(__name__) # Use module-specific logger
+logger = logging.getLogger(__name__)  # Use module-specific logger
 
 class VideoProcessorGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Video Processing Pipeline GUI")
-        self.root.geometry("700x650")
+        self.root.title("VideoHandling Pipeline")
+        self.root.geometry("800x750")
+        
+        # --- Appearance Settings ---
+        ctk.set_appearance_mode("Dark")  # Modes: "System" (default), "Dark", "Light"
+        ctk.set_default_color_theme("blue")  # Themes: "blue" (default), "green", "dark-blue"
 
         self.video_dict = None
         self.project_file_path = None
-        self.output_folder_path = tk.StringVar()
+        self.output_folder_path = ctk.StringVar()
 
-        # Tkinter variables for processing options
-        self.apply_trim_var = tk.BooleanVar(value=False)
-        self.apply_align_var = tk.BooleanVar(value=False)
-        self.apply_crop_var = tk.BooleanVar(value=False)
-        self.apply_rotate_var = tk.BooleanVar(value=False)
-        self.force_horizontal_align_var = tk.BooleanVar(value=False)
-        self.manual_align_points_var = tk.BooleanVar(value=False) 
+        # --- State Variables ---
+        self.apply_trim_var = ctk.BooleanVar(value=False)
+        self.apply_align_var = ctk.BooleanVar(value=False)
+        self.apply_crop_var = ctk.BooleanVar(value=False)
+        self.apply_rotate_var = ctk.BooleanVar(value=False)
+        self.force_horizontal_align_var = ctk.BooleanVar(value=False)
+        self.manual_align_points_var = ctk.BooleanVar(value=False)
 
-        # Manual alignment point entry variables
-        self.manual_p1_x_var = tk.StringVar()
-        self.manual_p1_y_var = tk.StringVar()
-        self.manual_p2_x_var = tk.StringVar()
-        self.manual_p2_y_var = tk.StringVar()
+        self.manual_p1_x_var = ctk.StringVar()
+        self.manual_p1_y_var = ctk.StringVar()
+        self.manual_p2_x_var = ctk.StringVar()
+        self.manual_p2_y_var = ctk.StringVar()
 
         self._create_widgets()
-        self._update_ui_state() # Initial state
+        self._update_ui_state()
 
     def _log_status(self, message, is_error=False):
-        self.status_text.configure(state='normal')
+        self.status_text.configure(state="normal")
         if is_error:
-            self.status_text.insert(tk.END, f"ERROR: {message}\n", "error")
-        else:
-            self.status_text.insert(tk.END, f"{message}\n")
-        self.status_text.configure(state='disabled')
-        self.status_text.see(tk.END) # Scroll to the end
-        if is_error:
+            self.status_text.insert("end", f"ERROR: {message}\n", "error")
             logger.error(message)
         else:
+            self.status_text.insert("end", f"{message}\n")
             logger.info(message)
-
+        self.status_text.configure(state="disabled")
+        self.status_text.see("end")
 
     def _create_widgets(self):
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # --- Main Layout ---
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
+        main_frame = ctk.CTkFrame(self.root, fg_color="transparent")
+        main_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        
+        main_frame.columnconfigure((0, 1), weight=1)
+        main_frame.rowconfigure(2, weight=1)
 
         # --- Project Management Frame ---
-        project_frame = ttk.LabelFrame(main_frame, text="Project Management", padding="10")
-        project_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
-        project_frame.columnconfigure(1, weight=1)
+        project_frame = ctk.CTkFrame(main_frame)
+        project_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+        project_frame.columnconfigure(2, weight=1)
 
-        ttk.Button(project_frame, text="New Project", command=self._new_project).grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
-        ttk.Button(project_frame, text="Load Project", command=self._load_project).grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
-        ttk.Button(project_frame, text="Save Project", command=self._save_project).grid(row=0, column=3, padx=5, pady=5, sticky=tk.W)
-        
-        self.project_path_label = ttk.Label(project_frame, text="Current Project: None")
-        self.project_path_label.grid(row=0, column=2, rowspan=3, padx=5, pady=5, sticky=(tk.W, tk.E))
+        ctk.CTkButton(project_frame, text="New Project", command=self._new_project).grid(row=0, column=0, padx=10, pady=10)
+        ctk.CTkButton(project_frame, text="Load Project", command=self._load_project).grid(row=0, column=1, padx=(0, 10), pady=10)
+        self.project_path_label = ctk.CTkLabel(project_frame, text="Current Project: None", anchor="w")
+        self.project_path_label.grid(row=0, column=2, padx=10, pady=10, sticky="ew")
+        ctk.CTkButton(project_frame, text="Save Project", command=self._save_project).grid(row=0, column=3, padx=10, pady=10)
 
 
         # --- Parameter Definition Frame ---
-        params_frame = ttk.LabelFrame(main_frame, text="Define Parameters", padding="10")
-        params_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+        params_frame = ctk.CTkFrame(main_frame)
+        params_frame.grid(row=1, column=0, sticky="nsew", padx=(0, 5), pady=(0, 10))
+        params_frame.columnconfigure(0, weight=1)
+        
+        ctk.CTkLabel(params_frame, text="Define Parameters", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(10, 5), sticky="w")
 
-        self.trim_button = ttk.Button(params_frame, text="Define Trimming", command=self._define_trimming)
-        self.trim_button.grid(row=0, column=0, padx=5, pady=5, sticky=tk.W+tk.E)
-        self.align_button = ttk.Button(params_frame, text="Define Alignment", command=self._define_alignment)
-        self.align_button.grid(row=1, column=0, padx=5, pady=5, sticky=tk.W+tk.E)
-        self.crop_button = ttk.Button(params_frame, text="Define Cropping", command=self._define_cropping)
-        self.crop_button.grid(row=2, column=0, padx=5, pady=5, sticky=tk.W+tk.E)
-        self.rotate_button = ttk.Button(params_frame, text="Define Rotation", command=self._define_rotation)
-        self.rotate_button.grid(row=3, column=0, padx=5, pady=5, sticky=tk.W+tk.E)
-
+        self.trim_button = ctk.CTkButton(params_frame, text="Define Trimming", command=self._define_trimming)
+        self.trim_button.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
+        self.align_button = ctk.CTkButton(params_frame, text="Define Alignment", command=self._define_alignment)
+        self.align_button.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
+        self.crop_button = ctk.CTkButton(params_frame, text="Define Cropping", command=self._define_cropping)
+        self.crop_button.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
+        self.rotate_button = ctk.CTkButton(params_frame, text="Define Rotation", command=self._define_rotation)
+        self.rotate_button.grid(row=4, column=0, padx=10, pady=10, sticky="ew")
 
         # --- Video Processing Frame ---
-        process_frame = ttk.LabelFrame(main_frame, text="Video Processing", padding="10")
-        process_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
-        process_frame.columnconfigure(0, weight=1) 
-
-        ttk.Checkbutton(process_frame, text="Apply Trimming", variable=self.apply_trim_var).grid(row=0, column=0, sticky=tk.W, padx=5)
+        process_frame = ctk.CTkFrame(main_frame)
+        process_frame.grid(row=1, column=1, sticky="nsew", padx=(5, 0), pady=(0, 10))
+        process_frame.columnconfigure(0, weight=1)
         
-        align_cb = ttk.Checkbutton(process_frame, text="Apply Alignment", variable=self.apply_align_var, command=self._toggle_align_options)
-        align_cb.grid(row=1, column=0, sticky=tk.W, padx=5)
-        
-        self.horizontal_align_cb = ttk.Checkbutton(process_frame, text="Force Horizontal Target Alignment", variable=self.force_horizontal_align_var)
-        self.horizontal_align_cb.grid(row=2, column=0, sticky=tk.W, padx=25) 
-        
-        self.manual_align_cb = ttk.Checkbutton(process_frame, 
-                                           text="Manually Set Target Alignment Points", 
-                                           variable=self.manual_align_points_var, 
-                                           command=self._toggle_manual_align_inputs)
-        self.manual_align_cb.grid(row=3, column=0, sticky=tk.W, padx=25)
+        ctk.CTkLabel(process_frame, text="Processing Options", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(10, 5), sticky="w")
 
-        self.manual_align_frame = ttk.Frame(process_frame, padding="5")
-        self.manual_align_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), padx=25)
-        
-        ttk.Label(self.manual_align_frame, text="P1 X:").grid(row=0, column=0, sticky=tk.W)
-        self.manual_p1_x_entry = ttk.Entry(self.manual_align_frame, textvariable=self.manual_p1_x_var, width=5)
-        self.manual_p1_x_entry.grid(row=0, column=1, sticky=tk.W, padx=2)
-        ttk.Label(self.manual_align_frame, text="P1 Y:").grid(row=0, column=2, sticky=tk.W)
-        self.manual_p1_y_entry = ttk.Entry(self.manual_align_frame, textvariable=self.manual_p1_y_var, width=5)
-        self.manual_p1_y_entry.grid(row=0, column=3, sticky=tk.W, padx=2)
-        
-        ttk.Label(self.manual_align_frame, text="P2 X:").grid(row=1, column=0, sticky=tk.W)
-        self.manual_p2_x_entry = ttk.Entry(self.manual_align_frame, textvariable=self.manual_p2_x_var, width=5)
-        self.manual_p2_x_entry.grid(row=1, column=1, sticky=tk.W, padx=2)
-        ttk.Label(self.manual_align_frame, text="P2 Y:").grid(row=1, column=2, sticky=tk.W)
-        self.manual_p2_y_entry = ttk.Entry(self.manual_align_frame, textvariable=self.manual_p2_y_var, width=5)
-        self.manual_p2_y_entry.grid(row=1, column=3, sticky=tk.W, padx=2)
+        ctk.CTkCheckBox(process_frame, text="Apply Trimming", variable=self.apply_trim_var).grid(row=1, column=0, sticky="w", padx=10, pady=5)
+        align_cb = ctk.CTkCheckBox(process_frame, text="Apply Alignment", variable=self.apply_align_var, command=self._toggle_align_options)
+        align_cb.grid(row=2, column=0, sticky="w", padx=10, pady=5)
 
-        ttk.Checkbutton(process_frame, text="Apply Cropping", variable=self.apply_crop_var).grid(row=5, column=0, sticky=tk.W, padx=5, pady=(10,0))
-        ttk.Checkbutton(process_frame, text="Apply Rotation", variable=self.apply_rotate_var).grid(row=6, column=0, sticky=tk.W, padx=5)
+        self.horizontal_align_cb = ctk.CTkCheckBox(process_frame, text="Force Horizontal Target Alignment", variable=self.force_horizontal_align_var)
+        self.horizontal_align_cb.grid(row=3, column=0, sticky="w", padx=25, pady=2)
+        self.manual_align_cb = ctk.CTkCheckBox(process_frame, text="Manually Set Target Alignment Points", variable=self.manual_align_points_var, command=self._toggle_manual_align_inputs)
+        self.manual_align_cb.grid(row=4, column=0, sticky="w", padx=25, pady=2)
 
+        self.manual_align_frame = ctk.CTkFrame(process_frame, fg_color="transparent")
+        self.manual_align_frame.grid(row=5, column=0, sticky="ew", padx=30, pady=0)
+        ctk.CTkLabel(self.manual_align_frame, text="P1 X:").grid(row=0, column=0, sticky="w")
+        self.manual_p1_x_entry = ctk.CTkEntry(self.manual_align_frame, textvariable=self.manual_p1_x_var, width=50)
+        self.manual_p1_x_entry.grid(row=0, column=1, sticky="w", padx=(5, 10))
+        ctk.CTkLabel(self.manual_align_frame, text="P1 Y:").grid(row=0, column=2, sticky="w")
+        self.manual_p1_y_entry = ctk.CTkEntry(self.manual_align_frame, textvariable=self.manual_p1_y_var, width=50)
+        self.manual_p1_y_entry.grid(row=0, column=3, sticky="w", padx=5)
+        ctk.CTkLabel(self.manual_align_frame, text="P2 X:").grid(row=1, column=0, sticky="w", pady=(5,0))
+        self.manual_p2_x_entry = ctk.CTkEntry(self.manual_align_frame, textvariable=self.manual_p2_x_var, width=50)
+        self.manual_p2_x_entry.grid(row=1, column=1, sticky="w", padx=(5, 10), pady=(5,0))
+        ctk.CTkLabel(self.manual_align_frame, text="P2 Y:").grid(row=1, column=2, sticky="w", pady=(5,0))
+        self.manual_p2_y_entry = ctk.CTkEntry(self.manual_align_frame, textvariable=self.manual_p2_y_var, width=50)
+        self.manual_p2_y_entry.grid(row=1, column=3, sticky="w", padx=5, pady=(5,0))
 
-        output_folder_frame = ttk.Frame(process_frame)
-        output_folder_frame.grid(row=7, column=0, sticky=(tk.W, tk.E), pady=5, padx=5)
+        ctk.CTkCheckBox(process_frame, text="Apply Cropping", variable=self.apply_crop_var).grid(row=6, column=0, sticky="w", padx=10, pady=(10, 5))
+        ctk.CTkCheckBox(process_frame, text="Apply Rotation", variable=self.apply_rotate_var).grid(row=7, column=0, sticky="w", padx=10, pady=5)
+
+        output_folder_frame = ctk.CTkFrame(process_frame, fg_color="transparent")
+        output_folder_frame.grid(row=8, column=0, sticky="ew", pady=10, padx=10)
         output_folder_frame.columnconfigure(1, weight=1)
-        ttk.Button(output_folder_frame, text="Select Output Folder", command=self._select_output_folder).grid(row=0, column=0, sticky=tk.W)
-        self.output_folder_entry = ttk.Entry(output_folder_frame, textvariable=self.output_folder_path, state='readonly', width=30)
-        self.output_folder_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
-        
-        self.process_videos_button = ttk.Button(process_frame, text="Process Videos & Save", command=self._process_videos)
-        self.process_videos_button.grid(row=8, column=0, columnspan=2, pady=10, sticky=tk.E+tk.W)
+        ctk.CTkButton(output_folder_frame, text="Select Output Folder", command=self._select_output_folder).grid(row=0, column=0, sticky="w")
+        self.output_folder_entry = ctk.CTkEntry(output_folder_frame, textvariable=self.output_folder_path, state='readonly')
+        self.output_folder_entry.grid(row=0, column=1, sticky="ew", padx=(10, 0))
+
+        self.process_videos_button = ctk.CTkButton(process_frame, text="Process Videos & Save", command=self._process_videos, height=40)
+        self.process_videos_button.grid(row=9, column=0, pady=10, padx=10, sticky="ew")
 
         # --- Status Frame ---
-        status_frame = ttk.LabelFrame(main_frame, text="Status Log", padding="10")
-        status_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+        status_frame = ctk.CTkFrame(main_frame)
+        status_frame.grid(row=2, column=0, columnspan=2, sticky="nsew")
         status_frame.columnconfigure(0, weight=1)
-        status_frame.rowconfigure(0, weight=1)
+        status_frame.rowconfigure(1, weight=1)
+        ctk.CTkLabel(status_frame, text="Status Log", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(10, 5), sticky="w")
+        self.status_text = ctk.CTkTextbox(status_frame, state='disabled', wrap="word")
+        self.status_text.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
+        self.status_text.tag_config("error", foreground="#d9534f") # A modern red color
 
-        self.status_text = scrolledtext.ScrolledText(status_frame, height=10, width=80, state='disabled', wrap=tk.WORD)
-        self.status_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        self.status_text.tag_config("error", foreground="red")
-
-        self._toggle_align_options() 
+        self._toggle_align_options()
         self._toggle_manual_align_inputs()
-
 
     def _update_ui_state(self):
         project_loaded = self.video_dict is not None
-        param_button_state = tk.NORMAL if project_loaded else tk.DISABLED
-        
-        self.trim_button.config(state=param_button_state)
-        self.align_button.config(state=param_button_state)
-        self.crop_button.config(state=param_button_state)
-        self.rotate_button.config(state=param_button_state)
-        self.process_videos_button.config(state=param_button_state)
-        
+        state = "normal" if project_loaded else "disabled"
+
+        self.trim_button.configure(state=state)
+        self.align_button.configure(state=state)
+        self.crop_button.configure(state=state)
+        self.rotate_button.configure(state=state)
+        self.process_videos_button.configure(state=state)
+
         if project_loaded and self.project_file_path:
-            self.project_path_label.config(text=f"Current Project: {os.path.basename(self.project_file_path)}")
+            self.project_path_label.configure(text=f"Project: {os.path.basename(self.project_file_path)}")
         elif project_loaded:
-            self.project_path_label.config(text="Current Project: Unsaved New Project")
+            self.project_path_label.configure(text="Project: Unsaved New Project")
         else:
-            self.project_path_label.config(text="Current Project: None")
+            self.project_path_label.configure(text="Current Project: None")
 
     def _toggle_align_options(self):
-        align_selected = self.apply_align_var.get()
-        state = tk.NORMAL if align_selected else tk.DISABLED
-        self.horizontal_align_cb.config(state=state)
-        self.manual_align_cb.config(state=state)
-        if not align_selected: 
+        is_align_selected = self.apply_align_var.get()
+        state = "normal" if is_align_selected else "disabled"
+        self.horizontal_align_cb.configure(state=state)
+        self.manual_align_cb.configure(state=state)
+        if not is_align_selected:
             self.manual_align_points_var.set(False)
-        self._toggle_manual_align_inputs() 
+        self._toggle_manual_align_inputs()
 
     def _toggle_manual_align_inputs(self):
-        manual_selected = self.manual_align_points_var.get() and self.apply_align_var.get()
-        state = tk.NORMAL if manual_selected else tk.DISABLED
-        # Iterate over children of manual_align_frame to set their state
-        for widget in self.manual_align_frame.winfo_children():
-            if isinstance(widget, (ttk.Entry, ttk.Label)): # Check specific widget types
-                 widget.config(state=state)
-
+        is_manual_selected = self.manual_align_points_var.get() and self.apply_align_var.get()
+        state = "normal" if is_manual_selected else "disabled"
+        self.manual_p1_x_entry.configure(state=state)
+        self.manual_p1_y_entry.configure(state=state)
+        self.manual_p2_x_entry.configure(state=state)
+        self.manual_p2_y_entry.configure(state=state)
 
     def _new_project(self):
         self._log_status("Creating new project...")
@@ -201,7 +197,6 @@ class VideoProcessorGUI:
                                               filetypes=config.JSON_FILE_TYPE,
                                               parent=self.root)
         if filepath:
-            # Pass parent_for_dialog to load_video_dict
             loaded_dict = video_manager.load_video_dict(file_path=filepath, parent_for_dialog=self.root)
             if loaded_dict:
                 self.video_dict = loaded_dict
@@ -213,15 +208,13 @@ class VideoProcessorGUI:
             self._log_status("Project loading canceled.")
         self._update_ui_state()
 
-    def _save_project(self, save_as=False): # Keep save_as for potential future "Save As" button
+    def _save_project(self, save_as=False):
         if not self.video_dict:
             self._log_status("No project data to save.", is_error=True)
             gui.show_info("Save Error", "No project data available to save.", parent=self.root)
             return
 
-        path_to_save = self.project_file_path
-        if save_as or not self.project_file_path:
-            path_to_save = None 
+        path_to_save = self.project_file_path if not save_as else None
 
         self._log_status("Saving project...")
         saved_path = video_manager.save_video_dict(self.video_dict, file_path=path_to_save, parent_for_dialog=self.root)
@@ -264,7 +257,7 @@ class VideoProcessorGUI:
             "----------------------------"
         )
         self._log_status(aligner_instructions)
-        self.root.update_idletasks() # Force GUI to process pending events, including text update
+        self.root.update_idletasks()
 
         try:
             aligner_instance = aligner.Aligner(self.video_dict)
@@ -283,7 +276,7 @@ class VideoProcessorGUI:
             self._log_status("No project loaded. Cannot define cropping.", is_error=True)
             return
         
-        self.root.update_idletasks() # Attempt to update GUI before logging
+        self.root.update_idletasks()
         self._log_status("Opening cropping tool...")
         
         cropper_instructions = (
@@ -301,13 +294,13 @@ class VideoProcessorGUI:
             "---------------------------"
         )
         self._log_status(cropper_instructions)
-        self.root.update_idletasks() # Force GUI to process pending events
+        self.root.update_idletasks()
 
         try:
             cropper_instance = cropper.Cropper(self.video_dict) 
-            self.video_dict = cropper_instance.start(tk_root_ref=self.root) # Pass tk_root_ref
+            self.video_dict = cropper_instance.start(tk_root_ref=self.root)
             self._log_status("Cropping definition complete. Consider saving the project.")
-        except ValueError as ve: # Catch specific errors from Cropper init (e.g., merge_frames fails)
+        except ValueError as ve:
              self._log_status(f"Could not start cropping tool: {ve}", is_error=True)
              gui.show_info("Cropping Error", f"Could not start cropping tool:\n{ve}", parent=self.root)
         except Exception as e:
@@ -367,21 +360,39 @@ class VideoProcessorGUI:
         target_manual_points = None
         if ops_to_apply["align"] and self.manual_align_points_var.get():
             try:
-                p1x = int(self.manual_p1_x_var.get())
-                p1y = int(self.manual_p1_y_var.get())
-                p2x = int(self.manual_p2_x_var.get())
-                p2y = int(self.manual_p2_y_var.get())
+                # Validate input strings are not empty
+                p1x_str = self.manual_p1_x_var.get().strip()
+                p1y_str = self.manual_p1_y_var.get().strip()
+                p2x_str = self.manual_p2_x_var.get().strip()
+                p2y_str = self.manual_p2_y_var.get().strip()
+                
+                if not all([p1x_str, p1y_str, p2x_str, p2y_str]):
+                    raise ValueError("All coordinate fields must be filled")
+                
+                p1x = int(p1x_str)
+                p1y = int(p1y_str)
+                p2x = int(p2x_str)
+                p2y = int(p2y_str)
+                
+                # Validate reasonable coordinate ranges (assuming typical video dimensions)
+                if not all([0 <= coord <= config.MAX_COORDINATE_VALUE for coord in [p1x, p1y, p2x, p2y]]):
+                    raise ValueError(f"Coordinates must be between 0 and {config.MAX_COORDINATE_VALUE}")
+                
+                # Validate that points are different
+                if p1x == p2x and p1y == p2y:
+                    raise ValueError("Alignment points must be different")
+                
                 target_manual_points = [[p1x, p1y], [p2x, p2y]]
                 self._log_status(f"Using manually set target alignment points: {target_manual_points}")
-            except ValueError:
-                self._log_status("Invalid manual alignment points. Please enter integers.", is_error=True)
-                gui.show_info("Input Error", "Manual alignment points must be integers.", parent=self.root)
+            except (ValueError, TypeError) as e:
+                self._log_status(f"Invalid manual alignment points: {e}", is_error=True)
+                gui.show_info("Input Error", f"Invalid manual alignment points: {e}", parent=self.root)
                 return
         
         self._log_status(f"Starting video processing. Output will be in: {chosen_output_folder}")
         gui.show_info("Processing Started",
                             f"Video processing is starting.\nOutput will be in: {chosen_output_folder}\n"
-                            "The GUI might become unresponsive during processing. Check console for progress.",
+                            "The GUI might become unresponsive. Check console for progress.",
                             parent=self.root)
         self.root.update_idletasks() 
 
@@ -392,7 +403,6 @@ class VideoProcessorGUI:
                 chosen_output_folder,
                 manual_target_points=target_manual_points 
             )
-            
             self._log_status(f"Video processing finished. Check logs and output folder: {chosen_output_folder}")
             gui.show_info("Processing Complete", f"Video processing finished.\nCheck console logs and the output folder:\n{chosen_output_folder}", parent=self.root)
         except Exception as e:

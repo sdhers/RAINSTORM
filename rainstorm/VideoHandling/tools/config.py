@@ -49,3 +49,17 @@ COLOR_YELLOW = (0, 255, 255)
 # File Dialog Configuration
 VIDEO_FILE_TYPES = [("Video Files", "*.mp4 *.avi *.mkv *.mov")]
 JSON_FILE_TYPE = [("JSON files", "*.json")]
+
+# Video Processing Configuration
+MAX_CONSECUTIVE_SKIP_ATTEMPTS = 1200  # Maximum number of skip attempts before giving up
+MAX_COORDINATE_VALUE = 10000  # Maximum coordinate value for validation
+MAX_ROTATION_ANGLE = 360  # Maximum rotation angle in degrees
+MIN_ROTATION_ANGLE = -360  # Minimum rotation angle in degrees
+MAX_TRIM_MINUTES = 999  # Maximum minutes for trim validation
+
+# Security Configuration
+ALLOWED_FILE_EXTENSIONS = {'.mp4', '.avi', '.mkv', '.mov', '.json'}
+MAX_PATH_LENGTH = 500  # Maximum file path length
+
+# Error Handling Configuration
+DEFAULT_ERROR_MESSAGE = "An unexpected error occurred. Please check the logs for details."

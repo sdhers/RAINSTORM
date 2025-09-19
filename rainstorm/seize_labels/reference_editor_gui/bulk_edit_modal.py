@@ -46,7 +46,7 @@ class BulkEditModal:
     def _create_dialog(self):
         """Create the main dialog window."""
         self.dialog = ctk.CTkToplevel(self.parent)
-        self.dialog.title(f"Bulk Edit {self.roi_key}")
+        self.dialog.title(f"Edit All {self.roi_key}")
         self.dialog.geometry("400x200")
         self.dialog.transient(self.parent)
         self.dialog.grab_set()
@@ -90,7 +90,7 @@ class BulkEditModal:
         """Create the dialog title."""
         self.title_label = ctk.CTkLabel(
             self.main_frame,
-            text=f"Bulk Edit {self.roi_key}",
+            text=f"Edit All {self.roi_key}",
             font=ctk.CTkFont(size=16, weight="bold")
         )
         self.title_label.pack(pady=(0, 10))

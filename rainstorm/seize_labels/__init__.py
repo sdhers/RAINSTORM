@@ -14,7 +14,7 @@ from ..prepare_positions import open_params_editor
 
 from .plotting_example import create_video, plot_mouse_exploration
 from .reference_file import create_reference_file
-from .reference_editor import open_reference_editor
+from .ReferenceEditor import open_reference_editor
 from .summary_files import create_summary_files
 
 from .multiplot.multiplot import plot_multiple_analyses

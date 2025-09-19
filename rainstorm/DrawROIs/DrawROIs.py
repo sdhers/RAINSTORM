@@ -9,8 +9,6 @@ def run_app():
     import logging
     from rainstorm.DrawROIs.src.app import ROISelectorApp
     from rainstorm.DrawROIs.src.logger import setup_logging
-    from rainstorm.DrawROIs.gui.dialogs import Dialogs
-
     # Set up logging before any other operations
     setup_logging()
     logger = logging.getLogger(__name__)

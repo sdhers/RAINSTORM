@@ -3,6 +3,7 @@
 import cv2
 import numpy as np
 import logging
+import customtkinter as ctk
 
 from rainstorm.DrawROIs.src.config import (
     INITIAL_ZOOM, MIN_ZOOM, MAX_ZOOM, 
@@ -15,8 +16,7 @@ logger = logging.getLogger(__name__)
 
 class MainWindow:
     """
-    Manages the OpenCV window for displaying the image and handling user interactions.
-    It dispatches events to the ROISelectorApp for processing.
+    Manages the OpenCV window and a CustomTkinter control panel.
     """
     def __init__(self, window_name: str, app_instance):
         self.window_name = window_name
@@ -26,7 +26,7 @@ class MainWindow:
         cv2.setMouseCallback(self.window_name, self._on_mouse_event)
         logger.debug(f"MainWindow: OpenCV window '{window_name}' created.")
         
-        # State variables for interaction
+        # Interaction state
         self.cursor_pos = (0, 0)
         self.is_dragging = False        
         self.is_moving_active_roi = False 
@@ -39,13 +39,50 @@ class MainWindow:
         self.scale_line_points = None   
         self.zoom_scale = INITIAL_ZOOM
         self.selected_saved_roi = None
-
-        # Attributes for aspect ratio correction
+        self.is_moving_saved_roi = False
+        
+        # Display properties
         self.display_scale = 1.0
         self.display_offset_x = 0
         self.display_offset_y = 0
-        self.is_moving_saved_roi = False
+        self.status_text = "Initializing..."
+        
+        self._create_control_panel()
 
+    def _create_control_panel(self):
+        """Creates a CTk Toplevel window to act as a control panel."""
+        self.control_panel = ctk.CTkToplevel(self.app._get_dialog_root())
+        self.control_panel.title("Controls")
+        self.control_panel.geometry("285x350")
+        self.control_panel.protocol("WM_DELETE_WINDOW", lambda: None) # Disable closing via 'X'
+
+        self.control_panel.grid_columnconfigure(0, weight=1)
+
+        # Status Label
+        status_frame = ctk.CTkFrame(self.control_panel)
+        status_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        status_frame.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(status_frame, text="Status:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(10,0), sticky="w")
+        self.status_label = ctk.CTkLabel(status_frame, text=self.status_text, wraplength=200, justify="left", anchor="w")
+        self.status_label.grid(row=1, column=0, padx=10, pady=(0,10), sticky="ew")
+
+        # Action Buttons
+        actions_frame = ctk.CTkFrame(self.control_panel)
+        actions_frame.grid(row=1, column=0, padx=10, pady=0, sticky="ew")
+        actions_frame.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkButton(actions_frame, text="Confirm ROI (Enter)", command=self.app._confirm_active_roi).grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        ctk.CTkButton(actions_frame, text="Undo / Discard (B)", command=self.app._handle_back).grid(row=1, column=0, padx=10, pady=5, sticky="ew")
+        ctk.CTkButton(actions_frame, text="Erase All (E)", command=self.app._handle_erase, fg_color="#db524b", hover_color="#b0423c").grid(row=2, column=0, padx=10, pady=5, sticky="ew")
+
+        # App Buttons
+        app_frame = ctk.CTkFrame(self.control_panel)
+        app_frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
+        app_frame.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkButton(app_frame, text="Instructions", command=self.app._display_instructions).grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        ctk.CTkButton(app_frame, text="Save & Quit (Q)", command=self.app._handle_quit).grid(row=1, column=0, padx=10, pady=5, sticky="ew")
+        
     def reset_active_roi(self):
         """Resets all temporary/active ROI properties to their initial state."""
         self.current_roi_corners = []
@@ -60,18 +97,14 @@ class MainWindow:
 
     def _on_mouse_event(self, event, x, y, flags, param):
         """Handles all mouse events and updates the application state."""
-        # Translate window coordinates to frame coordinates
-        if self.display_scale == 0: return # Avoid division by zero if scale is not set
+        if self.display_scale == 0: return
         
-        frame_h, frame_w = self.app.base_image.shape[:2]
         frame_x = int((x - self.display_offset_x) / self.display_scale)
         frame_y = int((y - self.display_offset_y) / self.display_scale)
         
-        # Use the translated coordinates for all logic
         self.cursor_pos = (frame_x, frame_y)
         self.app.state_changed = True 
 
-        # --- Left Button Down: Start drawing or select a saved ROI to move ---
         if event == cv2.EVENT_LBUTTONDOWN:
             logger.debug(f"Mouse: LBUTTONDOWN at ({frame_x}, {frame_y}) with flags {flags}")
             self.reset_active_roi()
@@ -83,47 +116,40 @@ class MainWindow:
                 self.scale_line_points = (self.current_roi_corners[0], (frame_x, frame_y))
             elif flags & cv2.EVENT_FLAG_SHIFTKEY:
                 self.active_roi_type = 'circle'
-                self.current_roi_corners = [(frame_x, frame_y), 0] # [center, radius]
+                self.current_roi_corners = [(frame_x, frame_y), 0]
             else:
                 self.active_roi_type = 'rectangle'
                 self.current_roi_corners = [(frame_x, frame_y)]
 
-        # --- Mouse Move: Update drawing preview or move ROI ---
         elif event == cv2.EVENT_MOUSEMOVE:
-            if self.is_dragging: # Preview a new shape
+            if self.is_dragging:
                 self._update_drawing_preview(frame_x, frame_y, flags)
-            elif self.is_moving_active_roi and self.move_start_point: # Move the active ROI
+            elif self.is_moving_active_roi and self.move_start_point:
                 dx = frame_x - self.move_start_point[0]
                 dy = frame_y - self.move_start_point[1]
                 self.move_start_point = (frame_x, frame_y)
                 self._update_current_roi_position(dx, dy)
 
-        # --- Left Button Up: Finish drawing ---
         elif event == cv2.EVENT_LBUTTONUP:
             if self.is_dragging:
                 self.is_dragging = False
                 self._finalize_drawing(frame_x, frame_y)
 
-        # --- Right Button Down: Start moving active ROI or select a saved one ---
         elif event == cv2.EVENT_RBUTTONDOWN:
-            logger.debug(f"Mouse: RBUTTONDOWN at ({frame_x}, {frame_y}).")
-            if self.active_roi_type: # If there's an active ROI, move it
+            if self.active_roi_type:
                 self.is_moving_active_roi = True
                 self.move_start_point = (frame_x, frame_y)
-            else: # Otherwise, try to select a saved ROI
+            else:
                 self._select_saved_roi_for_moving(frame_x, frame_y)
 
-        # --- Right Button Up: Finish moving ---
         elif event == cv2.EVENT_RBUTTONUP:
             self.is_moving_active_roi = False
             self.move_start_point = None
 
-        # --- Mouse Wheel: Zoom / Resize / Rotate ---
         elif event == cv2.EVENT_MOUSEWHEEL:
             self._handle_mouse_wheel(flags)
 
     def _update_drawing_preview(self, x, y, flags):
-        """Helper to update the preview of the shape being drawn."""
         if self.active_roi_type == 'scale_line':
             self.scale_line_points = (self.current_roi_corners[0], (x, y))
         elif self.active_roi_type == 'circle':
@@ -133,10 +159,10 @@ class MainWindow:
         elif self.active_roi_type == 'rectangle':
             x1, y1 = self.current_roi_corners[0]
             x2, y2 = x, y
-            if flags & cv2.EVENT_FLAG_CTRLKEY: # Enforce square
+            if flags & cv2.EVENT_FLAG_CTRLKEY:
                 side = max(abs(x2 - x1), abs(y2 - y1))
-                x2 = x1 + side * np.sign(x2 - x1)
-                y2 = y1 + side * np.sign(y2 - y1)
+                x2 = x1 + side * np.sign(x2 - x1) if x2 != x1 else x1 + side
+                y2 = y1 + side * np.sign(y2 - y1) if y2 != y1 else y1 + side
             
             if len(self.current_roi_corners) == 1:
                 self.current_roi_corners.append((int(x2), int(y2)))
@@ -144,27 +170,18 @@ class MainWindow:
                 self.current_roi_corners[1] = (int(x2), int(y2))
 
     def _finalize_drawing(self, x, y):
-        """Helper to finalize a shape after the mouse button is released."""
         start_point = self.current_roi_corners[0]
-        # If it was a small drag (a click), convert to a point
         if np.hypot(x - start_point[0], y - start_point[1]) < 5:
             self.active_roi_type = 'point'
             self.current_roi_corners = [start_point]
             self.scale_line_points = None
-            logger.debug("Finalized drawing as a Point.")
-        elif self.active_roi_type == 'rectangle':
-            logger.debug("Finalized drawing as a Rectangle.")
-        elif self.active_roi_type == 'circle':
-            logger.debug("Finalized drawing as a Circle.")
         elif self.active_roi_type == 'scale_line':
             self.scale_line_points = (start_point, (x, y))
-            logger.debug("Finalized drawing as a Scale Line.")
 
     def _select_saved_roi_for_moving(self, x, y):
-        """Selects a saved ROI and prepares it for moving by creating a temporary copy."""
         self.selected_saved_roi = self.app.get_roi_at_point(x, y)
         if self.selected_saved_roi:
-            self.is_moving_active_roi = True # We treat moving a saved ROI as moving an active one
+            self.is_moving_active_roi = True
             self.move_start_point = (x, y)
             roi_type = self.selected_saved_roi['type']
             self.active_roi_type = roi_type
@@ -178,76 +195,44 @@ class MainWindow:
                 self.current_roi_corners = [tuple(self.selected_saved_roi['center']), self.selected_saved_roi['radius']]
             elif roi_type == 'point':
                 self.current_roi_corners = [tuple(self.selected_saved_roi['center'])]
-            
-            logger.debug(f"Selected saved {roi_type} '{self.selected_saved_roi.get('name')}' for moving.")
-        else:
-            logger.debug("R-click did not select a saved ROI.")
 
     def _handle_mouse_wheel(self, flags):
-        """Handles all mouse wheel events for zoom, resize, and rotate."""
         delta = 1 if flags > 0 else -1
-        logger.debug(f"Mouse: MOUSEWHEEL (delta={delta}) with flags {flags}")
-
         if flags & cv2.EVENT_FLAG_SHIFTKEY:
             self.zoom_scale = min(max(self.zoom_scale + delta, MIN_ZOOM), MAX_ZOOM)
-            logger.debug(f"Zoom scale changed to {self.zoom_scale}.")
-        elif self.active_roi_type:
-            if self.active_roi_type == 'rectangle' and len(self.current_roi_corners) == 2:
-                if flags & cv2.EVENT_FLAG_CTRLKEY:
-                    self.current_roi_angle = (self.current_roi_angle - ROTATE_FACTOR * delta) % 360
-                else:
-                    self._resize_rectangle(delta)
-            elif self.active_roi_type == 'circle' and len(self.current_roi_corners) == 2:
-                self._resize_circle(delta)
+        elif self.active_roi_type == 'rectangle' and len(self.current_roi_corners) == 2:
+            if flags & cv2.EVENT_FLAG_CTRLKEY:
+                self.current_roi_angle = (self.current_roi_angle - ROTATE_FACTOR * delta) % 360
+            else: self._resize_rectangle(delta)
+        elif self.active_roi_type == 'circle' and len(self.current_roi_corners) == 2:
+            self._resize_circle(delta)
 
     def _resize_rectangle(self, delta):
-        """Resizes the active rectangle ROI."""
         (x1, y1), (x2, y2) = self.current_roi_corners
         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
         w0, h0 = abs(x2 - x1), abs(y2 - y1)
-        
         ratio = h0 / w0 if w0 else 1
-        delta_w = RESIZE_FACTOR * delta
-        delta_h = RESIZE_FACTOR * delta * ratio
-
-        half_new_w = max(1, w0/2 + delta_w)
-        half_new_h = max(1, h0/2 + delta_h)
-        
-        self.current_roi_corners = [
-            (cx - half_new_w, cy - half_new_h),
-            (cx + half_new_w, cy + half_new_h)
-        ]
+        delta_w, delta_h = RESIZE_FACTOR * delta, RESIZE_FACTOR * delta * ratio
+        half_new_w, half_new_h = max(1, w0/2 + delta_w), max(1, h0/2 + delta_h)
+        self.current_roi_corners = [(cx - half_new_w, cy - half_new_h), (cx + half_new_w, cy + half_new_h)]
 
     def _resize_circle(self, delta):
-        """Resizes the active circle ROI."""
-        current_radius = self.current_roi_corners[1]
-        new_radius = max(1, current_radius + CIRCLE_RESIZE_FACTOR * delta)
-        self.current_roi_corners[1] = new_radius
+        self.current_roi_corners[1] = max(1, self.current_roi_corners[1] + CIRCLE_RESIZE_FACTOR * delta)
 
     def _update_current_roi_position(self, dx, dy):
-        """Helper to apply movement to the currently active ROI."""
         if self.active_roi_type == 'rectangle' and len(self.current_roi_corners) == 2:
             self.current_roi_corners[0] = (self.current_roi_corners[0][0] + dx, self.current_roi_corners[0][1] + dy)
             self.current_roi_corners[1] = (self.current_roi_corners[1][0] + dx, self.current_roi_corners[1][1] + dy)
         elif self.active_roi_type in ['circle', 'point'] and self.current_roi_corners:
-            center_x, center_y = self.current_roi_corners[0]
-            self.current_roi_corners[0] = (center_x + dx, center_y + dy)
+            self.current_roi_corners[0] = (self.current_roi_corners[0][0] + dx, self.current_roi_corners[0][1] + dy)
 
     def render_frame(self, base_image: np.ndarray, rois_data: dict) -> np.ndarray:
-        """Renders the base image with all saved and active ROIs, scale line, and zoom inset."""
         frame = base_image.copy()
-        
-        # Draw saved ROIs
-        for rectangle in rois_data.get('rectangles', []):
-            DrawingUtils.draw_rectangle(frame, rectangle['center'], rectangle['width'], rectangle['height'], rectangle['angle'])
-        for circle in rois_data.get('circles', []):
-            DrawingUtils.draw_circle(frame, circle['center'], circle['radius'])
-        for pt in rois_data.get('points', []):
-            DrawingUtils.draw_point(frame, pt['center'])
+        for r in rois_data.get('rectangles', []): DrawingUtils.draw_rectangle(frame, r['center'], r['width'], r['height'], r['angle'])
+        for c in rois_data.get('circles', []): DrawingUtils.draw_circle(frame, c['center'], c['radius'])
+        for p in rois_data.get('points', []): DrawingUtils.draw_point(frame, p['center'])
 
         status_text = f"Cursor: {self.cursor_pos}"
-
-        # Draw active elements
         if self.active_roi_type == 'scale_line' and self.scale_line_points:
             p0, p1 = self.scale_line_points
             DrawingUtils.draw_scale_line(frame, p0, p1, color=COLOR_SCALE_LINE)
@@ -261,83 +246,61 @@ class MainWindow:
         elif self.active_roi_type == 'circle' and len(self.current_roi_corners) == 2:
             center, radius = self.current_roi_corners
             DrawingUtils.draw_circle(frame, center, radius, COLOR_ROI_PREVIEW)
-            status_text = f"Circle: C={center}, R={radius}"
+            status_text = f"Circle: C={list(map(int, center))}, R={int(radius)}"
         elif self.active_roi_type == 'point' and len(self.current_roi_corners) == 1:
             center = self.current_roi_corners[0]
             DrawingUtils.draw_point(frame, center, color=COLOR_ROI_PREVIEW)
             status_text = f"Point: {center}"
 
-        # Zoom inset
         if self.zoom_scale > 1:
-            inset, (ox1, ox2, oy1, oy2) = DrawingUtils.zoom_in_display(
-                frame, self.cursor_pos[0], self.cursor_pos[1], zoom_scale=self.zoom_scale
-            )
+            inset, (ox1, ox2, oy1, oy2) = DrawingUtils.zoom_in_display(frame, self.cursor_pos[0], self.cursor_pos[1], self.zoom_scale)
             frame[oy1:oy2, ox1:ox2] = inset
 
         DrawingUtils.draw_text_on_frame_bottom(frame, status_text)
+        self.status_text = status_text
         return frame
 
     def show_frame(self, frame: np.ndarray):
-        """
-        Displays the given frame in the OpenCV window, maintaining aspect ratio.
-        """
-        frame_h, frame_w = frame.shape[:2]
-        if frame_h == 0 or frame_w == 0: return
-
-        try:
-            _, _, win_w, win_h = cv2.getWindowImageRect(self.window_name)
-        except cv2.error:
-            # Window might be closed or not ready
-            return
-
-        if win_w <= 0 or win_h <= 0: return
-
-        frame_aspect = frame_w / frame_h
-        win_aspect = win_w / win_h
-
-        if abs(frame_aspect - win_aspect) < 0.01:
-            # Aspect ratios are close enough, no need for padding
-            self.display_scale = win_w / frame_w
-            self.display_offset_x = 0
-            self.display_offset_y = 0
-            cv2.imshow(self.window_name, frame)
-            return
-
-        # Create a letterboxed/pillarboxed view
-        if frame_aspect > win_aspect: # Frame is wider than window -> letterbox
-            new_w = win_w
-            new_h = int(new_w / frame_aspect)
-        else: # Frame is taller than window -> pillarbox
-            new_h = win_h
-            new_w = int(new_h * frame_aspect)
-
-        # Update scale and offsets for mouse coordinate translation
-        self.display_scale = new_w / frame_w
-        self.display_offset_x = (win_w - new_w) // 2
-        self.display_offset_y = (win_h - new_h) // 2
-
-        resized_frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        win_w, win_h = 0, 0
+        try: _, _, win_w, win_h = cv2.getWindowImageRect(self.window_name)
+        except cv2.error: return
         
-        # Create a black canvas and place the resized frame in the center
-        canvas = np.zeros((win_h, win_w, 3), dtype=np.uint8)
-        canvas[self.display_offset_y : self.display_offset_y + new_h,
-               self.display_offset_x : self.display_offset_x + new_w] = resized_frame
+        if not all([win_w, win_h, frame.shape[0], frame.shape[1]]): return
+        
+        frame_h, frame_w = frame.shape[:2]
+        frame_aspect, win_aspect = frame_w / frame_h, win_w / win_h
 
+        if frame_aspect > win_aspect:
+            new_w, new_h = win_w, int(win_w / frame_aspect)
+        else:
+            new_h, new_w = win_h, int(win_h * frame_aspect)
+
+        self.display_scale = new_w / frame_w
+        self.display_offset_x, self.display_offset_y = (win_w - new_w) // 2, (win_h - new_h) // 2
+        
+        resized_frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        canvas = np.zeros((win_h, win_w, 3), dtype=np.uint8)
+        canvas[self.display_offset_y:self.display_offset_y+new_h, self.display_offset_x:self.display_offset_x+new_w] = resized_frame
         cv2.imshow(self.window_name, canvas)
+        
+        if self.control_panel and self.control_panel.winfo_exists():
+            self.status_label.configure(text=self.status_text)
+            # The mainloop handles updates, so this is not needed and can cause issues.
+            # self.control_panel.update()
 
     def wait_key(self, delay: int = 20):
-        """Waits for a key press and returns its ASCII value."""
+        # This function is no longer the primary way to get keys, but we can leave it
+        # for now as a simple delay mechanism if needed elsewhere, or remove it.
+        # For this fix, it's safer to ensure it's not used for event handling.
         return cv2.waitKey(delay) & 0xFF
 
     def is_window_visible(self):
-        """Checks if the OpenCV window is still visible."""
-        try:
-            # A value of -1 is returned if the window is closed.
-            return cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) >= 1
-        except cv2.error:
-            return False
+        try: return cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) >= 1
+        except cv2.error: return False
 
     def destroy_window(self):
-        """Destroys the OpenCV window."""
+        if self.control_panel and self.control_panel.winfo_exists():
+            self.control_panel.destroy()
         cv2.destroyWindow(self.window_name)
-        logger.debug(f"MainWindow: Window '{self.window_name}' destroyed.")
+        logger.debug(f"MainWindow: All windows destroyed.")
+

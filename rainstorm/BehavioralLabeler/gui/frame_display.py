@@ -2,7 +2,7 @@
 
 import cv2
 import numpy as np
-from tkinter import Tk
+import customtkinter as ctk
 import logging
 from pathlib import Path
 
@@ -17,7 +17,8 @@ def get_screen_width() -> int:
         width (int): The width of the monitor screen in pixels.
     """
     try:
-        root = Tk()
+        root = ctk.CTk()
+        root.withdraw()  # Hide the window
         root.update_idletasks()
         root.attributes('-fullscreen', True)
         root.state('iconic')
@@ -27,7 +28,7 @@ def get_screen_width() -> int:
         logger.info(f"Detected screen width: {width}")
         return width
     except Exception as e:
-        logger.error(f"Failed to get screen width using Tkinter: {e}")
+        logger.error(f"Failed to get screen width using CustomTkinter: {e}")
         # Fallback to a default or handle gracefully
         return 1200 # A reasonable default if detection fails
 

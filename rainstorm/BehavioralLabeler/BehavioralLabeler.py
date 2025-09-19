@@ -6,7 +6,8 @@ def run_app():
     This function can be called from other scripts or notebooks.
     """
     import logging
-    from tkinter import messagebox, Tk
+    import customtkinter as ctk
+    from tkinter import messagebox
     from rainstorm.BehavioralLabeler.src.app import LabelingApp
     from rainstorm.BehavioralLabeler.src.logger import setup_logging
 
@@ -22,7 +23,7 @@ def run_app():
     except Exception as e:
         logger.critical(f"An unhandled error occurred: {e}", exc_info=True)
         # Show a message box for critical errors
-        root = Tk(); root.withdraw() # Create a root window but hide it
+        root = ctk.CTk(); root.withdraw() # Create a root window but hide it
         messagebox.showerror("Critical Error", f"An unexpected error occurred: {e}\nPlease check the logs for more details.")
         root.destroy() # Destroy the hidden root window
 

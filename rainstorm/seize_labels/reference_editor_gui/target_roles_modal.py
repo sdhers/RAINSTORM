@@ -13,6 +13,7 @@ ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
 from ...utils import configure_logging
+from .reorder_utils import ReorderManager, create_move_to_top_button
 configure_logging()
 
 import logging
@@ -40,6 +41,7 @@ class TargetRolesModal:
         self.modal = None
         self.tab_view = None
         self.tabs = {}
+        self.reorder_managers = {}  # Store reorder managers for each tab
         
         self._create_modal()
     
@@ -47,7 +49,7 @@ class TargetRolesModal:
         """Create the modal window and its components."""
         self.modal = ctk.CTkToplevel(self.parent)
         self.modal.title("Modify Target Roles")
-        self.modal.geometry("440x410")
+        self.modal.geometry("500x410")
         self.modal.transient(self.parent)
         self.modal.grab_set()
         
@@ -86,6 +88,14 @@ class TargetRolesModal:
             scroll_frame = ctk.CTkScrollableFrame(tab)
             scroll_frame.pack(expand=True, fill="both", pady=5)
             
+            # Initialize reorder manager for this tab
+            self.reorder_managers[trial_name] = ReorderManager(
+                scroll_frame=scroll_frame,
+                entry_widgets_list=self.tabs[trial_name]["frames"],
+                create_entry_func=lambda role_name, trial=trial_name, sf=scroll_frame: self._create_role_entry(trial, role_name, sf),
+                create_add_section_func=lambda trial=trial_name, sf=scroll_frame: self._create_add_role_section(trial, sf)
+            )
+            
             # Display existing roles
             self._create_existing_roles(trial_name, scroll_frame)
             
@@ -105,7 +115,7 @@ class TargetRolesModal:
     
     def _create_role_entry(self, trial_name: str, role_name: str, scroll_frame):
         """
-        Create a single role entry with delete functionality.
+        Create a single role entry with move to top and delete functionality.
         
         Args:
             trial_name (str): Name of trial
@@ -120,6 +130,10 @@ class TargetRolesModal:
         
         # Keep reference to frame for deletion
         self.tabs[trial_name]["frames"].append(frame)
+        
+        # Add move to top button using the utility
+        move_to_top_button = create_move_to_top_button(frame, self.reorder_managers[trial_name])
+        move_to_top_button.pack(side="right", padx=(5, 2), pady=5)
         
         delete_button = ctk.CTkButton(
             frame, 
@@ -147,7 +161,8 @@ class TargetRolesModal:
         add_button = ctk.CTkButton(
             add_frame, 
             text="Add", 
-            command=lambda: self._add_new_role(trial_name, new_role_entry, scroll_frame)
+            command=lambda: self._add_new_role(trial_name, new_role_entry, scroll_frame),
+            width=60
         )
         add_button.pack(side="right", padx=5)
     
@@ -156,24 +171,26 @@ class TargetRolesModal:
         add_trial_frame = ctk.CTkFrame(self.modal)
         add_trial_frame.pack(fill="x", padx=15, pady=(0, 5))
         
-        ctk.CTkLabel(add_trial_frame, text="Trial Management:").pack(side="left", padx=5)
+        ctk.CTkLabel(add_trial_frame, text="Add/Remove Trials:").pack(side="left", padx=5)
         
         self.new_trial_entry = ctk.CTkEntry(add_trial_frame, placeholder_text="Trial name")
         self.new_trial_entry.pack(side="left", expand=True, fill="x", padx=5, pady=5)
         
         add_trial_button = ctk.CTkButton(
             add_trial_frame, 
-            text="Add Trial", 
-            command=self._add_new_trial
+            text="Add", 
+            command=self._add_new_trial,
+            width=60
         )
         add_trial_button.pack(side="right", padx=5, pady=5)
         
         remove_trial_button = ctk.CTkButton(
             add_trial_frame, 
-            text="Remove Trial", 
+            text="Remove", 
             command=self._remove_trial,
             fg_color="#DC2626",
-            hover_color="#B91C1C"
+            hover_color="#B91C1C",
+            width=70
         )
         remove_trial_button.pack(side="right", padx=(0, 5), pady=5)
     
@@ -230,6 +247,14 @@ class TargetRolesModal:
         scroll_frame = ctk.CTkScrollableFrame(tab)
         scroll_frame.pack(expand=True, fill="both", pady=5)
         
+        # Initialize reorder manager for this new tab
+        self.reorder_managers[new_trial_name] = ReorderManager(
+            scroll_frame=scroll_frame,
+            entry_widgets_list=self.tabs[new_trial_name]["frames"],
+            create_entry_func=lambda role_name, trial=new_trial_name, sf=scroll_frame: self._create_role_entry(trial, role_name, sf),
+            create_add_section_func=lambda trial=new_trial_name, sf=scroll_frame: self._create_add_role_section(trial, sf)
+        )
+        
         # Create add new role section
         self._create_add_role_section(new_trial_name, scroll_frame)
         
@@ -264,6 +289,10 @@ class TargetRolesModal:
         
         # Remove from tabs dictionary
         del self.tabs[trial_name]
+        
+        # Remove reorder manager
+        if trial_name in self.reorder_managers:
+            del self.reorder_managers[trial_name]
         
         # Clear the entry field
         self.new_trial_entry.delete(0, 'end')

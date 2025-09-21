@@ -1,7 +1,8 @@
 """
 Flexible groups modification modal dialog.
 
-This module provides a modal window for adding, editing, and removing groups from the reference data.
+This module provides a modal window for adding, editing, removing, and reordering groups 
+from the reference data. Users can move groups to the top of the list using the move-to-top button.
 """
 
 from typing import Callable, List
@@ -11,6 +12,7 @@ ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
 from ...utils import configure_logging
+from .reorder_utils import ReorderManager, create_move_to_top_button
 configure_logging()
 
 import logging
@@ -37,6 +39,7 @@ class GroupsModal:
         self.modal = None
         self.scroll_frame = None
         self.entry_widgets = []
+        self.reorder_manager = None
         
         self._create_modal()
     
@@ -44,13 +47,21 @@ class GroupsModal:
         """Create the modal window and its components."""
         self.modal = ctk.CTkToplevel(self.parent)
         self.modal.title("Modify Groups")
-        self.modal.geometry("325x340")
+        self.modal.geometry("380x340")
         self.modal.transient(self.parent)
         self.modal.grab_set()
         
         # Create scrollable frame for groups
         self.scroll_frame = ctk.CTkScrollableFrame(self.modal)
         self.scroll_frame.pack(expand=True, fill="both", padx=15, pady=15)
+        
+        # Initialize reorder manager
+        self.reorder_manager = ReorderManager(
+            scroll_frame=self.scroll_frame,
+            entry_widgets_list=self.entry_widgets,
+            create_entry_func=self._create_group_entry,
+            create_add_section_func=self._create_add_group_section
+        )
         
         # Create existing groups
         self._create_existing_groups()
@@ -70,7 +81,7 @@ class GroupsModal:
     
     def _create_group_entry(self, group_name: str):
         """
-        Create a single group entry with edit and delete functionality.
+        Create a single group entry with edit, move to top, and delete functionality.
         
         Args:
             group_name (str): Name of the group
@@ -82,6 +93,10 @@ class GroupsModal:
         entry.insert(0, group_name)
         entry.pack(side="left", expand=True, fill="x", padx=5, pady=5)
         self.entry_widgets.append(entry)
+        
+        # Add move to top button using the utility
+        move_to_top_button = create_move_to_top_button(frame, self.reorder_manager)
+        move_to_top_button.pack(side="right", padx=(5, 2))
         
         # Add delete button
         delete_button = ctk.CTkButton(
@@ -104,7 +119,8 @@ class GroupsModal:
         add_button = ctk.CTkButton(
             add_frame, 
             text="Add", 
-            command=self._add_new_group
+            command=self._add_new_group,
+            width=60
         )
         add_button.pack(side="right", padx=5, pady=5)
     
@@ -160,6 +176,7 @@ class GroupsModal:
         
         frame.destroy()
         logger.debug("Deleted group entry")
+    
     
     def _save_and_close(self):
         """Save the current groups and close the modal."""

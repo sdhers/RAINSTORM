@@ -9,6 +9,7 @@ ctk.set_default_color_theme("blue")
 
 from ..gui import main_menu_window as mmw
 from ..gui import frame_display as fd
+from ..gui import timeline_window as tw
 from . import video_processor
 from . import label_manager
 from . import config
@@ -36,6 +37,7 @@ class LabelingApp:
         self.video_handler = video_processor.VideoHandler()
         self.last_processed_frame = -1
         self.margin_display_location = "right"
+        self.timeline_window = None
         logger.info("LabelingApp initialized.")
 
     def _handle_exit_prompt(self) -> tuple[bool, bool]:
@@ -53,6 +55,47 @@ class LabelingApp:
                 save_choice = True
             return save_choice, True  # User wants to exit
         return save_choice, False # User does not want to exit
+
+    def _open_timeline_window(self):
+        """Open the timeline window for navigation."""
+        if self.timeline_window is None or not self.timeline_window.is_window_open():
+            # Create a temporary root for the timeline window
+            timeline_root = ctk.CTk()
+            timeline_root.withdraw()  # Hide the root window
+            
+            self.timeline_window = tw.TimelineWindow(
+                master=timeline_root,
+                total_frames=self.total_frames,
+                behaviors=self.behaviors,
+                frame_labels=self.frame_labels,
+                on_frame_select=self._navigate_to_frame,
+                current_frame=self.current_frame
+            )
+            
+            # Store the root to prevent garbage collection
+            self.timeline_window.root = timeline_root
+            
+            # Make the timeline window modal
+            self.timeline_window.window.transient(timeline_root)
+            self.timeline_window.window.grab_set()
+            
+            # Wait for the timeline window to close
+            self.timeline_window.window.wait_window()
+            
+            logger.info("Timeline window opened")
+        else:
+            # Bring existing window to front
+            self.timeline_window.window.lift()
+            self.timeline_window.window.focus_force()
+            logger.info("Timeline window brought to front")
+
+    def _navigate_to_frame(self, frame_number: int):
+        """Navigate to a specific frame from the timeline."""
+        if 0 <= frame_number < self.total_frames:
+            self.current_frame = frame_number
+            logger.info(f"Navigated to frame {frame_number + 1} from timeline")
+        else:
+            logger.warning(f"Invalid frame number {frame_number} from timeline")
 
     def run(self):
         logger.info("Behavioral Labeler application started.")
@@ -140,11 +183,17 @@ class LabelingApp:
                     self.margin_display_location = "bottom" if self.margin_display_location == "right" else "right"
                     logger.info(f"Toggled margin location to: {self.margin_display_location}")
                     continue
+                elif key == ord(self.fixed_control_keys['go_to']):
+                    self._open_timeline_window()
+                    continue
                 elif key == ord(self.operant_keys_map['erase']):
                     for behavior_name in self.behaviors:
                         self.frame_labels[behavior_name][self.current_frame] = 0
                     move = 1
                     logger.info(f"Frame {self.current_frame+1}: Erased labels.")
+                    # Update timeline if open
+                    if self.timeline_window and self.timeline_window.is_window_open():
+                        self.timeline_window.update_frame_labels(self.frame_labels)
                 elif key == ord(self.operant_keys_map['next']):
                     for behavior_name in self.behaviors:
                         if self.frame_labels[behavior_name][self.current_frame] == '-':
@@ -158,7 +207,11 @@ class LabelingApp:
                     selected_behavior_index = -1
                     for i, bh_key in enumerate(self.keys):
                         if key == ord(bh_key): selected_behavior_index = i; break
-                    if selected_behavior_index != -1: move=1; [self.frame_labels[b].__setitem__(self.current_frame, 1 if i == selected_behavior_index else 0) for i,b in enumerate(self.behaviors)]
+                    if selected_behavior_index != -1: 
+                        move=1; [self.frame_labels[b].__setitem__(self.current_frame, 1 if i == selected_behavior_index else 0) for i,b in enumerate(self.behaviors)]
+                        # Update timeline if open
+                        if self.timeline_window and self.timeline_window.is_window_open():
+                            self.timeline_window.update_frame_labels(self.frame_labels)
                 
                 will_finish_video = self.total_frames > 0 and (self.current_frame + move >= self.total_frames - 1) and (move > 0)
 
@@ -175,6 +228,10 @@ class LabelingApp:
 
                 self.current_frame += move
                 self.current_frame = max(0, min(self.current_frame, self.total_frames))
+                
+                # Update timeline current frame indicator if open
+                if self.timeline_window and self.timeline_window.is_window_open():
+                    self.timeline_window.set_current_frame(self.current_frame)
 
             # Session Teardown Phase
             logger.info("Labeling session ended.")

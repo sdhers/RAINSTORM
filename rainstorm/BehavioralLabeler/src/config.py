@@ -23,6 +23,7 @@ FIXED_CONTROL_KEYS = {
     'zoom_in': '+',        # Zoom in
     'zoom_out': '-',       # Zoom out
     'margin_toggle': 'm',  # Toggle margin location
+    'go_to': 't',          # Open timeline window
 }
 
 # Initial screen width for display

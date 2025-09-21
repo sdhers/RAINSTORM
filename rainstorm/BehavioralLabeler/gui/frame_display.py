@@ -228,7 +228,7 @@ def show_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames
               font_scale=default_font_scale, font_thickness=default_font_thickness)
     current_y += line_k_spacing
 
-    draw_text(display_frame, f"Exit ({fixed_control_keys['quit']}), Zoom ({fixed_control_keys['zoom_in']}/{fixed_control_keys['zoom_out']}), Margin ({fixed_control_keys['margin_toggle']})",
+    draw_text(display_frame, f"Exit ({fixed_control_keys['quit']}), Zoom ({fixed_control_keys['zoom_in']}/{fixed_control_keys['zoom_out']}), Margin ({fixed_control_keys['margin_toggle']}), Timeline ({fixed_control_keys['go_to']})",
               pos=(text_start_x, current_y),
               font_scale=default_font_scale, font_thickness=default_font_thickness)
     current_y += line_k_spacing
@@ -267,10 +267,4 @@ def show_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames
     cv2.imshow("Frame", display_frame)
     logger.debug(f"Displayed frame {frame_number} with margin at '{margin_location}'")
     return display_frame
-
-def get_user_key_input():
-    """Wait for a keystroke and return its ASCII value."""
-    key = cv2.waitKey(0)
-    logger.debug(f"User pressed key: {key} (char: {chr(key) if key != -1 else 'None'})")
-    return key
 

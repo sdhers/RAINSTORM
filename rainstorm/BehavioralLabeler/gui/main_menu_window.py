@@ -157,6 +157,12 @@ Labeling Window Controls:
 
 Display Controls: {fixed_controls}
 
+Timeline Feature:
+- Press '{config.FIXED_CONTROL_KEYS['go_to']}' to open the timeline window
+- View the entire video timeline with color-coded behavioral events
+- Click on the timeline to select a frame, then click "Go to Frame" to navigate
+- Use arrow keys to navigate between frames on the timeline
+
 Note: Keys should be unique, single characters, different from the operant and fixed control keys.
 """
         instructions_textbox = ctk.CTkTextbox(right_frame, wrap='word', corner_radius=6)

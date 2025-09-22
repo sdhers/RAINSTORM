@@ -14,10 +14,25 @@ from ..src import config
 import logging
 logger = logging.getLogger(__name__)
 
-def show_messagebox(title: str, message: str, type: str = "info") -> bool:
+def show_messagebox(title: str, message: str, type: str = "info", topmost_window=None) -> bool:
     """Display a message box and return user response."""
     root = ctk.CTk()
     root.withdraw()
+    
+    # Temporarily disable topmost on the specified window if provided
+    was_topmost = False
+    if topmost_window and topmost_window.winfo_exists():
+        try:
+            was_topmost = topmost_window.attributes("-topmost")
+            topmost_window.attributes("-topmost", False)
+        except:
+            pass  # Ignore errors if window doesn't support topmost attribute
+    
+    # Make the root window appear on top
+    root.attributes("-topmost", True)
+    root.lift()
+    root.focus_force()
+    
     response = False
     if type == "info":
         messagebox.showinfo(title, message)
@@ -30,6 +45,14 @@ def show_messagebox(title: str, message: str, type: str = "info") -> bool:
         response = True
     elif type == "question":
         response = messagebox.askquestion(title, message) == 'yes'
+    
+    # Restore topmost attribute on the original window
+    if topmost_window and topmost_window.winfo_exists() and was_topmost:
+        try:
+            topmost_window.attributes("-topmost", True)
+        except:
+            pass  # Ignore errors if window doesn't support topmost attribute
+    
     root.destroy()
     logger.info(f"Messagebox '{title}' displayed. User response: {response}")
     return response

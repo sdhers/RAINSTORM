@@ -19,12 +19,5 @@ OPERANT_KEYS = {
 
 # Fixed control keys that cannot be changed
 FIXED_CONTROL_KEYS = {
-    'quit': 'q',           # Quit the labeler
-    'zoom_in': '+',        # Zoom in
-    'zoom_out': '-',       # Zoom out
-    'margin_toggle': 'm',  # Toggle margin location
     'go_to': 't',          # Open timeline window
 }
-
-# Initial screen width for display
-INITIAL_SCREEN_WIDTH = 1200

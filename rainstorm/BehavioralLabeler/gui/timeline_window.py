@@ -5,6 +5,8 @@ import tkinter as tk
 from typing import Dict, List, Callable, Optional
 import logging
 
+from ..src import utils
+
 logger = logging.getLogger(__name__)
 
 class TimelineWindow:
@@ -35,8 +37,8 @@ class TimelineWindow:
         self.current_frame = current_frame
         
         # Calculate optimal height based on number of behaviors
-        base_height = 150
-        behavior_height = len(behaviors) * 25
+        base_height = 160
+        behavior_height = len(behaviors) * 20
         calculated_height = base_height + behavior_height
         optimal_height = max(300, min(calculated_height, 600))
         
@@ -45,7 +47,7 @@ class TimelineWindow:
         self.window.title("Video Timeline")
         self.window.geometry(f"1000x{optimal_height}")
         self.window.resizable(True, True)
-        self.window.minsize(800, max(300, optimal_height - 50))
+        self.window.minsize(800, max(300, optimal_height))
 
         # Make window stay on top
         self.window.attributes("-topmost", True)
@@ -58,7 +60,7 @@ class TimelineWindow:
         self.window.grab_set()
         
         # Timeline colors for different behaviors
-        self.behavior_colors = self._generate_behavior_colors()
+        self.behavior_colors = utils.generate_behavior_colors(self.behaviors)
         
         # Create the GUI
         self._create_widgets()
@@ -71,20 +73,6 @@ class TimelineWindow:
         
         logger.info(f"Timeline window created for {total_frames} frames with {len(behaviors)} behaviors")
     
-    def _generate_behavior_colors(self) -> Dict[str, str]:
-        """Generate distinct colors for each behavior."""
-        colors = [
-            "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", 
-            "#FFEAA7", "#DDA0DD", "#98D8C8", "#F7DC6F",
-            "#BB8FCE", "#85C1E9", "#F8C471", "#82E0AA",
-            "#F1948A", "#85C1E9", "#D7BDE2", "#A9DFBF"
-        ]
-        
-        behavior_colors = {}
-        for i, behavior in enumerate(self.behaviors):
-            behavior_colors[behavior] = colors[i % len(colors)]
-        
-        return behavior_colors
     
     def _create_widgets(self):
         """Create and arrange the timeline widgets."""
@@ -143,11 +131,11 @@ class TimelineWindow:
         
         # Control frame - status text and buttons on same line
         control_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        control_frame.pack(fill="x", pady=(10, 0))
+        control_frame.pack(fill="x", pady=(5, 5))
         control_frame.grid_columnconfigure(0, weight=1)
         
         # Status text on the left
-        initial_text = f"Current frame: {self.current_frame + 1} (Selected Frame: {self.current_frame + 1}). Click on timeline or use arrow keys to select frame, then click 'Go to Frame'"
+        initial_text = f"Current frame: {self.current_frame + 1}. Click or use arrow keys to navigate the timeline."
         self.status_label = ctk.CTkLabel(control_frame, text=initial_text)
         self.status_label.grid(row=0, column=0, padx=10, pady=10, sticky="w")
         

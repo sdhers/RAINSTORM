@@ -1,270 +1,268 @@
-"""Frame display functionality for the Behavioral Labeler."""
+"""
+Frame display functionality for the Behavioral Labeler.
 
-import cv2
+This module provides a GUI window to display video frames and associated
+labeling information.
+"""
+
+import customtkinter as ctk
+from PIL import Image, ImageTk
 import numpy as np
-from tkinter import Tk
-import logging
-from pathlib import Path
+import cv2
 
+from ..src import utils
+
+import logging
 logger = logging.getLogger(__name__)
 
-def get_screen_width() -> int:
-    """Get the width of the current screen in a multi-screen setup.
-
-    Returns:
-        width (int): The width of the monitor screen in pixels.
+class FrameDisplayWindow:
     """
-    try:
-        root = Tk()
-        root.update_idletasks()
-        root.attributes('-fullscreen', True)
-        root.state('iconic')
-        geometry = root.winfo_geometry()
-        root.destroy()
-        width = int(geometry.split('x')[0])
-        logger.info(f"Detected screen width: {width}")
-        return width
-    except Exception as e:
-        logger.error(f"Failed to get screen width using Tkinter: {e}")
-        return 1200
+    A CustomTkinter Toplevel window for displaying video frames and labeling controls.
 
-def resize_frame(img: np.uint8, screen_width: int) -> np.uint8:
+    This class creates a two-panel layout: one for the video frame and one for
+    displaying real-time information such as frame number, behavior statuses,
+    and keyboard shortcuts. It communicates user input back to the main
+    application controller via callbacks.
     """
-    Resize frame for better visualization. Maintains aspect ratio.
 
-    Args:
-        img (np.uint8): Original image frame.
-        screen_width (int): The target width for the resized frame, typically screen width.
+    def __init__(self, master: ctk.CTk, video_name: str, total_frames: int,
+                 behavior_info: dict, operant_keys: dict, fixed_control_keys: dict,
+                 on_key_press: callable, on_close: callable):
+        """
+        Initializes the Frame Display Window.
 
-    Returns:
-        new_img (np.uint8): Resized image.
-    """
-    if img is None:
-        logger.warning("Attempted to resize a None frame.")
-        return None
+        Args:
+            master (ctk.CTk): The root tkinter object.
+            video_name (str): The name of the video file being labeled.
+            total_frames (int): The total number of frames in the video.
+            behavior_info (dict): A dictionary containing details about each behavior.
+            operant_keys (dict): A dictionary of keys for navigation and actions.
+            fixed_control_keys (dict): A dictionary of fixed application control keys.
+            on_key_press (callable): A callback function to be invoked on a key press event.
+                                     It receives the pressed key character as an argument.
+            on_close (callable): A callback function to be invoked when the window is closed.
+        """
+        self.master = master
+        self.on_key_press_callback = on_key_press
+        self.on_close_callback = on_close
+        
+        # Generate behavior colors for consistent highlighting
+        self.behavior_colors = utils.generate_behavior_colors(list(behavior_info.keys()))
 
-    height, width = img.shape[:2]
-    if width == 0:
-        logger.warning("Original frame width is zero, cannot resize.")
-        return img
+        # Create the toplevel window
+        self.window = ctk.CTkToplevel(master)
+        self.window.title(f"Labeling: {video_name}")
+        self.window.geometry("1200x700")
+        self.window.minsize(800, 600)
 
-    scale_factor = screen_width / width
-    new_width = int(width * scale_factor)
-    new_height = int(height * scale_factor)
+        # Configure the main grid layout
+        self.window.grid_columnconfigure(0, weight=3) # Video panel
+        self.window.grid_columnconfigure(1, weight=1) # Info panel
+        self.window.grid_rowconfigure(0, weight=1)
+
+        # --- Video Frame Panel ---
+        self.video_frame_panel = ctk.CTkFrame(self.window, fg_color="black")
+        self.video_frame_panel.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.video_frame_panel.grid_propagate(False)
+        
+        # Create a container frame with minimal padding for the video label
+        self.video_container = ctk.CTkFrame(self.video_frame_panel, fg_color="transparent")
+        self.video_container.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        self.video_label = ctk.CTkLabel(self.video_container, text="", anchor="center")
+        self.video_label.pack(fill="both", expand=True)
+
+        # --- Info Panel ---
+        self.info_panel = ctk.CTkFrame(self.window)
+        self.info_panel.grid(row=0, column=1, sticky="nsew", padx=(0, 10), pady=10)
+        self._create_info_panel(video_name, total_frames, behavior_info, operant_keys, fixed_control_keys)
+
+        # Bind events
+        self.window.bind("<KeyPress>", self._handle_key_press)
+        self.window.protocol("WM_DELETE_WINDOW", self.on_close_callback)
+        
+        # Make window stay on top and grab focus
+        self.window.attributes("-topmost", True)
+        self.window.lift()
+        self.window.focus_force()
+
+        logger.info("FrameDisplayWindow initialized.")
+
+    def _create_info_panel(self, video_name: str, total_frames: int,
+                           behavior_info: dict, operant_keys: dict, fixed_control_keys: dict):
+        """Creates and populates the widgets for the information panel."""
+        self.info_panel.grid_columnconfigure(0, weight=1)
+        
+        # --- Header ---
+        header_frame = ctk.CTkFrame(self.info_panel, fg_color="transparent")
+        header_frame.pack(fill="x", padx=15, pady=10)
+        ctk.CTkLabel(header_frame, text="RAINSTORM Behavioral Labeler", font=ctk.CTkFont(size=16, weight="bold")).pack()
+        ctk.CTkLabel(header_frame, text="https://github.com/sdhers/Rainstorm", font=ctk.CTkFont(size=10)).pack()
+        
+        # --- Session Info ---
+        session_frame = ctk.CTkFrame(self.info_panel)
+        session_frame.pack(fill="x", padx=10, pady=10)
+        session_frame.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(session_frame, text="Session Info", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, pady=(5,10), sticky="w", padx=10)
+        
+        self.video_name_label = ctk.CTkLabel(session_frame, text=f"Video: {video_name}", wraplength=250, justify="left")
+        self.video_name_label.grid(row=1, column=0, sticky="w", padx=10)
+        
+        self.frame_count_label = ctk.CTkLabel(session_frame, text=f"Frame: 1/{total_frames}")
+        self.frame_count_label.grid(row=2, column=0, pady=(0,5), sticky="w", padx=10)
+        
+        # --- Controls Info ---
+        controls_frame = ctk.CTkFrame(self.info_panel)
+        controls_frame.pack(fill="x", padx=10, pady=10)
+        controls_frame.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(controls_frame, text="Controls", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, pady=(5,10), sticky="w", padx=10)
+        
+        nav_text = f"Next: '{operant_keys['next']}' | Prev: '{operant_keys['prev']}' | FFW: '{operant_keys['ffw']}'"
+        ctk.CTkLabel(controls_frame, text=nav_text).grid(row=1, column=0, sticky="w", padx=10)
+        
+        action_text = f"Erase Label: '{operant_keys['erase']}' | OpenTimeline: '{fixed_control_keys['go_to']}'"
+        ctk.CTkLabel(controls_frame, text=action_text).grid(row=2, column=0, pady=(0,5), sticky="w", padx=10)
+
+        # --- Behaviors Panel ---
+        ctk.CTkLabel(self.info_panel, text="Behaviors", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(10,5))
+        
+        # Create header row with subtle background
+        header_frame = ctk.CTkFrame(self.info_panel, fg_color="#1E1E1E", corner_radius=8)
+        header_frame.pack(fill="x", padx=10, pady=(0, 5))
+        header_frame.grid_columnconfigure(0, weight=1)
+        header_frame.grid_columnconfigure(1, weight=0)
+        header_frame.grid_columnconfigure(2, weight=0)
+        
+        ctk.CTkLabel(header_frame, text="Behavior", font=ctk.CTkFont(weight="bold"), text_color="#FFFFFF").grid(row=0, column=0, sticky="w", padx=(8,0), pady=4)
+        ctk.CTkLabel(header_frame, text="Key", font=ctk.CTkFont(weight="bold"), width=40, text_color="#FFFFFF").grid(row=0, column=1, pady=4)
+        ctk.CTkLabel(header_frame, text="Events", font=ctk.CTkFont(weight="bold"), width=60, text_color="#FFFFFF").grid(row=0, column=2, padx=(0,8), pady=4)
+        
+        behaviors_scroll_frame = ctk.CTkScrollableFrame(self.info_panel)
+        behaviors_scroll_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        behaviors_scroll_frame.grid_columnconfigure(0, weight=1)
+
+        self.behavior_labels = {}
+        for behavior_name, info in behavior_info.items():
+            # Create individual cell frames for each column
+            row_frame = ctk.CTkFrame(behaviors_scroll_frame, fg_color="transparent")
+            row_frame.pack(fill="x", pady=1)
+            row_frame.grid_columnconfigure(0, weight=1)
+            row_frame.grid_columnconfigure(1, weight=0)
+            row_frame.grid_columnconfigure(2, weight=0)
+            
+            # Behavior name cell
+            name_cell = ctk.CTkFrame(row_frame, fg_color="#2B2B2B", corner_radius=8)
+            name_cell.grid(row=0, column=0, sticky="ew", padx=(0, 2))
+            name_label = ctk.CTkLabel(name_cell, text=f"{behavior_name}", anchor="w", font=ctk.CTkFont(size=12))
+            name_label.pack(fill="x", padx=8, pady=4)
+            
+            # Key cell
+            key_cell = ctk.CTkFrame(row_frame, fg_color="#2B2B2B", corner_radius=8)
+            key_cell.grid(row=0, column=1, padx=1)
+            key_label = ctk.CTkLabel(key_cell, text=f"{info['key']}", width=25, font=ctk.CTkFont(size=12))
+            key_label.pack(padx=8, pady=4)
+
+            # Events cell
+            events_cell = ctk.CTkFrame(row_frame, fg_color="#2B2B2B", corner_radius=8)
+            events_cell.grid(row=0, column=2, padx=(2, 0))
+            sum_label = ctk.CTkLabel(events_cell, text=f"{info['sum']}", width=30, font=ctk.CTkFont(size=12))
+            sum_label.pack(padx=8, pady=4)
+
+            self.behavior_labels[behavior_name] = {'name': name_label, 'sum': sum_label, 'cell': name_cell}
+
+    def _handle_key_press(self, event):
+        """
+        Internal handler for key press events. It calls the registered callback.
+        """
+        # We ignore modifier keys and only pass character keys
+        if event.char:
+            logger.debug(f"Key pressed: '{event.char}'")
+            self.on_key_press_callback(event.char)
     
-    if new_width <= 0 or new_height <= 0:
-        logger.warning(f"Calculated new dimensions are invalid: ({new_width}, {new_height}). Returning original frame.")
-        return img
 
-    new_img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
-    logger.debug(f"Resized frame from ({width}, {height}) to ({new_width}, {new_height})")
-    return new_img
+    def update_display(self, frame: np.ndarray, frame_number: int, total_frames: int, behavior_info: dict):
+        """
+        Updates the window with a new frame and new information.
 
-def add_margin(img: np.uint8, margin_ratio: float = 0.5, orientation: str = "right") -> np.uint8:
-    """
-    Add a black margin to the frame, either on the right or at the bottom.
+        This method is called by the main controller to refresh the UI.
 
-    Args:
-        img (np.uint8): Original image.
-        margin_ratio (float): Ratio of the margin size to the original image dimension
-                              (width for right margin, height for bottom margin).
-        orientation (str): "right" or "bottom" to specify margin location.
+        Args:
+            frame (np.ndarray): The new video frame to display (in BGR format from OpenCV).
+            frame_number (int): The current frame number (0-indexed).
+            total_frames (int): The total number of frames in the video.
+            behavior_info (dict): The updated dictionary with behavior sums and current statuses.
+        """
+        # --- Update Video Frame ---
+        if frame is not None:
+            # Convert BGR (OpenCV) to RGB (PIL)
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            pil_image = Image.fromarray(rgb_frame)
+            
+            # Calculate frame size ONLY on the first frame
+            if not hasattr(self, '_frame_size'):
+                # Wait for window to be properly sized
+                self.window.update_idletasks()
+                
+                # Get panel dimensions
+                panel_width = self.video_container.winfo_width()
+                panel_height = self.video_container.winfo_height()
+                
+                # Fallback if panel is too small
+                if panel_width <= 1 or panel_height <= 1:
+                    panel_width = 800
+                    panel_height = 600
+                
+                # Calculate size to fit panel while maintaining aspect ratio
+                img_aspect = pil_image.width / pil_image.height
+                panel_aspect = panel_width / panel_height
+                
+                if img_aspect > panel_aspect:
+                    # Image is wider - limit by width
+                    new_width = panel_width
+                    new_height = int(new_width / img_aspect)
+                else:
+                    # Image is taller - limit by height
+                    new_height = panel_height
+                    new_width = int(new_height * img_aspect)
+                
+                # Store the calculated size - never change it again
+                self._frame_size = (new_width, new_height)
+                logger.info(f"Frame size calculated once: {new_width}x{new_height}")
+            
+            # Always use the stored size
+            ctk_image = ctk.CTkImage(light_image=pil_image, size=self._frame_size)
+            self.video_label.configure(image=ctk_image)
+            
+        # --- Update Info Panel ---
+        self.frame_count_label.configure(text=f"Frame: {frame_number + 1}/{total_frames}")
 
-    Returns:
-        new_img (np.uint8): Image with black margin.
-    """
-    if img is None:
-        logger.warning("Attempted to add margin to a None frame.")
-        return None
+        for behavior_name, info in behavior_info.items():
+            if behavior_name in self.behavior_labels:
+                labels = self.behavior_labels[behavior_name]
+                
+                # Update sum
+                labels['sum'].configure(text=f"{info['sum']}")
+                
+                # Update cell background color based on current status
+                is_active = info.get('current_behavior', 0) == 1
+                if is_active:
+                    # Highlight the entire cell with the behavior's assigned color
+                    behavior_color = self.behavior_colors.get(behavior_name, "#FF6B6B")
+                    labels['cell'].configure(fg_color=behavior_color)
+                    labels['name'].configure(
+                        text_color="#FFFFFF", # White text on colored background
+                        font=ctk.CTkFont(size=12, weight="bold")
+                    )
+                else:
+                    # Return to default gray background
+                    labels['cell'].configure(fg_color="#2B2B2B")
+                    labels['name'].configure(
+                        font=ctk.CTkFont(size=12, weight="normal")
+                    )
+        logger.debug(f"Display updated for frame {frame_number + 1}.")
 
-    height, width, channels = img.shape
-
-    if orientation == "right":
-        margin_pixels = int(width * margin_ratio)
-        if margin_pixels <= 0:
-            logger.warning(f"Calculated margin pixels for right margin is not positive ({margin_pixels}). Returning original image.")
-            return img
-        full_width = width + margin_pixels
-        new_img = np.zeros((height, full_width, channels), dtype=np.uint8)
-        new_img[:, :width, :] = img  # Copy the original image on the left side
-        logger.debug(f"Added right margin of {margin_pixels} pixels to the frame.")
-    elif orientation == "bottom":
-        margin_pixels = int(height * margin_ratio)
-        if margin_pixels <= 0:
-            logger.warning(f"Calculated margin pixels for bottom margin is not positive ({margin_pixels}). Returning original image.")
-            return img
-        full_height = height + margin_pixels
-        new_img = np.zeros((full_height, width, channels), dtype=np.uint8)
-        new_img[:height, :, :] = img  # Copy the original image on the top side
-        logger.debug(f"Added bottom margin of {margin_pixels} pixels to the frame.")
-    else:
-        logger.error(f"Invalid margin orientation: {orientation}. Returning original image.")
-        return img
-    return new_img
-
-def draw_text(img: np.uint8,
-              text: str,
-              font=cv2.FONT_HERSHEY_PLAIN,
-              pos=(0, 0),
-              font_scale=1,
-              font_thickness=1,
-              text_color=(0, 255, 0),
-              text_color_bg=(0, 0, 0)):
-    """
-    Draws text on an image with an optional background rectangle.
-
-    Args:
-        img (np.uint8): The image to draw on.
-        text (str): The text string to draw.
-        font (optional): The font type. Defaults to cv2.FONT_HERSHEY_PLAIN.
-        pos (tuple, optional): The top-left corner (x, y) of the text. Defaults to (0, 0).
-        font_scale (int, optional): Font scale factor. Defaults to 1.
-        font_thickness (int, optional): Thickness of the text lines. Defaults to 1.
-        text_color (tuple, optional): Color of the text (B, G, R). Defaults to (0, 255, 0) (green).
-        text_color_bg (tuple, optional): Color of the background rectangle (B, G, R). Defaults to (0, 0, 0) (black).
-    """
-    if img is None:
-        logger.warning("Attempted to draw text on a None frame.")
-        return
-
-    x, y = pos
-    text_size, _ = cv2.getTextSize(text, font, font_scale, font_thickness)
-    text_w, text_h = text_size
-
-    cv2.rectangle(img, pos, (x + text_w, y + text_h + int(font_scale*5)), text_color_bg, -1)
-    cv2.putText(img, text, (x, y + text_h + font_scale -1), font, font_scale, text_color, font_thickness)
-    logger.debug(f"Drew text '{text}' at position {pos}")
-
-def show_frame(video_name: str, frame: np.uint8, frame_number: int, total_frames: int,
-               behavior_info: dict, screen_width: int, operant_keys: dict, fixed_control_keys: dict,
-               margin_location: str = "right"):
-    """
-    Prepares and displays a single frame with labeling information.
-
-    Args:
-        video_name (str): Name of the video file.
-        frame (np.uint8): The current video frame.
-        frame_number (int): The current frame index (0-based).
-        total_frames (int): Total number of frames in the video.
-        behavior_info (dict): Dictionary containing behavior names, keys, sums, and current status.
-        screen_width (int): The current display width for resizing.
-        operant_keys (dict): Mapping for navigation actions (next, prev, ffw, erase).
-        fixed_control_keys (dict): Mapping for fixed controls (quit, zoom, margin toggle).
-        margin_location (str): "right" or "bottom" to specify where the margin and text are displayed.
-
-    Returns:
-        np.uint8: The processed frame ready for display.
-    """
-    if frame is None:
-        logger.error("Attempted to show a None frame.")
-        return None
-    
-    MARGIN_RATIO = 0.5
-    if margin_location == "bottom":
-        MARGIN_RATIO*=2 # Increase margin for bottom to ensure enough space for text
-
-    display_frame = frame.copy()
-    display_frame = add_margin(display_frame, margin_ratio=MARGIN_RATIO, orientation=margin_location)
-    display_frame = resize_frame(display_frame, screen_width)
-
-    if display_frame is None:
-        logger.error("Failed to process frame for display after margin and resize.")
-        return None
-
-    df_height, df_width = display_frame.shape[:2]
-    
-    txt_scale = 2
-    base_gap = df_width // 80
-    line_k_spacing = df_width // 40
-
-    # Calculate starting position for the text based on margin_location
-    text_start_x = 0
-    text_start_y = 0
-
-    if margin_location == "right":
-        original_content_scaled_width = int(df_width / (1 + MARGIN_RATIO))
-        text_start_x = original_content_scaled_width + base_gap
-        text_start_y = base_gap
-        logger.debug(f"Margin on right. Text starts at x={text_start_x}, y={text_start_y}")
-    elif margin_location == "bottom":
-        original_content_scaled_height = int(df_height / (1 + MARGIN_RATIO))
-        text_start_x = base_gap
-        text_start_y = original_content_scaled_height + base_gap
-        logger.debug(f"Margin at bottom. Text starts at x={text_start_x}, y={text_start_y}")
-    else:
-        logger.error(f"Invalid margin_location: {margin_location}. Defaulting to 'right'.")
-        original_content_scaled_width = int(df_width / (1 + MARGIN_RATIO))
-        text_start_x = original_content_scaled_width + base_gap
-        text_start_y = base_gap
-
-    current_y = text_start_y
-    default_font_scale = 1
-    default_font_thickness = 1
-    
-    draw_text(display_frame, "RAINSTORM Behavioral Labeler",
-              pos=(text_start_x, current_y),
-              font_scale=txt_scale, font_thickness=txt_scale,
-              text_color=(255, 255, 255))
-    current_y += line_k_spacing
-
-    draw_text(display_frame, "https://github.com/sdhers/Rainstorm",
-              pos=(text_start_x, current_y),
-              font_scale=default_font_scale, font_thickness=default_font_thickness,
-              text_color=(255, 255, 255))
-    current_y += line_k_spacing
-
-    draw_text(display_frame, f"{video_name}",
-              pos=(text_start_x, current_y),
-              font_scale=default_font_scale, font_thickness=default_font_thickness)
-    current_y += line_k_spacing
-
-    draw_text(display_frame, f"Frame: {frame_number + 1}/{total_frames}",
-              pos=(text_start_x, current_y),
-              font_scale=default_font_scale, font_thickness=default_font_thickness)
-    current_y += line_k_spacing
-
-    draw_text(display_frame, f"next ({operant_keys['next']}), previous ({operant_keys['prev']}), ffw ({operant_keys['ffw']})",
-              pos=(text_start_x, current_y),
-              font_scale=default_font_scale, font_thickness=default_font_thickness)
-    current_y += line_k_spacing
-
-    draw_text(display_frame, f"Exit ({fixed_control_keys['quit']}), Zoom ({fixed_control_keys['zoom_in']}/{fixed_control_keys['zoom_out']}), Margin ({fixed_control_keys['margin_toggle']}), Timeline ({fixed_control_keys['go_to']})",
-              pos=(text_start_x, current_y),
-              font_scale=default_font_scale, font_thickness=default_font_thickness)
-    current_y += line_k_spacing
-
-    current_y += base_gap # Add extra space before "Behaviors:"
-
-    if margin_location == "bottom":
-        text_start_x = df_width // 2 + base_gap
-        current_y = text_start_y
-    
-    draw_text(display_frame, "Behaviors:",
-              pos=(text_start_x, current_y),
-              font_scale=default_font_scale, font_thickness=default_font_thickness)
-    current_y += line_k_spacing
-
-    # Display each behavior, its key, and sum
-    for i, (behavior_name, info) in enumerate(behavior_info.items()):
-        display_value = 1 if info['current_behavior'] == 1 else 0
-        # if display_value is 0 (inactive): (0, 250, 0) -> Greenish
-        # if display_value is 1 (active):   (0, 250 - 255, 255) -> (0, ~0, 255) -> Reddish
-        text_color = (0, 250 - display_value * 255, 0 + display_value * 255) 
-        font_thickness_dyn = 1 + display_value
-
-        draw_text(display_frame, f"{behavior_name} ({info['key']}): {info['sum']}",
-                  pos=(text_start_x, current_y),
-                  font_scale=txt_scale, font_thickness=font_thickness_dyn,
-                  text_color=text_color)
-        current_y += line_k_spacing
-    
-    current_y += base_gap
-
-    draw_text(display_frame, f"none / delete ({operant_keys['erase']})",
-              pos=(text_start_x, current_y),
-              font_scale=default_font_scale, font_thickness=default_font_thickness)
-
-    cv2.imshow("Frame", display_frame)
-    logger.debug(f"Displayed frame {frame_number} with margin at '{margin_location}'")
-    return display_frame
-
+    def close(self):
+        """Destroys the window."""
+        if self.window.winfo_exists():
+            self.window.destroy()
+        logger.info("FrameDisplayWindow closed.")

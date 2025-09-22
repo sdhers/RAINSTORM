@@ -33,11 +33,12 @@ class LabelingApp:
         self.current_frame = 0
         self.total_frames = 0
         self.video_name = ""
-        self.screen_width = 1200
         self.video_handler = video_processor.VideoHandler()
         self.last_processed_frame = -1
-        self.margin_display_location = "right"
         self.timeline_window = None
+        self.frame_display_window = None
+        self.is_session_running = False
+        self.session_root = None
         logger.info("LabelingApp initialized.")
 
     def _handle_exit_prompt(self) -> tuple[bool, bool]:
@@ -50,8 +51,10 @@ class LabelingApp:
             - should_exit (bool): True if the user chose to exit the application.
         """
         save_choice = False
-        if mmw.show_messagebox("Exit", "Do you want to exit the labeler?", type="question"):
-            if mmw.show_messagebox("Save Changes", "Do you want to save your work?", type="question"):
+        # Pass the frame display window to temporarily disable its topmost attribute
+        frame_window = self.frame_display_window.window if self.frame_display_window else None
+        if mmw.show_messagebox("Exit", "Do you want to exit the labeler?", type="question", topmost_window=frame_window):
+            if mmw.show_messagebox("Save Changes", "Do you want to save your work?", type="question", topmost_window=frame_window):
                 save_choice = True
             return save_choice, True  # User wants to exit
         return save_choice, False # User does not want to exit
@@ -82,6 +85,10 @@ class LabelingApp:
             # Wait for the timeline window to close
             self.timeline_window.window.wait_window()
             
+            # Refocus the main labeling window after timeline closes
+            if self.frame_display_window:
+                self.frame_display_window.window.focus_force()
+
             logger.info("Timeline window opened")
         else:
             # Bring existing window to front
@@ -93,6 +100,7 @@ class LabelingApp:
         """Navigate to a specific frame from the timeline."""
         if 0 <= frame_number < self.total_frames:
             self.current_frame = frame_number
+            self._update_display() # Update display after jumping
             logger.info(f"Navigated to frame {frame_number + 1} from timeline")
         else:
             logger.warning(f"Invalid frame number {frame_number} from timeline")
@@ -126,7 +134,6 @@ class LabelingApp:
             self.csv_path = app_config['csv_path']
             continue_from_checkpoint = app_config['continue_from_checkpoint']
             self.video_name = (self.video_path).name
-            self.margin_display_location = "right"
 
             logger.info(f"Starting new session with Video='{self.video_name}'")
 
@@ -145,107 +152,129 @@ class LabelingApp:
             )
             self.current_frame = suggested_start_frame if self.csv_path and continue_from_checkpoint else 0
             self.last_processed_frame = self.current_frame -1
-            self.screen_width = fd.get_screen_width()
 
             # Labeling Phase
-            save_on_exit = False
-            while self.current_frame < self.total_frames:
-                self.last_processed_frame = max(self.last_processed_frame, self.current_frame)
-                frame = self.video_handler.get_frame_at_index(self.current_frame)
-                if frame is None: break
+            self.is_session_running = True
+            self.session_root = ctk.CTk()
+            self.session_root.withdraw() # Main root is hidden
 
-                behavior_sums = label_manager.calculate_behavior_sums(self.frame_labels, self.behaviors)
-                current_behavior_status = {b_name: self.frame_labels[b_name][self.current_frame] for b_name in self.behaviors}
-                behavior_info = label_manager.build_behavior_info(self.behaviors, self.keys, behavior_sums, current_behavior_status)
+            behavior_info = self._get_behavior_info()
+            self.frame_display_window = fd.FrameDisplayWindow(
+                master=self.session_root,
+                video_name=self.video_name,
+                total_frames=self.total_frames,
+                behavior_info=behavior_info,
+                operant_keys=self.operant_keys_map,
+                fixed_control_keys=self.fixed_control_keys,
+                on_key_press=self._process_key_input,
+                on_close=self._handle_window_close
+            )
+            self._update_display()
+            self.session_root.mainloop() # Start event loop for the session
 
-                fd.show_frame(
-                    self.video_name, frame, self.current_frame, self.total_frames,
-                    behavior_info, self.screen_width, self.operant_keys_map, self.fixed_control_keys,
-                    margin_location=self.margin_display_location
-                )
-                
-                key = cv2.waitKey(0) & 0xFF
-                move = 0
-                
-                if key == ord(self.fixed_control_keys['quit']):
-                    do_save, do_exit = self._handle_exit_prompt()
-                    if do_exit: save_on_exit = do_save; break
-                    continue
-                elif key == ord(self.fixed_control_keys['zoom_out']):
-                    self.screen_width = int(self.screen_width * 0.95)
-                    logger.info(f"Zoom out. New screen width: {self.screen_width}")
-                    continue
-                elif key == ord(self.fixed_control_keys['zoom_in']):
-                    self.screen_width = int(self.screen_width * 1.05)
-                    logger.info(f"Zoom in. New screen width: {self.screen_width}")
-                    continue
-                elif key == ord(self.fixed_control_keys['margin_toggle']):
-                    self.margin_display_location = "bottom" if self.margin_display_location == "right" else "right"
-                    logger.info(f"Toggled margin location to: {self.margin_display_location}")
-                    continue
-                elif key == ord(self.fixed_control_keys['go_to']):
-                    self._open_timeline_window()
-                    continue
-                elif key == ord(self.operant_keys_map['erase']):
-                    for behavior_name in self.behaviors:
-                        self.frame_labels[behavior_name][self.current_frame] = 0
-                    move = 1
-                    logger.info(f"Frame {self.current_frame+1}: Erased labels.")
-                    # Update timeline if open
-                    if self.timeline_window and self.timeline_window.is_window_open():
-                        self.timeline_window.update_frame_labels(self.frame_labels)
-                elif key == ord(self.operant_keys_map['next']):
-                    for behavior_name in self.behaviors:
-                        if self.frame_labels[behavior_name][self.current_frame] == '-':
-                            self.frame_labels[behavior_name][self.current_frame] = 0
-                    move = 1
-                elif key == ord(self.operant_keys_map['prev']):
-                    move = -1
-                elif key == ord(self.operant_keys_map['ffw']):
-                    move = 3
-                else:
-                    selected_behavior_index = -1
-                    for i, bh_key in enumerate(self.keys):
-                        if key == ord(bh_key): selected_behavior_index = i; break
-                    if selected_behavior_index != -1: 
-                        move=1; [self.frame_labels[b].__setitem__(self.current_frame, 1 if i == selected_behavior_index else 0) for i,b in enumerate(self.behaviors)]
-                        # Update timeline if open
-                        if self.timeline_window and self.timeline_window.is_window_open():
-                            self.timeline_window.update_frame_labels(self.frame_labels)
-                
-                will_finish_video = self.total_frames > 0 and (self.current_frame + move >= self.total_frames - 1) and (move > 0)
-
-                if will_finish_video:
-                    mmw.show_messagebox("Video Complete", "You have labeled the final frame.", type="info")
-                    do_save, do_exit = self._handle_exit_prompt()
-                    if do_exit:
-                        save_on_exit = do_save
-                        self.current_frame += move
-                        break
-                    else:
-                        logger.info(f"Capping move to land on the last frame.")
-                        move = (self.total_frames - 1) - self.current_frame
-
-                self.current_frame += move
-                self.current_frame = max(0, min(self.current_frame, self.total_frames))
-                
-                # Update timeline current frame indicator if open
-                if self.timeline_window and self.timeline_window.is_window_open():
-                    self.timeline_window.set_current_frame(self.current_frame)
-
-            # Session Teardown Phase
-            logger.info("Labeling session ended.")
-
-            if save_on_exit:
-                if self.frame_labels:
-                    logger.info("Saving labels...")
-                    label_manager.save_labels_to_csv(self.video_path, self.frame_labels, self.behaviors, self.last_processed_frame)
-                else:
-                    logger.warning("No labels to save.")
-            
-            self.video_handler.release_video()
-            cv2.destroyAllWindows()
+            # Session Teardown Phase happens in _handle_window_close
             logger.info("Session cleanup complete. Returning to Main Menu.")
 
         # Application Exit
         logger.info("Application closed.")
+
+    def _get_behavior_info(self):
+       """Helper to compute and build the behavior_info dictionary."""
+       behavior_sums = label_manager.calculate_behavior_sums(self.frame_labels, self.behaviors)
+       current_behavior_status = {b_name: self.frame_labels[b_name][self.current_frame] for b_name in self.behaviors}
+       return label_manager.build_behavior_info(self.behaviors, self.keys, behavior_sums, current_behavior_status)
+
+    def _update_display(self):
+       """Fetches the current frame and updates the display window."""
+       if not self.is_session_running or self.current_frame >= self.total_frames:
+           return
+       
+       self.last_processed_frame = max(self.last_processed_frame, self.current_frame)
+       frame = self.video_handler.get_frame_at_index(self.current_frame)
+       if frame is None:
+           logger.error(f"Failed to get frame {self.current_frame}. Ending session.")
+           self._handle_window_close()
+           return
+
+       behavior_info = self._get_behavior_info()
+       self.frame_display_window.update_display(frame, self.current_frame, self.total_frames, behavior_info)
+       
+       # Update timeline current frame indicator if open
+       if self.timeline_window and self.timeline_window.is_window_open():
+           self.timeline_window.set_current_frame(self.current_frame)
+
+    def _process_key_input(self, key: str):
+       """Processes user key presses from the display window."""
+       if not self.is_session_running: return
+       move = 0
+       
+       if key == self.fixed_control_keys['go_to']:
+           self._open_timeline_window()
+           return
+       elif key == self.operant_keys_map['erase']:
+           for behavior_name in self.behaviors:
+               self.frame_labels[behavior_name][self.current_frame] = 0
+           move = 1
+           logger.info(f"Frame {self.current_frame+1}: Erased labels.")
+           if self.timeline_window and self.timeline_window.is_window_open():
+               self.timeline_window.update_frame_labels(self.frame_labels)
+       elif key == self.operant_keys_map['next']:
+           # Ensure the current frame is marked as viewed (not '-')
+           for behavior_name in self.behaviors:
+               if self.frame_labels[behavior_name][self.current_frame] == '-':
+                   self.frame_labels[behavior_name][self.current_frame] = 0
+           move = 1
+       elif key == self.operant_keys_map['prev']:
+           move = -1
+       elif key == self.operant_keys_map['ffw']:
+           move = 3
+       else:
+           selected_behavior_index = -1
+           for i, bh_key in enumerate(self.keys):
+               if key == bh_key:
+                   selected_behavior_index = i
+                   break
+           if selected_behavior_index != -1: 
+               move=1
+               for i, b in enumerate(self.behaviors):
+                   self.frame_labels[b][self.current_frame] = 1 if i == selected_behavior_index else 0
+               if self.timeline_window and self.timeline_window.is_window_open():
+                   self.timeline_window.update_frame_labels(self.frame_labels)
+       
+       if move != 0:
+           # Check if the user is about to finish the video
+           will_finish_video = (self.current_frame + move >= self.total_frames -1) and (move > 0)
+           if will_finish_video:
+               mmw.show_messagebox("Video Complete", "You have labeled the final frame.", type="info")
+               # Directly move to the last frame and then trigger exit prompt
+               self.current_frame = self.total_frames - 1
+               self._update_display()
+               self._handle_window_close()
+               return
+           
+           self.current_frame += move
+           self.current_frame = max(0, min(self.current_frame, self.total_frames - 1))
+           self._update_display()
+
+    def _handle_window_close(self):
+       """Handles the logic for closing the labeling session."""
+       if not self.is_session_running: return
+
+       save_on_exit, should_exit = self._handle_exit_prompt()
+       if should_exit:
+           logger.info("Labeling session ended.")
+           if save_on_exit and self.frame_labels:
+               logger.info("Saving labels...")
+               label_manager.save_labels_to_csv(self.video_path, self.frame_labels, self.behaviors, self.last_processed_frame)
+           
+           self.is_session_running = False
+           self.video_handler.release_video()
+           
+           if self.frame_display_window:
+               self.frame_display_window.close()
+               self.frame_display_window = None
+           
+           if self.session_root:
+               self.session_root.quit() # Stop the mainloop
+               self.session_root.destroy()
+               self.session_root = None

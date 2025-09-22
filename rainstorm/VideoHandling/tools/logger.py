@@ -1,6 +1,6 @@
 # tools/logger.py
 
-import os
+from pathlib import Path
 import logging
 from datetime import datetime
 
@@ -18,10 +18,10 @@ def setup_logging(log_file_path=None, console_level=logging.INFO, file_level=log
     """
     # Ensure the logs directory exists
     if log_file_path is None:
-        log_dir = os.path.join(os.getcwd(), 'logs')
-        os.makedirs(log_dir, exist_ok=True)
+        log_dir = Path.cwd() / 'logs'
+        log_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file_path = os.path.join(log_dir, f"VideoHandling_{timestamp}.log")
+        log_file_path = str(log_dir / f"VideoHandling_{timestamp}.log")
 
     # Get the root logger
     root_logger = logging.getLogger()

@@ -1,6 +1,6 @@
 # tools/video_manager.py
 
-import os
+from pathlib import Path
 import json
 import cv2
 import logging
@@ -117,9 +117,9 @@ def save_video_dict(video_dict: Dict, file_path: Optional[str] = None, parent_fo
 
     try:
         # Ensure parent directory exists
-        folder = os.path.dirname(actual_file_path)
-        if folder and not os.path.exists(folder): 
-            os.makedirs(folder)
+        folder = Path(actual_file_path).parent
+        if folder and not folder.exists(): 
+            folder.mkdir(parents=True, exist_ok=True)
 
         with open(actual_file_path, 'w') as f:
             json.dump(video_dict, f, indent=4)
@@ -163,7 +163,7 @@ def load_video_dict(file_path: Optional[str] = None, parent_for_dialog=None) -> 
             gui.show_info("Load Error", f"Invalid file path: {actual_file_path}")
         return None
 
-    if not os.path.exists(actual_file_path):
+    if not Path(actual_file_path).exists():
         logger.error(f"File not found: {actual_file_path}")
         if parent_for_dialog:
             gui.show_info("Load Error", f"File not found: {actual_file_path}", parent=parent_for_dialog)

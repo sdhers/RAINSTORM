@@ -2,7 +2,7 @@
 
 import cv2
 import numpy as np
-import os
+from pathlib import Path
 from typing import Optional
 
 from rainstorm.VideoHandling.tools import config, image_utils
@@ -115,7 +115,7 @@ class Aligner:
         if base_frame is None:
             logger.error(f"Merged frame for {vp} not found in cache.")
             error_img = np.zeros((480, 640, 3), dtype=np.uint8)
-            cv2.putText(error_img, f"Error: Frame for {os.path.basename(vp)} missing", (50, 240),
+            cv2.putText(error_img, f"Error: Frame for {Path(vp).name} missing", (50, 240),
                         getattr(config, 'FONT', cv2.FONT_HERSHEY_SIMPLEX), 1, 
                         getattr(config, 'COLOR_RED', (0,0,255)), 2)
             return error_img
@@ -151,7 +151,7 @@ class Aligner:
 
         num_selected = len(self.confirmed_points_for_video)
         point_status = f"Point {num_selected + 1}/2" if num_selected < 2 else "2/2 points selected"
-        text = f"Video {self.current_video_idx + 1}/{len(self.video_paths)} ({os.path.basename(vp)}). {point_status}. Zoom: {self.zoom_scale}x"
+        text = f"Video {self.current_video_idx + 1}/{len(self.video_paths)} ({Path(vp).name}). {point_status}. Zoom: {self.zoom_scale}x"
         
         image_utils.draw_text_on_frame(frame, text, position="bottom", 
                                        text_color=getattr(config, 'COLOR_WHITE', (255,255,255)), 

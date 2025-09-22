@@ -1,6 +1,6 @@
 # gui/application.py
 
-import os
+from pathlib import Path
 
 import customtkinter as ctk
 ctk.set_appearance_mode("Dark")
@@ -156,7 +156,7 @@ class VideoProcessorGUI:
         self.process_videos_button.configure(state=state)
 
         if project_loaded and self.project_file_path:
-            self.project_path_label.configure(text=f"Project: {os.path.basename(self.project_file_path)}")
+            self.project_path_label.configure(text=f"Project: {Path(self.project_file_path).name}")
         elif project_loaded:
             self.project_path_label.configure(text="Project: Unsaved New Project")
         else:
@@ -317,7 +317,7 @@ class VideoProcessorGUI:
             self._log_status("Rotation selection canceled or no changes applied.")
 
     def _select_output_folder(self):
-        initial_dir = os.path.dirname(self.project_file_path) if self.project_file_path else os.getcwd()
+        initial_dir = str(Path(self.project_file_path).parent) if self.project_file_path else str(Path.cwd())
         folder = gui.ask_directory(title="Select Output Folder for Processed Videos",
                                         initialdir=initial_dir, parent=self.root)
         if folder:
@@ -351,7 +351,7 @@ class VideoProcessorGUI:
             gui.show_info("Processing Error", "Please select an output folder for processed videos.", parent=self.root)
             return
         
-        if not os.path.isdir(chosen_output_folder):
+        if not Path(chosen_output_folder).is_dir():
             self._log_status(f"Selected output folder does not exist: {chosen_output_folder}", is_error=True)
             gui.show_info("Processing Error", f"The selected output folder is not valid:\n{chosen_output_folder}", parent=self.root)
             return

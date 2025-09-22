@@ -15,9 +15,7 @@ ctk.set_default_color_theme("blue")
 def run_app():
     """Initializes and runs the BehavioralLabeler application."""
     from rainstorm.BehavioralLabeler.src.app import LabelingApp
-    from rainstorm.BehavioralLabeler.src.logger import setup_logging
 
-    setup_logging()
     logger = logging.getLogger(__name__)
     logger.info("BehavioralLabeler application started.")
 

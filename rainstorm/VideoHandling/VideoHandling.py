@@ -16,9 +16,7 @@ logger = logging.getLogger(__name__)
 def run_app():
     """Initializes and runs the VideoHandling application."""
     from rainstorm.VideoHandling.gui.application import VideoProcessorGUI
-    from rainstorm.VideoHandling.tools.logger import setup_logging
     
-    setup_logging()
     logger = logging.getLogger(__name__)
     logger.info("VideoHandling application starting...")
     

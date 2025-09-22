@@ -14,7 +14,7 @@ ctk.set_default_color_theme("blue")
 
 def run_app():
     """Initializes and runs the BehavioralLabeler application."""
-    from BehavioralLabeler.src.app import LabelingApp
+    from rainstorm.BehavioralLabeler.src.app import LabelingApp
 
     logger = logging.getLogger(__name__)
     logger.info("BehavioralLabeler application started.")
@@ -32,7 +32,7 @@ def run_app():
 
 if __name__ == "__main__":
     current_dir = Path(__file__).resolve().parent
-    parent_dir = current_dir.parent
+    parent_dir = current_dir.parent.parent
     if str(parent_dir) not in sys.path:
         sys.path.insert(0, str(parent_dir))
     print("Running BehavioralLabeler...")  # User feedback for application startup

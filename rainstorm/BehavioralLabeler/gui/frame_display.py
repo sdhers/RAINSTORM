@@ -59,11 +59,11 @@ class FrameDisplayWindow:
         self.window = ctk.CTkToplevel(master)
         self.window.title(f"Labeling: {video_name}")
         self.window.geometry("1200x700")
-        self.window.minsize(800, 600)
+        self.window.minsize(1000, 600)
 
         # Configure the main grid layout
-        self.window.grid_columnconfigure(0, weight=3) # Video panel
-        self.window.grid_columnconfigure(1, weight=1) # Info panel
+        self.window.grid_columnconfigure(0, weight=1) # Video panel - flexible
+        self.window.grid_columnconfigure(1, weight=0) # Info panel - fixed width
         self.window.grid_rowconfigure(0, weight=1)
 
         # --- Video Frame Panel ---
@@ -81,6 +81,8 @@ class FrameDisplayWindow:
         # --- Info Panel ---
         self.info_panel = ctk.CTkFrame(self.window)
         self.info_panel.grid(row=0, column=1, sticky="nsew", padx=(0, 10), pady=10)
+        self.info_panel.grid_propagate(False)  # Prevent panel from shrinking
+        self.info_panel.configure(width=350)  # Set fixed width for info panel
         self._create_info_panel(video_name, total_frames, behavior_info, operant_keys, fixed_control_keys)
 
         # Bind events

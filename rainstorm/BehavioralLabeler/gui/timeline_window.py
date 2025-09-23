@@ -37,7 +37,7 @@ class TimelineWindow:
         self.current_frame = current_frame
         
         # Calculate optimal height based on number of behaviors
-        base_height = 160
+        base_height = 160  # Legend + control + padding
         behavior_height = len(behaviors) * 20
         calculated_height = base_height + behavior_height
         optimal_height = max(300, min(calculated_height, 600))
@@ -47,7 +47,7 @@ class TimelineWindow:
         self.window.title("Video Timeline")
         self.window.geometry(f"1000x{optimal_height}")
         self.window.resizable(True, True)
-        self.window.minsize(800, max(300, optimal_height))
+        self.window.minsize(800, max(400, optimal_height))  # Increased minimum height from 300 to 400
 
         # Make window stay on top
         self.window.attributes("-topmost", True)
@@ -80,10 +80,15 @@ class TimelineWindow:
         main_frame = ctk.CTkFrame(self.window)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
+        # Configure main frame grid to ensure buttons are always visible
+        main_frame.grid_rowconfigure(0, weight=0)  # Legend frame - fixed height
+        main_frame.grid_rowconfigure(1, weight=1)  # Canvas frame - expandable
+        main_frame.grid_rowconfigure(2, weight=0)  # Control frame - fixed height
+        main_frame.grid_columnconfigure(0, weight=1)
         
         # Legend frame - horizontal layout
         legend_frame = ctk.CTkFrame(main_frame)
-        legend_frame.pack(fill="x", pady=(0, 10))
+        legend_frame.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         legend_frame.grid_columnconfigure(1, weight=1)
         
         # Behavior Legend title on the left
@@ -105,7 +110,7 @@ class TimelineWindow:
         
         # Timeline canvas
         canvas_frame = ctk.CTkFrame(main_frame)
-        canvas_frame.pack(fill="both", expand=True)
+        canvas_frame.grid(row=1, column=0, sticky="nsew")
         canvas_frame.grid_rowconfigure(0, weight=1)
         canvas_frame.grid_columnconfigure(0, weight=1)
         
@@ -131,7 +136,7 @@ class TimelineWindow:
         
         # Control frame - status text and buttons on same line
         control_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        control_frame.pack(fill="x", pady=(5, 5))
+        control_frame.grid(row=2, column=0, sticky="ew", pady=(5, 0))
         control_frame.grid_columnconfigure(0, weight=1)
         
         # Status text on the left

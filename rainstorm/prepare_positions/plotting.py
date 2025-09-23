@@ -17,7 +17,7 @@ configure_logging()
 logger = logging.getLogger(__name__)
 
 # %% Core functions
-def plot_raw_vs_smooth(params_path: Path, df_raw: pd.DataFrame, df_smooth: pd.DataFrame, bodypart: str):
+def plot_raw_vs_smooth(params_path: Path, df_raw: pd.DataFrame, df_smooth: pd.DataFrame, bodypart: str, show: bool = True, save: bool = False):
     """
     Plots raw and smoothed positions for a given bodypart, along with likelihood.
 
@@ -91,5 +91,18 @@ def plot_raw_vs_smooth(params_path: Path, df_raw: pd.DataFrame, df_smooth: pd.Da
 
     # Show plot
     fig.show()
+    
+    # Handle save parameter
+    if save:
+        save_path = params_path.get("path") / "plots" / f"{bodypart}_raw_vs_smooth.html"
+        try:
+            fig.write_html(save_path)
+            logger.info(f"Raw vs smooth plot saved to: {save_path}")
+        except Exception as e:
+            logger.error(f"Error saving raw vs smooth plot to {save_path}: {e}")
+    
+    if not show:
+        fig.data = []  # Clear the figure data
+    
     logger.info(f"Plot generated for {bodypart} raw vs. smooth positions.")
     print(f"Plotting raw vs. smoothed positions for '{bodypart}'.")

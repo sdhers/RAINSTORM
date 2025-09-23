@@ -434,7 +434,7 @@ def plot_positions(
 
 # Main function to plot mouse exploration
 
-def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: Optional[str] = 'geolabels', save: bool = False) -> None:
+def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: Optional[str] = 'geolabels', show: bool = True, save: bool = False) -> None:
     """
     Generates and displays plots for target exploration time and animal positions.
 
@@ -554,5 +554,8 @@ def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: O
         except Exception as e:
             logger.error(f"Error saving plot to {plot_output_path}: {e}")
 
-    plt.show(fig)
+    if show:
+        plt.show(fig)
+    else:
+        plt.close(fig)
 

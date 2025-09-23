@@ -15,6 +15,7 @@ def plot_multiple_analyses(
     label_type: str = 'geolabels',
     outliers: List[str] = None,
     show: bool = True,
+    save: bool = True,
 ) -> None:
     """
     Plot multiple analyses for a single trial side by side as subplots.
@@ -117,25 +118,26 @@ def plot_multiple_analyses(
 
     plt.tight_layout(rect=[0, 0, 0.95, 0.96])
 
-    plots_folder = folder_path / "plots" / "multiple"
-    plots_folder.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Plots output directory ensured: {plots_folder}")
+    if save:
+        plots_folder = folder_path / "plots" / "multiple"
+        plots_folder.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Plots output directory ensured: {plots_folder}")
 
-    base_filename = f"{trial}_multiple_analyses"
-    ext = ".png"
-    save_path = plots_folder / f"{base_filename}{ext}"
-    counter = 1
+        base_filename = f"{trial}_multiple_analyses"
+        ext = ".png"
+        save_path = plots_folder / f"{base_filename}{ext}"
+        counter = 1
 
-    while save_path.exists():
-        save_path = plots_folder / f"{base_filename}_{counter}{ext}"
-        counter += 1
-    logger.info(f"Attempting to save plot to: {save_path}")
+        while save_path.exists():
+            save_path = plots_folder / f"{base_filename}_{counter}{ext}"
+            counter += 1
+        logger.info(f"Attempting to save plot to: {save_path}")
 
-    try:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        logger.info(f"Plot saved successfully to: {save_path}")
-    except Exception as e:
-        logger.error(f"Error saving plot to {save_path}: {e}")
+        try:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            logger.info(f"Plot saved successfully to: {save_path}")
+        except Exception as e:
+            logger.error(f"Error saving plot to {save_path}: {e}")
 
     if show:
         plt.show()

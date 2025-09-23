@@ -198,7 +198,7 @@ def _plot_positions(nose, towards1, towards2, tgt1, tgt2, max_dist, colors: list
 
 # --- Core Processing Function ---
 
-def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Config, label_type: Optional[str] = 'geolabels', show: bool = False):
+def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Config, label_type: Optional[str] = 'geolabels', show: bool = False, save: bool = True):
     """Loads data for a single video, performs calculations, and generates a plot."""
     try:
         video_name_stem = summary_path.stem.replace('_summary', '')
@@ -272,12 +272,13 @@ def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Confi
     plt.suptitle(f"Analysis of {video_name_stem}: Group {group}, Trial {trial}", y=0.98)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     
-    plots_folder = cfg.base_path / 'plots' / 'individual'
-    plots_folder.mkdir(parents=True, exist_ok=True)
-    save_path = plots_folder / f"{video_name_stem}.png"
-    
-    plt.savefig(save_path, dpi=300)
-    logger.info(f"Plot saved at: {save_path}")
+    if save:
+        plots_folder = cfg.base_path / 'plots' / 'individual'
+        plots_folder.mkdir(parents=True, exist_ok=True)
+        save_path = plots_folder / f"{video_name_stem}.png"
+        
+        plt.savefig(save_path, dpi=300)
+        logger.info(f"Plot saved at: {save_path}")
 
     if show:
         plt.show()
@@ -287,7 +288,7 @@ def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Confi
 
 # --- Main Execution Function ---
 
-def run_individual_analysis(params_path: Path, label_type: Optional[str] = 'geolabels', show: bool = False):
+def run_individual_analysis(params_path: Path, label_type: Optional[str] = 'geolabels', show: bool = False, save: bool = True):
     """
     Generates and saves a plot for each individual summary file, showing
     various behavioral analyses based on a centralized configuration.
@@ -312,7 +313,7 @@ def run_individual_analysis(params_path: Path, label_type: Optional[str] = 'geol
 
             for summary_file_path in summary_folder.glob('*_summary.csv'):
                 try:
-                    _process_single_video(summary_file_path, trial, group, cfg, label_type, show)
+                    _process_single_video(summary_file_path, trial, group, cfg, label_type, show, save)
                 except Exception as e:
                     logger.error(f"Failed to process {summary_file_path.name}: {e}", exc_info=True)
     

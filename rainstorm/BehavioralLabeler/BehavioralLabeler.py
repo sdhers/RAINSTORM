@@ -32,8 +32,8 @@ def run_app():
 
 if __name__ == "__main__":
     current_dir = Path(__file__).resolve().parent
-    parent_dir = current_dir.parent.parent
-    if str(parent_dir) not in sys.path:
-        sys.path.insert(0, str(parent_dir))
+    rainstorm_parent_dir = current_dir.parent.parent
+    if str(rainstorm_parent_dir) not in sys.path:
+        sys.path.insert(0, str(rainstorm_parent_dir))
     print("Running BehavioralLabeler...")  # User feedback for application startup
     run_app()

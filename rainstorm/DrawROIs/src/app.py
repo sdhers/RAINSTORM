@@ -32,30 +32,6 @@ class ROISelectorApp:
         """Provides access to the shared dialog root for other UI components."""
         return Dialogs._get_root()
 
-    def _display_instructions(self):
-        """Displays instructions for using the tool."""
-        logger.info("Displaying instructions.")
-        Dialogs.show_instructions(
-            "Instructions for ROI Selector",
-            "Drawing ROIs:\n"
-            "   - Left-click and drag: Draw a rectangle.\n"
-            "   - Hold Ctrl while dragging: Draw a square.\n"
-            "   - Hold Shift + Left-click and drag: Draw a circle.\n"
-            "   - Single Left-click: Mark a point.\n"
-            "   - Hold Alt + Left-click and drag: Draw a scale line.\n\n"
-            "Modifying Active/Selected ROI:\n"
-            "   - Right-click and drag: Move the ROI.\n"
-            "   - Scroll wheel: Resize the ROI.\n"
-            "   - Ctrl + Scroll wheel: Rotate the rectangle ROI.\n\n"
-            "Navigation & Actions:\n"
-            "   - Shift + Scroll wheel: Zoom in/out.\n"
-            "   - WASD keys: Nudge the active ROI.\n"
-            "   - 'Enter' (⏎): Confirm and save the current active ROI.\n"
-            "   - 'B' key: Discard active ROI or undo last saved ROI.\n"
-            "   - 'E' key: Erase all saved ROIs (with confirmation).\n"
-            "   - 'Q' key / Close Window: Quit the application."
-        )
-        logger.debug("Instructions closed.")
 
     def _select_and_process_videos(self):
         """Prompts user to select videos and processes them into a base image."""
@@ -238,7 +214,8 @@ class ROISelectorApp:
         elif key == 13:  # Enter key
             self._confirm_active_roi()
         elif key == 27:  # Escape key
-            self._display_instructions()
+            logger.info("Displaying instructions.")
+            Dialogs.show_instructions()
         elif key in [ord('a'), ord('A'), ord('d'), ord('D'), ord('w'), ord('W'), ord('s'), ord('S')]:
             # Handle WASD nudging
             nudge_map = {
@@ -258,7 +235,8 @@ class ROISelectorApp:
         Dialogs.initialize()
 
         try:
-            self._display_instructions()
+            logger.info("Displaying instructions.")
+            Dialogs.show_instructions()
 
             if not self._select_and_process_videos():
                 return 

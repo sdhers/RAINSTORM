@@ -3,7 +3,7 @@ Rainstorm DrawROIs Dialogs
 This module provides a collection of static methods for displaying common dialogs.
 """
 
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 ctk.set_appearance_mode("Dark")
@@ -73,73 +73,88 @@ class Dialogs:
 
     @staticmethod
     def ask_string(title, prompt):
-        """Asks the user for a string input using a CTkInputDialog."""
+        """Asks the user for a string input using CustomTkinter for consistent styling."""
+        root = Dialogs._get_root()
+        root.attributes('-topmost', True)
+        root.lift()
+        root.focus_force()
+        
+        # Use CustomTkinter's input dialog for better styling
         dialog = ctk.CTkInputDialog(title=title, text=prompt)
         value = dialog.get_input()
+        
+        root.attributes('-topmost', False)
         logger.debug(f"Dialogs: Asked string '{prompt}', got '{value}'")
         return value
 
     @staticmethod
-    def _create_dialog(title, message, buttons, size="250x80"):
-        """Helper function to create a custom modal dialog."""
-        dialog = ctk.CTkToplevel(Dialogs._get_root())
-        dialog.title(title)
-        dialog.lift()
-        dialog.attributes("-topmost", True)
-        dialog.protocol("WM_DELETE_WINDOW", lambda: None) # Disable closing
-        dialog.grab_set()
-        dialog.geometry(size)
-        dialog.resizable(True, True)
-        dialog.minsize(100, 50)
-
-        result = [None] # Mutable container to hold the result
-
-        label = ctk.CTkLabel(dialog, text=message, wraplength=350, justify="left")
-        label.pack(padx=20, pady=20)
-
-        button_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        button_frame.pack(padx=20, pady=(0, 20), fill="x")
-        button_frame.grid_columnconfigure(list(range(len(buttons))), weight=1)
-
-        for i, (text, value) in enumerate(buttons.items()):
-            def command(v=value):
-                result[0] = v
-                dialog.destroy()
-            
-            button = ctk.CTkButton(button_frame, text=text, command=command)
-            button.grid(row=0, column=i, padx=5, sticky="ew")
-
-        dialog.update_idletasks()
-        w, h = dialog.winfo_width(), dialog.winfo_height()
-        sw, sh = dialog.winfo_screenwidth(), dialog.winfo_screenheight()
-        x, y = (sw/2) - (w/2), (sh/2) - (h/2)
-        dialog.geometry(f"{w}x{h}+{int(x)}+{int(y)}")
-        
-        dialog.wait_window()
-        return result[0]
-
-    @staticmethod
     def ask_yes_no(title, message):
         """Asks a yes/no question. Returns True for 'yes', False for 'no'."""
-        buttons = {"Yes": True, "No": False}
-        response = Dialogs._create_dialog(title, message, buttons)
+        root = Dialogs._get_root()
+        root.attributes('-topmost', True)
+        root.lift()
+        root.focus_force()
+        
+        response = messagebox.askquestion(title, message, parent=root) == 'yes'
+        
+        root.attributes('-topmost', False)
         logger.debug(f"Dialogs: Asked yes/no '{message}', response: {response}")
-        return response if response is not None else False
+        return response
 
     @staticmethod
     def show_info(title, message):
         """Displays an informational message."""
-        Dialogs._create_dialog(title, message, {"OK": True})
+        root = Dialogs._get_root()
+        root.attributes('-topmost', True)
+        root.lift()
+        root.focus_force()
+        
+        messagebox.showinfo(title, message, parent=root)
+        
+        root.attributes('-topmost', False)
         logger.info(f"Dialogs: Info message: {title} - {message}")
 
     @staticmethod
     def show_error(title, message):
         """Displays an error message."""
-        Dialogs._create_dialog(title, message, {"OK": True})
+        root = Dialogs._get_root()
+        root.attributes('-topmost', True)
+        root.lift()
+        root.focus_force()
+        
+        messagebox.showerror(title, message, parent=root)
+        
+        root.attributes('-topmost', False)
         logger.error(f"Dialogs: Error message: {title} - {message}")
 
     @staticmethod
-    def show_instructions(title, instructions_text):
+    def show_instructions(
+        title = "Instructions for ROI Selector",
+        instructions_text = "Drawing ROIs:\n"
+        "   - Left-click and drag: Draw a rectangle.\n"
+        "   - Hold Ctrl while dragging: Draw a square.\n"
+        "   - Hold Shift + Left-click and drag: Draw a circle.\n"
+        "   - Single Left-click: Mark a point.\n"
+        "   - Hold Alt + Left-click and drag: Draw a scale line.\n\n"
+        "Modifying Active/Selected ROI:\n"
+        "   - Right-click and drag: Move the ROI.\n"
+        "   - Scroll wheel: Resize the ROI.\n"
+        "   - Ctrl + Scroll wheel: Rotate the rectangle ROI.\n\n"
+        "Navigation & Actions:\n"
+        "   - Shift + Scroll wheel: Zoom in/out.\n"
+        "   - WASD keys: Nudge the active ROI.\n"
+        "   - 'Enter' (⏎): Confirm and save the current active ROI.\n"
+        "   - 'B' key: Discard active ROI or undo last saved ROI.\n"
+        "   - 'E' key: Erase all saved ROIs (with confirmation).\n"
+        "   - 'Q' key / Close Window: Quit the application."
+    ):
         """Displays instructions in a custom window."""
-        Dialogs._create_dialog(title, instructions_text, {"OK": True}, "250x265")
+        root = Dialogs._get_root()
+        root.attributes('-topmost', True)
+        root.lift()
+        root.focus_force()
+        
+        messagebox.showinfo(title, instructions_text, parent=root)
+        
+        root.attributes('-topmost', False)
         logger.debug("Dialogs: Instructions window closed.")

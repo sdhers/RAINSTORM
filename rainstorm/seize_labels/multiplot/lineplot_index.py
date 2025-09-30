@@ -269,12 +269,16 @@ def lineplot_diff(
     _set_cumulative_plot_aesthetics(
         ax=ax,
         df_agg=df_agg,
-        y_label='diff (s)',
-        plot_title='Time difference (diff)',
+        y_label='Time difference (s)',
+        plot_title='Time difference between targets',
         group_name=group
     )
     
     # Specific for diff plot: Add the horizontal line at Y=0
     ax.axhline(y=0, color='black', linestyle='--', linewidth=2)
+
+    # Extend x-axis slightly beyond max time for better visualization
+    max_time = df_agg['Time'].max()
+    ax.set_xlim(right=max_time * 1.1) 
 
     logger.debug(f"diff plot finished for {group}/{trial}.")

@@ -215,6 +215,8 @@ If you use RAINSTORM in your research, please cite our work:
 
 D'hers, S., et al. (2025). RAINSTORM: Automated Analysis of Mouse Exploratory Behavior using Artificial Neural Networks. _Current Protocols_. https://doi.org/10.1002/cpz1.70171
 
+All video recordings were obtained within the [Molecular Neurobiology Lab](https://ifibyne.exactas.uba.ar/grupo-feld/) at IFIBYNE (UBA - CONICET).
+
 ---
 
 ## Contributing 🤝

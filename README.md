@@ -20,7 +20,7 @@
 * [Installation 💾](#installation-)
 * [Usage 💻](#usage-)
     - [Video Handling 🎥](#video-handling-)
-    - [RAINSTORM Behavioral Labeler ✍️](#RAINSTORM-behavioral-labeler-)
+    - [RAINSTORM Behavioral Labeler ✍️](#the-rainstorm-pipeline-)
     - [The RAINSTORM Pipeline 🔬](#the-rainstorm-pipeline-)
 * [Citation 📜](#citation-)
 * [Contributing 🤝](#contributing-)
@@ -122,6 +122,12 @@ We offer a quick and easy way to prepare videos for pose estimation and behavior
     This app allows you to:
     * Draw ROIs and points on the video.
     * Select a distance for scaling.
+
+> [!TIP]
+> **Running DLC on Colab**: Use our DeepLabCut pretrained model on Google Colab to process your aligned videos:
+> 1. Copy this [Google Drive Folder](https://drive.google.com/drive/folders/1EwL5dtJNvogaXlIKm5NzLYlX--ZpAdxK?usp=sharing) in your own Google Drive.
+> 2. Add your own data to the "videos" folder.
+> 3. Open the Colab file and follow the instructions to run the model on your data.
 
 ---
 

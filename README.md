@@ -20,7 +20,7 @@
 * [Installation 💾](#installation-)
 * [Usage 💻](#usage-)
     - [Video Handling 🎥](#video-handling-)
-    - [RAINSTORM Behavioral Labeler ✍️](#the-rainstorm-pipeline-)
+    - [RAINSTORM Behavioral Labeler ✍️](#rainstorm-behavioral-labeler-)
     - [The RAINSTORM Pipeline 🔬](#the-rainstorm-pipeline-)
 * [Citation 📜](#citation-)
 * [Contributing 🤝](#contributing-)
@@ -146,7 +146,7 @@ For precise, frame-by-frame annotation, use the **RAINSTORM Behavioral Labeler**
     * Enter the behaviors you want to score (e.g., `exp_1`, `exp_2`, `freezing`, `grooming`, etc...).
 
 > [!WARNING]
-> Keys should be unique, single characters, and different from the fixed control keys: (Quit: `q`, Zoom In: `+`, Zoom Out: `-`, Margin Toggle: `m`)
+> Keys should be unique, single characters, and different from the fixed control keys: (Quit: `q`, Zoom In: `+`, Zoom Out: `-`, Timeline toogle: `t`)
 
 4.  **Start Labeling!**
     After pressing 'Start Labeling', the video will load, and you can begin annotating frame by frame using the keys you defined.

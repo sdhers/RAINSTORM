@@ -265,7 +265,8 @@ def _iterate_video_frames(
 def process_video(video_path: str, video_data: Dict,
                   apply_trim: bool, apply_crop: bool, apply_align: bool, apply_rotate: bool,
                   target_mean_points: Optional[List[List[int]]] = None,
-                  output_video_path: str = None) -> bool:
+                  output_video_path: str = None,
+                  output_format: str = "mp4") -> bool:
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         logger.error(f"Could not open video: {video_path}")
@@ -373,7 +374,15 @@ def process_video(video_path: str, video_data: Dict,
         else:
             num_frames_expected_for_pbar = 0 # Segment is empty or invalid
     
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    # Select codec based on output format
+    if output_format.lower() == "mp4":
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    elif output_format.lower() == "avi":
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    else:
+        logger.warning(f"Unknown output format '{output_format}', defaulting to MP4")
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    
     out_writer = cv2.VideoWriter(output_video_path, fourcc, fps, (output_w, output_h))
     if not out_writer.isOpened():
         logger.error(f"Failed to open VideoWriter for: {output_video_path}")
@@ -466,7 +475,9 @@ def process_video(video_path: str, video_data: Dict,
 def run_video_processing_pipeline(video_dict: Dict[str, Dict],
                                   operations: Dict[str, bool],
                                   global_output_folder: str,
-                                  manual_target_points: Optional[List[List[int]]] = None) -> None:
+                                  manual_target_points: Optional[List[List[int]]] = None,
+                                  output_suffix: str = "_processed",
+                                  output_format: str = "mp4") -> None:
     if not Path(global_output_folder).exists():
         try:
             Path(global_output_folder).mkdir(parents=True, exist_ok=True)
@@ -519,7 +530,7 @@ def run_video_processing_pipeline(video_dict: Dict[str, Dict],
         # Update description of the main progress bar for the current video
         video_iterable.set_description(f"Processing {video_name[:20]:<20}") # Truncate/pad
 
-        output_filename = f"{Path(video_name).stem}_processed{Path(video_name).suffix}"
+        output_filename = f"{Path(video_name).stem}{output_suffix}.{output_format}"
         output_video_path = str(Path(global_output_folder) / output_filename)
 
         # Pass all operation flags to the processing function
@@ -527,7 +538,7 @@ def run_video_processing_pipeline(video_dict: Dict[str, Dict],
                          apply_trim_op, apply_crop_op, apply_align_op, apply_rotate_op,
                          target_mean_points_for_alignment,
                          output_video_path,
-                         ):
+                         output_format):
             processed_count += 1
         else:
             failed_count += 1

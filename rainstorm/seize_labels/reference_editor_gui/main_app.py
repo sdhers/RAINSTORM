@@ -4,13 +4,15 @@ Main application class for the reference editor.
 This module contains the main GUI application for editing reference.json files.
 """
 
-import customtkinter as ctk
 import csv
 import copy
-import logging
 from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Dict, Any, Optional
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 from .data_handler import (
     load_reference_file, 
@@ -26,6 +28,8 @@ from .table_utils import TableStructure, UIConstants
 
 from ...utils import configure_logging, load_yaml
 configure_logging()
+
+import logging
 logger = logging.getLogger(__name__)
 
 
@@ -42,10 +46,6 @@ class ReferenceEditorApp(ctk.CTk):
             reference_path (Optional[Path]): Path to an existing reference.json file to load
         """
         super().__init__()
-        
-        # Set appearance and color theme
-        ctk.set_appearance_mode("Dark")
-        ctk.set_default_color_theme("blue")
         
         # Window setup
         self.title(UIConstants.WINDOW_TITLE)

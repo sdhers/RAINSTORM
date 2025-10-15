@@ -1,9 +1,14 @@
-# gui/main_window.py
+"""
+Rainstorm DrawROIs Main Window
+This module provides the main window for the DrawROIs application.
+"""
 
 import cv2
 import numpy as np
-import logging
+
 import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 from rainstorm.DrawROIs.src.config import (
     INITIAL_ZOOM, MIN_ZOOM, MAX_ZOOM, 
@@ -12,11 +17,13 @@ from rainstorm.DrawROIs.src.config import (
 )
 from rainstorm.DrawROIs.src.core.drawing_utils import DrawingUtils
 
+import logging
 logger = logging.getLogger(__name__)
 
 class MainWindow:
     """
-    Manages the OpenCV window and a CustomTkinter control panel.
+    Manages the OpenCV window for ROI drawing and interaction.
+    Handles mouse events, keyboard input, and frame rendering.
     """
     def __init__(self, window_name: str, app_instance):
         self.window_name = window_name
@@ -47,41 +54,7 @@ class MainWindow:
         self.display_offset_y = 0
         self.status_text = "Initializing..."
         
-        self._create_control_panel()
 
-    def _create_control_panel(self):
-        """Creates a CTk Toplevel window to act as a control panel."""
-        self.control_panel = ctk.CTkToplevel(self.app._get_dialog_root())
-        self.control_panel.title("Controls")
-        self.control_panel.geometry("285x350")
-        self.control_panel.protocol("WM_DELETE_WINDOW", lambda: None) # Disable closing via 'X'
-
-        self.control_panel.grid_columnconfigure(0, weight=1)
-
-        # Status Label
-        status_frame = ctk.CTkFrame(self.control_panel)
-        status_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
-        status_frame.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(status_frame, text="Status:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(10,0), sticky="w")
-        self.status_label = ctk.CTkLabel(status_frame, text=self.status_text, wraplength=200, justify="left", anchor="w")
-        self.status_label.grid(row=1, column=0, padx=10, pady=(0,10), sticky="ew")
-
-        # Action Buttons
-        actions_frame = ctk.CTkFrame(self.control_panel)
-        actions_frame.grid(row=1, column=0, padx=10, pady=0, sticky="ew")
-        actions_frame.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkButton(actions_frame, text="Confirm ROI (Enter)", command=self.app._confirm_active_roi).grid(row=0, column=0, padx=10, pady=5, sticky="ew")
-        ctk.CTkButton(actions_frame, text="Undo / Discard (B)", command=self.app._handle_back).grid(row=1, column=0, padx=10, pady=5, sticky="ew")
-        ctk.CTkButton(actions_frame, text="Erase All (E)", command=self.app._handle_erase, fg_color="#db524b", hover_color="#b0423c").grid(row=2, column=0, padx=10, pady=5, sticky="ew")
-
-        # App Buttons
-        app_frame = ctk.CTkFrame(self.control_panel)
-        app_frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
-        app_frame.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkButton(app_frame, text="Instructions", command=self.app._display_instructions).grid(row=0, column=0, padx=10, pady=5, sticky="ew")
-        ctk.CTkButton(app_frame, text="Save & Quit (Q)", command=self.app._handle_quit).grid(row=1, column=0, padx=10, pady=5, sticky="ew")
         
     def reset_active_roi(self):
         """Resets all temporary/active ROI properties to their initial state."""
@@ -232,25 +205,28 @@ class MainWindow:
         for c in rois_data.get('circles', []): DrawingUtils.draw_circle(frame, c['center'], c['radius'])
         for p in rois_data.get('points', []): DrawingUtils.draw_point(frame, p['center'])
 
-        status_text = f"Cursor: {self.cursor_pos}"
+        # Base status with keyboard shortcuts
+        shortcuts = "Esc: Help | Q: Quit"
+        status_text = f"Cursor: {self.cursor_pos} | {shortcuts}"
+        
         if self.active_roi_type == 'scale_line' and self.scale_line_points:
             p0, p1 = self.scale_line_points
             DrawingUtils.draw_scale_line(frame, p0, p1, color=COLOR_SCALE_LINE)
             dist = np.hypot(p1[0]-p0[0], p1[1]-p0[1])
-            status_text = f"Scale Line: {dist:.1f} px"
+            status_text = f"Scale Line: {dist:.1f} px | {shortcuts}"
         elif self.active_roi_type == 'rectangle' and len(self.current_roi_corners) == 2:
             (x1, y1), (x2, y2) = self.current_roi_corners
             center, wid, hei = DrawingUtils.define_rectangle_params(x1, y1, x2, y2)
             DrawingUtils.draw_rectangle(frame, center, wid, hei, self.current_roi_angle, COLOR_ROI_PREVIEW)
-            status_text = f"Rect: C={center}, W={wid}, H={hei}, A={self.current_roi_angle:.1f}°"
+            status_text = f"Rect: C={center}, W={wid}, H={hei}, A={self.current_roi_angle:.1f}° | {shortcuts}"
         elif self.active_roi_type == 'circle' and len(self.current_roi_corners) == 2:
             center, radius = self.current_roi_corners
             DrawingUtils.draw_circle(frame, center, radius, COLOR_ROI_PREVIEW)
-            status_text = f"Circle: C={list(map(int, center))}, R={int(radius)}"
+            status_text = f"Circle: C={list(map(int, center))}, R={int(radius)} | {shortcuts}"
         elif self.active_roi_type == 'point' and len(self.current_roi_corners) == 1:
             center = self.current_roi_corners[0]
             DrawingUtils.draw_point(frame, center, color=COLOR_ROI_PREVIEW)
-            status_text = f"Point: {center}"
+            status_text = f"Point: {center} | {shortcuts}"
 
         if self.zoom_scale > 1:
             inset, (ox1, ox2, oy1, oy2) = DrawingUtils.zoom_in_display(frame, self.cursor_pos[0], self.cursor_pos[1], self.zoom_scale)
@@ -259,6 +235,7 @@ class MainWindow:
         DrawingUtils.draw_text_on_frame_bottom(frame, status_text)
         self.status_text = status_text
         return frame
+
 
     def show_frame(self, frame: np.ndarray):
         win_w, win_h = 0, 0
@@ -282,25 +259,17 @@ class MainWindow:
         canvas = np.zeros((win_h, win_w, 3), dtype=np.uint8)
         canvas[self.display_offset_y:self.display_offset_y+new_h, self.display_offset_x:self.display_offset_x+new_w] = resized_frame
         cv2.imshow(self.window_name, canvas)
-        
-        if self.control_panel and self.control_panel.winfo_exists():
-            self.status_label.configure(text=self.status_text)
-            # The mainloop handles updates, so this is not needed and can cause issues.
-            # self.control_panel.update()
 
-    def wait_key(self, delay: int = 20):
-        # This function is no longer the primary way to get keys, but we can leave it
-        # for now as a simple delay mechanism if needed elsewhere, or remove it.
-        # For this fix, it's safer to ensure it's not used for event handling.
-        return cv2.waitKey(delay) & 0xFF
 
     def is_window_visible(self):
         try: return cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) >= 1
         except cv2.error: return False
 
     def destroy_window(self):
-        if self.control_panel and self.control_panel.winfo_exists():
-            self.control_panel.destroy()
-        cv2.destroyWindow(self.window_name)
-        logger.debug(f"MainWindow: All windows destroyed.")
+        try:
+            cv2.destroyWindow(self.window_name)
+            logger.debug(f"MainWindow: All windows destroyed.")
+        except cv2.error as e:
+            # Window might already be destroyed, ignore the error
+            logger.debug(f"MainWindow: Window already destroyed or error: {e}")
 

@@ -54,8 +54,11 @@ def create_video(
         params = load_yaml(params_path)
         output_dir = Path(params.get("path"))
         fps = params.get("fps") or 30
-        geometric_params = params.get("geometric_analysis") or {}
-        roi_data = geometric_params.get("roi_data") or {}
+        geometric_analysis = params.get("geometric_analysis") or {}
+        roi_data = geometric_analysis.get("roi_data") or {}
+        rectangles = roi_data.get("rectangles") or []
+        circles = roi_data.get("circles") or []
+        areas = rectangles + circles
         frame_shape = roi_data.get("frame_shape") or []
 
         if len(frame_shape) != 2:
@@ -63,8 +66,10 @@ def create_video(
                 "frame_shape must be a list or tuple of two integers [width, height]"
             )
         width, height = frame_shape
-        areas = roi_data.get("areas") or {}
-        target_exploration = geometric_params.get("target_exploration") or {}
+        rectangles = roi_data.get("rectangles") or []
+        circles = roi_data.get("circles") or []
+        areas = rectangles + circles
+        target_exploration = geometric_analysis.get("target_exploration") or {}
         distance = target_exploration.get("distance") or 2.5  # Default distance in cm
         scale = roi_data.get("scale") or 1  # Default scale factor
         obj_size = int(scale * distance * (2 / 3))
@@ -434,7 +439,7 @@ def plot_positions(
 
 # Main function to plot mouse exploration
 
-def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: Optional[str] = 'geolabels', save: bool = False) -> None:
+def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: Optional[str] = 'geolabels', show: bool = True, save: bool = False) -> None:
     """
     Generates and displays plots for target exploration time and animal positions.
 
@@ -554,5 +559,8 @@ def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: O
         except Exception as e:
             logger.error(f"Error saving plot to {plot_output_path}: {e}")
 
-    plt.show(fig)
+    if show:
+        plt.show(fig)
+    else:
+        plt.close(fig)
 

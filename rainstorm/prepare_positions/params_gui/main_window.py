@@ -6,11 +6,14 @@ acts as the "Controller". It initializes the Model (data) and the View
 (UI sections), and handles user interactions like saving.
 """
 
-import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk, messagebox
 from pathlib import Path
 import logging
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 from .sections import (
     BasicSetupSection, ExperimentDesignSection,
@@ -22,7 +25,6 @@ from .params_model import ParamsModel
 from .widgets import ToolTip
 from .error_handling import ErrorNotificationManager, DebugInfoCollector
 from . import config as C
-from ruamel.yaml import CommentedMap
 
 class ParamsEditor(ctk.CTk):
     """
@@ -38,8 +40,6 @@ class ParamsEditor(ctk.CTk):
         self.logger.info(f"Starting Parameters Editor for: {self.params_path}")
 
         # --- Appearance ---
-        ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
         self.configure(fg_color=C.APP_BACKGROUND_COLOR)
         self.title(f"Rainstorm Parameters Editor - {self.params_path.name}")
         

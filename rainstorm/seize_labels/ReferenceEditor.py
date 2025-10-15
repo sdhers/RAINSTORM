@@ -14,10 +14,12 @@ def open_reference_editor(reference_path: Optional[str] = None):
         reference_path (Optional[str]): Path to an existing reference.json file to load.
                                       If None, the editor will start with default values.
     """
-    import logging
+
     from rainstorm.seize_labels.reference_editor_gui.main_app import ReferenceEditorApp
     from rainstorm.utils import configure_logging
     configure_logging()
+
+    import logging
     logger = logging.getLogger(__name__)
 
     try:

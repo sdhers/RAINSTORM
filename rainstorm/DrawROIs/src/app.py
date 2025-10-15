@@ -3,13 +3,13 @@
 from pathlib import Path
 import numpy as np
 import logging
+import cv2
 
 from rainstorm.DrawROIs.gui.dialogs import Dialogs
 from rainstorm.DrawROIs.gui.main_window import MainWindow
 from rainstorm.DrawROIs.src.core.roi_manager import ROIManager
 from rainstorm.DrawROIs.src.core.video_processor import VideoProcessor
 from rainstorm.DrawROIs.src.core.drawing_utils import DrawingUtils
-from rainstorm.DrawROIs.src.config import KEY_MAP, NUDGE_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -25,36 +25,13 @@ class ROISelectorApp:
         self.main_window = None
         self.state_changed = True
         self.is_running = False
+        self.quit_dialog_shown = False
         logger.debug("ROISelectorApp initialized.")
 
     def _get_dialog_root(self):
         """Provides access to the shared dialog root for other UI components."""
         return Dialogs._get_root()
 
-    def _display_instructions(self):
-        """Displays instructions for using the tool."""
-        logger.info("Displaying instructions.")
-        Dialogs.show_instructions(
-            "Instructions for ROI Selector",
-            "Drawing ROIs:\n"
-            "   - Left-click and drag: Draw a rectangle.\n"
-            "   - Hold Ctrl while dragging: Draw a square.\n"
-            "   - Hold Shift + Left-click and drag: Draw a circle.\n"
-            "   - Single Left-click: Mark a point.\n"
-            "   - Hold Alt + Left-click and drag: Draw a scale line.\n\n"
-            "Modifying Active/Selected ROI:\n"
-            "   - Right-click and drag: Move the ROI.\n"
-            "   - Scroll wheel: Resize the ROI.\n"
-            "   - Ctrl + Scroll wheel: Rotate the rectangle ROI.\n\n"
-            "Navigation & Actions:\n"
-            "   - Shift + Scroll wheel: Zoom in/out.\n"
-            "   - WASD keys: Nudge the active ROI.\n"
-            "   - 'Enter' (⏎): Confirm and save the current active ROI.\n"
-            "   - 'B' key: Discard active ROI or undo last saved ROI.\n"
-            "   - 'E' key: Erase all saved ROIs (with confirmation).\n"
-            "   - 'Q' key / Close Window: Quit the application."
-        )
-        logger.debug("Instructions closed.")
 
     def _select_and_process_videos(self):
         """Prompts user to select videos and processes them into a base image."""
@@ -97,40 +74,6 @@ class ROISelectorApp:
             logger.info("User chose NOT to load existing ROIs.")
         return None
 
-    def _on_key_press_event(self, event):
-        """Handles key press events from the CustomTkinter window."""
-        key_code = None
-        
-        # For regular letter keys (a, b, q, etc.)
-        if event.char and event.char.isalpha():
-            key_code = ord(event.char.lower())
-        # For the 'Enter' key
-        elif event.keysym == 'Return':
-            key_code = 13
-        
-        if key_code is not None:
-            self._process_key_press(key_code)
-
-    def _process_key_press(self, key):
-        """Handles key press events."""
-        action = KEY_MAP.get(key)
-        if not action and key not in NUDGE_MAP:
-            return
-
-        logger.debug(f"Key pressed: {key} (Action: {action})")
-        
-        if action == 'quit':
-            self._handle_quit()
-        elif action == 'back':
-            self._handle_back()
-        elif action == 'erase':
-            self._handle_erase()
-        elif action == 'confirm':
-            self._confirm_active_roi()
-        elif key in NUDGE_MAP:
-            self._nudge_active_element(NUDGE_MAP[key])
-        
-        self.state_changed = True
 
     def _handle_back(self):
         """Handles the 'back' action to discard or undo."""
@@ -162,7 +105,7 @@ class ROISelectorApp:
                 self.roi_manager.save_rois_to_file(output_path)
             self.is_running = False
             # To properly exit the mainloop, we destroy the root window
-            self._get_dialog_root().destroy()
+            Dialogs.destroy()
 
     def _confirm_active_roi(self):
         """Confirms the active ROI and saves it via the ROI Manager."""
@@ -228,9 +171,15 @@ class ROISelectorApp:
             return
 
         # If OpenCV window is closed manually, trigger the quit process
-        if not self.main_window.is_window_visible():
+        if not self.main_window.is_window_visible() and not self.quit_dialog_shown:
+            self.quit_dialog_shown = True
             self._handle_quit()
-            return
+            # If user said "No" to quitting, recreate the OpenCV window
+            if self.is_running:
+                self.main_window = MainWindow('Draw ROIs', self)
+                self.quit_dialog_shown = False
+            else:
+                return
 
         if self.state_changed:
             current_rois_data = self.roi_manager.get_all_rois()
@@ -238,9 +187,47 @@ class ROISelectorApp:
             self.main_window.show_frame(display_frame)
             self.state_changed = False
         
+        # Check for keyboard input using OpenCV
+        key = cv2.waitKey(1) & 0xFF
+        if key != 255:  # 255 means no key pressed
+            self._process_cv2_key_press(key)
+        
         # Schedule the next call to this method
-        self.main_window.control_panel.after(20, self._update_frame_and_loop)
+        try:
+            self._get_dialog_root().after(20, self._update_frame_and_loop)
+        except (RuntimeError, AttributeError):
+            # Dialog root has been destroyed, stop the update loop
+            logger.debug("Dialog root destroyed, stopping update loop")
+            return
 
+    def _process_cv2_key_press(self, key):
+        """Handles key press events from OpenCV."""
+        logger.debug(f"OpenCV Key pressed: {key}")
+        
+        # Map OpenCV key codes to our actions
+        if key == ord('q') or key == ord('Q'):
+            self._handle_quit()
+        elif key == ord('b') or key == ord('B'):
+            self._handle_back()
+        elif key == ord('e') or key == ord('E'):
+            self._handle_erase()
+        elif key == 13:  # Enter key
+            self._confirm_active_roi()
+        elif key == 27:  # Escape key
+            logger.info("Displaying instructions.")
+            Dialogs.show_instructions()
+        elif key in [ord('a'), ord('A'), ord('d'), ord('D'), ord('w'), ord('W'), ord('s'), ord('S')]:
+            # Handle WASD nudging
+            nudge_map = {
+                ord('a'): (-1, 0), ord('A'): (-1, 0),
+                ord('d'): (1, 0), ord('D'): (1, 0),
+                ord('w'): (0, -1), ord('W'): (0, -1),
+                ord('s'): (0, 1), ord('S'): (0, 1)
+            }
+            if key in nudge_map:
+                self._nudge_active_element(nudge_map[key])
+        
+        self.state_changed = True
 
     def run(self):
         """Main entry point for the application."""
@@ -248,7 +235,8 @@ class ROISelectorApp:
         Dialogs.initialize()
 
         try:
-            self._display_instructions()
+            logger.info("Displaying instructions.")
+            Dialogs.show_instructions()
 
             if not self._select_and_process_videos():
                 return 
@@ -259,16 +247,12 @@ class ROISelectorApp:
             
             logger.info("Entering main GUI loop.")
             self.is_running = True
-
-            # Bind keyboard events to the main tkinter root
-            dialog_root = self._get_dialog_root()
-            dialog_root.bind("<Key>", self._on_key_press_event)
             
             # Start the recursive update loop
             self._update_frame_and_loop()
 
             # Start the CustomTkinter main event loop
-            dialog_root.mainloop()
+            self._get_dialog_root().mainloop()
 
         finally:
             logger.debug("Exited mainloop. Cleaning up.")

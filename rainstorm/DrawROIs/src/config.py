@@ -12,21 +12,6 @@ ROTATE_FACTOR = 1           # Degrees per scroll
 RESIZE_FACTOR = 1           # Pixels per scroll
 CIRCLE_RESIZE_FACTOR = 1    # Pixels per scroll for circle radius
 
-# Key Mappings
-KEY_MAP = {
-    ord('q'): 'quit',
-    ord('b'): 'back',
-    ord('e'): 'erase',
-    13: 'confirm'  # 'Enter' key
-}
-
-# WASD for nudging a point by one pixel
-NUDGE_MAP = {
-    ord('a'): (-1,  0),
-    ord('d'): ( 1,  0),
-    ord('w'): ( 0, -1),
-    ord('s'): ( 0,  1)
-}
 
 # Drawing Colors (B, G, R)
 COLOR_ROI_SAVED = (0, 255, 0)       # Green for saved ROIs

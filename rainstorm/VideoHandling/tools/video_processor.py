@@ -2,7 +2,7 @@
 
 import io
 import sys
-import os
+from pathlib import Path
 import cv2
 import numpy as np
 import logging
@@ -265,7 +265,8 @@ def _iterate_video_frames(
 def process_video(video_path: str, video_data: Dict,
                   apply_trim: bool, apply_crop: bool, apply_align: bool, apply_rotate: bool,
                   target_mean_points: Optional[List[List[int]]] = None,
-                  output_video_path: str = None) -> bool:
+                  output_video_path: str = None,
+                  output_format: str = "mp4") -> bool:
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         logger.error(f"Could not open video: {video_path}")
@@ -373,21 +374,29 @@ def process_video(video_path: str, video_data: Dict,
         else:
             num_frames_expected_for_pbar = 0 # Segment is empty or invalid
     
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    # Select codec based on output format
+    if output_format.lower() == "mp4":
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    elif output_format.lower() == "avi":
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    else:
+        logger.warning(f"Unknown output format '{output_format}', defaulting to MP4")
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    
     out_writer = cv2.VideoWriter(output_video_path, fourcc, fps, (output_w, output_h))
     if not out_writer.isOpened():
         logger.error(f"Failed to open VideoWriter for: {output_video_path}")
         cap.release()
         return False
 
-    logger.info(f"Processing {os.path.basename(video_path)}: StartFrame={start_frame_idx}, TargetEndFrame={end_frame_idx if end_frame_idx != float('inf') else 'EOF'}, Output=({output_w}x{output_h}), EffectiveFPS={fps:.2f}")
+    logger.info(f"Processing {Path(video_path).name}: StartFrame={start_frame_idx}, TargetEndFrame={end_frame_idx if end_frame_idx != float('inf') else 'EOF'}, Output=({output_w}x{output_h}), EffectiveFPS={fps:.2f}")
 
     cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame_idx) # Set starting position
     
     frames_written = 0
     success_overall = True
     
-    video_basename = os.path.basename(video_path)
+    video_basename = Path(video_path).name
     max_desc_len = 30 
     short_desc = (video_basename[:max_desc_len-3] + "...") if len(video_basename) > max_desc_len else video_basename
     
@@ -452,9 +461,9 @@ def process_video(video_path: str, video_data: Dict,
         
         if success_overall and frames_written > 0:
             if final_expected_frames_for_log is not None and frames_written < final_expected_frames_for_log * 0.95: # e.g. < 95%
-                 logger.warning(f"Completed {os.path.basename(video_path)} with {frames_written} frames, but expected ~{final_expected_frames_for_log}. Possible truncation despite skips.")
+                 logger.warning(f"Completed {Path(video_path).name} with {frames_written} frames, but expected ~{final_expected_frames_for_log}. Possible truncation despite skips.")
             else:
-                 logger.info(f"OK: {os.path.basename(video_path)} -> {output_video_path} ({frames_written} frames).")
+                 logger.info(f"OK: {Path(video_path).name} -> {output_video_path} ({frames_written} frames).")
         elif frames_written == 0 and success_overall: # No frames written, e.g. empty segment or immediate error
             logger.warning(f"No frames written for {video_path}. Output file might be empty/invalid: {output_video_path}")
         elif not success_overall: # An exception occurred
@@ -466,10 +475,12 @@ def process_video(video_path: str, video_data: Dict,
 def run_video_processing_pipeline(video_dict: Dict[str, Dict],
                                   operations: Dict[str, bool],
                                   global_output_folder: str,
-                                  manual_target_points: Optional[List[List[int]]] = None) -> None:
-    if not os.path.exists(global_output_folder):
+                                  manual_target_points: Optional[List[List[int]]] = None,
+                                  output_suffix: str = "_processed",
+                                  output_format: str = "mp4") -> None:
+    if not Path(global_output_folder).exists():
         try:
-            os.makedirs(global_output_folder, exist_ok=True)
+            Path(global_output_folder).mkdir(parents=True, exist_ok=True)
             logger.info(f"Created output folder: {global_output_folder}")
         except OSError as e:
             logger.error(f"Could not create output folder {global_output_folder}: {e}. Aborting.")
@@ -515,19 +526,19 @@ def run_video_processing_pipeline(video_dict: Dict[str, Dict],
     video_iterable = tqdm(video_dict.items(), total=total_videos, desc="Overall Progress", unit="video", file=tqdm_file_out_overall)
     
     for video_path, video_data in video_iterable:
-        video_name = os.path.basename(video_path)
+        video_name = Path(video_path).name
         # Update description of the main progress bar for the current video
         video_iterable.set_description(f"Processing {video_name[:20]:<20}") # Truncate/pad
 
-        output_filename = f"{os.path.splitext(video_name)[0]}_processed{os.path.splitext(video_name)[1]}"
-        output_video_path = os.path.join(global_output_folder, output_filename)
+        output_filename = f"{Path(video_name).stem}{output_suffix}.{output_format}"
+        output_video_path = str(Path(global_output_folder) / output_filename)
 
         # Pass all operation flags to the processing function
         if process_video(video_path, video_data,
                          apply_trim_op, apply_crop_op, apply_align_op, apply_rotate_op,
                          target_mean_points_for_alignment,
                          output_video_path,
-                         ):
+                         output_format):
             processed_count += 1
         else:
             failed_count += 1

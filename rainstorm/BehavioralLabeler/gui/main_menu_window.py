@@ -1,19 +1,38 @@
 """Main menu window for the Behavioral Labeler application."""
 
-import customtkinter as ctk
-from tkinter import filedialog, messagebox
-import logging
+
 from pathlib import Path
 from typing import Union
+from tkinter import filedialog, messagebox
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 from ..src import config
 
+import logging
 logger = logging.getLogger(__name__)
 
-def show_messagebox(title: str, message: str, type: str = "info") -> bool:
+def show_messagebox(title: str, message: str, type: str = "info", topmost_window=None) -> bool:
     """Display a message box and return user response."""
     root = ctk.CTk()
     root.withdraw()
+    
+    # Temporarily disable topmost on the specified window if provided
+    was_topmost = False
+    if topmost_window and topmost_window.winfo_exists():
+        try:
+            was_topmost = topmost_window.attributes("-topmost")
+            topmost_window.attributes("-topmost", False)
+        except:
+            pass  # Ignore errors if window doesn't support topmost attribute
+    
+    # Make the root window appear on top
+    root.attributes("-topmost", True)
+    root.lift()
+    root.focus_force()
+    
     response = False
     if type == "info":
         messagebox.showinfo(title, message)
@@ -26,6 +45,14 @@ def show_messagebox(title: str, message: str, type: str = "info") -> bool:
         response = True
     elif type == "question":
         response = messagebox.askquestion(title, message) == 'yes'
+    
+    # Restore topmost attribute on the original window
+    if topmost_window and topmost_window.winfo_exists() and was_topmost:
+        try:
+            topmost_window.attributes("-topmost", True)
+        except:
+            pass  # Ignore errors if window doesn't support topmost attribute
+    
     root.destroy()
     logger.info(f"Messagebox '{title}' displayed. User response: {response}")
     return response
@@ -152,6 +179,12 @@ Labeling Window Controls:
 - Navigate the video using the operant keys above.
 
 Display Controls: {fixed_controls}
+
+Timeline Feature:
+- Press '{config.FIXED_CONTROL_KEYS['go_to']}' to open the timeline window
+- View the entire video timeline with color-coded behavioral events
+- Click on the timeline to select a frame, then click "Go to Frame" to navigate
+- Use arrow keys to navigate between frames on the timeline
 
 Note: Keys should be unique, single characters, different from the operant and fixed control keys.
 """

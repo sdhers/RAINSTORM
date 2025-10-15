@@ -19,7 +19,7 @@ NUMERIC_PARAMETERS: Dict[Tuple[str, ...], str] = {
     ('fps',): 'float',
     
     # prepare_positions parameters
-    ('prepare_positions', 'confidence'): 'int',
+    ('prepare_positions', 'confidence'): 'float',
     ('prepare_positions', 'median_filter'): 'int',
     ('prepare_positions', 'near_dist'): 'float',
     ('prepare_positions', 'far_dist'): 'float',

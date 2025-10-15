@@ -1,8 +1,11 @@
 # gui/gui_utils.py
 
-import customtkinter as ctk
 from tkinter import filedialog, simpledialog, messagebox
 from typing import Optional, Tuple, List
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 # Centralized Tkinter dialog wrappers to avoid repeating root creation/withdrawal
 

@@ -11,7 +11,6 @@ from pathlib import Path
 import pandas as pd
 from typing import Optional
 
-# Assuming these are available in the same package structure
 from .calculate_index import calculate_cumsum, calculate_DI
 from .multiplot.plot_roi_activity import _count_alternations_and_entries
 from ..utils import configure_logging, load_yaml, load_json
@@ -71,22 +70,33 @@ def create_results_file(
     
     # Load reference file
     reference_path = folder_path / "reference.json"
+    reference_df = pd.DataFrame() # Initialize an empty DataFrame as a fallback
+    reference_dict = {}
     if not reference_path.is_file():
-        logger.error(f"Reference file not found at {reference_path}")
-        raise FileNotFoundError(f"Reference file not found at {reference_path}")
-    try: 
-        reference = load_json(reference_path)
-    except Exception as e:
-        logger.error(f"Error loading or parsing reference file from {reference_path}: {e}")
-        return results_path
+        logger.warning(f"Reference file not found at {reference_path}. Proceeding without it.")
+    else:
+        try: 
+            reference_dict = load_json(reference_path)
+        except Exception as e:
+            logger.error(f"Error loading or parsing reference file from {reference_path}: {e}")
+            return None
     
-    target_roles = reference.get("target_roles") or {}
+    try:
+        tabular_data = {k: v for k, v in reference_dict.items() if isinstance(v, dict)}
+        if tabular_data:
+            reference_df = pd.DataFrame.from_dict(tabular_data, orient='index')
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Could not convert reference data into a DataFrame ({e}). "
+                       "Assuming no pre-defined ROIs in reference file.")
+        reference_df = pd.DataFrame() # Ensure it's an empty DataFrame on failure
+
+    target_roles = reference_dict.get("target_roles") or {}
 
     logger.info(f"📁 Base folder: {folder_path}")
     logger.info(f"🎯 Target roles: {target_roles}")
     
     # Get ROI columns for consistent output structure
-    all_renamed_roi_columns = _get_roi_columns(params, reference)
+    all_renamed_roi_columns = _get_roi_columns(params, reference_df)
     
     # Process all summary files
     results = _process_all_summary_files(
@@ -122,6 +132,11 @@ def _validate_directories(folder_path: Path) -> bool:
 def _get_roi_columns(params: dict, reference_df: pd.DataFrame) -> set:
     """Extract all unique ROI column names from the reference file."""
     all_renamed_roi_columns = set()
+
+    if not isinstance(reference_df, pd.DataFrame) or reference_df.empty:
+        logger.info("Reference data is not a valid DataFrame or is empty. No ROI columns extracted from it.")
+        return all_renamed_roi_columns
+
     geometric_analysis = params.get("geometric_analysis") or {}
     roi_data = geometric_analysis.get("roi_data") or {}
     areas = roi_data.get("areas") or []
@@ -134,7 +149,11 @@ def _get_roi_columns(params: dict, reference_df: pd.DataFrame) -> set:
                 for val in unique_renamed_values:
                     all_renamed_roi_columns.add(str(val))
     
-    logger.info(f"🏠 Found ROI columns: {all_renamed_roi_columns}")
+    if all_renamed_roi_columns:
+        logger.info(f"🏠 Found pre-defined ROI columns from reference file: {all_renamed_roi_columns}")
+    else:
+        logger.info("🏠 No pre-defined ROI columns found in the reference file for the specified areas.")
+        
     return all_renamed_roi_columns
 
 

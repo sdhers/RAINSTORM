@@ -1,10 +1,15 @@
 """
-RAINSTORM - Parameters Editor GUI (Entry Point)
-
+RAINSTORM - Parameters Editor GUI
 This is the main entry point to launch the GUI.
 """
 
 from pathlib import Path
+from tkinter import filedialog
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
+
 from .params_gui.main_window import ParamsEditor
 
 def open_params_editor(params_path: str):
@@ -26,11 +31,8 @@ def open_params_editor(params_path: str):
     app = ParamsEditor(str(params_path))
     app.mainloop()
 
-if __name__ == '__main__':
-    # This allows you to run the editor directly for testing by selecting a file.
-    import customtkinter as ctk
-    from tkinter import filedialog
-    
+
+if __name__ == '__main__':    
     root = ctk.CTk()
     root.withdraw()
     file_path = filedialog.askopenfilename(

@@ -4,8 +4,12 @@ RAINSTORM - Parameters Editor GUI (Layout Manager)
 Manages responsive layout calculations for the main window.
 """
 
-import customtkinter as ctk
 import tkinter as tk
+
+import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
+
 from . import config as C
 
 class ResponsiveLayoutManager:

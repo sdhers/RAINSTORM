@@ -18,7 +18,7 @@ configure_logging()
 
 logger = logging.getLogger(__name__)
 
-def plot_positions(params_path: str, file: str, scaling: bool = True) -> None:
+def plot_positions(params_path: str, file: str, scaling: bool = True, show: bool = True, save: bool = False) -> None:
     """
     Plot mouse exploration data and orientation toward multiple targets using Plotly.
     It plots up to five targets with distinct styles and colors, showing the mouse's
@@ -155,7 +155,20 @@ def plot_positions(params_path: str, file: str, scaling: bool = True) -> None:
     )
 
     fig = go.Figure(data=traces, layout=layout)
-    fig.show()
+    
+    # Handle save parameter
+    if save:
+        save_path = params_path.get("path") / "plots" / f"{file_name}_positions.html"
+        try:
+            fig.write_html(save_path)
+            logger.info(f"Positions plot saved to: {save_path}")
+        except Exception as e:
+            logger.error(f"Error saving positions plot to {save_path}: {e}")
+    
+    if show:
+        fig.show()
+    else:
+        fig.data = []  # Clear the figure data
 
 def rotate_rectangle(center_x, center_y, width, height, angle_degrees):
     """
@@ -211,7 +224,7 @@ def rotate_rectangle(center_x, center_y, width, height, angle_degrees):
     return " ".join(path_parts)
 
 def plot_heatmap(params_path, file, bodypart='body', bins=100, colorscale="hot", alpha=0.75,
-                 sigma=1.2, show_colorbar=True):
+                 sigma=1.2, show_colorbar=True, show: bool = True, save: bool = False):
     """
     Plots a heatmap of body part positions overlaid with rotated ROIs, circles, and points using Plotly.
 
@@ -370,11 +383,24 @@ def plot_heatmap(params_path, file, bodypart='body', bins=100, colorscale="hot",
         plot_bgcolor="white",
         showlegend=False # Hide legend for scatter traces unless specifically needed
     )
+    
+    # Handle save parameter
+    if save:
+        save_path = params_path.get("path") / "plots" / f"{file.stem}_heatmap.html"
+        try:
+            fig.write_html(save_path)
+            logger.info(f"Heatmap plot saved to: {save_path}")
+        except Exception as e:
+            logger.error(f"Error saving heatmap plot to {save_path}: {e}")
+    
+    if show:
+        fig.show()
+    else:
+        fig.data = []  # Clear the figure data
 
-    fig.show()
 
 
-def plot_freezing_events(params_path: Path, file: Path, movement: pd.DataFrame):
+def plot_freezing_events(params_path: Path, file: Path, movement: pd.DataFrame, show: bool = True, save: bool = False):
     """Plots freezing events and movement in a video using Plotly.
 
     Args:
@@ -395,7 +421,7 @@ def plot_freezing_events(params_path: Path, file: Path, movement: pd.DataFrame):
     # Create time axis
     time = np.arange(len(movement)) / fps
 
-    file_name = file.name
+    file_name = file.stem
 
     # Create the plot using Plotly
     fig = go.Figure()
@@ -457,11 +483,23 @@ def plot_freezing_events(params_path: Path, file: Path, movement: pd.DataFrame):
         template="plotly_white",
         height=400
     )
+    
+    # Handle save parameter
+    if save:
+        save_path = params_path.get("path") / "plots" / f"{file_name}_freezing_events.html"
+        try:
+            fig.write_html(save_path)
+            logger.info(f"Heatmap plot saved to: {save_path}")
+        except Exception as e:
+            logger.error(f"Error saving heatmap plot to {save_path}: {e}")
 
-    fig.show()
+    if show:
+        fig.show()
+    else:
+        fig.data = []  # Clear the figure data
 
 
-def plot_roi_activity(params_path: Path, file: Path, roi_activity: pd.DataFrame, bodypart: str = 'body'):
+def plot_roi_activity(params_path: Path, file: Path, roi_activity: pd.DataFrame, bodypart: str = 'body', show: bool = True, save: bool = False):
     """
     Plots the time spent in each Region of Interest (ROI).
 
@@ -516,4 +554,17 @@ def plot_roi_activity(params_path: Path, file: Path, roi_activity: pd.DataFrame,
         yaxis_title='Time (seconds)',
         template='plotly_white'
     )
-    fig.show()
+    
+    # Handle save parameter
+    if save:
+        save_path = params_path.get("path") / "plots" / f"{file.stem}_roi_activity.html"
+        try:
+            fig.write_html(save_path)
+            logger.info(f"ROI activity plot saved to: {save_path}")
+        except Exception as e:
+            logger.error(f"Error saving ROI activity plot to {save_path}: {e}")
+    
+    if show:
+        fig.show()
+    else:
+        fig.data = []  # Clear the figure data

@@ -1,28 +1,29 @@
 # gui/application.py
 
-import os
-import logging
+from pathlib import Path
+
 import customtkinter as ctk
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 from rainstorm.VideoHandling.gui import gui_utils as gui
 from rainstorm.VideoHandling.tools import video_manager, video_processor, config
 from rainstorm.VideoHandling.components import aligner, cropper, trimmer, rotator
 
+import logging
 logger = logging.getLogger(__name__)  # Use module-specific logger
 
 class VideoProcessorGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("VideoHandling Pipeline")
-        self.root.geometry("800x750")
-        
-        # --- Appearance Settings ---
-        ctk.set_appearance_mode("Dark")  # Modes: "System" (default), "Dark", "Light"
-        ctk.set_default_color_theme("blue")  # Themes: "blue" (default), "green", "dark-blue"
+        self.root.geometry("800x600")
 
         self.video_dict = None
         self.project_file_path = None
         self.output_folder_path = ctk.StringVar()
+        self.output_suffix = ctk.StringVar(value="_processed")
+        self.output_format = ctk.StringVar(value="mp4")
 
         # --- State Variables ---
         self.apply_trim_var = ctk.BooleanVar(value=False)
@@ -58,7 +59,8 @@ class VideoProcessorGUI:
         main_frame = ctk.CTkFrame(self.root, fg_color="transparent")
         main_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         
-        main_frame.columnconfigure((0, 1), weight=1)
+        main_frame.columnconfigure(0, weight=1)
+        main_frame.columnconfigure(1, weight=2)
         main_frame.rowconfigure(2, weight=1)
 
         # --- Project Management Frame ---
@@ -88,6 +90,35 @@ class VideoProcessorGUI:
         self.crop_button.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
         self.rotate_button = ctk.CTkButton(params_frame, text="Define Rotation", command=self._define_rotation)
         self.rotate_button.grid(row=4, column=0, padx=10, pady=10, sticky="ew")
+
+        # Output Format Selection
+        format_frame = ctk.CTkFrame(params_frame)
+        format_frame.grid(row=5, column=0, sticky="ew", padx=10, pady=10)
+        format_frame.columnconfigure(0, weight=1)
+        
+        ctk.CTkLabel(format_frame, text="Output Format:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=5, sticky="w")
+        
+        self.mp4_radio = ctk.CTkRadioButton(format_frame, text="MP4", variable=self.output_format, value="mp4")
+        self.mp4_radio.grid(row=0, column=1, sticky="ew", padx=10, pady=5)
+        
+        self.avi_radio = ctk.CTkRadioButton(format_frame, text="AVI", variable=self.output_format, value="avi")
+        self.avi_radio.grid(row=0, column=2, sticky="ew", padx=10, pady=5)
+
+        # Output folder selection
+        output_folder_frame = ctk.CTkFrame(params_frame, fg_color="transparent")
+        output_folder_frame.grid(row=6, column=0, sticky="ew", padx=10, pady=10)
+        output_folder_frame.columnconfigure(1, weight=1)
+        ctk.CTkButton(output_folder_frame, text="Select Output Folder", command=self._select_output_folder).grid(row=0, column=0, sticky="w")
+        self.output_folder_entry = ctk.CTkEntry(output_folder_frame, textvariable=self.output_folder_path, state='readonly')
+        self.output_folder_entry.grid(row=0, column=1, sticky="ew", padx=(10, 0))
+
+        # Output suffix frame
+        suffix_frame = ctk.CTkFrame(params_frame, fg_color="transparent")
+        suffix_frame.grid(row=7, column=0, sticky="ew", pady=(0, 10), padx=10)
+        suffix_frame.columnconfigure(1, weight=1)
+        ctk.CTkLabel(suffix_frame, text="Output Suffix:").grid(row=0, column=0, sticky="w")
+        self.output_suffix_entry = ctk.CTkEntry(suffix_frame, textvariable=self.output_suffix, width=150)
+        self.output_suffix_entry.grid(row=0, column=1, sticky="w", padx=(10, 0))
 
         # --- Video Processing Frame ---
         process_frame = ctk.CTkFrame(main_frame)
@@ -123,15 +154,8 @@ class VideoProcessorGUI:
         ctk.CTkCheckBox(process_frame, text="Apply Cropping", variable=self.apply_crop_var).grid(row=6, column=0, sticky="w", padx=10, pady=(10, 5))
         ctk.CTkCheckBox(process_frame, text="Apply Rotation", variable=self.apply_rotate_var).grid(row=7, column=0, sticky="w", padx=10, pady=5)
 
-        output_folder_frame = ctk.CTkFrame(process_frame, fg_color="transparent")
-        output_folder_frame.grid(row=8, column=0, sticky="ew", pady=10, padx=10)
-        output_folder_frame.columnconfigure(1, weight=1)
-        ctk.CTkButton(output_folder_frame, text="Select Output Folder", command=self._select_output_folder).grid(row=0, column=0, sticky="w")
-        self.output_folder_entry = ctk.CTkEntry(output_folder_frame, textvariable=self.output_folder_path, state='readonly')
-        self.output_folder_entry.grid(row=0, column=1, sticky="ew", padx=(10, 0))
-
         self.process_videos_button = ctk.CTkButton(process_frame, text="Process Videos & Save", command=self._process_videos, height=40)
-        self.process_videos_button.grid(row=9, column=0, pady=10, padx=10, sticky="ew")
+        self.process_videos_button.grid(row=8, column=0, pady=10, padx=10, sticky="ew")
 
         # --- Status Frame ---
         status_frame = ctk.CTkFrame(main_frame)
@@ -157,7 +181,7 @@ class VideoProcessorGUI:
         self.process_videos_button.configure(state=state)
 
         if project_loaded and self.project_file_path:
-            self.project_path_label.configure(text=f"Project: {os.path.basename(self.project_file_path)}")
+            self.project_path_label.configure(text=f"Project: {Path(self.project_file_path).name}")
         elif project_loaded:
             self.project_path_label.configure(text="Project: Unsaved New Project")
         else:
@@ -197,9 +221,24 @@ class VideoProcessorGUI:
                                               filetypes=config.JSON_FILE_TYPE,
                                               parent=self.root)
         if filepath:
-            loaded_dict = video_manager.load_video_dict(file_path=filepath, parent_for_dialog=self.root)
-            if loaded_dict:
-                self.video_dict = loaded_dict
+            loaded_data = video_manager.load_project_data(file_path=filepath, parent_for_dialog=self.root)
+            if loaded_data:
+                if isinstance(loaded_data, dict) and "video_dict" in loaded_data:
+                    self.video_dict = loaded_data["video_dict"]
+                    if "output_suffix" in loaded_data:
+                        self.output_suffix.set(loaded_data["output_suffix"])
+                    else:
+                        self.output_suffix.set("_processed")  # Default fallback
+                    
+                    if "output_format" in loaded_data:
+                        self.output_format.set(loaded_data["output_format"])
+                    else:
+                        self.output_format.set("mp4")  # Default fallback
+                else:
+                    self.video_dict = loaded_data
+                    self.output_suffix.set("_processed")  # Default fallback
+                    self.output_format.set("mp4")  # Default fallback
+                
                 self.project_file_path = filepath
                 self._log_status(f"Project loaded from: {filepath}")
             else:
@@ -216,8 +255,15 @@ class VideoProcessorGUI:
 
         path_to_save = self.project_file_path if not save_as else None
 
+        # Create project data with suffix and format
+        project_data = {
+            "video_dict": self.video_dict,
+            "output_suffix": self.output_suffix.get(),
+            "output_format": self.output_format.get()
+        }
+
         self._log_status("Saving project...")
-        saved_path = video_manager.save_video_dict(self.video_dict, file_path=path_to_save, parent_for_dialog=self.root)
+        saved_path = video_manager.save_project_data(project_data, file_path=path_to_save, parent_for_dialog=self.root)
         if saved_path:
             self.project_file_path = saved_path
             self._log_status(f"Project saved to: {saved_path}")
@@ -318,7 +364,7 @@ class VideoProcessorGUI:
             self._log_status("Rotation selection canceled or no changes applied.")
 
     def _select_output_folder(self):
-        initial_dir = os.path.dirname(self.project_file_path) if self.project_file_path else os.getcwd()
+        initial_dir = str(Path(self.project_file_path).parent) if self.project_file_path else str(Path.cwd())
         folder = gui.ask_directory(title="Select Output Folder for Processed Videos",
                                         initialdir=initial_dir, parent=self.root)
         if folder:
@@ -352,9 +398,22 @@ class VideoProcessorGUI:
             gui.show_info("Processing Error", "Please select an output folder for processed videos.", parent=self.root)
             return
         
-        if not os.path.isdir(chosen_output_folder):
+        if not Path(chosen_output_folder).is_dir():
             self._log_status(f"Selected output folder does not exist: {chosen_output_folder}", is_error=True)
             gui.show_info("Processing Error", f"The selected output folder is not valid:\n{chosen_output_folder}", parent=self.root)
+            return
+
+        # Validate and get output suffix
+        output_suffix = self.output_suffix.get().strip()
+        if not output_suffix:
+            output_suffix = "_processed"  # Default fallback
+            self._log_status("Empty suffix provided, using default '_processed'")
+        
+        # Basic validation for suffix (no special characters that could cause file system issues)
+        import re
+        if not re.match(r'^[a-zA-Z0-9_-]*$', output_suffix):
+            self._log_status("Invalid suffix characters. Only letters, numbers, underscores, and hyphens are allowed.", is_error=True)
+            gui.show_info("Input Error", "Invalid suffix characters. Only letters, numbers, underscores, and hyphens are allowed.", parent=self.root)
             return
 
         target_manual_points = None
@@ -401,7 +460,9 @@ class VideoProcessorGUI:
                 self.video_dict,
                 ops_to_apply,
                 chosen_output_folder,
-                manual_target_points=target_manual_points 
+                manual_target_points=target_manual_points,
+                output_suffix=output_suffix,
+                output_format=self.output_format.get()
             )
             self._log_status(f"Video processing finished. Check logs and output folder: {chosen_output_folder}")
             gui.show_info("Processing Complete", f"Video processing finished.\nCheck console logs and the output folder:\n{chosen_output_folder}", parent=self.root)

@@ -1,6 +1,6 @@
 # tools/video_manager.py
 
-import os
+from pathlib import Path
 import json
 import cv2
 import logging
@@ -117,9 +117,9 @@ def save_video_dict(video_dict: Dict, file_path: Optional[str] = None, parent_fo
 
     try:
         # Ensure parent directory exists
-        folder = os.path.dirname(actual_file_path)
-        if folder and not os.path.exists(folder): 
-            os.makedirs(folder)
+        folder = Path(actual_file_path).parent
+        if folder and not folder.exists(): 
+            folder.mkdir(parents=True, exist_ok=True)
 
         with open(actual_file_path, 'w') as f:
             json.dump(video_dict, f, indent=4)
@@ -163,7 +163,7 @@ def load_video_dict(file_path: Optional[str] = None, parent_for_dialog=None) -> 
             gui.show_info("Load Error", f"Invalid file path: {actual_file_path}")
         return None
 
-    if not os.path.exists(actual_file_path):
+    if not Path(actual_file_path).exists():
         logger.error(f"File not found: {actual_file_path}")
         if parent_for_dialog:
             gui.show_info("Load Error", f"File not found: {actual_file_path}", parent=parent_for_dialog)
@@ -195,6 +195,138 @@ def load_video_dict(file_path: Optional[str] = None, parent_for_dialog=None) -> 
     
     except IOError as e:
         logger.error(f"Error loading video dictionary from {actual_file_path}: {e}")
+        if parent_for_dialog:
+            gui.show_info("Load Error", f"Could not load project from {actual_file_path}.\nError: {e}", parent=parent_for_dialog)
+        else:
+            gui.show_info("Load Error", f"Could not load project from {actual_file_path}.\nError: {e}")
+        return None
+    
+    except Exception as e: 
+        logger.error(f"An unexpected error occurred during loading from {actual_file_path}: {e}")
+        if parent_for_dialog:
+            gui.show_info("Load Error", f"An unexpected error occurred: {e}", parent=parent_for_dialog)
+        else:
+            gui.show_info("Load Error", f"An unexpected error occurred: {e}")
+        return None
+
+def save_project_data(project_data: Dict, file_path: Optional[str] = None, parent_for_dialog=None) -> Optional[str]:
+    """Save project data (including video_dict and suffix) as a JSON file. 
+    Prompts for path if not provided.
+    Returns the path where the file was saved, or None if save failed/canceled.
+    """
+    actual_file_path = file_path
+    if not actual_file_path: # If no path provided, ask the user (Save As)
+        actual_file_path = gui.ask_save_as_filename(
+            title="Save Video Project As...",
+            filetypes=config.JSON_FILE_TYPE,
+            defaultextension=".json",
+            parent=parent_for_dialog
+        )
+    
+    if not actual_file_path: # User canceled "Save As" dialog
+        logger.info("Save operation canceled by user.")
+        return None
+
+    # Validate file path for security
+    if not validate_file_path(actual_file_path):
+        logger.error(f"Invalid file path for saving: {actual_file_path}")
+        if parent_for_dialog:
+            gui.show_info("Save Error", f"Invalid file path: {actual_file_path}", parent=parent_for_dialog)
+        return None
+
+    try:
+        # Ensure parent directory exists
+        folder = Path(actual_file_path).parent
+        if folder and not folder.exists(): 
+            folder.mkdir(parents=True, exist_ok=True)
+
+        with open(actual_file_path, 'w') as f:
+            json.dump(project_data, f, indent=4)
+        # Message will be printed by the caller upon successful return
+        return actual_file_path
+    except IOError as e:
+        logger.error(f"Error saving project data to {actual_file_path}: {e}")
+        if parent_for_dialog: # Show error in GUI if possible
+            gui.show_info("Save Error", f"Could not save project to {actual_file_path}.\nError: {e}", parent=parent_for_dialog)
+        return None
+    except Exception as e: 
+        logger.error(f"An unexpected error occurred during saving to {actual_file_path}: {e}")
+        if parent_for_dialog:
+            gui.show_info("Save Error", f"An unexpected error occurred: {e}", parent=parent_for_dialog)
+        return None
+
+def load_project_data(file_path: Optional[str] = None, parent_for_dialog=None) -> Optional[Dict]:
+    """Load project data from a JSON file. 
+    Handles both old format (just video_dict) and new format (with suffix).
+    """
+    actual_file_path = file_path
+    if not actual_file_path:
+        logger.debug("load_project_data called with no file_path. Prompting user for file selection.")
+        actual_file_path = gui.ask_open_filename(
+            title="Open Video Project File",
+            filetypes=config.JSON_FILE_TYPE,
+            parent=parent_for_dialog
+        )
+        if not actual_file_path:
+            logger.info("Load canceled by user.")
+            return None
+    
+    # Validate file path for security
+    if not validate_file_path(actual_file_path):
+        logger.error(f"Invalid file path for loading: {actual_file_path}")
+        if parent_for_dialog:
+            gui.show_info("Load Error", f"Invalid file path: {actual_file_path}", parent=parent_for_dialog)
+        else:
+            gui.show_info("Load Error", f"Invalid file path: {actual_file_path}")
+        return None
+
+    if not Path(actual_file_path).exists():
+        logger.error(f"File not found: {actual_file_path}")
+        if parent_for_dialog:
+            gui.show_info("Load Error", f"File not found: {actual_file_path}", parent=parent_for_dialog)
+        else:
+            gui.show_info("Load Error", f"File not found: {actual_file_path}")
+        return None
+
+    try:
+        with open(actual_file_path, 'r') as f:
+            loaded_data = json.load(f)
+        logger.info(f"Project data loaded from: {actual_file_path}")
+        
+        if not isinstance(loaded_data, dict):
+            logger.error("Loaded file is not a valid dictionary.")
+            if parent_for_dialog:
+                 gui.show_info("Load Error", "Invalid project file: Data is not in the expected format.", parent=parent_for_dialog)
+            else:
+                 gui.show_info("Load Error", "Invalid project file: Data is not in the expected format.")
+            return None
+        
+        # Check if it's the new format (with video_dict key) or old format (direct video_dict)
+        if "video_dict" in loaded_data:
+            # New format
+            if not isinstance(loaded_data["video_dict"], dict):
+                logger.error("Invalid project file: video_dict is not a dictionary.")
+                if parent_for_dialog:
+                    gui.show_info("Load Error", "Invalid project file: video_dict is not in the expected format.", parent=parent_for_dialog)
+                else:
+                    gui.show_info("Load Error", "Invalid project file: video_dict is not in the expected format.", parent=parent_for_dialog)
+                return None
+        else:
+            # Old format - assume the whole thing is the video_dict
+            logger.info("Loading project in legacy format (no suffix support)")
+        
+        return loaded_data
+    
+    except json.JSONDecodeError as e:
+        logger.error(f"Error decoding JSON from file {actual_file_path}: {e}")
+        if parent_for_dialog:
+            gui.show_info("Load Error", f"Invalid JSON format in {actual_file_path}.\nError: {e}", parent=parent_for_dialog)
+        else:
+            gui.show_info("Load Error", f"Invalid JSON format in {actual_file_path}.\nError: {e}")
+        return None
+    
+    except IOError as e:
+        logger.error(f"Error loading project data from {actual_file_path}: {e}")
         if parent_for_dialog:
             gui.show_info("Load Error", f"Could not load project from {actual_file_path}.\nError: {e}", parent=parent_for_dialog)
         else:

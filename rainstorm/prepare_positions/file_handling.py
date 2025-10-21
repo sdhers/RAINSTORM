@@ -55,7 +55,7 @@ def backup_folder(folder_path: Path, suffix: str = "_backup", overwrite: bool = 
 
     if copied_folder_path.exists():
         if overwrite:
-            print(f"Overwriting existing backup folder: '{copied_folder_path}'...")
+            print(f"Overwriting existing backup folder: '{copied_folder_path}'")
             try:
                 shutil.rmtree(copied_folder_path, onerror=handle_remove_readonly)
                 logger.warning(f"Overwriting existing folder: '{copied_folder_path}'")
@@ -67,7 +67,7 @@ def backup_folder(folder_path: Path, suffix: str = "_backup", overwrite: bool = 
             logger.warning(f"The folder '{copied_folder_path}' already exists. Use overwrite=True to replace it.")
             return
 
-    print(f"Creating backup of '{folder_path}' to '{copied_folder_path}'...")
+    print(f"Creating backup of '{folder_path}' to '{copied_folder_path}'")
     try:
         shutil.copytree(folder_path, copied_folder_path)
         logger.info(f"Backup created at '{copied_folder_path}'")
@@ -94,7 +94,7 @@ def rename_files(folder_path: Path, old_substring: str, new_substring: str):
         raise ValueError(f"'{folder_path}' is not a valid directory.")
 
     modified_any_file = False
-    print(f"Attempting to rename files in '{folder_path}'...")
+    print(f"Attempting to rename files in '{folder_path}'")
 
     for old_file_path in folder_path.iterdir():
         if old_file_path.is_file() and old_substring in old_file_path.name:

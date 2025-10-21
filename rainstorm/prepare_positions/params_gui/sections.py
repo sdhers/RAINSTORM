@@ -360,23 +360,125 @@ class AutomaticAnalysisSection(SectionFrame):
         # Processing Options
         options_frame = ctk.CTkFrame(rnn_frame, fg_color="transparent")
         options_frame.grid(row=1, column=0, sticky='w')
-        if C.KEY_RESCALING in rnn_data:
-            self._create_checkbutton(options_frame, "Rescaling", rnn_data, C.KEY_RESCALING, get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, C.KEY_RESCALING]), 1)
-        if C.KEY_RESHAPING in rnn_data:
-            self._create_checkbutton(options_frame, "Reshaping", rnn_data, C.KEY_RESHAPING, get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, C.KEY_RESHAPING]), 2)
+        if C.KEY_RECENTER in rnn_data:
+            self._create_checkbutton(options_frame, "Recenter", rnn_data, C.KEY_RECENTER, get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, C.KEY_RECENTER]), 1)
+        if C.KEY_REORIENT in rnn_data:
+            self._create_checkbutton(options_frame, "Reorient", rnn_data, C.KEY_REORIENT, get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, C.KEY_REORIENT]), 2)
+        if C.KEY_RESHAPE in rnn_data:
+            self._create_checkbutton(options_frame, "Reshape", rnn_data, C.KEY_RESHAPE, get_comment(self.model.data, [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, C.KEY_RESHAPE]), 3)
+
+        # Recentering Point just below Recenter
+        # Fallback: if missing on RNN, read from colabels or target
+        try:
+            colabels_data = self.sub_data.get(C.KEY_COLABELS, {})
+        except Exception:
+            colabels_data = {}
+        if C.KEY_RECENTERING_POINT not in rnn_data:
+            rnn_data[C.KEY_RECENTERING_POINT] = colabels_data.get(C.KEY_RECENTERING_POINT, colabels_data.get(C.KEY_TARGET, 'tgt'))
+        recenter_row = 2
+        rec_frame = ctk.CTkFrame(rnn_frame, fg_color="transparent")
+        rec_frame.grid(row=recenter_row, column=0, sticky='ew', pady=C.WIDGET_PADDING)
+        rec_frame.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(rec_frame, text="Recentering Point:", font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE), text_color=C.LABEL_COLOR).grid(row=0, column=0, sticky='w', padx=(0, C.LABEL_PADDING))
+        # Entry
+        from .type_conversion import format_for_display
+        from .type_registry import get_parameter_type
+        rec_var = tk.StringVar(value=format_for_display(rnn_data.get(C.KEY_RECENTERING_POINT, ''), get_parameter_type([C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, C.KEY_RECENTERING_POINT])))
+        def on_rec_change(*_):
+            rnn_data[C.KEY_RECENTERING_POINT] = rec_var.get()
+        rec_var.trace_add("write", on_rec_change)
+        rec_entry = ctk.CTkEntry(rec_frame, textvariable=rec_var, width=C.TEXT_FIELD_WIDTH, font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE), corner_radius=C.ENTRY_CORNER_RADIUS, border_width=C.ENTRY_BORDER_WIDTH, border_color=C.ENTRY_BORDER_COLOR, fg_color=C.SECTION_BG_COLOR, text_color=C.VALUE_COLOR)
+        rec_entry.grid(row=0, column=1, sticky='w')
+        # Use targets checkbox
+        use_targets_var = tk.BooleanVar(value=str(rnn_data.get(C.KEY_RECENTERING_POINT, '')).upper() == getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS'))
+        def toggle_use_targets():
+            if use_targets_var.get():
+                rnn_data[C.KEY_RECENTERING_POINT] = getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS')
+                rec_entry.configure(state='disabled')
+            else:
+                # Restore to previous sensible default (target if available)
+                prev = colabels_data.get(C.KEY_RECENTERING_POINT, colabels_data.get(C.KEY_TARGET, 'tgt'))
+                rnn_data[C.KEY_RECENTERING_POINT] = prev
+                rec_var.set(prev)
+                rec_entry.configure(state='normal')
+        rec_cb = ctk.CTkCheckBox(rec_frame, text="Use targets", variable=use_targets_var, command=toggle_use_targets, font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE), text_color=C.LABEL_COLOR, corner_radius=C.ENTRY_CORNER_RADIUS, hover_color=C.BUTTON_HOVER_COLOR)
+        rec_cb.grid(row=0, column=2, sticky='w', padx=(C.BUTTON_PADDING, 0))
+        if use_targets_var.get():
+            rec_entry.configure(state='disabled')
 
         if C.KEY_RNN_WIDTH in rnn_data:
-            RNNWidthFrame(rnn_frame, rnn_data[C.KEY_RNN_WIDTH], self.model).grid(row=2, column=0, sticky='ew', pady=C.WIDGET_PADDING)
+            RNNWidthFrame(rnn_frame, rnn_data[C.KEY_RNN_WIDTH], self.model).grid(row=5, column=0, sticky='ew', pady=C.WIDGET_PADDING)
+        
+        # Add south/north text fields for reorientation
+        if C.KEY_SOUTH in rnn_data and C.KEY_NORTH in rnn_data:
+            orientation_frame = ctk.CTkFrame(rnn_frame, fg_color="transparent")
+            orientation_frame.grid(row=4, column=0, sticky='ew', pady=C.WIDGET_PADDING)
+            orientation_frame.grid_columnconfigure(0, weight=1)
+            
+            ctk.CTkLabel(orientation_frame, text="Orientation Points", 
+                        font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE, "bold")).grid(row=0, column=0, sticky='w', pady=(0, C.WIDGET_PADDING))
+            
+            # South with Use targets
+            south_row = 1
+            south_frame = ctk.CTkFrame(orientation_frame, fg_color="transparent")
+            south_frame.grid(row=south_row, column=0, sticky='ew', pady=C.ENTRY_PADDING)
+            south_frame.grid_columnconfigure(1, weight=1)
+            ctk.CTkLabel(south_frame, text="South Point:", font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE), text_color=C.LABEL_COLOR).grid(row=0, column=0, sticky='w', padx=(0, C.LABEL_PADDING))
+            south_var = tk.StringVar(value=str(rnn_data.get(C.KEY_SOUTH, 'body')))
+            south_entry = ctk.CTkEntry(south_frame, textvariable=south_var, width=C.TEXT_FIELD_WIDTH, font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE), corner_radius=C.ENTRY_CORNER_RADIUS, border_width=C.ENTRY_BORDER_WIDTH, border_color=C.ENTRY_BORDER_COLOR, fg_color=C.SECTION_BG_COLOR, text_color=C.VALUE_COLOR)
+            south_entry.grid(row=0, column=1, sticky='w')
+            def on_south_change(*_):
+                rnn_data[C.KEY_SOUTH] = south_var.get()
+            south_var.trace_add("write", on_south_change)
+            south_use_targets = tk.BooleanVar(value=str(rnn_data.get(C.KEY_SOUTH, '')).upper() == getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS'))
+            def toggle_south_targets():
+                if south_use_targets.get():
+                    rnn_data[C.KEY_SOUTH] = getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS')
+                    south_entry.configure(state='disabled')
+                else:
+                    prev = 'body'
+                    rnn_data[C.KEY_SOUTH] = prev
+                    south_var.set(prev)
+                    south_entry.configure(state='normal')
+            ctk.CTkCheckBox(south_frame, text="Use targets", variable=south_use_targets, command=toggle_south_targets, font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE), text_color=C.LABEL_COLOR, corner_radius=C.ENTRY_CORNER_RADIUS, hover_color=C.BUTTON_HOVER_COLOR).grid(row=0, column=2, sticky='w', padx=(C.BUTTON_PADDING, 0))
+            if south_use_targets.get():
+                south_entry.configure(state='disabled')
+
+            # North with Use targets
+            north_row = 2
+            north_frame = ctk.CTkFrame(orientation_frame, fg_color="transparent")
+            north_frame.grid(row=north_row, column=0, sticky='ew', pady=C.ENTRY_PADDING)
+            north_frame.grid_columnconfigure(1, weight=1)
+            ctk.CTkLabel(north_frame, text="North Point:", font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE), text_color=C.LABEL_COLOR).grid(row=0, column=0, sticky='w', padx=(0, C.LABEL_PADDING))
+            north_var = tk.StringVar(value=str(rnn_data.get(C.KEY_NORTH, 'nose')))
+            north_entry = ctk.CTkEntry(north_frame, textvariable=north_var, width=C.TEXT_FIELD_WIDTH, font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE), corner_radius=C.ENTRY_CORNER_RADIUS, border_width=C.ENTRY_BORDER_WIDTH, border_color=C.ENTRY_BORDER_COLOR, fg_color=C.SECTION_BG_COLOR, text_color=C.VALUE_COLOR)
+            north_entry.grid(row=0, column=1, sticky='w')
+            def on_north_change(*_):
+                rnn_data[C.KEY_NORTH] = north_var.get()
+            north_var.trace_add("write", on_north_change)
+            north_use_targets = tk.BooleanVar(value=str(rnn_data.get(C.KEY_NORTH, '')).upper() == getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS'))
+            def toggle_north_targets():
+                if north_use_targets.get():
+                    rnn_data[C.KEY_NORTH] = getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS')
+                    north_entry.configure(state='disabled')
+                else:
+                    prev = 'nose'
+                    rnn_data[C.KEY_NORTH] = prev
+                    north_var.set(prev)
+                    north_entry.configure(state='normal')
+            ctk.CTkCheckBox(north_frame, text="Use targets", variable=north_use_targets, command=toggle_north_targets, font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE), text_color=C.LABEL_COLOR, corner_radius=C.ENTRY_CORNER_RADIUS, hover_color=C.BUTTON_HOVER_COLOR).grid(row=0, column=2, sticky='w', padx=(C.BUTTON_PADDING, 0))
+            if north_use_targets.get():
+                north_entry.configure(state='disabled')
         
         if C.KEY_UNITS in rnn_data:
             units_frame = ctk.CTkFrame(rnn_frame, fg_color="transparent")
-            units_frame.grid(row=3, column=0, sticky='ew', pady=C.WIDGET_PADDING)
+            units_frame.grid(row=6, column=0, sticky='ew', pady=C.WIDGET_PADDING)
             units_frame.grid_columnconfigure(0, weight=1)
             ScrollableDynamicListFrame(units_frame, rnn_data, C.KEY_UNITS, title="Units").grid(row=0, column=0, sticky='ew')
 
         # Training Parameters
         training_frame = ctk.CTkFrame(rnn_frame, fg_color="transparent")
-        training_frame.grid(row=4, column=0, sticky='ew', pady=C.WIDGET_PADDING)
+        training_frame.grid(row=5, column=0, sticky='ew', pady=C.WIDGET_PADDING)
         training_frame.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(training_frame, text="Training Parameters", font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE)).grid(row=0, column=0, sticky='w')
         

@@ -19,6 +19,12 @@ def create_autolabels(params_path: Path) -> None:
 
     Args:
         params_path (Path): Path to the YAML parameters file.
+    
+    Note:
+        Uses the 'recentering_point' parameter from colabels section to determine
+        which point to use for recentering coordinates during inference. Falls back 
+        to using individual targets for backward compatibility. If 'reorient' is enabled,
+        coordinates are rotated so the south-north vector points upward after recentering.
     """
     logger.info(f"Starting automatic labeling process using parameters from: {params_path}")
 
@@ -48,6 +54,9 @@ def create_autolabels(params_path: Path) -> None:
 
     # Load automatic analysis parameters
     modeling = params.get("automatic_analysis") or {}
+    colabels = modeling.get("colabels") or {}
+    rnn_params = modeling.get("RNN") or {}
+    recentering_point = rnn_params.get("recentering_point") or colabels.get("recentering_point")
     model_path = Path(modeling.get("models_path")) / "trained_models" / Path(modeling.get("analyze_with"))
     if not model_path:
         logger.error("No 'model_path' specified under 'automatic_analysis'. Cannot load model.")
@@ -70,8 +79,11 @@ def create_autolabels(params_path: Path) -> None:
         # If no bodyparts are specified, the use_model function will raise an error if it can't find features.
 
     RNN = modeling.get("RNN") or {}
-    rescaling = RNN.get("rescaling", True)
-    reshaping = RNN.get("reshaping", False)
+    recenter = RNN.get("recenter", True)
+    reshape = RNN.get("reshape", False)
+    reorient = RNN.get("reorient", False)
+    south = RNN.get("south", "body")
+    north = RNN.get("north", "nose")
     rnn_width = RNN.get("RNN_width") or {}
     past = rnn_width.get("past") or 3
     future = rnn_width.get("future") or 3
@@ -113,9 +125,16 @@ def create_autolabels(params_path: Path) -> None:
                 logger.info(f"Applied scaling of 1/{scale} to position data.")
             
             if all(f'{target}_x' in positions_df.columns for target in targets): # Exclude files without targets
-            
+                
                 # Use the model to generate autolabels
-                autolabels = use_model(positions_df, model, targets, model_bodyparts, rescaling, reshaping, past, future, broad)
+                autolabels = use_model(positions_df, model, targets, model_bodyparts, 
+                                     recenter, recentering_point, reorient, south, north, 
+                                     reshape, past, future, broad)
+                
+                # If using single recentering point, rename columns to match original targets for consistency
+                if recentering_point and len(targets) > 1:
+                    # Create mapping from recentering_point to each target
+                    autolabels.columns = targets
 
                 # Add 'Frame' column (1-indexed)
                 autolabels.insert(0, "Frame", autolabels.index + 1)

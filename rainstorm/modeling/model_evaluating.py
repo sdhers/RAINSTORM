@@ -189,6 +189,19 @@ def build_and_run_models(params_path: Path, model_paths: Dict[str, Path], positi
     target = colabels.get("target") or 'tgt'
     targets = [target] # Because 'use_model' only accepts a list of targets
 
+    rnn_params = modeling.get("RNN") or {}
+    width = rnn_params.get("RNN_width") or {}
+    past = width.get("past") or 3
+    future = width.get("future") or 3
+    broad = width.get("broad") or 1.7
+
+    recenter = rnn_params.get("recenter") or False
+    recentering_point = rnn_params.get("recentering_point") or colabels.get("recentering_point") or target # This needs fixing according to params.yaml structure
+
+    reorient = rnn_params.get("reorient") or False
+    south = rnn_params.get("south") or "body"
+    north = rnn_params.get("north") or "nose"
+
     X_all = position_df.copy()
     models_dict = {}
     
@@ -197,16 +210,23 @@ def build_and_run_models(params_path: Path, model_paths: Dict[str, Path], positi
         print(f"Loading model from: {path}")
         model = tf.keras.models.load_model(path)
 
+        # Read recentering parameters
+        rnn_params = modeling.get("RNN") or {}
+        recenter = rnn_params.get("recenter") or False
+        recentering_point = rnn_params.get("recentering_point") or colabels.get("recentering_point") or target
+
         # Determine if reshaping is needed
-        reshaping = len(model.input_shape) == 3  # True if input is 3D
-
-        if reshaping:
+        reshape = len(model.input_shape) == 3  # True if input is 3D
+        if reshape:
             past = future = model.input_shape[1] // 2
-            output = use_model(X_all, model, targets, bodyparts, recentering=True, reshaping=True, past=past, future=future)
-        
-        else:
-            output = use_model(X_all, model, targets, bodyparts, recentering=True)
 
+        # Read reorient parameters
+        reorient = rnn_params.get("reorient") or False
+        south = rnn_params.get("south") or "body"
+        north = rnn_params.get("north") or "nose"
+
+        output = use_model(X_all, model, targets, bodyparts, recenter=recenter, recentering_point=recentering_point, reorient=reorient, south=south, north=north, reshape=reshape, past=past, future=future, broad=broad)
+        
         # Store the result in the dictionary
         models_dict[f"model_{key}"] = output
 

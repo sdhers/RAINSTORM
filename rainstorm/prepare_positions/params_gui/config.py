@@ -102,6 +102,12 @@ DEFAULT_FRONT = "nose"
 DEFAULT_PIVOT = "head"
 
 
+DEFAULT_SOUTH = "body"
+DEFAULT_NORTH = "nose"
+
+# --- Special values ---
+USE_TARGETS_VALUE = "USE_TARGETS"
+
 # --- YAML Parameter Keys (as constants to avoid typos) ---
 # Top-level
 KEY_PATH = "path"
@@ -145,6 +151,7 @@ KEY_ANALYZE_WITH = "analyze_with"
 KEY_COLABELS = "colabels"
 KEY_COLABELS_PATH = "colabels_path"
 KEY_TARGET = "target"
+KEY_RECENTERING_POINT = "recentering_point"
 KEY_LABELERS = "labelers"
 KEY_MODEL_BODYPARTS = "model_bodyparts"
 KEY_SPLIT = "split"
@@ -154,8 +161,11 @@ KEY_TEST = "test"
 
 # 'RNN' sub-keys
 KEY_RNN = "RNN"
-KEY_RESCALING = "rescaling"
-KEY_RESHAPING = "reshaping"
+KEY_RECENTER = "recenter"
+KEY_RESHAPE = "reshape"
+KEY_REORIENT = "reorient"
+KEY_SOUTH = "south"
+KEY_NORTH = "north"
 KEY_RNN_WIDTH = "RNN_width"
 KEY_PAST = "past"
 KEY_FUTURE = "future"

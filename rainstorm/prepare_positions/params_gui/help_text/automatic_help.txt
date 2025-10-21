@@ -16,8 +16,9 @@ DATA SPLIT SETTINGS:
 • test : Percentage of the data to use for testing (e.g., 0.15 = 15%)
 
 RNN CONFIGURATION:
-• rescaling : Whether to rescale the data for neural network input
-• reshaping : Whether to reshape the data (set to True for RNN)
+• recenter : Whether to recenter the data for neural network input
+• reshape : Whether to reshape the data (set to True for RNN)
+• reorient : Whether to reorient by rotating coordinates so the south-north vector points upward
 
 RNN_width - Defines the temporal window of the RNN:
   • past : Number of past frames to include in RNN window

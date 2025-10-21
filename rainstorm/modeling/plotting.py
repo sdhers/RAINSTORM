@@ -315,18 +315,18 @@ def plot_performance_on_video(params_path: Path, folder_path: Path, models: Dict
     target = colabels.get("target") or "tgt"
     targets = [plot_tgt]
 
-    rnn_params = modeling.get("RNN") or {}
-    width = rnn_params.get("RNN_width") or {}
+    ANN = modeling.get("ANN") or {}
+    width = ANN.get("RNN_width") or {}
     past = width.get("past") or 3
     future = width.get("future") or 3
     broad = width.get("broad") or 1.7
 
-    recenter = rnn_params.get("recenter") or False
-    recentering_point = rnn_params.get("recentering_point") or colabels.get("recentering_point") or target # This needs fixing according to params.yaml structure
+    recenter = ANN.get("recenter") or False
+    recentering_point = ANN.get("recentering_point") or target
 
-    reorient = rnn_params.get("reorient") or False
-    south = rnn_params.get("south") or "body"
-    north = rnn_params.get("north") or "nose"
+    reorient = ANN.get("reorient") or False
+    south = ANN.get("south") or "body"
+    north = ANN.get("north") or "nose"
 
     # Prepare dataset for the video
     X_view = pd.read_csv(folder_path / 'Example_position.csv').filter(regex='^(?!.*tail)')
@@ -337,8 +337,25 @@ def plot_performance_on_video(params_path: Path, folder_path: Path, models: Dict
         print(f"Loading model from: {path}")
         model = tf.keras.models.load_model(path)
 
-        # Determine reshaping parameters
-        reshape = len(model.input_shape) == 3  # True if input is 3D
+        # Read reshape from params.yaml first, fallback to model detection
+        reshape = ANN.get("reshape") or False
+        width = ANN.get("RNN_width") or {}
+        past = width.get("past") or 3
+        future = width.get("future") or 3
+        broad = width.get("broad") or 1.7
+
+        # Validate past/future parameters against model if reshaped
+        if reshape:
+            if len(model.input_shape) == 3:
+                model_timesteps = model.input_shape[1]
+                expected_timesteps = past + future + 1
+                if model_timesteps != expected_timesteps:
+                    logger.warning(f"Parameter mismatch detected: params.yaml specifies {expected_timesteps} timesteps (past={past}, future={future}), but model expects {model_timesteps} timesteps. Using model structure.")
+                    # Use model structure values
+                    past = future = model_timesteps // 2
+            else:
+                logger.info("Model is not 3D. Setting reshape to False.")
+                reshape = False
 
         output = use_model(X_view, model, targets, bodyparts, recenter=recenter, recentering_point=recentering_point, reorient=reorient, south=south, north=north, reshape=reshape, past=past, future=future, broad=broad)
         

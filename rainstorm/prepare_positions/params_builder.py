@@ -85,7 +85,6 @@ class ParamsBuilder:
                     C.KEY_COLABELS_PATH: str(C.DEFAULT_MODELS_PATH / 'colabels.csv'),
                     C.KEY_LABELERS: ['Labeler_A', 'Labeler_B', 'Labeler_C', 'Labeler_D', 'Labeler_E'],
                     C.KEY_TARGET: 'tgt',
-                    C.KEY_RECENTERING_POINT: 'tgt',
                 },
                 C.KEY_MODEL_BODYPARTS: C.DEFAULT_MODEL_BODYPARTS.copy(),
                 C.KEY_SPLIT: {
@@ -93,13 +92,13 @@ class ParamsBuilder:
                     C.KEY_VALIDATION: 0.15,
                     C.KEY_TEST: 0.15,
                 },
-                C.KEY_RNN: {
+                C.KEY_ANN: {
                     C.KEY_RECENTER: True,
                     C.KEY_RECENTERING_POINT: 'tgt',
-                    C.KEY_RESHAPE: True,
                     C.KEY_REORIENT: False,
-                    C.KEY_SOUTH: C.DEFAULT_SOUTH,
                     C.KEY_NORTH: C.DEFAULT_NORTH,
+                    C.KEY_SOUTH: C.DEFAULT_SOUTH,
+                    C.KEY_RESHAPE: True,
                     C.KEY_RNN_WIDTH: {C.KEY_PAST: 3, C.KEY_FUTURE: 3, C.KEY_BROAD: 1.7},
                     C.KEY_UNITS: [32, 16, 8],
                     C.KEY_BATCH_SIZE: 64,
@@ -187,7 +186,6 @@ class ParamsBuilder:
         colabels.yaml_add_eol_comment("Path to the colabels file", key=C.KEY_COLABELS_PATH)
         colabels.yaml_add_eol_comment("List of labelers on the colabels file (as found in the columns)", key=C.KEY_LABELERS)
         colabels.yaml_add_eol_comment("Name of the target on the colabels file", key=C.KEY_TARGET)
-        colabels.yaml_add_eol_comment("Point to use for recentering coordinates (e.g., 'body', 'tgt')", key=C.KEY_RECENTERING_POINT)
 
         # --- split Comments ---
         split = auto[C.KEY_SPLIT]
@@ -195,14 +193,14 @@ class ParamsBuilder:
         split.yaml_add_eol_comment("Percentage of the data to use for validation", key=C.KEY_VALIDATION)
         split.yaml_add_eol_comment("Percentage of the data to use for testing", key=C.KEY_TEST)
 
-        # --- RNN Comments ---
-        rnn = auto[C.KEY_RNN]
+        # --- ANN Comments ---
+        rnn = auto[C.KEY_ANN]
         rnn.yaml_add_eol_comment("Whether to rescale the data", key=C.KEY_RECENTER)
-        rnn.yaml_add_eol_comment("Point to use for recentering coordinates (or USE_TARGETS)", key=C.KEY_RECENTERING_POINT)
-        rnn.yaml_add_eol_comment("Whether to reshape the data (set to True for RNN)", key=C.KEY_RESHAPE)
+        rnn.yaml_add_eol_comment("Point to use for recentering coordinates (e.g., 'body', 'tgt', or USE_TARGETS)", key=C.KEY_RECENTERING_POINT)
         rnn.yaml_add_eol_comment("Whether to reorient coordinates so south-north vector points upward", key=C.KEY_REORIENT)
-        rnn.yaml_add_eol_comment("Bodypart at the tail of the orientation vector (e.g., 'body')", key=C.KEY_SOUTH)
         rnn.yaml_add_eol_comment("Bodypart at the head of the orientation vector (e.g., 'nose')", key=C.KEY_NORTH)
+        rnn.yaml_add_eol_comment("Bodypart at the tail of the orientation vector (e.g., 'body')", key=C.KEY_SOUTH)
+        rnn.yaml_add_eol_comment("Whether to reshape the data (set to True for RNN)", key=C.KEY_RESHAPE)
         rnn.yaml_add_eol_comment("Number of neurons on each layer", key=C.KEY_UNITS)
         rnn.yaml_add_eol_comment("Number of training samples the model processes before updating its weights", key=C.KEY_BATCH_SIZE)
         rnn.yaml_add_eol_comment("Randomly turn off a fraction of neurons in the network", key=C.KEY_DROPOUT)

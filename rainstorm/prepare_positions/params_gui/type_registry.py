@@ -53,20 +53,20 @@ NUMERIC_PARAMETERS: Dict[Tuple[str, ...], str] = {
     ('automatic_analysis', 'split', 'validation'): 'float',
     ('automatic_analysis', 'split', 'test'): 'float',
     
-    # automatic_analysis RNN parameters
-    ('automatic_analysis', 'RNN', 'units'): 'list_int',
-    ('automatic_analysis', 'RNN', 'batch_size'): 'int',
-    ('automatic_analysis', 'RNN', 'dropout'): 'float',
-    ('automatic_analysis', 'RNN', 'total_epochs'): 'int',
-    ('automatic_analysis', 'RNN', 'warmup_epochs'): 'int',
-    ('automatic_analysis', 'RNN', 'initial_lr'): 'float',
-    ('automatic_analysis', 'RNN', 'peak_lr'): 'float',
-    ('automatic_analysis', 'RNN', 'patience'): 'int',
+    # automatic_analysis ANN parameters
+    ('automatic_analysis', 'ANN', 'units'): 'list_int',
+    ('automatic_analysis', 'ANN', 'batch_size'): 'int',
+    ('automatic_analysis', 'ANN', 'dropout'): 'float',
+    ('automatic_analysis', 'ANN', 'total_epochs'): 'int',
+    ('automatic_analysis', 'ANN', 'warmup_epochs'): 'int',
+    ('automatic_analysis', 'ANN', 'initial_lr'): 'float',
+    ('automatic_analysis', 'ANN', 'peak_lr'): 'float',
+    ('automatic_analysis', 'ANN', 'patience'): 'int',
     
     # automatic_analysis RNN_width parameters
-    ('automatic_analysis', 'RNN', 'RNN_width', 'past'): 'int',
-    ('automatic_analysis', 'RNN', 'RNN_width', 'future'): 'int',
-    ('automatic_analysis', 'RNN', 'RNN_width', 'broad'): 'float',
+    ('automatic_analysis', 'ANN', 'RNN_width', 'past'): 'int',
+    ('automatic_analysis', 'ANN', 'RNN_width', 'future'): 'int',
+    ('automatic_analysis', 'ANN', 'RNN_width', 'broad'): 'float',
 }
 
 
@@ -76,7 +76,7 @@ def get_parameter_type(key_path: List[str]) -> Optional[str]:
     
     Args:
         key_path: List of strings representing the path to the parameter
-                 (e.g., ['automatic_analysis', 'RNN', 'initial_lr'])
+                 (e.g., ['automatic_analysis', 'ANN', 'initial_lr'])
     
     Returns:
         String representing the expected type ('int', 'float', 'list_int', etc.)
@@ -85,7 +85,7 @@ def get_parameter_type(key_path: List[str]) -> Optional[str]:
     Examples:
         >>> get_parameter_type(['fps'])
         'int'
-        >>> get_parameter_type(['automatic_analysis', 'RNN', 'initial_lr'])
+        >>> get_parameter_type(['automatic_analysis', 'ANN', 'initial_lr'])
         'float'
         >>> get_parameter_type(['unknown_param'])
         None

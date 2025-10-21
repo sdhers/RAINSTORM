@@ -187,18 +187,22 @@ def use_model(positions_df: pd.DataFrame,
               reshape: bool = False, 
               past: int = 3, 
               future: int = 3, 
-              broad: float = 1.7) -> pd.Series:
+              broad: float = 1.7) -> pd.DataFrame:
     """
     Prepares input data for a given model and generates predictions (autolabels).
+
+    This function processes each target separately to ensure consistent recentering and reorientation.
+    For multiple targets, the DataFrame is duplicated for each target, with each copy being
+    recentered and reoriented relative to its specific target.
 
     Args:
         positions_df (pd.DataFrame): DataFrame containing raw position data for a single video.
         model (tf.keras.Model): The loaded TensorFlow model.
-        targets (List[str]): List of targets (e.g., 'tgt')
+        targets (List[str]): List of targets (e.g., ['obj_1', 'obj_2'])
         bodyparts (List[str]): List of body parts (e.g., 'nose', 'head') that the model uses as features.
                                These should correspond to columns like 'nose_x', 'nose_y'.
         recenter (bool): If True, body part positions are recentered relative to targets.
-        recentering_point (str): 'TARGETS', or the name of the point to be used as the center.
+        recentering_point (str): 'TARGETS'/'USE_TARGETS', or the name of the point to be used as the center.
         reorient (bool): If True, coordinates are rotated so south-north vector points upward.
         south (str): Bodypart at the tail of the orientation vector (e.g., 'body').
         north (str): Bodypart at the head of the orientation vector (e.g., 'nose').
@@ -209,29 +213,42 @@ def use_model(positions_df: pd.DataFrame,
         broad (float): Broadening factor for reshaping, controlling density of frames.
 
     Returns:
-        pd.Series: A pandas Series containing the predicted autolabel values (probabilities).
+        pd.DataFrame: A DataFrame with columns for each target containing predicted autolabel values (probabilities).
     """
     
-    if recenter:
-        use_targets_flag = str(recentering_point).upper() in {'TARGETS', 'USE_TARGETS'}
-        if use_targets_flag:
-            positions_df = pd.concat([recenter_df(positions_df, t, bodyparts) for t in targets], ignore_index=True)
-        else:
-            positions_df = recenter_df(positions_df, recentering_point, bodyparts)
-
-    if reorient:
-        south_uses_targets = str(south).upper() in {'TARGETS', 'USE_TARGETS'}
-        north_uses_targets = str(north).upper() in {'TARGETS', 'USE_TARGETS'}
-        if south_uses_targets or north_uses_targets:
-            # Build per-target orientation using substituted endpoints
-            oriented_list = []
-            for t in targets:
-                s_val = t if south_uses_targets else south
-                n_val = t if north_uses_targets else north
-                oriented_list.append(reorient_df(positions_df.copy(), s_val, n_val, bodyparts))
-            positions_df = pd.concat(oriented_list, ignore_index=True)
-        else:
-            positions_df = reorient_df(positions_df, south, north, bodyparts)
+    # Process each target separately to ensure consistent recentering and reorientation
+    processed_dfs = []
+    
+    for target in targets:
+        # Start with a copy of the original DataFrame for each target
+        target_df = positions_df.copy()
+        
+        # Apply recentering for this specific target
+        if recenter:
+            use_targets_flag = str(recentering_point).upper() in {'TARGETS', 'USE_TARGETS'}
+            if use_targets_flag:
+                # Recenter to the current target
+                target_df = recenter_df(target_df, target, bodyparts)
+            else:
+                # Recenter to the specified point
+                target_df = recenter_df(target_df, recentering_point, bodyparts)
+        
+        # Apply reorientation for this specific target
+        if reorient:
+            south_uses_targets = str(south).upper() in {'TARGETS', 'USE_TARGETS'}
+            north_uses_targets = str(north).upper() in {'TARGETS', 'USE_TARGETS'}
+            
+            # Determine the actual south and north points for this target
+            s_val = target if south_uses_targets else south
+            n_val = target if north_uses_targets else north
+            
+            # Reorient relative to this target's orientation
+            target_df = reorient_df(target_df, s_val, n_val, bodyparts)
+        
+        processed_dfs.append(target_df)
+    
+    # Concatenate all processed DataFrames
+    positions_df = pd.concat(processed_dfs, ignore_index=True)
     
     # Keep only wanted bodyparts
     bp_cols = [
@@ -250,9 +267,9 @@ def use_model(positions_df: pd.DataFrame,
     pred = pd.DataFrame(pred, columns=['predictions'])
 
     # Smooth the predictions
-    pred.loc[pred['predictions'] < 0.1, 'predictions'] = 0  # Set values below 0.3 to 0
-    # pred.loc[pred['predictions'] > 0.98, 'predictions'] = 1
-    # pred = smooth_columns(pred, ['predictions'], gauss_std=0.2)
+    pred.loc[pred['predictions'] < 0.2, 'predictions'] = 0  # Set low values to 0
+    pred.loc[pred['predictions'] > 0.90, 'predictions'] = 1 # Set high values to 1
+    # pred = smooth_columns(pred, ['predictions'], kernel_size=3, gauss_std=0.2)
 
     # Calculate the length of each fragment
     n_objects = len(targets)

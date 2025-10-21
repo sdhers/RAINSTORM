@@ -860,7 +860,7 @@ class RNNWidthFrame(ValidatedFrame):
             entry.grid(row=0, column=1, sticky="w")
             
             # Add validation for numeric fields
-            comment_path = [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, C.KEY_RNN_WIDTH, key]
+            comment_path = [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_ANN, C.KEY_RNN_WIDTH, key]
             if is_numeric_parameter(comment_path):
                 param_type = get_parameter_type(comment_path)
                 if param_type:
@@ -876,5 +876,5 @@ class RNNWidthFrame(ValidatedFrame):
     def _update_value(self, key, value):
         """Update value with type conversion for numeric parameters."""        
         # Build the parameter path for type checking
-        path = [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_RNN, C.KEY_RNN_WIDTH, key]
+        path = [C.KEY_AUTOMATIC_ANALYSIS, C.KEY_ANN, C.KEY_RNN_WIDTH, key]
         super()._update_value(key, value, self.data, path)

@@ -169,7 +169,7 @@ def build_model_paths(params_path: Path, model_names: list[str]) -> dict[str, Pa
     return {name: models_folder / "trained_models" / f"{name}.keras" for name in model_names}
 
 
-def build_and_run_models(params_path: Path, model_paths: Dict[str, Path], position_df: pd.DataFrame) -> Dict[str, np.ndarray]:
+def build_and_run_models(params_path: Path, model_paths: Dict[str, Path], position_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     """
     Loads specified models, prepares input data for each, and generates predictions.
 
@@ -179,8 +179,8 @@ def build_and_run_models(params_path: Path, model_paths: Dict[str, Path], positi
         position_df (pd.DataFrame): DataFrame containing the full position data.
 
     Returns:
-        Dict[str, np.ndarray]: Dictionary mapping model names (prefixed with 'model_')
-                               to their prediction arrays.
+        Dict[str, pd.DataFrame]: Dictionary mapping model names (prefixed with 'model_')
+                                to their prediction DataFrames with columns named after targets.
     """
     params = load_yaml(params_path)
     modeling = params.get("automatic_analysis") or {}
@@ -189,18 +189,14 @@ def build_and_run_models(params_path: Path, model_paths: Dict[str, Path], positi
     target = colabels.get("target") or 'tgt'
     targets = [target] # Because 'use_model' only accepts a list of targets
 
-    rnn_params = modeling.get("RNN") or {}
-    width = rnn_params.get("RNN_width") or {}
-    past = width.get("past") or 3
-    future = width.get("future") or 3
-    broad = width.get("broad") or 1.7
+    ANN = modeling.get("ANN") or {}
 
-    recenter = rnn_params.get("recenter") or False
-    recentering_point = rnn_params.get("recentering_point") or colabels.get("recentering_point") or target # This needs fixing according to params.yaml structure
+    recenter = ANN.get("recenter") or False
+    recentering_point = ANN.get("recentering_point") or target
 
-    reorient = rnn_params.get("reorient") or False
-    south = rnn_params.get("south") or "body"
-    north = rnn_params.get("north") or "nose"
+    reorient = ANN.get("reorient") or False
+    south = ANN.get("south") or "body"
+    north = ANN.get("north") or "nose"
 
     X_all = position_df.copy()
     models_dict = {}
@@ -210,20 +206,25 @@ def build_and_run_models(params_path: Path, model_paths: Dict[str, Path], positi
         print(f"Loading model from: {path}")
         model = tf.keras.models.load_model(path)
 
-        # Read recentering parameters
-        rnn_params = modeling.get("RNN") or {}
-        recenter = rnn_params.get("recenter") or False
-        recentering_point = rnn_params.get("recentering_point") or colabels.get("recentering_point") or target
+        # Read reshape from params.yaml first, fallback to model detection
+        reshape = ANN.get("reshape") or False
+        width = ANN.get("RNN_width") or {}
+        past = width.get("past") or 3
+        future = width.get("future") or 3
+        broad = width.get("broad") or 1.7
 
-        # Determine if reshaping is needed
-        reshape = len(model.input_shape) == 3  # True if input is 3D
+        # Validate past/future parameters against model if reshaped
         if reshape:
-            past = future = model.input_shape[1] // 2
-
-        # Read reorient parameters
-        reorient = rnn_params.get("reorient") or False
-        south = rnn_params.get("south") or "body"
-        north = rnn_params.get("north") or "nose"
+            if len(model.input_shape) == 3:
+                model_timesteps = model.input_shape[1]
+                expected_timesteps = past + future + 1
+                if model_timesteps != expected_timesteps:
+                    logger.warning(f"Parameter mismatch detected: params.yaml specifies {expected_timesteps} timesteps (past={past}, future={future}), but model expects {model_timesteps} timesteps. Using model structure.")
+                    # Use model structure values
+                    past = future = model_timesteps // 2
+            else:
+                logger.info("Model is not 3D. Setting reshape to False.")
+                reshape = False
 
         output = use_model(X_all, model, targets, bodyparts, recenter=recenter, recentering_point=recentering_point, reorient=reorient, south=south, north=north, reshape=reshape, past=past, future=future, broad=broad)
         

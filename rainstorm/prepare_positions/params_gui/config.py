@@ -159,8 +159,8 @@ KEY_FOCUS_DISTANCE = "focus_distance"
 KEY_VALIDATION = "validation"
 KEY_TEST = "test"
 
-# 'RNN' sub-keys
-KEY_RNN = "RNN"
+# ANN sub-keys
+KEY_ANN = "ANN"
 KEY_RECENTER = "recenter"
 KEY_RESHAPE = "reshape"
 KEY_REORIENT = "reorient"

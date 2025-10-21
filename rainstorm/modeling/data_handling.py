@@ -159,9 +159,9 @@ def split_tr_ts_val(params_path: Path, df: pd.DataFrame) -> Dict[str, np.ndarray
                                including both wide and simple position arrays and labels.
     
     Note:
-        Uses the 'recentering_point' parameter from colabels section to determine
+        Uses the 'recentering_point' parameter from ANN section to determine
         which point to use for recentering coordinates. Falls back to 'target' 
-        for backward compatibility. If 'reorient' is enabled, coordinates are
+        if not specified. If 'reorient' is enabled, coordinates are
         rotated so the south-north vector points upward after recentering.
     """
     params = load_yaml(params_path)
@@ -174,18 +174,18 @@ def split_tr_ts_val(params_path: Path, df: pd.DataFrame) -> Dict[str, np.ndarray
     val_size = split_params.get("validation") or 0.15
     ts_size = split_params.get("test") or 0.15
 
-    rnn_params = modeling.get("RNN") or {}
-    width = rnn_params.get("RNN_width") or {}
+    ANN = modeling.get("ANN") or {}
+    width = ANN.get("RNN_width") or {}
     past = width.get("past") or 3
     future = width.get("future") or 3
     broad = width.get("broad") or 1.7
 
-    recenter = rnn_params.get("recenter") or False
-    recentering_point = rnn_params.get("recentering_point") or colabels.get("recentering_point") or target # This needs fixing according to params.yaml structure
+    recenter = ANN.get("recenter") or False
+    recentering_point = ANN.get("recentering_point") or target
 
-    reorient = rnn_params.get("reorient") or False
-    south = rnn_params.get("south") or "body"
-    north = rnn_params.get("north") or "nose"
+    reorient = ANN.get("reorient") or False
+    south = ANN.get("south") or "body"
+    north = ANN.get("north") or "nose"
 
     logger.info("📊 Splitting data into training, validation, and test sets...")
     print("📊 Splitting data into training, validation, and test sets...")

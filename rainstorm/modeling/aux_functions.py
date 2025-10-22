@@ -114,7 +114,10 @@ def reorient_df(df: pd.DataFrame, south: str, north: str, bodyparts: list) -> pd
     dy = df_copy[north_y_col] - df_copy[south_y_col]
     
     # Get the angle needed to rotate the south->north vector to point "up"
-    theta = (-np.pi / 2) - np.arctan2(dy, dx)
+    # theta = (-np.pi / 2) - np.arctan2(dy, dx)
+    
+    # Get the angle needed to rotate the north->south vector to the upper-right diagonal (pi/4)
+    theta = (np.pi / 4) - np.arctan2(-dy, -dx)
     
     # Pre-calculate sine and cosine for all frames at once
     cos_theta = np.cos(theta)

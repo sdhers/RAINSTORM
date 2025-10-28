@@ -214,6 +214,41 @@ class ValidationHelper:
                     parameter_name, value, target_type, suggestions=True
                 )
             return False, fallback_value
+    
+    def validate_use_targets_exclusivity(self, north_value: str, south_value: str, 
+                                        field_name: str, show_errors: bool = True) -> bool:
+        """
+        Validate that only one of North or South can use USE_TARGETS at a time.
+        
+        Args:
+            north_value: The value of the North field
+            south_value: The value of the South field
+            field_name: Name of the field being changed (for context in error message)
+            show_errors: Whether to show error messages to user
+            
+        Returns:
+            True if validation passes, False if both are USE_TARGETS
+        """
+        from .config import USE_TARGETS_VALUE
+        
+        north_is_target = str(north_value).upper() == USE_TARGETS_VALUE
+        south_is_target = str(south_value).upper() == USE_TARGETS_VALUE
+        
+        if north_is_target and south_is_target:
+            if show_errors:
+                error_msg = (
+                    f"Cannot set both North and South to USE_TARGETS simultaneously.\n\n"
+                    f"You are trying to set {field_name} to USE_TARGETS, but the other field "
+                    f"is already set to USE_TARGETS.\n\n"
+                    f"Please uncheck 'Use targets' on one of the fields first."
+                )
+                self.error_manager._queue_notification("Invalid Configuration", error_msg, "error")
+            
+            logger.warning("Both North and South are set to USE_TARGETS - validation failed")
+            return False
+        
+        logger.debug("USE_TARGETS exclusivity validation passed")
+        return True
 
 
 class DebugInfoCollector:

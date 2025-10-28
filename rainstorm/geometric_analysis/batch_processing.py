@@ -59,12 +59,12 @@ def batch_process_positions(params_path: Path, roi_bp: str = 'body', nose_bp: st
         logger.warning("No tracking files found matching the criteria. Exiting processing.")
         return
     
-    logger.info(f"Starting processing positions in {folder_path}...")
-    print(f"Starting processing positions in {folder_path}...")
+    logger.info(f"Starting processing positions in {folder_path}")
+    print(f"Starting processing positions in {folder_path}")
 
     for file_path in files_to_process:
-        logger.info(f"Processing {file_path.name}...")
-        print(f"Processing {file_path.name}...")
+        logger.info(f"Processing {file_path.name}")
+        print(f"Processing {file_path.name}")
 
         output_root_dir = file_path.parents[1]
 

@@ -68,6 +68,7 @@ BUTTON_HOVER_COLOR = "#1f6aa5"
 ENTRY_BORDER_COLOR = "#555555"
 ENTRY_FOCUS_COLOR = "#1f6aa5"
 ENTRY_ERROR_BORDER_COLOR = "#e53935"
+ENTRY_DISABLED_COLOR = "#1f1f1f"  # Shaded color for disabled/overlay fields
 
 # --- Component-Specific Styling ---
 SECTION_BORDER_WIDTH = 2
@@ -101,6 +102,12 @@ DEFAULT_DEGREE = 45
 DEFAULT_FRONT = "nose"
 DEFAULT_PIVOT = "head"
 
+
+DEFAULT_SOUTH = "body"
+DEFAULT_NORTH = "nose"
+
+# --- Special values ---
+USE_TARGETS_VALUE = "USE_TARGETS"
 
 # --- YAML Parameter Keys (as constants to avoid typos) ---
 # Top-level
@@ -145,6 +152,7 @@ KEY_ANALYZE_WITH = "analyze_with"
 KEY_COLABELS = "colabels"
 KEY_COLABELS_PATH = "colabels_path"
 KEY_TARGET = "target"
+KEY_RECENTERING_POINT = "recentering_point"
 KEY_LABELERS = "labelers"
 KEY_MODEL_BODYPARTS = "model_bodyparts"
 KEY_SPLIT = "split"
@@ -152,10 +160,13 @@ KEY_FOCUS_DISTANCE = "focus_distance"
 KEY_VALIDATION = "validation"
 KEY_TEST = "test"
 
-# 'RNN' sub-keys
-KEY_RNN = "RNN"
-KEY_RESCALING = "rescaling"
-KEY_RESHAPING = "reshaping"
+# ANN sub-keys
+KEY_ANN = "ANN"
+KEY_RECENTER = "recenter"
+KEY_RESHAPE = "reshape"
+KEY_REORIENT = "reorient"
+KEY_SOUTH = "south"
+KEY_NORTH = "north"
 KEY_RNN_WIDTH = "RNN_width"
 KEY_PAST = "past"
 KEY_FUTURE = "future"

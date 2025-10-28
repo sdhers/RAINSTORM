@@ -92,9 +92,13 @@ class ParamsBuilder:
                     C.KEY_VALIDATION: 0.15,
                     C.KEY_TEST: 0.15,
                 },
-                C.KEY_RNN: {
-                    C.KEY_RESCALING: True,
-                    C.KEY_RESHAPING: True,
+                C.KEY_ANN: {
+                    C.KEY_RECENTER: True,
+                    C.KEY_RECENTERING_POINT: 'USE_TARGETS',
+                    C.KEY_REORIENT: False,
+                    C.KEY_NORTH: C.DEFAULT_NORTH,
+                    C.KEY_SOUTH: C.DEFAULT_SOUTH,
+                    C.KEY_RESHAPE: True,
                     C.KEY_RNN_WIDTH: {C.KEY_PAST: 3, C.KEY_FUTURE: 3, C.KEY_BROAD: 1.7},
                     C.KEY_UNITS: [32, 16, 8],
                     C.KEY_BATCH_SIZE: 64,
@@ -189,10 +193,14 @@ class ParamsBuilder:
         split.yaml_add_eol_comment("Percentage of the data to use for validation", key=C.KEY_VALIDATION)
         split.yaml_add_eol_comment("Percentage of the data to use for testing", key=C.KEY_TEST)
 
-        # --- RNN Comments ---
-        rnn = auto[C.KEY_RNN]
-        rnn.yaml_add_eol_comment("Whether to rescale the data", key=C.KEY_RESCALING)
-        rnn.yaml_add_eol_comment("Whether to reshape the data (set to True for RNN)", key=C.KEY_RESHAPING)
+        # --- ANN Comments ---
+        rnn = auto[C.KEY_ANN]
+        rnn.yaml_add_eol_comment("Whether to rescale the data", key=C.KEY_RECENTER)
+        rnn.yaml_add_eol_comment("Point to use for recentering coordinates (e.g., 'body', 'tgt', or USE_TARGETS)", key=C.KEY_RECENTERING_POINT)
+        rnn.yaml_add_eol_comment("Whether to reorient coordinates so south-north vector points upward", key=C.KEY_REORIENT)
+        rnn.yaml_add_eol_comment("Bodypart at the head of the orientation vector (e.g., 'nose')", key=C.KEY_NORTH)
+        rnn.yaml_add_eol_comment("Bodypart at the tail of the orientation vector (e.g., 'body')", key=C.KEY_SOUTH)
+        rnn.yaml_add_eol_comment("Whether to reshape the data (set to True for RNN)", key=C.KEY_RESHAPE)
         rnn.yaml_add_eol_comment("Number of neurons on each layer", key=C.KEY_UNITS)
         rnn.yaml_add_eol_comment("Number of training samples the model processes before updating its weights", key=C.KEY_BATCH_SIZE)
         rnn.yaml_add_eol_comment("Randomly turn off a fraction of neurons in the network", key=C.KEY_DROPOUT)

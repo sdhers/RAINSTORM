@@ -19,6 +19,15 @@ def create_autolabels(params_path: Path) -> None:
 
     Args:
         params_path (Path): Path to the YAML parameters file.
+    
+    Note:
+        Uses the 'recentering_point' parameter from ANN section to determine
+        which point to use for recentering coordinates during inference. Falls back 
+        to using individual targets if not specified. If 'reorient' is enabled,
+        coordinates are rotated so the south-north vector points upward after recentering.
+        The 'reshape' parameter is read from params.yaml first, with fallback to model
+        structure detection. Past/future parameters are validated against model requirements
+        with warnings logged if mismatches are detected.
     """
     logger.info(f"Starting automatic labeling process using parameters from: {params_path}")
 
@@ -58,7 +67,7 @@ def create_autolabels(params_path: Path) -> None:
         return
 
     try:
-        model = tf.keras.models.load_model(model_path) # Assuming this loads a .keras file
+        model = tf.keras.models.load_model(model_path)
         logger.info(f"Successfully loaded model from: {model_path}")
     except Exception as e:
         logger.error(f"Error loading model from {model_path}: {e}")
@@ -69,13 +78,34 @@ def create_autolabels(params_path: Path) -> None:
         logger.warning("No 'model_bodyparts' specified. Ensure your model can process the input data correctly.")
         # If no bodyparts are specified, the use_model function will raise an error if it can't find features.
 
-    RNN = modeling.get("RNN") or {}
-    rescaling = RNN.get("rescaling", True)
-    reshaping = RNN.get("reshaping", False)
-    rnn_width = RNN.get("RNN_width") or {}
+    ANN = modeling.get("ANN") or {}
+
+    recenter = ANN.get("recenter") or False
+    recentering_point = ANN.get("recentering_point")
+
+    reorient = ANN.get("reorient") or False
+    south = ANN.get("south", "body")
+    north = ANN.get("north", "nose")
+
+    # Read reshape from params.yaml first, fallback to model detection
+    reshape = ANN.get("reshape") or False
+    rnn_width = ANN.get("RNN_width") or {}
     past = rnn_width.get("past") or 3
     future = rnn_width.get("future") or 3
     broad = rnn_width.get("broad") or 1.7
+    
+    # Validate past/future parameters against model if reshaped
+    if reshape:
+        if len(model.input_shape) == 3:
+            model_timesteps = model.input_shape[1]
+            expected_timesteps = past + future + 1
+            if model_timesteps != expected_timesteps:
+                logger.warning(f"Parameter mismatch detected: params.yaml specifies {expected_timesteps} timesteps (past={past}, future={future}), but model expects {model_timesteps} timesteps. Using model structure.")
+                # Use model structure values
+                past = future = model_timesteps // 2
+        else:
+            logger.info("Model is not 3D. Setting reshape to False.")
+            reshape = False
 
     # Collect all position files to be processed
     all_position_files: List[Path] = []
@@ -113,9 +143,13 @@ def create_autolabels(params_path: Path) -> None:
                 logger.info(f"Applied scaling of 1/{scale} to position data.")
             
             if all(f'{target}_x' in positions_df.columns for target in targets): # Exclude files without targets
-            
+                
                 # Use the model to generate autolabels
-                autolabels = use_model(positions_df, model, targets, model_bodyparts, rescaling, reshaping, past, future, broad)
+                autolabels = use_model(positions_df, model, targets, model_bodyparts, 
+                                     recenter, recentering_point, reorient, south, north, 
+                                     reshape, past, future, broad)
+                
+                # Note: use_model now returns a DataFrame with columns already named after targets
 
                 # Add 'Frame' column (1-indexed)
                 autolabels.insert(0, "Frame", autolabels.index + 1)

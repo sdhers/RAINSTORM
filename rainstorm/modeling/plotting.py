@@ -293,14 +293,15 @@ def plot_PCA(data: Dict[str, pd.DataFrame], make_discrete=False) -> go.Figure:
     fig.show()
 
 
-def plot_performance_on_video(folder_path: Path, models: Dict, labelers: Dict, fps: int = 25, bodyparts = ['nose', 'left_ear', 'right_ear', 'head', 'neck', 'body'], targets = ['obj_1', 'obj_2'], plot_tgt = "obj_1"):
+def plot_performance_on_video(params_path: Path, folder_path: Path, models: Dict, labelers: Dict, fps: int = 25, bodyparts = ['nose', 'left_ear', 'right_ear', 'head', 'neck', 'body'], targets = ['obj_1', 'obj_2'], plot_tgt = "obj_1"):
     """
     Plots the performance of multiple models and labelers over time.
 
     Parameters:
+        params_path (Path): Path to the params.yaml file.
         folder_path (Path): Path to the directory containing example video data.
         models (dict): Dictionary of model names and functions/lambdas to generate labels. 
-                       Example: {"Simple": (model_simple, {}), "Wide": (model_wide, {"reshaping": True})}
+                       Example: {"Simple": (model_simple, {}), "Wide": (model_wide, {"reshape": True})}
         labelers (dict): Dictionary of labeler names and paths to their CSV files.
                          Example: {"lblr_A": "Example_Marian.csv"}
         fps (int): Frame rate of the video to calculate time in seconds. Default is 25.
@@ -308,6 +309,25 @@ def plot_performance_on_video(folder_path: Path, models: Dict, labelers: Dict, f
         targets (list): List of target object names. Default is ['obj_1', 'obj_2'].
         plot_tgt (str): Name of the object column to plot. Default is 'obj_1'.
     """
+    params = load_yaml(params_path)
+    modeling = params.get("automatic_analysis") or {}
+    colabels = modeling.get("colabels") or {}
+    target = colabels.get("target") or "tgt"
+    targets = [plot_tgt]
+
+    ANN = modeling.get("ANN") or {}
+    width = ANN.get("RNN_width") or {}
+    past = width.get("past") or 3
+    future = width.get("future") or 3
+    broad = width.get("broad") or 1.7
+
+    recenter = ANN.get("recenter") or False
+    recentering_point = ANN.get("recentering_point") or target
+
+    reorient = ANN.get("reorient") or False
+    south = ANN.get("south") or "body"
+    north = ANN.get("north") or "nose"
+
     # Prepare dataset for the video
     X_view = pd.read_csv(folder_path / 'Example_position.csv').filter(regex='^(?!.*tail)')
     
@@ -317,16 +337,28 @@ def plot_performance_on_video(folder_path: Path, models: Dict, labelers: Dict, f
         print(f"Loading model from: {path}")
         model = tf.keras.models.load_model(path)
 
-        # Determine if reshaping is needed
-        reshaping = len(model.input_shape) == 3  # True if input is 3D
+        # Read reshape from params.yaml first, fallback to model detection
+        reshape = ANN.get("reshape") or False
+        width = ANN.get("RNN_width") or {}
+        past = width.get("past") or 3
+        future = width.get("future") or 3
+        broad = width.get("broad") or 1.7
 
-        if reshaping:
-            past = future = model.input_shape[1] // 2
-            output = use_model(X_view, model, targets, bodyparts, recentering = True, reshaping = True, past=past, future=future)
+        # Validate past/future parameters against model if reshaped
+        if reshape:
+            if len(model.input_shape) == 3:
+                model_timesteps = model.input_shape[1]
+                expected_timesteps = past + future + 1
+                if model_timesteps != expected_timesteps:
+                    logger.warning(f"Parameter mismatch detected: params.yaml specifies {expected_timesteps} timesteps (past={past}, future={future}), but model expects {model_timesteps} timesteps. Using model structure.")
+                    # Use model structure values
+                    past = future = model_timesteps // 2
+            else:
+                logger.info("Model is not 3D. Setting reshape to False.")
+                reshape = False
+
+        output = use_model(X_view, model, targets, bodyparts, recenter=recenter, recentering_point=recentering_point, reorient=reorient, south=south, north=north, reshape=reshape, past=past, future=future, broad=broad)
         
-        else:
-            output = use_model(X_view, model, targets, bodyparts, recentering=True)
-
         model_outputs[f"{key}"] = output
 
     # Load labeler data

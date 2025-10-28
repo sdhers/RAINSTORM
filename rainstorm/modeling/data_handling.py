@@ -9,7 +9,7 @@ import logging
 import h5py
 import datetime
 
-from .aux_functions import recenter, reshape
+from .aux_functions import recenter_df, reshape_df, reorient_df
 from ..utils import configure_logging, load_yaml
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -157,21 +157,35 @@ def split_tr_ts_val(params_path: Path, df: pd.DataFrame) -> Dict[str, np.ndarray
     Returns:
         Dict[str, np.ndarray]: Dictionary with keys for training, validation, and testing splits,
                                including both wide and simple position arrays and labels.
+    
+    Note:
+        Uses the 'recentering_point' parameter from ANN section to determine
+        which point to use for recentering coordinates. Falls back to 'target' 
+        if not specified. If 'reorient' is enabled, coordinates are
+        rotated so the south-north vector points upward after recentering.
     """
     params = load_yaml(params_path)
     modeling = params.get("automatic_analysis") or {}
     colabels = modeling.get("colabels") or {}
     target = colabels.get("target") or "tgt"
+
     bodyparts = modeling.get("model_bodyparts") or []
     split_params = modeling.get("split") or {}
     val_size = split_params.get("validation") or 0.15
     ts_size = split_params.get("test") or 0.15
 
-    rnn_params = modeling.get("RNN") or {}
-    width = rnn_params.get("RNN_width") or {}
+    ANN = modeling.get("ANN") or {}
+    width = ANN.get("RNN_width") or {}
     past = width.get("past") or 3
     future = width.get("future") or 3
     broad = width.get("broad") or 1.7
+
+    recenter = ANN.get("recenter") or False
+    recentering_point = ANN.get("recentering_point") or target
+
+    reorient = ANN.get("reorient") or False
+    south = ANN.get("south") or "body"
+    north = ANN.get("north") or "nose"
 
     logger.info("📊 Splitting data into training, validation, and test sets...")
     print("📊 Splitting data into training, validation, and test sets...")
@@ -183,15 +197,49 @@ def split_tr_ts_val(params_path: Path, df: pd.DataFrame) -> Dict[str, np.ndarray
     wide_dataframes = {}
 
     for key, group in grouped:
-        recentered = recenter(group, target, bodyparts)
+        positions_df = group.copy()
+
+        if recenter:
+            use_targets_flag = str(recentering_point).upper() == 'USE_TARGETS'
+            if use_targets_flag:
+                # Expand per target
+                expanded = []
+                for t in [target]:
+                    expanded.append(recenter_df(positions_df.copy(), t, bodyparts))
+                positions_df = pd.concat(expanded, ignore_index=True)
+            else:
+                positions_df = recenter_df(positions_df, recentering_point, bodyparts)
+        
+        if reorient:
+            south_uses_targets = str(south).upper() == 'USE_TARGETS'
+            north_uses_targets = str(north).upper() == 'USE_TARGETS'
+            if south_uses_targets or north_uses_targets:
+                oriented_list = []
+                for t in [target]:
+                    s_val = t if south_uses_targets else south
+                    n_val = t if north_uses_targets else north
+                    oriented_list.append(reorient_df(positions_df.copy(), s_val, n_val, bodyparts))
+                positions_df = pd.concat(oriented_list, ignore_index=True)
+            else:
+                positions_df = reorient_df(positions_df, south, north, bodyparts)
+
+        # Keep only wanted bodyparts
+        bp_cols = [
+            col for bp in bodyparts
+            for coord in ('_x', '_y') 
+            for col in positions_df.columns
+            if col.endswith(f'{bp}{coord}')
+        ]
+        positions_df = positions_df[bp_cols]
+        
         labels = group['labels']
 
         final_dataframes[key] = {
-            'position': recentered,
+            'position': positions_df,
             'labels': labels
         }
 
-        wide = reshape(recentered, past, future, broad)
+        wide = reshape_df(positions_df, past, future, broad)
         wide_dataframes[key] = {
             'position': wide,
             'labels': labels

@@ -33,7 +33,7 @@ def build_RNN(params_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.keras.
 
     Args:
         params_path (Path): Path to the YAML file containing modeling parameters,
-                              specifically the 'RNN' configuration.
+                              specifically the 'ANN' configuration.
         model_dict (Dict[str, np.ndarray]): Dictionary containing 'X_tr_wide'
                                             which is a sample of the training data
                                             shaped (batch, time, features) to infer
@@ -44,12 +44,12 @@ def build_RNN(params_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.keras.
     """
     params = load_yaml(params_path)
     modeling = params.get("automatic_analysis") or {}
-    rnn_conf = modeling.get("RNN") or {}
+    ANN = modeling.get("ANN") or {}
 
     # Model configuration parameters
-    units = rnn_conf.get("units") or [16, 24, 32, 24, 16, 8] # Number of units in each LSTM layer
-    dropout_rate = float(rnn_conf.get("dropout") or 0.2) # Dropout rate for regularization
-    initial_lr = float(rnn_conf.get("initial_lr") or 1e-5) # Initial learning rate for the optimizer
+    units = ANN.get("units") or [16, 24, 32, 24, 16, 8] # Number of units in each LSTM layer
+    dropout_rate = float(ANN.get("dropout") or 0.2) # Dropout rate for regularization
+    initial_lr = float(ANN.get("initial_lr") or 1e-5) # Initial learning rate for the optimizer
 
     # Validate input data shape
     if 'X_tr_wide' not in model_dict:
@@ -112,7 +112,7 @@ def train_RNN(params_path: Path, model: tf.keras.Model, model_dict: Dict[str, np
 
     Args:
         params_path (Path): Path to the YAML file containing training configuration
-                              parameters under the 'RNN' key.
+                              parameters under the 'ANN' key.
         model (tf.keras.Model): The compiled Keras RNN model to train.
         model_dict (Dict[str, np.ndarray]): Dictionary containing the data splits:
                                             'X_tr_wide', 'y_tr' (training data),
@@ -126,15 +126,15 @@ def train_RNN(params_path: Path, model: tf.keras.Model, model_dict: Dict[str, np
     """
     params = load_yaml(params_path)
     modeling = params.get("automatic_analysis") or {}
-    rnn_conf = modeling.get("RNN") or {}
+    ANN = modeling.get("ANN") or {}
 
     # Training configuration parameters
-    total_epochs = int(rnn_conf.get("total_epochs")) or 100 # Maximum number of training epochs
-    warmup_epochs = int(rnn_conf.get("warmup_epochs")) or 10 # Number of epochs for learning rate warmup/cooldown phase
-    initial_lr = float(rnn_conf.get("initial_lr")) or 0.00001 # Starting and final learning rate during warmup phase
-    peak_lr = float(rnn_conf.get("peak_lr")) or 0.0001 # Maximum learning rate during warmup phase
-    batch_size = int(rnn_conf.get("batch_size")) or 64 # Number of samples per gradient update
-    patience = int(rnn_conf.get("patience")) or 10 # Number of epochs with no improvement after which training will be stopped
+    total_epochs = int(ANN.get("total_epochs")) or 100 # Maximum number of training epochs
+    warmup_epochs = int(ANN.get("warmup_epochs")) or 10 # Number of epochs for learning rate warmup/cooldown phase
+    initial_lr = float(ANN.get("initial_lr")) or 0.00001 # Starting and final learning rate during warmup phase
+    peak_lr = float(ANN.get("peak_lr")) or 0.0001 # Maximum learning rate during warmup phase
+    batch_size = int(ANN.get("batch_size")) or 64 # Number of samples per gradient update
+    patience = int(ANN.get("patience")) or 10 # Number of epochs with no improvement after which training will be stopped
 
     # Define the save folder for logs and checkpoints
     save_folder = Path(modeling.get("models_path"))

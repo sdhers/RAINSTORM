@@ -94,7 +94,7 @@ class ParamsBuilder:
                 },
                 C.KEY_ANN: {
                     C.KEY_RECENTER: True,
-                    C.KEY_RECENTERING_POINT: 'tgt',
+                    C.KEY_RECENTERING_POINT: 'USE_TARGETS',
                     C.KEY_REORIENT: False,
                     C.KEY_NORTH: C.DEFAULT_NORTH,
                     C.KEY_SOUTH: C.DEFAULT_SOUTH,

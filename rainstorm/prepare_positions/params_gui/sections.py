@@ -168,6 +168,88 @@ class SectionFrame(ctk.CTkFrame):
             ToolTip(cb, comment)
         return cb
 
+    def _create_use_targets_field(self, parent, label_text, data_map, field_key, 
+                                   rnn_data_map, checkbox_var, validation_data=None):
+        """
+        Helper method to create a field with USE_TARGETS checkbox functionality.
+        
+        Args:
+            parent: Parent frame for the field
+            label_text: Label text for the field
+            data_map: Data dictionary for this field
+            field_key: Key name for this field in rnn_data_map
+            rnn_data_map: The ANN data map
+            checkbox_var: BooleanVar for the USE_TARGETS checkbox
+            validation_data: Optional dict with 'other_field_key' and 'other_field_name' for cross-validation
+            
+        Returns:
+            Tuple of (entry_widget, text_var) for further customization
+        """
+        from .type_conversion import format_for_display
+        from .type_registry import get_parameter_type
+        
+        initial_value = format_for_display(data_map.get(field_key, ''), 
+                                          get_parameter_type([C.KEY_AUTOMATIC_ANALYSIS, C.KEY_ANN, field_key]))
+        if checkbox_var.get():
+            initial_value = ''
+        
+        text_var = tk.StringVar(value=initial_value)
+        
+        def on_text_change(*_):
+            if not checkbox_var.get():
+                rnn_data_map[field_key] = text_var.get()
+        
+        text_var.trace_add("write", on_text_change)
+        
+        entry = ctk.CTkEntry(
+            parent, textvariable=text_var, width=C.TEXT_FIELD_WIDTH,
+            font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE),
+            corner_radius=C.ENTRY_CORNER_RADIUS,
+            border_width=C.ENTRY_BORDER_WIDTH,
+            border_color=C.ENTRY_BORDER_COLOR,
+            fg_color=C.SECTION_BG_COLOR,
+            text_color=C.VALUE_COLOR
+        )
+        
+        def toggle_handler():
+            if checkbox_var.get():
+                # Validate exclusivity if cross-validation is needed
+                if validation_data:
+                    other_field_key = validation_data['other_field_key']
+                    other_field_name = validation_data['other_field_name']
+                    other_val = str(rnn_data_map.get(other_field_key, ''))
+                    
+                    if not self.validation_helper.validate_use_targets_exclusivity(
+                        str(rnn_data_map.get(field_key, '')), other_val, label_text
+                    ):
+                        checkbox_var.set(False)
+                        return
+                
+                # Enable USE_TARGETS mode
+                rnn_data_map[field_key] = getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS')
+                entry.configure(state='disabled', fg_color=C.ENTRY_DISABLED_COLOR)
+                text_var.set('')
+            else:
+                # Disable USE_TARGETS mode
+                default_value = validation_data.get('default_fallback', 'nose') if validation_data else 'nose'
+                rnn_data_map[field_key] = default_value
+                text_var.set(default_value)
+                entry.configure(state='normal', fg_color=C.SECTION_BG_COLOR)
+        
+        checkbox = ctk.CTkCheckBox(
+            parent, text="Use targets", variable=checkbox_var, command=toggle_handler,
+            font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE),
+            text_color=C.LABEL_COLOR,
+            corner_radius=C.ENTRY_CORNER_RADIUS,
+            hover_color=C.BUTTON_HOVER_COLOR
+        )
+        
+        # Apply initial state if USE_TARGETS is active
+        if checkbox_var.get():
+            entry.configure(state='disabled', fg_color=C.ENTRY_DISABLED_COLOR)
+        
+        return entry, text_var, checkbox
+    
     def _create_file_selector(self, parent, label_text, data_map, key, comment, row):
         """Creates a file/directory selector."""
         field_frame = ctk.CTkFrame(parent, fg_color="transparent")
@@ -390,29 +472,35 @@ class AutomaticAnalysisSection(SectionFrame):
         rec_frame.grid_columnconfigure(1, weight=1)
         ctk.CTkLabel(rec_frame, text="Recentering Point:", font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE), text_color=C.LABEL_COLOR).grid(row=0, column=0, sticky='w', padx=(0, C.LABEL_PADDING))
         
-        from .type_conversion import format_for_display
-        from .type_registry import get_parameter_type
-        rec_var = tk.StringVar(value=format_for_display(rnn_data.get(C.KEY_RECENTERING_POINT, ''), get_parameter_type([C.KEY_AUTOMATIC_ANALYSIS, C.KEY_ANN, C.KEY_RECENTERING_POINT])))
+        use_targets_var = tk.BooleanVar(value=str(rnn_data.get(C.KEY_RECENTERING_POINT, '')).upper() == getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS'))
+        
+        initial_value = format_for_display(rnn_data.get(C.KEY_RECENTERING_POINT, ''), get_parameter_type([C.KEY_AUTOMATIC_ANALYSIS, C.KEY_ANN, C.KEY_RECENTERING_POINT]))
+        if use_targets_var.get():
+            initial_value = ''  # Clear text if USE_TARGETS is initially active
+        rec_var = tk.StringVar(value=initial_value)
+        
         def on_rec_change(*_):
-            rnn_data[C.KEY_RECENTERING_POINT] = rec_var.get()
+            # Don't update the data map if USE_TARGETS is active (text is cleared for display purposes)
+            if not use_targets_var.get():
+                rnn_data[C.KEY_RECENTERING_POINT] = rec_var.get()
         rec_var.trace_add("write", on_rec_change)
         rec_entry = ctk.CTkEntry(rec_frame, textvariable=rec_var, width=C.TEXT_FIELD_WIDTH, font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE), corner_radius=C.ENTRY_CORNER_RADIUS, border_width=C.ENTRY_BORDER_WIDTH, border_color=C.ENTRY_BORDER_COLOR, fg_color=C.SECTION_BG_COLOR, text_color=C.VALUE_COLOR)
         rec_entry.grid(row=0, column=1, sticky='w')
         
-        use_targets_var = tk.BooleanVar(value=str(rnn_data.get(C.KEY_RECENTERING_POINT, '')).upper() == getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS'))
         def toggle_use_targets():
             if use_targets_var.get():
                 rnn_data[C.KEY_RECENTERING_POINT] = getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS')
-                rec_entry.configure(state='disabled')
+                rec_entry.configure(state='disabled', fg_color=C.ENTRY_DISABLED_COLOR)
+                rec_var.set('')  # Clear text to show shaded overlay effect
             else:
                 prev = colabels_data.get(C.KEY_RECENTERING_POINT, colabels_data.get(C.KEY_TARGET, 'tgt'))
                 rnn_data[C.KEY_RECENTERING_POINT] = prev
                 rec_var.set(prev)
-                rec_entry.configure(state='normal')
+                rec_entry.configure(state='normal', fg_color=C.SECTION_BG_COLOR)
         rec_cb = ctk.CTkCheckBox(rec_frame, text="Use targets", variable=use_targets_var, command=toggle_use_targets, font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE), text_color=C.LABEL_COLOR, corner_radius=C.ENTRY_CORNER_RADIUS, hover_color=C.BUTTON_HOVER_COLOR)
         rec_cb.grid(row=0, column=2, sticky='w', padx=(C.BUTTON_PADDING, 0))
         if use_targets_var.get():
-            rec_entry.configure(state='disabled')
+            rec_entry.configure(state='disabled', fg_color=C.ENTRY_DISABLED_COLOR)
         row_idx += 1
         
         # 3. Reorient checkbox
@@ -427,25 +515,42 @@ class AutomaticAnalysisSection(SectionFrame):
         north_frame.grid(row=row_idx, column=0, sticky='ew', pady=C.WIDGET_PADDING)
         north_frame.grid_columnconfigure(1, weight=1)
         ctk.CTkLabel(north_frame, text="North Point:", font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE), text_color=C.LABEL_COLOR).grid(row=0, column=0, sticky='w', padx=(0, C.LABEL_PADDING))
-        north_var = tk.StringVar(value=str(rnn_data.get(C.KEY_NORTH, 'nose')))
+        
+        north_use_targets = tk.BooleanVar(value=str(rnn_data.get(C.KEY_NORTH, '')).upper() == getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS'))
+        initial_north = str(rnn_data.get(C.KEY_NORTH, getattr(C, 'DEFAULT_NORTH', 'nose')))
+        if north_use_targets.get():
+            initial_north = ''
+        north_var = tk.StringVar(value=initial_north)
+        
+        def on_north_change(*_):
+            # Don't update the data map if USE_TARGETS is active (text is cleared for display purposes)
+            if not north_use_targets.get():
+                rnn_data[C.KEY_NORTH] = north_var.get()
+        north_var.trace_add("write", on_north_change)
         north_entry = ctk.CTkEntry(north_frame, textvariable=north_var, width=C.TEXT_FIELD_WIDTH, font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE), corner_radius=C.ENTRY_CORNER_RADIUS, border_width=C.ENTRY_BORDER_WIDTH, border_color=C.ENTRY_BORDER_COLOR, fg_color=C.SECTION_BG_COLOR, text_color=C.VALUE_COLOR)
         north_entry.grid(row=0, column=1, sticky='w')
-        def on_north_change(*_):
-            rnn_data[C.KEY_NORTH] = north_var.get()
-        north_var.trace_add("write", on_north_change)
-        north_use_targets = tk.BooleanVar(value=str(rnn_data.get(C.KEY_NORTH, '')).upper() == getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS'))
         def toggle_north_targets():
             if north_use_targets.get():
+                # Check if the OTHER field (South) is already USE_TARGETS
+                south_val = str(rnn_data.get(C.KEY_SOUTH, ''))
+                
+                if not self.validation_helper.validate_use_targets_exclusivity(
+                    getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS'), south_val, "North"
+                ):
+                    north_use_targets.set(False)
+                    return
+                
                 rnn_data[C.KEY_NORTH] = getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS')
-                north_entry.configure(state='disabled')
+                north_entry.configure(state='disabled', fg_color=C.ENTRY_DISABLED_COLOR)
+                north_var.set('')
             else:
-                prev = 'nose'
+                prev = getattr(C, 'DEFAULT_NORTH', 'nose')
                 rnn_data[C.KEY_NORTH] = prev
                 north_var.set(prev)
-                north_entry.configure(state='normal')
+                north_entry.configure(state='normal', fg_color=C.SECTION_BG_COLOR)
         ctk.CTkCheckBox(north_frame, text="Use targets", variable=north_use_targets, command=toggle_north_targets, font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE), text_color=C.LABEL_COLOR, corner_radius=C.ENTRY_CORNER_RADIUS, hover_color=C.BUTTON_HOVER_COLOR).grid(row=0, column=2, sticky='w', padx=(C.BUTTON_PADDING, 0))
         if north_use_targets.get():
-            north_entry.configure(state='disabled')
+            north_entry.configure(state='disabled', fg_color=C.ENTRY_DISABLED_COLOR)
         row_idx += 1
         
         # 5. South point
@@ -453,25 +558,43 @@ class AutomaticAnalysisSection(SectionFrame):
         south_frame.grid(row=row_idx, column=0, sticky='ew', pady=C.WIDGET_PADDING)
         south_frame.grid_columnconfigure(1, weight=1)
         ctk.CTkLabel(south_frame, text="South Point:", font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE), text_color=C.LABEL_COLOR).grid(row=0, column=0, sticky='w', padx=(0, C.LABEL_PADDING))
-        south_var = tk.StringVar(value=str(rnn_data.get(C.KEY_SOUTH, 'body')))
+        
+        south_use_targets = tk.BooleanVar(value=str(rnn_data.get(C.KEY_SOUTH, '')).upper() == getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS'))
+        initial_south = str(rnn_data.get(C.KEY_SOUTH, 'body'))
+        if south_use_targets.get():
+            initial_south = ''
+        south_var = tk.StringVar(value=initial_south)
+        
+        def on_south_change(*_):
+            # Don't update the data map if USE_TARGETS is active (text is cleared for display purposes)
+            if not south_use_targets.get():
+                rnn_data[C.KEY_SOUTH] = south_var.get()
+        south_var.trace_add("write", on_south_change)
         south_entry = ctk.CTkEntry(south_frame, textvariable=south_var, width=C.TEXT_FIELD_WIDTH, font=(C.FONT_FAMILY, C.ENTRY_FONT_SIZE), corner_radius=C.ENTRY_CORNER_RADIUS, border_width=C.ENTRY_BORDER_WIDTH, border_color=C.ENTRY_BORDER_COLOR, fg_color=C.SECTION_BG_COLOR, text_color=C.VALUE_COLOR)
         south_entry.grid(row=0, column=1, sticky='w')
-        def on_south_change(*_):
-            rnn_data[C.KEY_SOUTH] = south_var.get()
-        south_var.trace_add("write", on_south_change)
-        south_use_targets = tk.BooleanVar(value=str(rnn_data.get(C.KEY_SOUTH, '')).upper() == getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS'))
+        
         def toggle_south_targets():
             if south_use_targets.get():
+                # Check if the OTHER field (North) is already USE_TARGETS
+                north_val = str(rnn_data.get(C.KEY_NORTH, ''))
+                
+                if not self.validation_helper.validate_use_targets_exclusivity(
+                    north_val, getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS'), "South"
+                ):
+                    south_use_targets.set(False)
+                    return
+                
                 rnn_data[C.KEY_SOUTH] = getattr(C, 'USE_TARGETS_VALUE', 'USE_TARGETS')
-                south_entry.configure(state='disabled')
+                south_entry.configure(state='disabled', fg_color=C.ENTRY_DISABLED_COLOR)
+                south_var.set('')
             else:
                 prev = 'body'
                 rnn_data[C.KEY_SOUTH] = prev
                 south_var.set(prev)
-                south_entry.configure(state='normal')
+                south_entry.configure(state='normal', fg_color=C.SECTION_BG_COLOR)
         ctk.CTkCheckBox(south_frame, text="Use targets", variable=south_use_targets, command=toggle_south_targets, font=(C.FONT_FAMILY, C.LABEL_FONT_SIZE), text_color=C.LABEL_COLOR, corner_radius=C.ENTRY_CORNER_RADIUS, hover_color=C.BUTTON_HOVER_COLOR).grid(row=0, column=2, sticky='w', padx=(C.BUTTON_PADDING, 0))
         if south_use_targets.get():
-            south_entry.configure(state='disabled')
+            south_entry.configure(state='disabled', fg_color=C.ENTRY_DISABLED_COLOR)
         row_idx += 1
         
         # 6. Reshape checkbox

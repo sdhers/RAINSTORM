@@ -68,6 +68,7 @@ BUTTON_HOVER_COLOR = "#1f6aa5"
 ENTRY_BORDER_COLOR = "#555555"
 ENTRY_FOCUS_COLOR = "#1f6aa5"
 ENTRY_ERROR_BORDER_COLOR = "#e53935"
+ENTRY_DISABLED_COLOR = "#1f1f1f"  # Shaded color for disabled/overlay fields
 
 # --- Component-Specific Styling ---
 SECTION_BORDER_WIDTH = 2

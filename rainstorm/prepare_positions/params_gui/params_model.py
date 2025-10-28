@@ -218,7 +218,7 @@ class ParamsModel:
         if not self.params_path.exists():
             return
         try:
-            backup_path = self.params_path.with_suffix('.yaml.backup')
+            backup_path = self.params_path.with_suffix('.yaml.bak')
             shutil.copy2(self.params_path, backup_path)
             self.logger.debug(f"Created backup at {backup_path}")
         except Exception as backup_error:

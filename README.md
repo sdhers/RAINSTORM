@@ -6,7 +6,7 @@
 
 **A complete toolkit for analyzing rodent exploratory behavior in object recognition tasks.**
 
-![RAINSTORM Logo](examples/images/logo.png)
+![RAINSTORM Logo](https://res.cloudinary.com/ddj6ndshz/image/upload/v1761739037/logo_pn9c3j.png)
 
 </div>
 
@@ -20,7 +20,7 @@
 * [Installation 💾](#installation-)
 * [Usage 💻](#usage-)
     - [Video Handling 🎥](#video-handling-)
-    - [RAINSTORM Behavioral Labeler ✍️](#rainstorm-behavioral-labeler-)
+    - [RAINSTORM Behavioral Labeler ✍️](#the-rainstorm-pipeline-)
     - [The RAINSTORM Pipeline 🔬](#the-rainstorm-pipeline-)
 * [Citation 📜](#citation-)
 * [Contributing 🤝](#contributing-)
@@ -163,7 +163,7 @@ For precise, frame-by-frame annotation, use the **RAINSTORM Behavioral Labeler**
 * Interpolates and smooths data to correct glitches.
 * **Output:** Clean `.csv` files ready for analysis.
 
-![1-Prepare_positions](examples/images/1-Prepare_positions.png)
+![1-Prepare_positions](https://res.cloudinary.com/ddj6ndshz/image/upload/v1761739035/1-Prepare_positions_bzjvy5.png)
 
 ---
 
@@ -176,7 +176,7 @@ For precise, frame-by-frame annotation, use the **RAINSTORM Behavioral Labeler**
     * Angle towards object < `45°`
 * Identifies freezing behavior based on lack of movement.
 
-![2-Geometric_analysis](examples/images/2-Geometric_analysis.png)
+![2-Geometric_analysis](https://res.cloudinary.com/ddj6ndshz/image/upload/v1761739035/2-Geometric_analysis_ow6p8d.png)
 
 ---
 
@@ -185,11 +185,11 @@ For precise, frame-by-frame annotation, use the **RAINSTORM Behavioral Labeler**
 ⚙️ **Train AI models for automatic behavioral labeling.**
 
 * Uses your manually labeled data to train TensorFlow models.
-    ![4-Evaluate_models_b](examples/images/4-Evaluate_models_b.png)
+    ![4-Evaluate_models_b](https://res.cloudinary.com/ddj6ndshz/image/upload/v1761739037/4-Evaluate_models_b_gvc4ft.png)
 * Includes an LSTM network (a **wide** model) that considers temporal sequences for higher accuracy.
-    ![3-Create_Models](examples/images/3-Create_models.png)
+    ![3-Create_Models](https://res.cloudinary.com/ddj6ndshz/image/upload/v1761739036/3-Create_models_mxpp0t.png)
 * Evaluates model performance against human labelers using Principal Components Analysis (PCA).
-    ![4-Evaluate_models_a](examples/images/4-Evaluate_models_a.png)
+    ![4-Evaluate_models_a](https://res.cloudinary.com/ddj6ndshz/image/upload/v1761739037/4-Evaluate_models_a_cui7nl.png)
 
 ---
 
@@ -200,7 +200,7 @@ For precise, frame-by-frame annotation, use the **RAINSTORM Behavioral Labeler**
 * Applies your best-performing model to label unseen datasets.
 * Generates comparative visualizations (like polar graphs) to contrast manual, geometric, and AI-driven labels.
 
-![6-Compare_Labels](examples/images/6-Compare_labels.png)
+![6-Compare_Labels](https://res.cloudinary.com/ddj6ndshz/image/upload/v1761739037/6-Compare_labels_pyf9ov.png)
 
 ---
 
@@ -211,7 +211,7 @@ For precise, frame-by-frame annotation, use the **RAINSTORM Behavioral Labeler**
 * Calculates key metrics like Discrimination Index.
 * Generates publication-ready plots to compare behavior across different experimental groups and sessions.
 
-![7-Seize_Labels_ts](examples/images/7-Seize_labels_ts.png)
+![7-Seize_Labels_ts](https://res.cloudinary.com/ddj6ndshz/image/upload/v1761739037/7-Seize_labels_ts_bsrwyz.png)
 
 ---
 
@@ -269,6 +269,6 @@ For research collaborations and academic inquiries:
 
 _Thanks for exploring RAINSTORM!_
 
-![mouse_exploring](examples/images/mouse_exploring.gif)
+![mouse_exploring](https://res.cloudinary.com/ddj6ndshz/image/upload/v1761739038/mouse_exploring_nhdroe.gif)
 
 ---

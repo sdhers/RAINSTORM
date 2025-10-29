@@ -18,6 +18,7 @@ from .plotting import plot_example_data, plot_history, plot_lr_schedule, plot_co
 from .model_building import build_RNN, train_RNN, save_model
 from .model_evaluating import evaluate, build_evaluation_dict, create_chimera_and_loo_mean, build_model_paths, build_and_run_models
 from .automatic_analysis import create_autolabels, prepare_label_comparison, accuracy_scores
+from .colabels_gui import open_colabels_gui
 
 import tensorflow as tf
 
@@ -53,4 +54,5 @@ __all__ = [
     'create_autolabels',
     'prepare_label_comparison',
     'accuracy_scores',
+    'open_colabels_gui',
 ]

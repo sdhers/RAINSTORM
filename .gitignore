@@ -13,6 +13,7 @@ dist/
 
 # PyInstaller
 *.spec
+*.toml
 
 # Big files
 # examples/NOR*

@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="rainstorm",
-    version="1.0.7",
+    version="1.0.8.dev0",
     description="Real & Artificial Intelligence for Neuroscience – Simple Tracker for Object Recognition Memory",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",

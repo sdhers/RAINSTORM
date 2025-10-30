@@ -80,8 +80,10 @@ class ColabelsGUI:
         btn_pick_labels = ctk.CTkButton(buttons_row, text="Add labels CSVs to selected position", command=self._pick_labels_for_selected) if hasattr(ctk, "CTkButton") else ctk.Button(buttons_row, text="Add labels CSVs to selected position", command=self._pick_labels_for_selected)
         btn_pick_labels.pack(side="left", padx=(0, 6))
 
-        btn_save = ctk.CTkButton(buttons_row, text="Save JSON", command=self._save_json) if hasattr(ctk, "CTkButton") else ctk.Button(buttons_row, text="Save JSON", command=self._save_json)
-        btn_save.pack(side="right")
+        btn_save_json = ctk.CTkButton(buttons_row, text="Save JSON", command=self._save_json) if hasattr(ctk, "CTkButton") else ctk.Button(buttons_row, text="Save JSON", command=self._save_json)
+        btn_save_json.pack(side="right")
+        btn_save_csv = ctk.CTkButton(buttons_row, text="Save CSV", command=self._save_csv) if hasattr(ctk, "CTkButton") else ctk.Button(buttons_row, text="Save CSV", command=self._save_csv)
+        btn_save_csv.pack(side="right", padx=(0, 6))
 
         # Split: left list of positions, right panel of behaviors
         split = ctk.CTkFrame(frame) if hasattr(ctk, "CTkFrame") else ctk.Frame(frame)
@@ -247,6 +249,81 @@ class ColabelsGUI:
         except Exception as e:
             logger.exception("Failed to save JSON")
             messagebox.showerror("Save error", f"Failed to save JSON: {e}")
+
+    def _save_csv(self) -> None:
+        if not self.position_files:
+            messagebox.showwarning("Nothing to save", "Add at least one position file.")
+            return
+
+        out_fp = filedialog.asksaveasfilename(title="Save colabels CSV", defaultextension=".csv", filetypes=[["CSV", "*.csv"]])
+        if not out_fp:
+            return
+
+        try:
+            sections: List[pd.DataFrame] = []
+            for pos in self.position_files:
+                labels_list = self.pos_to_labels.get(pos, [])
+                if not labels_list:
+                    continue
+
+                pos_df = pd.read_csv(pos)
+                position_cols = [c for c in pos_df.columns if (c.endswith("_x") or c.endswith("_y")) and ("tail" not in c)]
+                pos_df = pos_df[position_cols]
+
+                # behavior -> list of (labeler_name, series), and behavior -> tgt(x,y)
+                behavior_to_labels: Dict[str, List[tuple[str, pd.Series]]] = {}
+                behavior_to_tgt: Dict[str, Optional[tuple[float, float]]] = {}
+
+                for label in labels_list:
+                    key = (pos, label)
+                    state = self.selection_state.get(key)
+                    if not state:
+                        continue
+                    try:
+                        labels_df = pd.read_csv(label)
+                    except Exception as e:
+                        logger.exception("Failed to read labels CSV during Save CSV")
+                        messagebox.showerror("Read error", f"Failed to read labels CSV: {e}")
+                        continue
+
+                    labeler_name = Path(label).parent.name or Path(label).stem
+
+                    for beh, selected in state['selected'].items():
+                        if not selected or beh not in labels_df.columns:
+                            continue
+                        behavior_to_labels.setdefault(beh, []).append((labeler_name, labels_df[beh]))
+                        if beh not in behavior_to_tgt:
+                            behavior_to_tgt[beh] = state['tgt_xy'].get(beh)
+
+                base_key = Path(pos).stem.replace("_position", "")
+                for beh, labeler_series_list in behavior_to_labels.items():
+                    section_parts: List[pd.DataFrame] = [pos_df.reset_index(drop=True)]
+
+                    tgt_xy = behavior_to_tgt.get(beh)
+                    if tgt_xy is not None:
+                        bx, by = float(tgt_xy[0]), float(tgt_xy[1])
+                        tgt_df = pd.DataFrame({f"{beh}_x": [bx] * len(pos_df), f"{beh}_y": [by] * len(pos_df)})
+                        section_parts.append(tgt_df)
+
+                    for labeler_name, series in labeler_series_list:
+                        section_parts.append(pd.DataFrame({labeler_name: series.astype(float).values}))
+
+                    section_df = pd.concat(section_parts, axis=1)
+                    section_df.insert(0, 'ID', f"{base_key}__{beh}")
+                    sections.append(section_df)
+
+            if not sections:
+                messagebox.showwarning("Nothing selected", "No behaviors selected to save.")
+                return
+
+            out_df = pd.concat(sections, ignore_index=True)
+            pd.DataFrame(out_df).to_csv(out_fp, index=False)
+
+            self._set_status(f"Saved CSV to: {out_fp}")
+            messagebox.showinfo("Saved", f"Colabels CSV saved to:\n{out_fp}")
+        except Exception as e:
+            logger.exception("Failed to save CSV")
+            messagebox.showerror("Save error", f"Failed to save CSV: {e}")
 
     # --- Helpers ---
     def _refresh_left_list(self) -> None:

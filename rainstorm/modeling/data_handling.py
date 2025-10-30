@@ -190,8 +190,9 @@ def split_tr_ts_val(params_path: Path, df: pd.DataFrame) -> Dict[str, np.ndarray
     logger.info("📊 Splitting data into training, validation, and test sets...")
     print("📊 Splitting data into training, validation, and test sets...")
 
-    # Group by unique video or mouse identifier using the target_x as a proxy
-    grouped = df.groupby(df[f'{target}_x'])
+    # Group by a stable segment identifier if present; fallback to target_x proxy
+    group_key = 'ID' if 'ID' in df.columns else f'{target}_x'
+    grouped = df.groupby(df[group_key])
 
     final_dataframes = {}
     wide_dataframes = {}

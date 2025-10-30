@@ -6,20 +6,6 @@ This GUI lets users:
 - For each position file, select a labels CSV file
 - Choose one or more behavior columns from the labels CSV
 - Optionally specify a target point (tgt_x, tgt_y) per selected behavior
-- Save a JSON file following the new schema described in col.plan.md
-
-JSON schema (per-file key -> object with position and behaviors list):
-{
-    "NOR_TS_01": {
-        "position_file": ".../NOR_TS_01_position.csv",
-        "label_file": ".../NOR_TS_01_labels.csv",
-        "position": {"columns": [...], "data": [[...], ...]},
-        "behaviors": [
-            {"behavior": "obj_1", "labels": [...], "tgt": {"x": 1.0, "y": 2.0}},
-            {"behavior": "obj_2", "labels": [...], "tgt": null}
-        ]
-    }
-}
 """
 
 from __future__ import annotations
@@ -46,8 +32,26 @@ logger = logging.getLogger(__name__)
 
 class ColabelsGUI:
     def __init__(self) -> None:
-        ctk.set_appearance_mode("System") if hasattr(ctk, "set_appearance_mode") else None
-        ctk.set_default_color_theme("blue") if hasattr(ctk, "set_default_color_theme") else None
+        # Prefer a dark appearance if customtkinter is available
+        if hasattr(ctk, "set_appearance_mode"):
+            try:
+                ctk.set_appearance_mode("dark")
+            except Exception:
+                # fallback to system if 'dark' isn't supported
+                ctk.set_appearance_mode("System")
+        else:
+            # No appearance API on plain tkinter
+            pass
+
+        # Use a pleasant default color theme when available
+        if hasattr(ctk, "set_default_color_theme"):
+            try:
+                ctk.set_default_color_theme("dark-blue")
+            except Exception:
+                try:
+                    ctk.set_default_color_theme("blue")
+                except Exception:
+                    pass
 
         self.root = ctk.CTk() if hasattr(ctk, "CTk") else ctk.Tk()
         self.root.title("RAINSTORM - Create Colabels JSON")
@@ -63,12 +67,22 @@ class ColabelsGUI:
         # }
         self.selection_state: Dict[tuple[Path, Path], dict] = {}
 
+        # Current selected position (Path) for better UI handling
+        self.current_selected_pos: Optional[Path] = None
+
         # UI layout
         self._build_layout()
 
     def _build_layout(self) -> None:
+        # Main container
         frame = ctk.CTkFrame(self.root) if hasattr(ctk, "CTkFrame") else ctk.Frame(self.root)
-        frame.pack(fill="both", expand=True, padx=10, pady=10)
+        frame.pack(fill="both", expand=True, padx=12, pady=12)
+
+        # Recommend a comfortable default window size
+        try:
+            self.root.geometry("980x680")
+        except Exception:
+            pass
 
         # Buttons row
         buttons_row = ctk.CTkFrame(frame) if hasattr(ctk, "CTkFrame") else ctk.Frame(frame)
@@ -90,15 +104,19 @@ class ColabelsGUI:
         split.pack(fill="both", expand=True)
 
         left = ctk.CTkFrame(split) if hasattr(ctk, "CTkFrame") else ctk.Frame(split)
-        left.pack(side="left", fill="both", expand=False, padx=(0, 8))
+        left.pack(side="left", fill="y", expand=False, padx=(0, 8))
 
         right = ctk.CTkFrame(split) if hasattr(ctk, "CTkFrame") else ctk.Frame(split)
         right.pack(side="left", fill="both", expand=True)
 
-        # Left: listbox of positions
-        self.pos_listbox = ctk.CTkTextbox(left, width=360, height=420) if hasattr(ctk, "CTkTextbox") else ctk.Text(left, width=48, height=26)
-        self.pos_listbox.pack(fill="both", expand=True)
-        self.pos_listbox.bind("<ButtonRelease-1>", lambda e: self._refresh_right_panel()) if hasattr(self.pos_listbox, "bind") else None
+        # Left: nicer scrollable list of positions (card-like). Fallback to Text when customtkinter not available.
+        if hasattr(ctk, "CTkScrollableFrame"):
+            self.pos_list_container = ctk.CTkScrollableFrame(left, width=340, height=540)
+            self.pos_list_container.pack(fill="y", expand=True)
+        else:
+            # Fallback - show the plain text widget
+            self.pos_list_container = ctk.Text(left, width=48, height=26)
+            self.pos_list_container.pack(fill="both", expand=True)
 
         # Right: scrollable frame for behavior checkboxes + tgt inputs
         self.right_canvas = ctk.CTkScrollableFrame(right, label_text="Behaviors in selected labels file") if hasattr(ctk, "CTkScrollableFrame") else ctk.Frame(right)
@@ -164,6 +182,9 @@ class ColabelsGUI:
             self.selection_state[key] = {
                 'columns': cols,
                 'selected': {c: False for c in cols},
+                # Whether the user wants to add a related target point for this behavior
+                'add_related': {c: False for c in cols},
+                # Target x/y values (None or tuple)
                 'tgt_xy': {c: None for c in cols},
             }
         self._refresh_left_list()
@@ -327,39 +348,75 @@ class ColabelsGUI:
 
     # --- Helpers ---
     def _refresh_left_list(self) -> None:
-        try:
-            self.pos_listbox.delete("1.0", "end")
-        except Exception:
-            self.pos_listbox.delete("1.0", ctk.END)  # type: ignore
+        # If using CTkScrollableFrame, create clickable cards for each position for a clearer UI
+        if hasattr(self, "pos_list_container") and hasattr(self.pos_list_container, "winfo_children") and hasattr(self.pos_list_container, "pack") and hasattr(ctk, "CTkScrollableFrame"):
+            # Clear children
+            for w in self.pos_list_container.winfo_children():
+                try:
+                    w.destroy()
+                except Exception:
+                    pass
 
-        for p in self.position_files:
-            labels = self.pos_to_labels.get(p, [])
-            if labels:
-                for idx, lp in enumerate(labels, start=1):
-                    self.pos_listbox.insert("end", f"{p}\n  labels[{idx}]: {lp}\n\n")
-            else:
-                self.pos_listbox.insert("end", f"{p}\n  labels: <none>\n\n")
+            for p in self.position_files:
+                card = ctk.CTkFrame(self.pos_list_container) if hasattr(ctk, "CTkFrame") else ctk.Frame(self.pos_list_container)
+                card.pack(fill="x", padx=8, pady=6)
+
+                # Title (path stem)
+                title = ctk.CTkLabel(card, text=Path(p).stem, anchor="w", font=(None, 12, "bold")) if hasattr(ctk, "CTkLabel") else ctk.Label(card, text=Path(p).stem, anchor="w")
+                title.pack(fill="x", padx=8, pady=(6, 2))
+
+                # Labels list preview and a select button
+                labels = self.pos_to_labels.get(p, [])
+                lbl_text = "; ".join([Path(lp).stem for lp in labels]) if labels else "<no labels>"
+                lbl = ctk.CTkLabel(card, text=lbl_text, anchor="w", fg_color=None, font=(None, 10)) if hasattr(ctk, "CTkLabel") else ctk.Label(card, text=lbl_text, anchor="w")
+                lbl.pack(fill="x", padx=8, pady=(0, 6))
+
+                btn = ctk.CTkButton(card, text="Select", width=72, command=lambda p=p: self._select_position(p)) if hasattr(ctk, "CTkButton") else ctk.Button(card, text="Select", command=lambda p=p: self._select_position(p))
+                btn.pack(anchor="e", padx=8, pady=(0, 6))
+
+            # ensure selection exists
+            if self.current_selected_pos is None and self.position_files:
+                self.current_selected_pos = self.position_files[0]
+
+        else:
+            # Fallback: plain Text widget similar to previous behavior
+            try:
+                self.pos_list_container.delete("1.0", "end")
+            except Exception:
+                try:
+                    self.pos_list_container.delete("1.0", ctk.END)  # type: ignore
+                except Exception:
+                    pass
+
+            for p in self.position_files:
+                labels = self.pos_to_labels.get(p, [])
+                if labels:
+                    for idx, lp in enumerate(labels, start=1):
+                        self.pos_list_container.insert("end", f"{p}\n  labels[{idx}]: {lp}\n\n")
+                else:
+                    self.pos_list_container.insert("end", f"{p}\n  labels: <none>\n\n")
 
     def _current_selected_position(self) -> Optional[Path]:
-        try:
-            index = self.pos_listbox.index("insert")
-            content = self.pos_listbox.get("1.0", "end")
-            lines = content.splitlines()
-            # naive mapping: find line at cursor and parse path
-            cursor_line = int(str(index).split(".")[0]) - 1
-            while cursor_line >= 0:
-                line = lines[cursor_line].strip()
-                if line and not line.startswith("labels:") and not line.startswith("labels") and not line.startswith("<") and not line.startswith("  "):
-                    p = Path(line)
-                    return p if p in self.position_files else None
-                cursor_line -= 1
-        except Exception:
-            pass
+        # Prefer explicit selection from the UI
+        if self.current_selected_pos is not None:
+            return self.current_selected_pos
+
         # fallback: first
         return self.position_files[0] if self.position_files else None
 
+    def _select_position(self, pos: Path) -> None:
+        """Set the current selection and refresh the right panel."""
+        try:
+            self.current_selected_pos = pos
+            self._set_status(f"Selected: {Path(pos).stem}")
+            self._refresh_right_panel()
+        except Exception:
+            pass
+
     def _refresh_right_panel(self) -> None:
         # Clear frame
+        # reset right_widgets map and clear UI
+        self.right_widgets = {}
         if hasattr(self.right_canvas, "winfo_children"):
             for w in self.right_canvas.winfo_children():
                 try:
@@ -385,51 +442,165 @@ class ColabelsGUI:
             title.pack(anchor="w", padx=6, pady=(8, 2))
 
             for col in state['columns']:
+                # Row container for this behavior
                 row = ctk.CTkFrame(self.right_canvas) if hasattr(ctk, "CTkFrame") else ctk.Frame(self.right_canvas)
                 row.pack(fill="x", padx=12, pady=4)
 
-                var = ctk.BooleanVar(value=state['selected'][col]) if hasattr(ctk, "BooleanVar") else None
+                # Main behavior checkbox
+                var_main = ctk.BooleanVar(value=state['selected'][col]) if hasattr(ctk, "BooleanVar") else None
 
-                def on_toggle(colname: str, v=var, st=state):
+                def on_main_toggle(colname: str, v=var_main, st=state, key=(pos, label, col)):
+                    # update state
                     st['selected'][colname] = bool(v.get()) if v is not None else True
+                    # if selected, show the 'add related point' checkbox; otherwise hide it and clear any tgt
+                    widgets = self.right_widgets.get(key)
+                    if not st['selected'][colname]:
+                        # unset add_related and remove widgets
+                        st['add_related'][colname] = False
+                        st['tgt_xy'][colname] = None
+                        if widgets:
+                            # destroy add checkbox and target entries if present
+                            w = widgets.get('add_chk')
+                            if w:
+                                try:
+                                    w.destroy()
+                                except Exception:
+                                    pass
+                            txw = widgets.get('tx')
+                            if txw:
+                                try:
+                                    txw.destroy()
+                                except Exception:
+                                    pass
+                            tyw = widgets.get('ty')
+                            if tyw:
+                                try:
+                                    tyw.destroy()
+                                except Exception:
+                                    pass
+                            # remove stored widget refs
+                            self.right_widgets.pop(key, None)
+                    else:
+                        # create add-related checkbox if not present
+                        if widgets is None:
+                            self.right_widgets[key] = {}
+                            widgets = self.right_widgets[key]
+                        if 'add_chk' not in widgets:
+                            add_var = ctk.BooleanVar(value=st['add_related'][col]) if hasattr(ctk, "BooleanVar") else None
 
-                chk = ctk.CTkCheckBox(row, text=col, command=lambda c=col, v=var, st=state: on_toggle(c, v, st), variable=var) if hasattr(ctk, "CTkCheckBox") else ctk.Checkbutton(row, text=col, command=lambda c=col: on_toggle(c))
+                            def on_add_toggle(colname_inner: str, av=add_var, st_inner=st, key_inner=(pos, label, col)):
+                                st_inner['add_related'][colname_inner] = bool(av.get()) if av is not None else True
+                                widgets_inner = self.right_widgets.get(key_inner)
+                                # if checked, create tx/ty entries; otherwise remove them
+                                if st_inner['add_related'][colname_inner]:
+                                    # create entries if not exist
+                                    if widgets_inner.get('tx') is None:
+                                        tx_lbl = ctk.CTkLabel(row, text="tgt_x") if hasattr(ctk, "CTkLabel") else ctk.Label(row, text="tgt_x")
+                                        tx = ctk.CTkEntry(row, width=80) if hasattr(ctk, "CTkEntry") else ctk.Entry(row, width=10)
+                                        tx_lbl.pack(side="left", padx=(12, 2))
+                                        tx.pack(side="left")
+
+                                        ty_lbl = ctk.CTkLabel(row, text="tgt_y") if hasattr(ctk, "CTkLabel") else ctk.Label(row, text="tgt_y")
+                                        ty = ctk.CTkEntry(row, width=80) if hasattr(ctk, "CTkEntry") else ctk.Entry(row, width=10)
+                                        ty_lbl.pack(side="left", padx=(8, 2))
+                                        ty.pack(side="left")
+
+                                        widgets_inner['tx_lbl'] = tx_lbl
+                                        widgets_inner['tx'] = tx
+                                        widgets_inner['ty_lbl'] = ty_lbl
+                                        widgets_inner['ty'] = ty
+
+                                        # initialize values from state if present
+                                        if st_inner['tgt_xy'].get(colname_inner) is not None:
+                                            try:
+                                                x_val, y_val = st_inner['tgt_xy'][colname_inner]
+                                                tx.insert(0, str(x_val))
+                                                ty.insert(0, str(y_val))
+                                            except Exception:
+                                                pass
+
+                                        # bind focusout to save values
+                                        def on_change(colname_final: str, st_final=st_inner, txw=tx, tyw=ty):
+                                            try:
+                                                x_str = txw.get().strip()
+                                                y_str = tyw.get().strip()
+                                                if x_str == "" and y_str == "":
+                                                    st_final['tgt_xy'][colname_final] = None
+                                                else:
+                                                    st_final['tgt_xy'][colname_final] = (float(x_str), float(y_str))
+                                            except Exception:
+                                                st_final['tgt_xy'][colname_final] = None
+
+                                        if hasattr(tx, "bind"):
+                                            tx.bind("<FocusOut>", lambda e, c=colname_inner, stf=st_inner: on_change(c, stf))
+                                            ty.bind("<FocusOut>", lambda e, c=colname_inner, stf=st_inner: on_change(c, stf))
+                                else:
+                                    # remove tx/ty if present
+                                    if widgets_inner:
+                                        for k in ('tx_lbl', 'tx', 'ty_lbl', 'ty'):
+                                            wobj = widgets_inner.get(k)
+                                            if wobj:
+                                                try:
+                                                    wobj.destroy()
+                                                except Exception:
+                                                    pass
+                                                widgets_inner.pop(k, None)
+
+                            # place the add-related checkbox to the right of the main checkbox
+                            # bind add_var to the widget so toggling updates the var and command uses it
+                            add_chk = ctk.CTkCheckBox(row, text="Add related point", variable=add_var, command=lambda c=col, av=add_var: on_add_toggle(c, av)) if hasattr(ctk, "CTkCheckBox") else ctk.Checkbutton(row, text="Add related point", variable=add_var, command=lambda c=col, av=add_var: on_add_toggle(c, av))
+                            # show it immediately when main checkbox is checked
+                            try:
+                                add_chk.pack(side="left", padx=(8, 0))
+                            except Exception:
+                                pass
+                            widgets['add_chk'] = add_chk
+                            widgets['add_var'] = add_var
+
+                # main checkbox widget
+                # Bind the checkbox variable so on_main_toggle can read its state
+                chk = ctk.CTkCheckBox(row, text=col, command=lambda c=col: on_main_toggle(c), variable=var_main) if hasattr(ctk, "CTkCheckBox") else ctk.Checkbutton(row, text=col, command=lambda c=col: on_main_toggle(c), variable=var_main)
                 chk.pack(side="left")
 
-                # tgt x/y entries
-                tx_label = ctk.CTkLabel(row, text="tgt_x") if hasattr(ctk, "CTkLabel") else ctk.Label(row, text="tgt_x")
-                tx_label.pack(side="left", padx=(12, 2))
-                tx = ctk.CTkEntry(row, width=80) if hasattr(ctk, "CTkEntry") else ctk.Entry(row, width=10)
-                tx.pack(side="left")
-
-                ty_label = ctk.CTkLabel(row, text="tgt_y") if hasattr(ctk, "CTkLabel") else ctk.Label(row, text="tgt_y")
-                ty_label.pack(side="left", padx=(8, 2))
-                ty = ctk.CTkEntry(row, width=80) if hasattr(ctk, "CTkEntry") else ctk.Entry(row, width=10)
-                ty.pack(side="left")
-
-                # Initialize from existing state
-                if state['tgt_xy'].get(col) is not None:
-                    x_val, y_val = state['tgt_xy'][col]
+                # If the behavior is already selected (state restored), trigger showing add checkbox/entries
+                if state['selected'].get(col):
+                    # create widget refs container
+                    key = (pos, label, col)
+                    if key not in self.right_widgets:
+                        self.right_widgets[key] = {}
+                    # create the add-related checkbox via the same handler used when clicking the main checkbox
+                    # this ensures the checkbox has the proper BooleanVar and command bindings
+                    key = (pos, label, col)
+                    self.right_widgets.setdefault(key, {})
                     try:
-                        tx.insert(0, str(x_val))
-                        ty.insert(0, str(y_val))
+                        if var_main is not None:
+                            var_main.set(True)
                     except Exception:
                         pass
-
-                def on_change(colname: str, st=state, tx_widget=tx, ty_widget=ty):
                     try:
-                        x_str = tx_widget.get().strip()
-                        y_str = ty_widget.get().strip()
-                        if x_str == "" and y_str == "":
-                            st['tgt_xy'][colname] = None
-                        else:
-                            st['tgt_xy'][colname] = (float(x_str), float(y_str))
+                        on_main_toggle(col)
                     except Exception:
-                        st['tgt_xy'][colname] = None
-
-                if hasattr(tx, "bind"):
-                    tx.bind("<FocusOut>", lambda e, c=col, st=state: on_change(c, st))
-                    ty.bind("<FocusOut>", lambda e, c=col, st=state: on_change(c, st))
+                        pass
+                    # if add_related was previously enabled, recreate tx/ty entries
+                    if state['add_related'].get(col):
+                        widgets_after = self.right_widgets.get(key, {})
+                        if widgets_after.get('tx') is None:
+                            tx_lbl = ctk.CTkLabel(row, text="tgt_x") if hasattr(ctk, "CTkLabel") else ctk.Label(row, text="tgt_x")
+                            tx = ctk.CTkEntry(row, width=80) if hasattr(ctk, "CTkEntry") else ctk.Entry(row, width=10)
+                            tx_lbl.pack(side="left", padx=(12, 2))
+                            tx.pack(side="left")
+                            ty_lbl = ctk.CTkLabel(row, text="tgt_y") if hasattr(ctk, "CTkLabel") else ctk.Label(row, text="tgt_y")
+                            ty = ctk.CTkEntry(row, width=80) if hasattr(ctk, "CTkEntry") else ctk.Entry(row, width=10)
+                            ty_lbl.pack(side="left", padx=(8, 2))
+                            ty.pack(side="left")
+                            self.right_widgets[key].update({'tx_lbl': tx_lbl, 'tx': tx, 'ty_lbl': ty_lbl, 'ty': ty})
+                            if state['tgt_xy'].get(col) is not None:
+                                try:
+                                    x_val, y_val = state['tgt_xy'][col]
+                                    tx.insert(0, str(x_val))
+                                    ty.insert(0, str(y_val))
+                                except Exception:
+                                    pass
 
 
 def open_colabels_gui() -> None:

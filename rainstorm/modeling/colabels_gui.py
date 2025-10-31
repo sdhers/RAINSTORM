@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import pandas as pd
+# No new imports needed, will use 0.0 for empty targets
 
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
@@ -257,8 +258,7 @@ class ColabelsGUI:
                 position_cols = [c for c in pos_df.columns if (c.endswith("_x") or c.endswith("_y")) and ("tail" not in c)]
                 pos_df = pos_df[position_cols]
                 
-                # --- FIX 2: Reset index on pos_df *once* outside the loop ---
-                # This ensures the base DataFrame has a clean 0..N index
+                # Reset index on pos_df *once* outside the loop
                 pos_df_reset = pos_df.reset_index(drop=True)
 
 
@@ -278,7 +278,9 @@ class ColabelsGUI:
                         messagebox.showerror("Read error", f"Failed to read labels CSV: {e}")
                         continue
 
-                    labeler_name = Path(label).parent.name or Path(label).stem
+                    # --- FIX 2: Use the label CSV file stem as the labeler_name ---
+                    # This makes it unique per file, e.g., "labels_A" and "labels_B"
+                    labeler_name = Path(label).stem
 
                     for beh, selected in state['selected'].items():
                         if not selected or beh not in labels_df.columns:
@@ -289,20 +291,26 @@ class ColabelsGUI:
 
                 base_key = Path(pos).stem.replace("_position", "")
                 for beh, labeler_series_list in behavior_to_labels.items():
-                    # --- FIX 2: Use the reset DataFrame ---
+                    # Use the reset DataFrame
                     section_parts: List[pd.DataFrame] = [pos_df_reset]
 
+                    # --- FIX 1: Always create tgt_x and tgt_y columns ---
+                    # Get the target for this specific behavior
                     tgt_xy = behavior_to_tgt.get(beh)
-                    if tgt_xy is not None:
-                        bx, by = float(tgt_xy[0]), float(tgt_xy[1])
-                        # --- FIX 2: Use length of the reset DataFrame ---
-                        tgt_df = pd.DataFrame({f"{beh}_x": [bx] * len(pos_df_reset), f"{beh}_y": [by] * len(pos_df_reset)})
-                        section_parts.append(tgt_df)
+                    
+                    # Set coordinates if available, otherwise use 0.0
+                    bx, by = (float(tgt_xy[0]), float(tgt_xy[1])) if tgt_xy is not None else (0.0, 0.0)
+                    
+                    # Create the target DataFrame with standardized column names
+                    tgt_df = pd.DataFrame({
+                        "tgt_x": [bx] * len(pos_df_reset), 
+                        "tgt_y": [by] * len(pos_df_reset)
+                    })
+                    section_parts.append(tgt_df)
+                    # --- End of FIX 1 ---
 
                     for labeler_name, series in labeler_series_list:
-                        # --- FIX 2: Explicitly reset index on new DFs ---
-                        # This guarantees all parts have a clean 0..N index
-                        # before concatenation, fixing the reindexing error.
+                        # Explicitly reset index on new DFs
                         label_part_df = pd.DataFrame({labeler_name: series.astype(float).values})
                         section_parts.append(label_part_df.reset_index(drop=True))
 
@@ -406,9 +414,6 @@ class ColabelsGUI:
                 # Main behavior checkbox
                 var_main = ctk.BooleanVar(value=state['selected'][col]) if hasattr(ctk, "BooleanVar") else None
 
-                # --- FIX 1: Pass `current_row` to the callback ---
-                # This ensures the function knows *which* row to add widgets to,
-                # instead of adding them all to the *last* row in the loop.
                 def on_main_toggle(colname: str, v=None, st=None, key=None, current_row=None):
                     if current_row is None or v is None or st is None or key is None:
                         return # Should not happen, but good to guard
@@ -451,7 +456,6 @@ class ColabelsGUI:
                         if 'add_chk' not in widgets:
                             add_var = ctk.BooleanVar(value=st['add_related'][colname]) if hasattr(ctk, "BooleanVar") else None
 
-                            # --- FIX 1: This inner function now captures `current_row` ---
                             def on_add_toggle(colname_inner: str, av=None, st_inner=None, key_inner=None):
                                 if av is None or st_inner is None or key_inner is None:
                                     return
@@ -461,13 +465,11 @@ class ColabelsGUI:
                                 if st_inner['add_related'][colname_inner]:
                                     # create entries if not exist
                                     if widgets_inner.get('tx') is None:
-                                        # --- FIX 1: Use `current_row` ---
                                         tx_lbl = ctk.CTkLabel(current_row, text="tgt_x") if hasattr(ctk, "CTkLabel") else ctk.Label(current_row, text="tgt_x")
                                         tx = ctk.CTkEntry(current_row, width=80) if hasattr(ctk, "CTkEntry") else ctk.Entry(current_row, width=10)
                                         tx_lbl.pack(side="left", padx=(12, 2))
                                         tx.pack(side="left")
 
-                                        # --- FIX 1: Use `current_row` ---
                                         ty_lbl = ctk.CTkLabel(current_row, text="tgt_y") if hasattr(ctk, "CTkLabel") else ctk.Label(current_row, text="tgt_y")
                                         ty = ctk.CTkEntry(current_row, width=80) if hasattr(ctk, "CTkEntry") else ctk.Entry(current_row, width=10)
                                         ty_lbl.pack(side="left", padx=(8, 2))
@@ -516,9 +518,6 @@ class ColabelsGUI:
 
                             # place the add-related checkbox to the right of the main checkbox
                             # bind add_var to the widget so toggling updates the var and command uses it
-                            # --- FIX 1: Use `current_row` ---
-                            # --- FIX (Follow-up): Bind *all* variables (c, av, s_inner, k_inner) to the lambda
-                            # to ensure early binding and fix the closure bug.
                             add_chk = ctk.CTkCheckBox(current_row, text="Add related point", variable=add_var, 
                                                       command=lambda c=colname, av=add_var, s_inner=st, k_inner=key: on_add_toggle(c, av=av, st_inner=s_inner, key_inner=k_inner)) if hasattr(ctk, "CTkCheckBox") else ctk.Checkbutton(current_row, text="Add related point", variable=add_var, command=lambda c=colname, av=add_var, s_inner=st, k_inner=key: on_add_toggle(c, av=av, st_inner=s_inner, key_inner=k_inner))
                             # show it immediately when main checkbox is checked
@@ -531,9 +530,6 @@ class ColabelsGUI:
 
                 # main checkbox widget
                 # Bind the checkbox variable so on_main_toggle can read its state
-                # --- FIX 1: Pass the correct `row` to the lambda ---
-                # --- FIX (Follow-up): Pass *all* loop variables (c, r, vm, s, k) into the lambda
-                # to ensure early binding and fix the closure bug.
                 chk = ctk.CTkCheckBox(row, text=col, 
                                       command=lambda c=col, r=row, vm=var_main, s=state, k=(pos, label, col): on_main_toggle(c, v=vm, st=s, key=k, current_row=r), 
                                       variable=var_main) if hasattr(ctk, "CTkCheckBox") else ctk.Checkbutton(row, text=col, command=lambda c=col, r=row, vm=var_main, s=state, k=(pos, label, col): on_main_toggle(c, v=vm, st=s, key=k, current_row=r), variable=var_main)
@@ -555,8 +551,7 @@ class ColabelsGUI:
                     except Exception:
                         pass
                     try:
-                        # --- FIX 1: Pass the correct `row` on state restore ---
-                        # --- FIX (Follow-up): Pass *all* correct variables on restore
+                        # Pass *all* correct variables on restore
                         on_main_toggle(col, v=var_main, st=state, key=(pos, label, col), current_row=row)
                     except Exception:
                         pass
@@ -564,12 +559,10 @@ class ColabelsGUI:
                     if state['add_related'].get(col):
                         widgets_after = self.right_widgets.get(key, {})
                         if widgets_after.get('tx') is None:
-                            # --- FIX 1: Use the correct `row` here ---
                             tx_lbl = ctk.CTkLabel(row, text="tgt_x") if hasattr(ctk, "CTkLabel") else ctk.Label(row, text="tgt_x")
                             tx = ctk.CTkEntry(row, width=80) if hasattr(ctk, "CTkEntry") else ctk.Entry(row, width=10)
                             tx_lbl.pack(side="left", padx=(12, 2))
                             tx.pack(side="left")
-                            # --- FIX 1: Use the correct `row` here ---
                             ty_lbl = ctk.CTkLabel(row, text="tgt_y") if hasattr(ctk, "CTkLabel") else ctk.Label(row, text="tgt_y")
                             ty = ctk.CTkEntry(row, width=80) if hasattr(ctk, "CTkEntry") else ctk.Entry(row, width=10)
                             ty_lbl.pack(side="left", padx=(8, 2))

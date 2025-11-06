@@ -5,7 +5,7 @@ This GUI application facilitates the process of aggregating and formatting
 behavioral labels from multiple sources against a single position file.
 
 It allows users to:
-- Select one or more position (x, y) CSV files.
+- Select one or more position CSV files.
 - For each position file, associate one or more label CSV files.
 - Provide custom ID prefixes (for position files) and custom names (for label files)
   to organize the output.
@@ -93,7 +93,7 @@ class ColabelsGUI:
 
         self.root = ctk.CTk() if hasattr(ctk, "CTk") else ctk.Tk()
         self.root.title("RAINSTORM - Create Colabels")
-        self.root.geometry("1200x5T00")
+        self.root.geometry("1200x400")
         self.root.minsize(1100, 360)
 
         # --- Application State ---
@@ -112,8 +112,8 @@ class ColabelsGUI:
         # Path to the currently selected position file
         self.current_selected_pos: Optional[Path] = None
 
-        # {behavior_name: {widget_name: widget_object, ...}}
-        self.target_widgets: Dict[str, dict] = {}
+        # {pos_path: {behavior_name: {widget_name: widget_object, ...}}}
+        self.target_widgets: Dict[Path, Dict[str, dict]] = {}
 
         # --- Build UI ---
         self._build_layout()
@@ -216,7 +216,7 @@ class ColabelsGUI:
             if p not in self.position_data:
                 # Initialize state for this new position file
                 self.position_data[p] = {
-                    'custom_id_prefix': p.stem.replace("_position", "")
+                    'custom_id_prefix': p.stem.replace("_positions", "")
                 }
                 self.pos_to_labels[p] = []
                 added += 1
@@ -316,8 +316,8 @@ class ColabelsGUI:
                     messagebox.showerror("Read Error", f"Failed to read {pos.name}:\n{e}")
                     continue
 
-                # Filter to only include x/y columns (and exclude 'tail')
-                position_cols = [c for c in pos_df.columns if (c.endswith("_x") or c.endswith("_y")) and ("tail" not in c)]
+                # Filter to only include x/y columns
+                position_cols = [c for c in pos_df.columns if (c.endswith("_x") or c.endswith("_y"))]
                 pos_df = pos_df[position_cols]
                 pos_df_reset = pos_df.reset_index(drop=True)
 
@@ -352,7 +352,7 @@ class ColabelsGUI:
                         behavior_to_labels.setdefault(beh, []).append((labeler_name, labels_df[beh]))
 
                 # --- 3. Build DataFrames for Each Behavior ---
-                base_key = pos_data.get('custom_id_prefix', pos.stem.replace("_position", ""))
+                base_key = pos_data.get('custom_id_prefix', pos.stem.replace("_positions", ""))
                 
                 for beh, labeler_series_list in behavior_to_labels.items():
                     # Start with the base position data
@@ -400,109 +400,194 @@ class ColabelsGUI:
     def _serialize_state(self) -> dict:
         """Converts the entire application state to a JSON-serializable dictionary.
         
-        - Converts Path objects to strings.
-        - Converts tuple keys (e.g., (Path, Path)) to delimited strings.
+        - Harvests any current target x/y entry values from the UI (if present) to avoid losing unsaved edits.
+        - Produces a simplified schema grouped by position file with embedded labels and behavior targets.
         
         Returns:
             dict: A dictionary representing the application state.
         """
-        
-        # Convert Path keys to strings
-        serializable_pos_data = {str(k): v for k, v in self.position_data.items()}
-        
-        # Convert Path keys and List[Path] values to strings
-        serializable_pos_to_labels = {
-            str(k): [str(p) for p in v] 
-            for k, v in self.pos_to_labels.items()
-        }
-        
-        # Convert tuple[Path, Path] keys to combined strings
-        serializable_selection_state = {
-            f"{str(k[0])}{self.SESSION_KEY_SEPARATOR}{str(k[1])}": v 
-            for k, v in self.selection_state.items()
-        }
-        
-        # Convert tuple[Path, str] keys to combined strings
-        serializable_behavior_state = {
-            f"{str(k[0])}{self.SESSION_KEY_SEPARATOR}{k[1]}": v 
-            for k, v in self.behavior_target_state.items()
-        }
-        
-        # Convert current_selected_pos (Path) to string
-        serializable_current_pos = str(self.current_selected_pos) if self.current_selected_pos else None
+        # 1) Harvest current target x/y values from visible widgets (unsaved edits)
+        try:
+            pos = self._current_selected_position()
+            if pos is not None:
+                for beh, widgets in self.target_widgets.get(pos, {}).items():
+                    b_key = (pos, beh)
+                    b_state = self.behavior_target_state.get(b_key)
+                    if not b_state:
+                        continue
+                    if b_state.get('add_related') and widgets.get('tx') and widgets.get('ty'):
+                        try:
+                            x_str = widgets['tx'].get().strip()
+                            y_str = widgets['ty'].get().strip()
+                            if x_str == "" and y_str == "":
+                                b_state['tgt_xy'] = None
+                            else:
+                                b_state['tgt_xy'] = (float(x_str), float(y_str))
+                        except Exception:
+                            # Keep previous value if parsing fails
+                            pass
+        except Exception:
+            # Non-fatal if harvesting fails
+            pass
+
+        # 2) Build simplified schema
+        positions = []
+        for pos_path, pdata in self.position_data.items():
+            pos_entry = {
+                'path': str(pos_path),
+                'id_prefix': pdata.get('custom_id_prefix', pos_path.stem.replace("_positions", "")),
+                'labels': [],
+                'behavior_targets': []
+            }
+
+            # Labels with selected behaviors and custom names
+            for label_path in self.pos_to_labels.get(pos_path, []):
+                sel_state = self.selection_state.get((pos_path, label_path), {})
+                selected_behaviors = [b for b, is_on in sel_state.get('selected', {}).items() if is_on]
+                pos_entry['labels'].append({
+                    'path': str(label_path),
+                    'custom_name': sel_state.get('custom_name', label_path.stem),
+                    'selected_behaviors': sorted(selected_behaviors)
+                })
+
+            # Behavior targets for this position
+            for (p_key, beh_name), b_state in self.behavior_target_state.items():
+                if p_key != pos_path:
+                    continue
+                entry = {
+                    'name': beh_name,
+                    'add_related': bool(b_state.get('add_related', False))
+                }
+                tgt = b_state.get('tgt_xy')
+                if tgt is not None and len(tgt) == 2:
+                    try:
+                        entry['tgt_x'] = float(tgt[0])
+                        entry['tgt_y'] = float(tgt[1])
+                    except Exception:
+                        pass
+                pos_entry['behavior_targets'].append(entry)
+
+            positions.append(pos_entry)
 
         return {
-            'position_data': serializable_pos_data,
-            'pos_to_labels': serializable_pos_to_labels,
-            'selection_state': serializable_selection_state,
-            'behavior_target_state': serializable_behavior_state,
-            'current_selected_pos': serializable_current_pos
+            'positions': positions,
+            'current_selected_pos': str(self.current_selected_pos) if self.current_selected_pos else None
         }
 
     def _deserialize_state(self, loaded_state: dict) -> None:
         """Populates the application state from a loaded dictionary.
-        
-        - Resets all current state.
-        - Converts string paths back to Path objects.
-        - Converts delimited string keys back to tuples.
-        
-        Args:
-            loaded_state (dict): The dictionary loaded from a session JSON file.
         """
-        
         # --- Reset all state variables ---
         self.position_data = {}
         self.pos_to_labels = {}
         self.selection_state = {}
         self.behavior_target_state = {}
         self.current_selected_pos = None
-        
-        # --- Load State ---
-        
-        # Restore position_data (str -> Path)
-        self.position_data = {
-            Path(k): v for k, v in loaded_state.get('position_data', {}).items()
-        }
-        
-        # Restore pos_to_labels (str -> Path, List[str] -> List[Path])
-        self.pos_to_labels = {
-            Path(k): [Path(p) for p in v] 
-            for k, v in loaded_state.get('pos_to_labels', {}).items()
-        }
 
-        # Restore selection_state (str -> tuple[Path, Path])
-        loaded_selection = loaded_state.get('selection_state', {})
-        for k_str, v in loaded_selection.items():
-            parts = k_str.split(self.SESSION_KEY_SEPARATOR)
-            if len(parts) == 2:
-                try:
-                    key = (Path(parts[0]), Path(parts[1]))
-                    self.selection_state[key] = v
-                except Exception as e:
-                    logger.warning(f"Failed to deserialize selection_state key '{k_str}': {e}")
-            else:
-                logger.warning(f"Skipping malformed selection_state key: {k_str}")
+        try:
+            if 'positions' in loaded_state:  # New schema
+                positions = loaded_state.get('positions', [])
+                for pos_entry in positions:
+                    p = Path(pos_entry.get('path', ''))
+                    if not str(p):
+                        continue
+                    id_prefix = pos_entry.get('id_prefix', p.stem.replace("_positions", ""))
+                    self.position_data[p] = {'custom_id_prefix': id_prefix}
+                    self.pos_to_labels[p] = []
 
-        # Restore behavior_target_state (str -> tuple[Path, str])
-        loaded_behavior_targets = loaded_state.get('behavior_target_state', {})
-        for k_str, v in loaded_behavior_targets.items():
-            parts = k_str.split(self.SESSION_KEY_SEPARATOR)
-            if len(parts) == 2:
-                try:
-                    key = (Path(parts[0]), parts[1])
-                    self.behavior_target_state[key] = v
-                except Exception as e:
-                    logger.warning(f"Failed to deserialize behavior_target_state key '{k_str}': {e}")
-            else:
-                 logger.warning(f"Skipping malformed behavior_target_state key: {k_str}")
+                    # Load labels
+                    for lab in pos_entry.get('labels', []):
+                        lp = Path(lab.get('path', ''))
+                        if not str(lp):
+                            continue
+                        self.pos_to_labels[p].append(lp)
+                        selected_list = set(lab.get('selected_behaviors', []))
+                        self.selection_state[(p, lp)] = {
+                            'columns': [],  # will be discovered on refresh/read
+                            'selected': {b: True for b in selected_list},
+                            'custom_name': lab.get('custom_name', lp.stem)
+                        }
 
-        # Restore current_selected_pos (str -> Path)
-        selected_pos_str = loaded_state.get('current_selected_pos')
-        if selected_pos_str:
-            selected_path = Path(selected_pos_str)
-            # Ensure the selected path is actually in our loaded position data
-            if selected_path in self.position_data:
-                self.current_selected_pos = selected_path
+                    # Load behavior targets
+                    for bt in pos_entry.get('behavior_targets', []):
+                        name = bt.get('name')
+                        if not name:
+                            continue
+                        add_rel = bool(bt.get('add_related', False))
+                        tgt_x = bt.get('tgt_x')
+                        tgt_y = bt.get('tgt_y')
+                        tgt_xy = None
+                        try:
+                            if tgt_x is not None and tgt_y is not None:
+                                tgt_xy = (float(tgt_x), float(tgt_y))
+                        except Exception:
+                            tgt_xy = None
+                        self.behavior_target_state[(p, name)] = {
+                            'add_related': add_rel,
+                            'tgt_xy': tgt_xy
+                        }
+
+                # Selected position
+                sel = loaded_state.get('current_selected_pos')
+                if sel:
+                    sp = Path(sel)
+                    if sp in self.position_data:
+                        self.current_selected_pos = sp
+                return
+
+            # --- Legacy schema fallback ---
+            # Restore position_data (str -> Path)
+            self.position_data = {
+                Path(k): v for k, v in loaded_state.get('position_data', {}).items()
+            }
+
+            # Restore pos_to_labels (str -> Path, List[str] -> List[Path])
+            self.pos_to_labels = {
+                Path(k): [Path(p) for p in v]
+                for k, v in loaded_state.get('pos_to_labels', {}).items()
+            }
+
+            # Restore selection_state (str -> tuple[Path, Path])
+            loaded_selection = loaded_state.get('selection_state', {})
+            for k_str, v in loaded_selection.items():
+                parts = k_str.split(self.SESSION_KEY_SEPARATOR)
+                if len(parts) == 2:
+                    try:
+                        key = (Path(parts[0]), Path(parts[1]))
+                        self.selection_state[key] = v
+                    except Exception as e:
+                        logger.warning(f"Failed to deserialize selection_state key '{k_str}': {e}")
+                else:
+                    logger.warning(f"Skipping malformed selection_state key: {k_str}")
+
+            # Restore behavior_target_state (str -> tuple[Path, str])
+            loaded_behavior_targets = loaded_state.get('behavior_target_state', {})
+            for k_str, v in loaded_behavior_targets.items():
+                parts = k_str.split(self.SESSION_KEY_SEPARATOR)
+                if len(parts) == 2:
+                    try:
+                        key = (Path(parts[0]), parts[1])
+                        # Normalize potential list -> tuple for tgt_xy
+                        tgt = v.get('tgt_xy')
+                        if isinstance(tgt, list) and len(tgt) == 2:
+                            try:
+                                v['tgt_xy'] = (float(tgt[0]), float(tgt[1]))
+                            except Exception:
+                                v['tgt_xy'] = None
+                        self.behavior_target_state[key] = v
+                    except Exception as e:
+                        logger.warning(f"Failed to deserialize behavior_target_state key '{k_str}': {e}")
+                else:
+                    logger.warning(f"Skipping malformed behavior_target_state key: {k_str}")
+
+            # Restore current_selected_pos (str -> Path)
+            selected_pos_str = loaded_state.get('current_selected_pos')
+            if selected_pos_str:
+                selected_path = Path(selected_pos_str)
+                if selected_path in self.position_data:
+                    self.current_selected_pos = selected_path
+        except Exception as e:
+            logger.exception(f"Failed to deserialize session: {e}")
 
     def _save_session(self) -> None:
         """Saves the current application state to a user-specified JSON file."""
@@ -640,7 +725,7 @@ class ColabelsGUI:
         
         # Revert to default if prefix is empty
         if not new_prefix: 
-            new_prefix = pos.stem.replace("_position", "")
+            new_prefix = pos.stem.replace("_positions", "")
             var.set(new_prefix) 
         
         if key in self.position_data:
@@ -660,7 +745,13 @@ class ColabelsGUI:
         """
         if self.current_selected_pos == pos:
             return # Already selected
-            
+
+        # Harvest any in-progress target entries from the currently visible panel
+        try:
+            self._harvest_visible_target_entries()
+        except Exception:
+            pass
+
         self.current_selected_pos = pos
         self._set_status(f"Selected: {Path(pos).stem}")
         self._refresh_all_panels()
@@ -883,12 +974,21 @@ class ColabelsGUI:
     def _refresh_target_panel(self) -> None:
         """Redraws the target input panel (Column 3) from state."""
         
+        # First harvest any in-progress edits before destroying widgets
+        try:
+            self._harvest_visible_target_entries()
+        except Exception:
+            pass
+
         # Clear all existing widgets
-        self.target_widgets = {} # Reset widget registry
+        pos = self._current_selected_position()
+        # Destroy GUI widgets
         for w in self.target_canvas.winfo_children():
             w.destroy()
+        # Reset widget registry for this position only
+        if pos is not None:
+            self.target_widgets[pos] = {}
 
-        pos = self._current_selected_position()
         if pos is None:
             return
         
@@ -923,7 +1023,7 @@ class ColabelsGUI:
             
             add_var = ctk.BooleanVar(value=b_state['add_related'])
 
-            def on_add_toggle(av=add_var, bs=b_state, b_name=beh, r=row):
+            def on_add_toggle(av=add_var, bs=b_state, b_name=beh, r=row, p=pos):
                 """
                 Nested function to dynamically add/remove the x/y entry
                 widgets when the 'add target' checkbox is toggled.
@@ -931,7 +1031,9 @@ class ColabelsGUI:
                 if av is None or bs is None or b_name is None or r is None:
                     return
                 bs['add_related'] = bool(av.get())
-                widgets = self.target_widgets.get(b_name, {})
+                # Get or create widgets container for this position and behavior
+                pos_widgets = self.target_widgets.setdefault(p, {})
+                widgets = pos_widgets.get(b_name, {})
 
                 if bs['add_related']:
                     # --- Create target x/y entry widgets ---
@@ -951,6 +1053,7 @@ class ColabelsGUI:
                         widgets['tx'] = tx
                         widgets['ty_lbl'] = ty_lbl
                         widgets['ty'] = ty
+                        pos_widgets[b_name] = widgets
 
                         # Populate with existing state data
                         if bs['tgt_xy'] is not None:
@@ -975,8 +1078,8 @@ class ColabelsGUI:
                                 st_final['tgt_xy'] = None # Invalid input
 
                         # Bind events to update state
-                        tx.bind("<FocusOut>", lambda e, s=bs, t=tx, y=t: on_xy_change(s, t, y))
-                        ty.bind("<FocusOut>", lambda e, s=bs, t=tx, y=t: on_xy_change(s, t, y))
+                        tx.bind("<FocusOut>", lambda e, s=bs, t=tx, y=ty: on_xy_change(s, t, y))
+                        ty.bind("<FocusOut>", lambda e, s=bs, t=tx, y=ty: on_xy_change(s, t, y))
                 else:
                     # --- Destroy target x/y widgets ---
                     for k in ('tx_lbl', 'tx', 'ty_lbl', 'ty'):
@@ -989,12 +1092,45 @@ class ColabelsGUI:
             # Checkbox to trigger the dynamic widgets
             add_chk = ctk.CTkCheckBox(row, text=beh, variable=add_var, command=on_add_toggle)
             add_chk.pack(side="left", padx=(6,0))
-            self.target_widgets[beh] = {} # Initialize registry for this behavior
+            # Ensure a registry dict exists for this behavior at this position
+            self.target_widgets.setdefault(pos, {})[beh] = self.target_widgets.get(pos, {}).get(beh, {})
 
             # If state is already 'add_related', trigger toggle manually
             # to draw the widgets on initial refresh.
             if b_state['add_related']:
                 on_add_toggle()
+
+    def _harvest_visible_target_entries(self) -> None:
+        """Reads tgt_x/tgt_y from currently visible widgets into behavior_target_state.
+
+        This ensures values are not lost when navigating between positions or refreshing the panel
+        without the user defocusing the inputs.
+        """
+        try:
+            pos = self.current_selected_pos
+            if pos is None:
+                return
+            for beh, widgets in (self.target_widgets.get(pos, {}) or {}).items():
+                if not isinstance(widgets, dict):
+                    continue
+                b_key = (pos, beh)
+                b_state = self.behavior_target_state.get(b_key)
+                if not b_state:
+                    continue
+                if b_state.get('add_related') and widgets.get('tx') and widgets.get('ty'):
+                    try:
+                        x_str = widgets['tx'].get().strip()
+                        y_str = widgets['ty'].get().strip()
+                        if x_str == "" and y_str == "":
+                            # keep None if both empty
+                            b_state['tgt_xy'] = None
+                        else:
+                            b_state['tgt_xy'] = (float(x_str), float(y_str))
+                    except Exception:
+                        # don't overwrite with invalid values
+                        pass
+        except Exception:
+            pass
 
 # --- Launcher ---
 

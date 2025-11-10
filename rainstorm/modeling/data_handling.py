@@ -9,7 +9,7 @@ import logging
 import h5py
 import datetime
 
-from .aux_functions import recenter_df, reshape_df, reorient_df, normalize_df
+from .aux_functions import recenter_df, reshape_df, reorient_df
 from ..utils import configure_logging, load_yaml
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ def prepare_data(params_path: Path) -> pd.DataFrame:
         params_path (Path): Path to params.yaml.
 
     Returns:
-        pd.DataFrame: DataFrame containing smoothed position columns and normalized labels.
+        pd.DataFrame: DataFrame containing smoothed position columns and labels.
     """
     # Load modeling config
     params = load_yaml(params_path)
@@ -109,7 +109,7 @@ def prepare_data(params_path: Path) -> pd.DataFrame:
     combined = pd.concat(labeler_data, axis=1)
     averaged = pd.DataFrame(combined.mean(axis=1), columns=["labels"])
 
-    # Smooth and normalize labels
+    # Smooth labels
     averaged = smooth_columns(averaged, ["labels"])
     averaged["labels"] = apply_sigmoid_transformation(averaged["labels"])
 
@@ -180,7 +180,7 @@ def focus(params_path: Path, df: pd.DataFrame, filter_by: str = 'labels') -> pd.
 
 # %% Data Splitting Functions
 
-def split_tr_ts_val(params_path: Path, df: pd.DataFrame, normalize: bool = False) -> Dict[str, np.ndarray]:
+def split_tr_ts_val(params_path: Path, df: pd.DataFrame) -> Dict[str, np.ndarray]:
     """
     Splits the data into training, validation, and test sets.
 
@@ -255,9 +255,6 @@ def split_tr_ts_val(params_path: Path, df: pd.DataFrame, normalize: bool = False
                 positions_df = pd.concat(expanded, ignore_index=True)
             else:
                 positions_df = recenter_df(positions_df, recentering_point, bodyparts)
-            
-            if normalize:
-                positions_df = normalize_df(positions_df, bodyparts)
         
         if reorient:
             south_uses_targets = str(south).upper() == 'USE_TARGETS'

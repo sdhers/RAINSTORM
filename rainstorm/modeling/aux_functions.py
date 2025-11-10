@@ -142,35 +142,6 @@ def reorient_df(df: pd.DataFrame, south: str, north: str, bodyparts: list) -> pd
             
     return df_copy
 
-def normalize_df(df: pd.DataFrame, bodyparts: list) -> pd.DataFrame:
-    """Normalizes bodypart coordinate data."""
-    df_norm = df.copy()
-    
-    logger.info(f"📏 Normalizing {len(bodyparts)} bodyparts")
-
-    all_coords = []
-    for bp in bodyparts:
-        if f"{bp}_x" in df.columns and f"{bp}_y" in df.columns:
-            x = df[f"{bp}_x"]
-            y = df[f"{bp}_y"]
-            all_coords.extend([x, y])
-    
-    if all_coords:
-        # Calculate mean and std across all centered coordinates
-        all_coords_concat = pd.concat(all_coords)
-        mean_val = all_coords_concat.mean()
-        std_val = all_coords_concat.std()
-        
-        # Apply z-score normalization
-        for bp in bodyparts:
-            if f"{bp}_x" in df.columns and f"{bp}_y" in df.columns:
-                df_norm[f"{bp}_x"] = (df[f"{bp}_x"] - mean_val) / std_val
-                df_norm[f"{bp}_y"] = (df[f"{bp}_y"] - mean_val) / std_val
-            else:
-                logger.warning(f"Bodypart '{bp}' not found in DataFrame. Skipping.")
-    
-    return df_norm
-
 def reshape_df(df: pd.DataFrame, past: int = 3, future: int = 3, broad: float = 1.7) -> np.ndarray:
     """Reshapes a DataFrame into a 3D NumPy array.
 

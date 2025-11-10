@@ -33,7 +33,6 @@ __all__ = [
     'create_colabels',
     'prepare_data',
     'focus',
-    'normalize_bodypart_data',
     'split_tr_ts_val',
     'save_split',
     'load_split',

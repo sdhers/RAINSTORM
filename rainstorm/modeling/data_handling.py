@@ -9,7 +9,7 @@ import logging
 import h5py
 import datetime
 
-from .aux_functions import recenter_df, reshape_df, reorient_df
+from .aux_functions import recenter_df, reshape_df, reorient_df, normalize_df
 from ..utils import configure_logging, load_yaml
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -177,9 +177,10 @@ def focus(params_path: Path, df: pd.DataFrame, filter_by: str = 'labels') -> pd.
 
     return df_filtered
 
+
 # %% Data Splitting Functions
 
-def split_tr_ts_val(params_path: Path, df: pd.DataFrame) -> Dict[str, np.ndarray]:
+def split_tr_ts_val(params_path: Path, df: pd.DataFrame, normalize: bool = False) -> Dict[str, np.ndarray]:
     """
     Splits the data into training, validation, and test sets.
 
@@ -254,6 +255,9 @@ def split_tr_ts_val(params_path: Path, df: pd.DataFrame) -> Dict[str, np.ndarray
                 positions_df = pd.concat(expanded, ignore_index=True)
             else:
                 positions_df = recenter_df(positions_df, recentering_point, bodyparts)
+            
+            if normalize:
+                positions_df = normalize_df(positions_df, bodyparts)
         
         if reorient:
             south_uses_targets = str(south).upper() == 'USE_TARGETS'

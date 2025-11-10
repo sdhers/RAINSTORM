@@ -154,7 +154,7 @@ def build_behavior_info(behaviors: list, keys: list, behavior_sums: dict, curren
     logger.debug(f"Built behavior info: {behavior_info}")
     return behavior_info
 
-def save_labels_to_csv(video_path: Path, frame_labels: dict, behaviors: list, last_processed_frame_index: int) -> None:
+def save_labels_to_csv(video_path: Path, frame_labels: dict, behaviors: list, last_processed_frame_index: int, suffix: str = 'labels') -> None:
     """
     Saves the frame labels to a CSV file.
     If the target file already exists, it creates a new file with a numbered suffix.
@@ -166,11 +166,14 @@ def save_labels_to_csv(video_path: Path, frame_labels: dict, behaviors: list, la
         behaviors (list): List of behavior names.
         last_processed_frame_index (int): The highest 0-indexed frame number that was visited.
     """
-    output_path = video_path.with_name(f"{video_path.stem}_labels.csv")
+    safe_suffix = (suffix or 'labels').strip()
+    if safe_suffix == '':
+        safe_suffix = 'labels'
+    output_path = video_path.with_name(f"{video_path.stem}_{safe_suffix}.csv")
 
     counter = 2
     while output_path.exists():
-        new_filename = f"{video_path.stem}_labels({counter}).csv"
+        new_filename = f"{video_path.stem}_{safe_suffix}({counter}).csv"
         output_path = video_path.with_name(new_filename)
         counter += 1
     

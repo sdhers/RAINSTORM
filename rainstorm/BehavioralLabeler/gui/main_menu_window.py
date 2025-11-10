@@ -4,10 +4,8 @@
 from pathlib import Path
 from typing import Union
 from tkinter import filedialog, messagebox
-
+import csv as _csv
 import customtkinter as ctk
-ctk.set_appearance_mode("Dark")
-ctk.set_default_color_theme("blue")
 
 from ..src import config
 
@@ -64,7 +62,9 @@ class MainMenuWindow:
     """
     FIXED_CONTROL_KEY_CHARS = set(config.FIXED_CONTROL_KEYS.values())
 
-    def __init__(self, master: ctk.CTk, initial_behaviors: list, initial_keys: list, initial_operant_keys: dict):
+    def __init__(self, master: ctk.CTk, initial_behaviors: list, initial_keys: list, initial_operant_keys: dict,
+                 initial_video_path: str = None,
+                 initial_suffix: str = "labels"):
         self.master = master
         self.master.title("Behavioral Labeler - Main Menu")
         self.master.geometry("850x550") # Adjusted default size
@@ -77,6 +77,10 @@ class MainMenuWindow:
         
         self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.entries = []  # List to hold (row_frame, behavior_entry, key_entry) tuples
+        self.rescue_button = None
+        self.select_csv_button = None
+        self.remove_video_btn = None
+        self.remove_csv_btn = None
 
         # CTk Variables for widget binding
         self.next_key_var = ctk.StringVar(value=initial_operant_keys.get('next', ''))
@@ -86,12 +90,20 @@ class MainMenuWindow:
         self.video_path_var = ctk.StringVar()
         self.csv_path_var = ctk.StringVar()
         self.continue_checkbox_var = ctk.BooleanVar(value=False)
+        self.suffix_var = ctk.StringVar(value=str(initial_suffix or "labels"))
         
         self.result_config = {
             'behaviors': None, 'keys': None, 'operant_keys': None,
             'video_path': None, 'csv_path': None,
-            'continue_from_checkpoint': False, 'cancelled': True
+            'continue_from_checkpoint': False, 'suffix': 'labels', 'cancelled': True
         }
+
+        # Pre-fill paths if provided
+        if initial_video_path:
+            try:
+                self.video_path_var.set(str(initial_video_path))
+            except Exception:
+                pass
 
         self.create_widgets()
         self.populate_initial_values(initial_behaviors, initial_keys)
@@ -105,17 +117,33 @@ class MainMenuWindow:
         file_frame = ctk.CTkFrame(self.master)
         file_frame.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="ew")
         file_frame.grid_columnconfigure(1, weight=1)
+        file_frame.grid_columnconfigure(2, weight=0)
+        file_frame.grid_columnconfigure(3, weight=0)
+        file_frame.grid_columnconfigure(4, weight=0)
         
-        ctk.CTkLabel(file_frame, text="Video File").grid(row=0, column=0, padx=10, pady=5, sticky="w")
-        ctk.CTkEntry(file_frame, textvariable=self.video_path_var, state="readonly").grid(row=0, column=1, padx=5, pady=5, sticky="ew")
-        ctk.CTkButton(file_frame, text="Select Video", command=self._select_video, width=120).grid(row=0, column=2, padx=10, pady=5)
+        ctk.CTkLabel(file_frame, text="Video File").grid(row=0, column=0, padx=10, pady=5, sticky="e")
+        ctk.CTkEntry(file_frame, textvariable=self.video_path_var, state="readonly").grid(row=0, column=1, columnspan=2, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(file_frame, text="Select Video", command=self._select_video, width=130).grid(row=0, column=3, padx=5, pady=5, sticky="ew")
+        self.remove_video_btn = ctk.CTkButton(file_frame, text="-", width=32, height=28, fg_color="#D32F2F", hover_color="#B71C1C", command=self._clear_video_path)
+        self.remove_video_btn.grid(row=0, column=4, padx=3, pady=5)
         
-        ctk.CTkLabel(file_frame, text="Labels CSV").grid(row=1, column=0, padx=10, pady=5, sticky="w")
-        ctk.CTkEntry(file_frame, textvariable=self.csv_path_var, state="readonly").grid(row=1, column=1, padx=5, pady=5, sticky="ew")
-        ctk.CTkButton(file_frame, text="Select CSV", command=self._select_csv, width=120).grid(row=1, column=2, padx=10, pady=5)
+        ctk.CTkLabel(file_frame, text="Labels CSV").grid(row=1, column=0, padx=10, pady=5, sticky="e")
+        ctk.CTkEntry(file_frame, textvariable=self.csv_path_var, state="readonly").grid(row=1, column=1, columnspan=2, padx=5, pady=5, sticky="ew")
+        self.select_csv_button = ctk.CTkButton(file_frame, text="Select CSV", command=self._select_csv, width=130, state='disabled')
+        self.select_csv_button.grid(row=1, column=3, padx=5, pady=5, sticky="ew")
+        self.remove_csv_btn = ctk.CTkButton(file_frame, text="-", width=32, height=28, fg_color="#D32F2F", hover_color="#B71C1C", command=self._clear_csv_path, state='disabled')
+        self.remove_csv_btn.grid(row=1, column=4, padx=3, pady=5)
         
+        # Suffix and Continue controls row
+        ctk.CTkLabel(file_frame, text="Suffix").grid(row=2, column=0, padx=10, pady=5, sticky="e")
+        ctk.CTkEntry(file_frame, textvariable=self.suffix_var).grid(row=2, column=1, padx=5, pady=5, sticky="w")
         self.continue_checkbox = ctk.CTkCheckBox(file_frame, text="Continue from last checkpoint", variable=self.continue_checkbox_var, state='disabled')
-        self.continue_checkbox.grid(row=2, column=0, columnspan=3, padx=8, pady=8, sticky="w")
+        # Rescue behaviors button (enabled only when a CSV is selected)
+        self.rescue_button = ctk.CTkButton(file_frame, text="Load behaviors from CSV", command=self._rescue_behaviors_from_csv, width=180, state='disabled')
+        # Initially hidden until a CSV is selected
+        self._hide_csv_controls()
+        # Sync initial states based on any pre-filled values
+        self._sync_initial_states()
         
         # Main Content Area
         main_content_frame = ctk.CTkFrame(self.master, fg_color="transparent")
@@ -222,6 +250,74 @@ Note: Keys should be unique, single characters, different from the operant and f
             logger.debug("Removed last row.")
         else:
             show_messagebox("Warning", "No rows to remove.", type="warning")
+    
+    def _clear_all_rows(self):
+        """Remove all behavior rows."""
+        while self.entries:
+            row_frame, _, _ = self.entries.pop()
+            row_frame.destroy()
+        logger.debug("Cleared all behavior rows.")
+
+    def _sync_initial_states(self):
+        """Enable/disable and show/hide controls based on current entry values."""
+        try:
+            has_video = bool(self.video_path_var.get().strip())
+            has_csv = bool(self.csv_path_var.get().strip())
+        except Exception:
+            has_video = False
+            has_csv = False
+        # Video-dependent controls
+        if self.select_csv_button:
+            self.select_csv_button.configure(state='normal' if has_video else 'disabled')
+        if self.remove_video_btn:
+            self.remove_video_btn.configure(state='normal' if has_video else 'disabled')
+        # CSV-dependent controls
+        if has_csv:
+            self._show_csv_controls()
+            if self.remove_csv_btn:
+                self.remove_csv_btn.configure(state='normal')
+        else:
+            self._hide_csv_controls()
+            if self.remove_csv_btn:
+                self.remove_csv_btn.configure(state='disabled')
+
+    def _clear_video_path(self):
+        self.video_path_var.set("")
+        if self.select_csv_button:
+            self.select_csv_button.configure(state='disabled')
+        self._clear_csv_path()
+        if self.remove_video_btn:
+            self.remove_video_btn.configure(state='disabled')
+
+    def _clear_csv_path(self):
+        self.csv_path_var.set("")
+        self._hide_csv_controls()
+        if self.remove_csv_btn:
+            self.remove_csv_btn.configure(state='disabled')
+
+    def _show_csv_controls(self):
+        if self.continue_checkbox:
+            self.continue_checkbox.configure(state='normal')
+            self.continue_checkbox.grid(row=2, column=2, padx=8, pady=8, sticky="e")
+        if self.rescue_button:
+            self.rescue_button.configure(state='normal', fg_color="#1E88E5", hover_color="#1565C0")
+            self.rescue_button.grid(row=2, column=3, columnspan=2, padx=(8,10), pady=8, sticky="e")
+
+    def _hide_csv_controls(self):
+        if self.continue_checkbox:
+            self.continue_checkbox_var.set(False)
+            self.continue_checkbox.configure(state='disabled')
+            # Hide if already gridded
+            try:
+                self.continue_checkbox.grid_remove()
+            except Exception:
+                pass
+        if self.rescue_button:
+            self.rescue_button.configure(state='disabled')
+            try:
+                self.rescue_button.grid_remove()
+            except Exception:
+                pass
             
     def populate_initial_values(self, initial_behaviors: list, initial_keys: list):
         """Populates the behavior list with initial or last-used values."""
@@ -241,6 +337,10 @@ Note: Keys should be unique, single characters, different from the operant and f
         path = filedialog.askopenfilename(title="Select Video File", filetypes=filetypes)
         if path:
             self.video_path_var.set(path)
+            if self.select_csv_button:
+                self.select_csv_button.configure(state='normal')
+            if self.remove_video_btn:
+                self.remove_video_btn.configure(state='normal')
             logger.info(f"Selected video: {path}")
 
     def _select_csv(self):
@@ -249,12 +349,15 @@ Note: Keys should be unique, single characters, different from the operant and f
         path = filedialog.askopenfilename(title="Select Labels CSV (Optional)", filetypes=filetypes)
         if path:
             self.csv_path_var.set(path)
-            self.continue_checkbox.configure(state='normal')
+            self._show_csv_controls()
+            if self.remove_csv_btn:
+                self.remove_csv_btn.configure(state='normal')
             logger.info(f"Selected CSV: {path}")
         else:
             self.csv_path_var.set("")
-            self.continue_checkbox_var.set(False)
-            self.continue_checkbox.configure(state='disabled')
+            self._hide_csv_controls()
+            if self.remove_csv_btn:
+                self.remove_csv_btn.configure(state='disabled')
 
     def _validate_operant_keys(self) -> Union[tuple[bool, dict], tuple[bool, None]]:
         """Validates the operant key configuration."""
@@ -303,6 +406,35 @@ Note: Keys should be unique, single characters, different from the operant and f
         self.behaviors, self.keys = behaviors, keys
         logger.info("Behavior keys validated.")
         return True
+
+    def _rescue_behaviors_from_csv(self):
+        """Load behavior column names from the selected CSV and populate rows with blank keys."""
+        csv_path_str = self.csv_path_var.get().strip()
+        if not csv_path_str:
+            show_messagebox("Info", "Please select a CSV file first.")
+            return
+        csv_path = Path(csv_path_str)
+        if not csv_path.exists():
+            show_messagebox("Error", "Selected CSV file does not exist.", type="error")
+            return
+        try:
+            with csv_path.open('r', newline='', encoding='utf-8') as f:
+                reader = _csv.reader(f)
+                headers = next(reader, [])
+        except Exception as e:
+            logger.error(f"Failed to read CSV headers from {csv_path}: {e}")
+            show_messagebox("Error", "Could not read CSV file.", type="error")
+            return
+        # Filter headers to behavior names (exclude 'Frame' or empty)
+        behavior_cols = [h for h in headers if h and h.strip().lower() != 'frame']
+        if not behavior_cols:
+            show_messagebox("Info", "No behavior columns found in CSV header.")
+            return
+        # Rebuild rows: behaviors with blank keys
+        self._clear_all_rows()
+        for beh in behavior_cols:
+            self.add_row(behavior_name=beh, key_char="")
+        logger.info(f"Rescued behaviors from CSV: {behavior_cols}")
     
     def _start_labeling(self):
         """Validates all inputs and closes the window to start the labeling session."""
@@ -324,7 +456,7 @@ Note: Keys should be unique, single characters, different from the operant and f
         self.result_config.update({
             'behaviors': self.behaviors, 'keys': self.keys, 'operant_keys': operant_keys,
             'video_path': video_path, 'csv_path': csv_path,
-            'continue_from_checkpoint': self.continue_checkbox_var.get(), 'cancelled': False
+            'continue_from_checkpoint': self.continue_checkbox_var.get(), 'suffix': self.suffix_var.get().strip() or 'labels', 'cancelled': False
         })
         logger.info("Configuration confirmed. Closing main menu.")
         self.master.destroy()

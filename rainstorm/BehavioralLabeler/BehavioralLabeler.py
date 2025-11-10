@@ -8,6 +8,10 @@ from pathlib import Path
 import sys
 from tkinter import messagebox
 
+# Configure logging
+from rainstorm.BehavioralLabeler.src.logger import setup_logging
+setup_logging()
+
 import customtkinter as ctk
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")

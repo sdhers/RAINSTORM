@@ -75,6 +75,9 @@ def create_colabels(data_dir: Path, labelers: List[str], targets: List[str]) -> 
                 [bodyparts_df, target_df] + [label_data[labeler].rename(labeler) for labeler in labelers],
                 axis=1
             )
+            # Add a stable section identifier to enable downstream grouping
+            section_id = f"{filename.stem.replace('_position','')}__{tgt}"
+            combined_df.insert(0, 'ID', section_id)
             all_entries.append(combined_df)
 
     # Final DataFrame

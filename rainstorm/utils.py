@@ -17,7 +17,7 @@ import random
 logger = logging.getLogger(__name__)
 
 # %% Logging Configuration
-def configure_logging(level=logging.WARNING):
+def configure_logging(level=logging.WARNING, log_dir: Path = None, module_name: str = None):
     """
     Configures the basic logging settings for the Rainstorm project.
     This function should be called once at the start of your application
@@ -25,16 +25,45 @@ def configure_logging(level=logging.WARNING):
 
     Parameters:
         level: The minimum logging level to display (e.g., logging.INFO, logging.WARNING, logging.ERROR).
+        log_dir: Directory to store log files. If None, uses project-root 'logs'.
+        module_name: Optional module name for the log file prefix. If None, uses 'rainstorm'.
     """
+    # Determine log directory and file
+    if log_dir is None:
+        # Use project-root logs directory
+        project_root = Path(__file__).resolve().parent
+        log_dir = project_root / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+
     # Prevent re-configuration if handlers are already present
-    if not logger.handlers:
-        logging.basicConfig(level=level, format='%(levelname)s:%(name)s:%(message)s')
-        # Set the level for the root logger as well, to ensure all loggers respect it
-        logging.getLogger().setLevel(level)
+    root_logger = logging.getLogger()
+    if not root_logger.handlers:
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        prefix = module_name if module_name else "rainstorm"
+        log_file = log_dir / f"{prefix}_{timestamp}.log"
+
+        # Configure handlers
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(level)
+        console_formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
+        console_handler.setFormatter(console_formatter)
+
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(logging.DEBUG)
+        file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(file_formatter)
+
+        # Configure root logger
+        root_logger.setLevel(logging.DEBUG)
+        root_logger.addHandler(console_handler)
+        root_logger.addHandler(file_handler)
+
         logger.info(f"Logging configured to level: {logging.getLevelName(level)}")
+        logger.info(f"Log file: {log_file}")
 
 # Configure logging for utils.py itself
-configure_logging()
+configure_logging(module_name='utils')
 
 # %% Functions
 

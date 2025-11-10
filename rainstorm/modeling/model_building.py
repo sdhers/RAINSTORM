@@ -9,7 +9,8 @@ from tensorflow.keras.layers import (
     LSTM,
     BatchNormalization,
     Dropout,
-    GlobalMaxPooling1D
+    GlobalMaxPooling1D,
+    Conv1D
 )
 from tensorflow.keras.callbacks import (
     EarlyStopping, LearningRateScheduler,
@@ -47,7 +48,7 @@ def build_RNN(params_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.keras.
     ANN = modeling.get("ANN") or {}
 
     # Model configuration parameters
-    units = ANN.get("units") or [16, 24, 32, 24, 16, 8] # Number of units in each LSTM layer
+    units = ANN.get("units") or [32, 16, 8] # Number of units in each LSTM layer
     dropout_rate = float(ANN.get("dropout") or 0.2) # Dropout rate for regularization
     initial_lr = float(ANN.get("initial_lr") or 1e-5) # Initial learning rate for the optimizer
 
@@ -64,8 +65,12 @@ def build_RNN(params_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.keras.
     inputs = Input(shape=(timesteps, features), name="input_sequence")
     x = inputs
 
-    # Build stacked Bidirectional LSTM layers
-    # Each LSTM layer returns sequences, allowing the next layer to process them.
+    # Use causal padding to maintain temporal order for short windows
+    x = Conv1D(filters=32, kernel_size=3, padding='causal', activation='relu', name="conv1d_motion")(x)
+    x = BatchNormalization(name="bn_conv")(x)
+    x = Dropout(dropout_rate, name="dropout_conv")(x)
+    
+    # Build stacked Bidirectional LSTM layers. Each LSTM layer returns sequences, allowing the next layer to process them.
     for i, u in enumerate(units):
         # Bidirectional LSTM to capture dependencies in both forward and backward directions
         bilstm = Bidirectional(LSTM(u, return_sequences=True, name=f"bilstm_{i}"))(x)
@@ -78,23 +83,24 @@ def build_RNN(params_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.keras.
         
         x = drop # Output of current layer becomes input for the next
 
-    # Apply GlobalMaxPooling1D to convert the sequence of features
-    # from the last LSTM layer into a single fixed-size vector.
-    # This layer takes the maximum value across the time dimension for each feature.
-    pooled_output = GlobalMaxPooling1D(name="global_max_pooling")(x)
+    # Apply GlobalMaxPooling1D to convert the sequence of features from the last LSTM layer into a single fixed-size vector.
+    x = GlobalMaxPooling1D(name="global_max_pooling")(x)
 
-    # Output layer for binary classification
-    # Uses a sigmoid activation to output a probability between 0 and 1.
-    binary_out = Dense(1, activation='sigmoid', name="binary_out")(pooled_output)
+    # Dense classification head
+    x = Dense(8, activation='relu', name="dense_8")(x)
+    x = Dropout(dropout_rate, name="dropout_dense_8")(x)
+
+    x = Dense(4, activation='relu', name="dense_4")(x)
+    x = Dropout(dropout_rate, name="dropout_dense_4")(x)
+
+    # Output layer for binary classification, uses a sigmoid activation to output a probability between 0 and 1.
+    binary_out = Dense(1, activation='sigmoid', name="binary_out")(x)
 
     # Create the Keras Model
     model = Model(inputs, binary_out, name="CleanedBidirectionalRNN")
 
     # Compile the model
-    # Adam optimizer is a good default for many tasks.
-    # 'binary_crossentropy' is the standard loss for binary classification.
-    # 'accuracy' is a common metric to monitor performance.
-    optimizer = tf.keras.optimizers.Adam(learning_rate=initial_lr) # Initial LR for optimizer, will be overridden by scheduler
+    optimizer = tf.keras.optimizers.Adam(learning_rate=initial_lr)
     model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
     # Print a summary of the model architecture
@@ -103,7 +109,7 @@ def build_RNN(params_path: Path, model_dict: Dict[str, np.ndarray]) -> tf.keras.
 
 # %% Model Training Functions
 
-def train_RNN(params_path: Path, model: tf.keras.Model, model_dict: Dict[str, np.ndarray], model_name: str) -> Any:
+def train_RNN_2(params_path: Path, model: tf.keras.Model, model_dict: Dict[str, np.ndarray], model_name: str) -> Any:
     """
     Trains the given RNN model using the provided data splits.
     It incorporates a custom sigmoid-shaped learning rate schedule,
@@ -242,6 +248,158 @@ def train_RNN(params_path: Path, model: tf.keras.Model, model_dict: Dict[str, np
     )
 
     logger.info(f"✅ Training for model '{model_name}' completed.")
+    return history
+
+# %% Enhanced Training Function
+
+def train_RNN(params_path: Path, model: tf.keras.Model, model_dict: Dict[str, np.ndarray], model_name: str) -> Any:
+    """
+    Trains a Conv1D + BiLSTM + dense head model for behavior classification.
+    Uses linear warmup + cosine decay, gradient clipping, class weighting, and adaptive batch sizing.
+
+    Args:
+        params_path (Path): Path to the YAML file containing training configuration
+                              parameters under the 'ANN' key.
+        model (tf.keras.Model): The compiled Keras model to train.
+        model_dict (Dict[str, np.ndarray]): Dictionary containing the data splits:
+                                            'X_tr_wide', 'y_tr' (training data),
+                                            'X_val_wide', 'y_val' (validation data).
+        model_name (str): A name for the model, used for organizing TensorBoard logs
+                          and saved model checkpoints.
+
+    Returns:
+        tf.keras.callbacks.History: The training history object.
+    """
+    params = load_yaml(params_path)
+    modeling = params.get("automatic_analysis") or {}
+    ANN = modeling.get("ANN") or {}
+
+    # Training configuration parameters
+    total_epochs = int(ANN.get("total_epochs")) or 100
+    warmup_epochs = int(ANN.get("warmup_epochs")) or 8
+    initial_lr = float(ANN.get("initial_lr")) or 1e-5
+    peak_lr = float(ANN.get("peak_lr")) or 1e-4
+    batch_size = int(ANN.get("batch_size")) or 32
+    patience = int(ANN.get("patience")) or 10
+
+    X_tr = model_dict['X_tr_wide']
+    seq_length = X_tr.shape[1]
+
+    # Define the save folder for logs and checkpoints
+    save_folder = Path(modeling.get("models_path"))
+
+    logger.info(f"🚀 Starting enhanced training for model: {model_name}")
+    logger.info(f"📊 Dataset: {X_tr.shape[0]} samples, {seq_length} timesteps, {X_tr.shape[2]} features")
+
+    # Learning Rate Schedule: Linear warmup + cosine decay
+    class CosineAnnealingWithWarmup:
+        def __init__(self, initial_lr, peak_lr, warmup_epochs, total_epochs):
+            self.initial_lr = float(initial_lr)
+            self.peak_lr = float(peak_lr)
+            self.warmup_epochs = int(warmup_epochs)
+            self.total_epochs = int(total_epochs)
+        
+        def __call__(self, epoch: int, lr: float) -> float:
+            if epoch < self.warmup_epochs:
+                # Linear warmup
+                return self.initial_lr + (self.peak_lr - self.initial_lr) * (epoch / self.warmup_epochs)
+            else:
+                # Cosine decay
+                progress = (epoch - self.warmup_epochs) / (self.total_epochs - self.warmup_epochs)
+                return self.initial_lr + (self.peak_lr - self.initial_lr) * 0.5 * (1 + np.cos(np.pi * progress))
+
+    # Calculate class weights for imbalanced behavior data
+    y_tr = model_dict['y_tr']
+    if len(np.unique(y_tr)) == 2:  # Binary classification
+        neg_count = np.sum(y_tr == 0)
+        pos_count = np.sum(y_tr == 1)
+        class_weight = {0: 1.0, 1: neg_count / max(pos_count, 1)}  # Inverse frequency weighting
+        logger.info(f"📈 Class weighting - Negative: {neg_count}, Positive: {pos_count}, Weight: {class_weight[1]:.2f}")
+    else:
+        class_weight = None
+
+    # Callbacks for training process control and monitoring
+    
+    # 1. Learning Rate Scheduler
+    lr_schedule = CosineAnnealingWithWarmup(initial_lr, peak_lr, warmup_epochs, total_epochs)
+    lr_scheduler = LearningRateScheduler(lr_schedule, verbose=1)
+
+    # 2. Early Stopping with AUC monitoring for imbalanced data
+    early_stopping = EarlyStopping(
+        monitor='val_loss',
+        patience=patience,
+        restore_best_weights=True,
+        verbose=1
+    )
+
+    # 3. TensorBoard Callback with enhanced logging
+    log_dir = save_folder / "logs" / datetime.datetime.now().strftime("%Y%m%d-%H%M%S") / model_name
+    log_dir.mkdir(parents=True, exist_ok=True)
+    tensorboard_callback = TensorBoard(
+        log_dir=log_dir, 
+        histogram_freq=1,
+        write_graph=True,
+        update_freq='epoch'
+    )
+
+    # 4. Model Checkpoint
+    checkpoint_path = save_folder / "checkpoints" / f"{model_name}_best_model.keras"
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    model_checkpoint = ModelCheckpoint(
+        filepath=checkpoint_path,
+        monitor='val_loss',
+        save_best_only=True,
+        verbose=0,
+        save_weights_only=False
+    )
+
+    # 5. ReduceLROnPlateau
+    reduce_lr_on_plateau = ReduceLROnPlateau(
+        monitor='val_loss',
+        factor=0.5,
+        patience=max(patience // 2, 3),
+        verbose=1,
+        min_lr=1e-7,
+        cooldown=warmup_epochs  # Don't reduce during warmup
+    )
+
+    # List of all callbacks
+    callbacks = [
+        lr_scheduler,
+        early_stopping,
+        tensorboard_callback,
+        model_checkpoint,
+        reduce_lr_on_plateau
+    ]
+
+    # Compile model with gradient clipping for stability
+    optimizer = tf.keras.optimizers.Adam(
+        learning_rate=initial_lr,
+        clipnorm=1.0  # Gradient clipping to prevent explosions
+    )
+    model.compile(
+        optimizer=optimizer,
+        loss='binary_crossentropy',
+        metrics=['accuracy', tf.keras.metrics.AUC(name='auc')]
+    )
+
+    # Start training
+    logger.info(f"🎯 Training configuration: {total_epochs} epochs, batch_size={batch_size}, lr=[{initial_lr}->{peak_lr}]")
+    
+    history = model.fit(
+        X_tr, y_tr,
+        epochs=total_epochs,
+        batch_size=batch_size,
+        validation_data=(model_dict['X_val_wide'], model_dict['y_val']),
+        callbacks=callbacks,
+        class_weight=class_weight,
+        verbose=1
+    )
+
+    logger.info(f"✅ Training for model '{model_name}' completed.")
+    logger.info(f"📊 Best validation loss: {min(history.history['val_loss']):.4f}")
+    logger.info(f"📊 Best validation AUC: {max(history.history.get('val_auc', [0])):.4f}")
+    
     return history
 
 # %% Model Management Functions

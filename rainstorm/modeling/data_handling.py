@@ -71,14 +71,16 @@ def prepare_data(params_path: Path) -> pd.DataFrame:
         params_path (Path): Path to params.yaml.
 
     Returns:
-        pd.DataFrame: DataFrame containing smoothed position columns and normalized labels.
+        pd.DataFrame: DataFrame containing smoothed position columns and labels.
     """
     # Load modeling config
     params = load_yaml(params_path)
     modeling = params.get("automatic_analysis") or {}
-    colabels_conf = modeling.get("colabels") or {}
-    colabels_path = Path(colabels_conf.get("colabels_path"))
-    labelers = colabels_conf.get("labelers") or []
+    colabels = modeling.get("colabels") or {}
+    target = colabels.get("target") or "tgt"
+    colabels_path = Path(colabels.get("colabels_path"))
+    labelers = colabels.get("labelers") or []
+    bodyparts = modeling.get("model_bodyparts") or []
 
     if not colabels_path.is_file():
         logger.error(f"Colabels file not found: {colabels_path}")
@@ -86,19 +88,50 @@ def prepare_data(params_path: Path) -> pd.DataFrame:
 
     df = pd.read_csv(colabels_path)
 
-    # Extract positions (keep all _x and _y, exclude tail)
-    position = df.filter(regex='_x|_y').filter(regex='^(?!.*tail)').copy()
+    # Extract positions from selected bodyparts if provided; otherwise include all _x/_y
+    if bodyparts:
+        bp_cols = [
+            col for bp in bodyparts
+            for coord in ('_x', '_y')
+            for col in df.columns
+            if col.endswith(f"{bp}{coord}")
+        ]
+        if not bp_cols:
+            logger.warning(f"No matching bodypart columns found for configured model_bodyparts: {bodyparts}. Falling back to all _x/_y columns.")
+            position = df.filter(regex='_x|_y').copy()
+        else:
+            position = df[bp_cols].copy()
+    else:
+        position = df.filter(regex='_x|_y').copy()
 
     # Average labels from multiple labelers
     labeler_data = {name: df.filter(regex=name).copy() for name in labelers}
     combined = pd.concat(labeler_data, axis=1)
     averaged = pd.DataFrame(combined.mean(axis=1), columns=["labels"])
 
-    # Smooth and normalize labels
+    # Smooth labels
     averaged = smooth_columns(averaged, ["labels"])
     averaged["labels"] = apply_sigmoid_transformation(averaged["labels"])
 
-    return pd.concat([position, averaged["labels"]], axis=1)
+    # Include ID column if present to support downstream grouping
+    parts = []
+    if 'ID' in df.columns:
+        parts.append(df[['ID']])
+
+    # Include target columns if available
+    tgt_cols = [f"{target}_x", f"{target}_y"]
+    target_df = None
+    if all(c in df.columns for c in tgt_cols):
+        target_df = df[tgt_cols].copy()
+    else:
+        logger.warning(f"Target columns not found for target '{target}': expected {tgt_cols}. Skipping target columns in prepared data.")
+
+    # Build final dataset parts
+    parts.append(position)
+    if target_df is not None:
+        parts.append(target_df)
+    parts.append(averaged["labels"])
+    return pd.concat(parts, axis=1)
 
 
 def focus(params_path: Path, df: pd.DataFrame, filter_by: str = 'labels') -> pd.DataFrame:
@@ -143,6 +176,7 @@ def focus(params_path: Path, df: pd.DataFrame, filter_by: str = 'labels') -> pd.
     print(f"Rows reduced: {len(df)} -> {len(df_filtered)}")
 
     return df_filtered
+
 
 # %% Data Splitting Functions
 
@@ -190,8 +224,20 @@ def split_tr_ts_val(params_path: Path, df: pd.DataFrame) -> Dict[str, np.ndarray
     logger.info("📊 Splitting data into training, validation, and test sets...")
     print("📊 Splitting data into training, validation, and test sets...")
 
-    # Group by unique video or mouse identifier using the target_x as a proxy
-    grouped = df.groupby(df[f'{target}_x'])
+    # Guardrails: ensure required columns exist
+    if 'labels' not in df.columns:
+        logger.error("Required column 'labels' not found in DataFrame. Did you run prepare_data with labelers configured?")
+        return {}
+
+    # Group by a stable segment identifier if present; fallback to target_x proxy
+    has_id = 'ID' in df.columns
+    fallback_key = f'{target}_x'
+    if not has_id and fallback_key not in df.columns:
+        logger.error(f"Neither 'ID' nor '{fallback_key}' found in DataFrame. Cannot group segments.")
+        return {}
+
+    group_key = 'ID' if has_id else fallback_key
+    grouped = df.groupby(df[group_key])
 
     final_dataframes = {}
     wide_dataframes = {}
@@ -230,6 +276,9 @@ def split_tr_ts_val(params_path: Path, df: pd.DataFrame) -> Dict[str, np.ndarray
             for col in positions_df.columns
             if col.endswith(f'{bp}{coord}')
         ]
+        if not bp_cols:
+            logger.warning(f"No bodypart columns found for group '{key}' using configured bodyparts: {bodyparts}. Skipping group.")
+            continue
         positions_df = positions_df[bp_cols]
         
         labels = group['labels']
@@ -245,8 +294,13 @@ def split_tr_ts_val(params_path: Path, df: pd.DataFrame) -> Dict[str, np.ndarray
             'labels': labels
         }
         
+    if not wide_dataframes:
+        logger.error("No valid groups available after preprocessing. Aborting split.")
+        return {}
+
     # Shuffle and split keys
     keys = list(wide_dataframes.keys())
+    
     np.random.shuffle(keys)
     
     n_val = int(len(keys) * val_size)

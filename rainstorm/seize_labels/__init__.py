@@ -7,7 +7,7 @@ when importing the 'rainstorm.seize_labels' package.
 
 # Import and configure logging first
 from ..utils import configure_logging, choose_example_positions
-configure_logging()
+configure_logging(module_name='seize_labels')
 
 # Import the params_editor module from the submodule
 from ..prepare_positions import open_params_editor

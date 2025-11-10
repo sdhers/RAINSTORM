@@ -19,7 +19,6 @@ DEFAULT_MODELS_PATH = RAINSTORM_DIR / 'examples' / 'models'
 DEFAULT_ANALYZE_WITH = "example_wide.keras"
 HELP_CONTENT_DIR = Path(__file__).resolve().parent / "help_text"
 
-
 # --- UI Dimensions & Layout ---
 WINDOW_WIDTH = 1100
 WINDOW_HEIGHT = 550
@@ -82,18 +81,26 @@ DYNAMIC_LIST_MAX_HEIGHT = 150
 SCROLLABLE_LIST_MAX_HEIGHT = 80
 ROI_ELEMENT_HEIGHT = 80
 
-
 # --- Default Parameter Values ---
-DEFAULT_ROI = {"frame_shape": [700, 500], "scale": 1.0, "rectangles": [], "circles": [], "points": []}
 DEFAULT_FPS = 30
+DEFAULT_SOFTWARE = "DLC"
+
+# prepare_positions defaults (appear in params.yaml)
+DEFAULT_CONFIDENCE = 2.0
+DEFAULT_MEDIAN_FILTER = 3
+DEFAULT_NEAR_DIST = 4.5
+DEFAULT_FAR_DIST = 14.0
+DEFAULT_MAX_OUTLIER_CONNECTIONS = 3
 DEFAULT_BODYPARTS = [
     'body', 'head', 'left_ear', 'left_hip', 'left_midside', 'left_shoulder',
     'neck', 'nose', 'right_ear', 'right_hip', 'right_midside', 'right_shoulder',
     'tail_base', 'tail_end', 'tail_mid'
 ]
-DEFAULT_MODEL_BODYPARTS = ["nose", "left_ear", "right_ear", "head", "neck", "body"]
 DEFAULT_TARGETS = ["obj_1", "obj_2"]
 DEFAULT_TRIALS = ['Hab', 'TR', 'TS']
+
+# Geometric analysis defaults
+DEFAULT_ROI = {"frame_shape": [700, 500], "scale": 1.0, "rectangles": [], "circles": [], "points": []}
 DEFAULT_FREEZING_THRESHOLD = 0.01
 DEFAULT_FREEZING_TIME_WINDOW = 1.0  # Default time window in seconds for freezing detection
 
@@ -102,14 +109,43 @@ DEFAULT_DEGREE = 45
 DEFAULT_FRONT = "nose"
 DEFAULT_PIVOT = "head"
 
+# automatic_analysis.colabels defaults
+DEFAULT_LABELERS = ['Labeler_A', 'Labeler_B', 'Labeler_C', 'Labeler_D', 'Labeler_E']
+DEFAULT_COLABELS_TARGET = 'tgt'
+DEFAULT_MODEL_BODYPARTS = ["nose", "left_ear", "right_ear", "head", "neck", "body"]
 
+# automatic_analysis.split defaults
+DEFAULT_FOCUS_DISTANCE = 30
+DEFAULT_VALIDATION = 0.1
+DEFAULT_TEST = 0.1
+
+# Recenter, reorient, reshape
+USE_TARGETS_VALUE = "USE_TARGETS"
+
+DEFAULT_RECENTER = True
+DEFAULT_RECENTERING_POINT = USE_TARGETS_VALUE
+
+DEFAULT_REORIENT = False
 DEFAULT_SOUTH = "body"
 DEFAULT_NORTH = "nose"
 
-# --- Special values ---
-USE_TARGETS_VALUE = "USE_TARGETS"
+DEFAULT_RESHAPE = True
+DEFAULT_RNN_PAST = 3
+DEFAULT_RNN_FUTURE = 3
+DEFAULT_RNN_BROAD = 1.7
 
-# --- YAML Parameter Keys (as constants to avoid typos) ---
+# automatic_analysis.ANN defaults
+DEFAULT_UNITS = [32, 16, 8]
+DEFAULT_BATCH_SIZE = 32
+DEFAULT_DROPOUT = 0.2
+DEFAULT_TOTAL_EPOCHS = 100
+DEFAULT_WARMUP_EPOCHS = 8
+DEFAULT_INITIAL_LR = 0.00001
+DEFAULT_PEAK_LR = 0.0001
+DEFAULT_PATIENCE = 8
+
+# --- YAML Parameter Keys ---
+
 # Top-level
 KEY_PATH = "path"
 KEY_SOFTWARE = "software"

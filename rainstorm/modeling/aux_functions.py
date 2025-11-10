@@ -81,7 +81,6 @@ def recenter_df(df: pd.DataFrame, center_point: str, bodyparts: list) -> pd.Data
     
     return df_copy
 
-
 def reorient_df(df: pd.DataFrame, south: str, north: str, bodyparts: list) -> pd.DataFrame:
     """
     Reorients a DataFrame by rotating coordinates around the origin (0,0)
@@ -142,7 +141,6 @@ def reorient_df(df: pd.DataFrame, south: str, north: str, bodyparts: list) -> pd
             logger.warning(f"Bodypart '{bp}' not found in DataFrame. Skipping.")
             
     return df_copy
-
 
 def reshape_df(df: pd.DataFrame, past: int = 3, future: int = 3, broad: float = 1.7) -> np.ndarray:
     """Reshapes a DataFrame into a 3D NumPy array.
@@ -270,8 +268,8 @@ def use_model(positions_df: pd.DataFrame,
     pred = pd.DataFrame(pred, columns=['predictions'])
 
     # Smooth the predictions
-    pred.loc[pred['predictions'] < 0.2, 'predictions'] = 0  # Set low values to 0
-    pred.loc[pred['predictions'] > 0.90, 'predictions'] = 1 # Set high values to 1
+    # pred.loc[pred['predictions'] < 0.2, 'predictions'] = 0  # Set low values to 0
+    # pred.loc[pred['predictions'] > 0.90, 'predictions'] = 1 # Set high values to 1
     # pred = smooth_columns(pred, ['predictions'], kernel_size=3, gauss_std=0.2)
 
     # Calculate the length of each fragment

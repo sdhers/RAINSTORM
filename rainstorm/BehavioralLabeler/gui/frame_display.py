@@ -6,7 +6,7 @@ labeling information.
 """
 
 import customtkinter as ctk
-from PIL import Image, ImageTk
+from PIL import Image
 import numpy as np
 import cv2
 
@@ -24,6 +24,13 @@ class FrameDisplayWindow:
     and keyboard shortcuts. It communicates user input back to the main
     application controller via callbacks.
     """
+
+    # Interaction constants
+    PAN_STEP = 20
+    ZOOM_IN_FACTOR = 1.1
+    ZOOM_OUT_FACTOR = 0.9
+    MAX_SCALE = 3.0
+    MIN_SCALE = 0.1
 
     def __init__(self, master: ctk.CTk, video_name: str, total_frames: int,
                  behavior_info: dict, operant_keys: dict, fixed_control_keys: dict,
@@ -51,6 +58,9 @@ class FrameDisplayWindow:
         
         # Frame scaling factor (1.0 = original size)
         self.frame_scale = 1.0
+        # Frame panning offsets in pixels (positive x -> right, positive y -> down)
+        self.pan_x = 0
+        self.pan_y = 0
         
         # Store current frame data for immediate redraw
         self.current_frame_data = None
@@ -76,7 +86,8 @@ class FrameDisplayWindow:
         self.video_container.pack(fill="both", expand=True, padx=2, pady=2)
         
         self.video_label = ctk.CTkLabel(self.video_container, text="", anchor="center")
-        self.video_label.pack(fill="both", expand=True)
+        # Center the image within the container; pan will be applied via x/y offsets
+        self.video_label.place(relx=0.5, rely=0.5, anchor="center")
 
         # --- Info Panel ---
         self.info_panel = ctk.CTkFrame(self.window)
@@ -132,7 +143,9 @@ class FrameDisplayWindow:
         ctk.CTkLabel(controls_frame, text=action_text).grid(row=2, column=0, sticky="w", padx=10)
         
         resize_text = "Frame Size: '+' zoom in | '-' zoom out"
-        ctk.CTkLabel(controls_frame, text=resize_text).grid(row=3, column=0, pady=(0,5), sticky="w", padx=10)
+        ctk.CTkLabel(controls_frame, text=resize_text).grid(row=3, column=0, pady=(0,2), sticky="w", padx=10)
+        pan_text = "Arrow keys: pan frame"
+        ctk.CTkLabel(controls_frame, text=pan_text).grid(row=4, column=0, pady=(0,5), sticky="w", padx=10)
 
         # --- Behaviors Panel ---
         ctk.CTkLabel(self.info_panel, text="Behaviors", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(10,5))
@@ -185,6 +198,19 @@ class FrameDisplayWindow:
         """
         Internal handler for key press events. It calls the registered callback.
         """
+        # Handle panning with arrow keys (maintain centering baseline and add offsets)
+        if event.keysym in ("Left", "Right", "Up", "Down"):
+            step = self.PAN_STEP
+            if event.keysym == "Left":
+                self.pan_x -= step
+            elif event.keysym == "Right":
+                self.pan_x += step
+            elif event.keysym == "Up":
+                self.pan_y -= step
+            elif event.keysym == "Down":
+                self.pan_y += step
+            self._reposition_image()
+            return
         # Handle frame resizing with - and + keys
         if event.char == '-' or event.char == '_':  # Handle both - and shift+-
             self._decrease_frame_size()
@@ -202,7 +228,7 @@ class FrameDisplayWindow:
         """
         Increase the frame size by 10%.
         """
-        self.frame_scale = min(self.frame_scale * 1.1, 3.0)  # Max 3x size
+        self.frame_scale = min(self.frame_scale * self.ZOOM_IN_FACTOR, self.MAX_SCALE)
         logger.info(f"Frame scale increased to: {self.frame_scale:.2f}")
         # Clear cached frame size to force recalculation
         if hasattr(self, '_frame_size'):
@@ -214,7 +240,7 @@ class FrameDisplayWindow:
         """
         Decrease the frame size by 10%.
         """
-        self.frame_scale = max(self.frame_scale * 0.9, 0.1)  # Min 0.1x size
+        self.frame_scale = max(self.frame_scale * self.ZOOM_OUT_FACTOR, self.MIN_SCALE)
         logger.info(f"Frame scale decreased to: {self.frame_scale:.2f}")
         # Clear cached frame size to force recalculation
         if hasattr(self, '_frame_size'):
@@ -227,43 +253,17 @@ class FrameDisplayWindow:
         Redraw the current frame with the new scale factor.
         """
         if self.current_frame_data is not None:
-            pil_image = self.current_frame_data
-            # Clear cached frame size to force recalculation
+            # Force recalculation of frame size on redraw
             if hasattr(self, '_frame_size'):
                 delattr(self, '_frame_size')
-            
-            # Calculate new frame size with current scale
-            self.window.update_idletasks()
-            
-            # Get panel dimensions
-            panel_width = self.video_container.winfo_width()
-            panel_height = self.video_container.winfo_height()
-            
-            # Fallback if panel is too small
-            if panel_width <= 1 or panel_height <= 1:
-                panel_width = 800
-                panel_height = 600
-            
-            # Calculate base size to fit panel while maintaining aspect ratio
-            img_aspect = pil_image.width / pil_image.height
-            panel_aspect = panel_width / panel_height
-            
-            if img_aspect > panel_aspect:
-                # Image is wider - limit by width
-                base_width = panel_width
-                base_height = int(base_width / img_aspect)
-            else:
-                # Image is taller - limit by height
-                base_height = panel_height
-                base_width = int(base_height * img_aspect)
-            
-            # Apply scaling factor
-            new_width = int(base_width * self.frame_scale)
-            new_height = int(base_height * self.frame_scale)
-            
-            # Create and display the resized image
-            ctk_image = ctk.CTkImage(light_image=pil_image, size=(new_width, new_height))
-            self.video_label.configure(image=ctk_image)
+            self._apply_image_with_calculated_size(self.current_frame_data, recalc_size=True)
+
+    def _reposition_image(self):
+        """Apply pan offsets relative to centered anchor."""
+        if not hasattr(self, '_frame_size'):
+            return
+        # With anchor at the center (relx=0.5, rely=0.5), just offset by pan values
+        self.video_label.place_configure(x=self.pan_x, y=self.pan_y)
 
     def update_display(self, frame: np.ndarray, frame_number: int, total_frames: int, behavior_info: dict):
         """
@@ -286,44 +286,8 @@ class FrameDisplayWindow:
             # Store current frame data for immediate redraw on resize
             self.current_frame_data = pil_image
             
-            # Calculate frame size ONLY on the first frame
-            if not hasattr(self, '_frame_size'):
-                # Wait for window to be properly sized
-                self.window.update_idletasks()
-                
-                # Get panel dimensions
-                panel_width = self.video_container.winfo_width()
-                panel_height = self.video_container.winfo_height()
-                
-                # Fallback if panel is too small
-                if panel_width <= 1 or panel_height <= 1:
-                    panel_width = 800
-                    panel_height = 600
-                
-                # Calculate base size to fit panel while maintaining aspect ratio
-                img_aspect = pil_image.width / pil_image.height
-                panel_aspect = panel_width / panel_height
-                
-                if img_aspect > panel_aspect:
-                    # Image is wider - limit by width
-                    base_width = panel_width
-                    base_height = int(base_width / img_aspect)
-                else:
-                    # Image is taller - limit by height
-                    base_height = panel_height
-                    base_width = int(base_height * img_aspect)
-                
-                # Apply scaling factor
-                new_width = int(base_width * self.frame_scale)
-                new_height = int(base_height * self.frame_scale)
-                
-                # Store the calculated size - recalculate when scale changes
-                self._frame_size = (new_width, new_height)
-                logger.info(f"Frame size calculated: {new_width}x{new_height} (scale: {self.frame_scale:.2f})")
-            
-            # Always use the stored size
-            ctk_image = ctk.CTkImage(light_image=pil_image, size=self._frame_size)
-            self.video_label.configure(image=ctk_image)
+            # Apply image using helper (calculates size on first use)
+            self._apply_image_with_calculated_size(pil_image, recalc_size=not hasattr(self, '_frame_size'))
             
         # --- Update Info Panel ---
         self.frame_count_label.configure(text=f"Frame: {frame_number + 1}/{total_frames}")
@@ -352,6 +316,49 @@ class FrameDisplayWindow:
                         font=ctk.CTkFont(size=12, weight="normal")
                     )
         logger.debug(f"Display updated for frame {frame_number + 1}.")
+
+    def _apply_image_with_calculated_size(self, pil_image: Image.Image, recalc_size: bool):
+        """Calculate appropriate size for current panel and apply image.
+
+        If recalc_size is True, compute and store a new self._frame_size based on the
+        container size, image aspect, and current frame_scale. Otherwise, reuse the stored size.
+        """
+        # Ensure geometry is updated
+        self.window.update_idletasks()
+        if recalc_size or not hasattr(self, '_frame_size'):
+            # Get panel dimensions
+            panel_width = self.video_container.winfo_width()
+            panel_height = self.video_container.winfo_height()
+
+            # Fallback if panel is too small
+            if panel_width <= 1 or panel_height <= 1:
+                panel_width = 800
+                panel_height = 600
+
+            # Calculate base size to fit panel while maintaining aspect ratio
+            img_aspect = pil_image.width / pil_image.height
+            panel_aspect = panel_width / panel_height
+
+            if img_aspect > panel_aspect:
+                base_width = panel_width
+                base_height = int(base_width / img_aspect)
+            else:
+                base_height = panel_height
+                base_width = int(base_height * img_aspect)
+
+            # Apply scaling factor
+            new_width = int(base_width * self.frame_scale)
+            new_height = int(base_height * self.frame_scale)
+
+            # Store the calculated size - recalculate when scale changes
+            self._frame_size = (new_width, new_height)
+            logger.info(f"Frame size calculated: {new_width}x{new_height} (scale: {self.frame_scale:.2f})")
+
+        # Always use the stored size
+        ctk_image = ctk.CTkImage(light_image=pil_image, size=self._frame_size)
+        self.video_label.configure(image=ctk_image)
+        # Reposition based on centering + pan offsets
+        self._reposition_image()
 
     def close(self):
         """Destroys the window."""

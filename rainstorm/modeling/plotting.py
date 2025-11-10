@@ -20,8 +20,7 @@ logger = logging.getLogger(__name__)
 
 def plot_example_data(X: np.ndarray, y: np.ndarray, *,
                       event_label_threshold: float = 0.5,
-                      position_label: str = 'Nose distance to target (cm)',
-                      position_range: tuple = (-2, 25)) -> None:
+                      position_label: str = 'Nose distance to target (cm)') -> None:
     """
     Plots an example trial showing the target distance over time, highlighting periods of exploration.
 
@@ -30,13 +29,15 @@ def plot_example_data(X: np.ndarray, y: np.ndarray, *,
         y (np.ndarray): Binary or continuous labels for exploration (e.g., 1 for exploring, 0 otherwise).
         event_label_threshold (float): Threshold to binarize y for exploration detection.
         position_label (str): Label for the y-axis.
-        position_range (tuple): Y-axis range for the plot.
 
     Returns:
         None. Displays an interactive Plotly figure.
     """
+
     # Calculate radial distance to target
     position = np.sqrt(X[:, 0]**2 + X[:, 1]**2)
+
+    position_range= (min(position)-1, max(position)+1)
 
     # Threshold labels to create binary exploration indicators
     exploration = pd.DataFrame((y >= event_label_threshold).astype(int), columns=['exploration'])

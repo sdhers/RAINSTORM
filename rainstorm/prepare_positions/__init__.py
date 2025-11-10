@@ -7,7 +7,7 @@ when importing the 'rainstorm.prepare_positions' package.
 
 # Import and configure logging first
 from ..utils import configure_logging, choose_example_positions
-configure_logging()
+configure_logging(module_name='prepare_positions')
 
 # Import all public functions from submodules
 from .file_handling import backup_folder, rename_files, filter_and_move_files

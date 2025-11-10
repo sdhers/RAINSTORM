@@ -1,11 +1,7 @@
 """Main application class for the Behavioral Labeler."""
 
-import cv2
 from pathlib import Path
-
 import customtkinter as ctk
-ctk.set_appearance_mode("Dark")
-ctk.set_default_color_theme("blue")
 
 from ..gui import main_menu_window as mmw
 from ..gui import frame_display as fd
@@ -39,6 +35,11 @@ class LabelingApp:
         self.frame_display_window = None
         self.is_session_running = False
         self.session_root = None
+        # Input and flow control flags
+        self.input_locked = False
+        self.end_reached = False
+        # Output settings
+        self.save_suffix = 'labels'
         logger.info("LabelingApp initialized.")
 
     def _handle_exit_prompt(self) -> tuple[bool, bool]:
@@ -118,7 +119,9 @@ class LabelingApp:
                 root,
                 self.behaviors,
                 self.keys,
-                self.operant_keys_map
+                self.operant_keys_map,
+                initial_video_path=self.video_path,
+                initial_suffix=self.save_suffix,
             )
             app_config = main_menu_window.get_config()
 
@@ -133,6 +136,7 @@ class LabelingApp:
             self.video_path = Path(app_config['video_path'])
             self.csv_path = app_config['csv_path']
             continue_from_checkpoint = app_config['continue_from_checkpoint']
+            self.save_suffix = app_config.get('suffix', 'labels') or 'labels'
             self.video_name = (self.video_path).name
 
             logger.info(f"Starting new session with Video='{self.video_name}'")
@@ -206,6 +210,7 @@ class LabelingApp:
     def _process_key_input(self, key: str):
        """Processes user key presses from the display window."""
        if not self.is_session_running: return
+       if self.input_locked: return
        move = 0
        
        if key == self.fixed_control_keys['go_to']:
@@ -242,19 +247,40 @@ class LabelingApp:
                    self.timeline_window.update_frame_labels(self.frame_labels)
        
        if move != 0:
-           # Check if the user is about to finish the video
-           will_finish_video = (self.current_frame + move >= self.total_frames -1) and (move > 0)
-           if will_finish_video:
-               mmw.show_messagebox("Video Complete", "You have labeled the final frame.", type="info")
-               # Directly move to the last frame and then trigger exit prompt
-               self.current_frame = self.total_frames - 1
-               self._update_display()
-               self._handle_window_close()
-               return
-           
-           self.current_frame += move
-           self.current_frame = max(0, min(self.current_frame, self.total_frames - 1))
-           self._update_display()
+            # Reset end flag when moving backward
+            if move < 0:
+                self.end_reached = False
+
+            # If already at the end and trying to move forward again, ignore to prevent repeated prompts
+            if self.end_reached:
+                return
+
+            # Check if the user is about to finish the video from a non-final frame
+            new_pos = self.current_frame + move
+            will_finish_video = (self.current_frame < self.total_frames) and (new_pos >= self.total_frames) and (move > 0)
+
+            if will_finish_video:
+                # Lock input while showing dialogs to avoid buffered keypresses
+                self.input_locked = True
+                # Ensure the info popup appears above the labeling window
+                frame_window = self.frame_display_window.window if self.frame_display_window else None
+                mmw.show_messagebox("Video Complete", "You have labeled the final frame.", type="info", topmost_window=frame_window)
+                # Move to the last frame and refresh
+                self.current_frame = self.total_frames - 1
+                self._update_display()
+                # Mark that we've reached the end to suppress repeated prompts on further forward keys
+                self.end_reached = True
+
+                # Trigger exit prompt flow; keep input locked during prompts
+                self._handle_window_close()
+                # If the session is still running (user chose not to exit), unlock input
+                if self.is_session_running:
+                    self.input_locked = False
+                return
+
+            # Normal movement and display update
+            self.current_frame = max(0, min(new_pos, self.total_frames))
+            self._update_display()
 
     def _handle_window_close(self):
        """Handles the logic for closing the labeling session."""
@@ -265,7 +291,7 @@ class LabelingApp:
            logger.info("Labeling session ended.")
            if save_on_exit and self.frame_labels:
                logger.info("Saving labels...")
-               label_manager.save_labels_to_csv(self.video_path, self.frame_labels, self.behaviors, self.last_processed_frame)
+               label_manager.save_labels_to_csv(self.video_path, self.frame_labels, self.behaviors, self.last_processed_frame, suffix=self.save_suffix)
            
            self.is_session_running = False
            self.video_handler.release_video()
@@ -273,8 +299,16 @@ class LabelingApp:
            if self.frame_display_window:
                self.frame_display_window.close()
                self.frame_display_window = None
-           
+            
            if self.session_root:
                self.session_root.quit() # Stop the mainloop
                self.session_root.destroy()
                self.session_root = None
+       else:
+            # User chose to continue labeling: ensure the frame window is active and focused
+            if self.frame_display_window and self.frame_display_window.window.winfo_exists():
+                try:
+                    self.frame_display_window.window.lift()
+                    self.frame_display_window.window.focus_force()
+                except Exception:
+                    pass

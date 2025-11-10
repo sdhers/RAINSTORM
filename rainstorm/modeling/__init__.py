@@ -7,7 +7,7 @@ when importing the 'rainstorm.modeling' package.
 
 # Import and configure logging first
 from ..utils import configure_logging
-configure_logging()
+configure_logging(module_name='modeling')
 
 # Import the params_editor module from the submodule
 from ..prepare_positions import open_params_editor
@@ -33,6 +33,7 @@ __all__ = [
     'create_colabels',
     'prepare_data',
     'focus',
+    'normalize_bodypart_data',
     'split_tr_ts_val',
     'save_split',
     'load_split',

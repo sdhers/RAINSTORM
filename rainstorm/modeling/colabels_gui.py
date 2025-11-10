@@ -502,8 +502,9 @@ class ColabelsGUI:
                             continue
                         self.pos_to_labels[p].append(lp)
                         selected_list = set(lab.get('selected_behaviors', []))
+                        # Seed columns with selected behaviors so UI has something to show even if files are missing
                         self.selection_state[(p, lp)] = {
-                            'columns': [],  # will be discovered on refresh/read
+                            'columns': sorted(list(selected_list)),
                             'selected': {b: True for b in selected_list},
                             'custom_name': lab.get('custom_name', lp.stem)
                         }

@@ -36,6 +36,7 @@ class ParamsBuilder:
     def __init__(self, folder_path: Path):
         self.folder_path = folder_path
         self.params_path = folder_path / "params.yaml"
+        self.models_path = folder_path.parent / "models"
         self.parameters = CommentedMap()
 
     def load_roi_data(self, rois_path: Optional[Path]) -> Dict[str, Any]:
@@ -82,10 +83,10 @@ class ParamsBuilder:
                 }
             }),
             C.KEY_AUTOMATIC_ANALYSIS: dict_to_commented_map({
-                C.KEY_MODELS_PATH: str(C.DEFAULT_MODELS_PATH),
+                C.KEY_MODELS_PATH: str(self.models_path),
                 C.KEY_ANALYZE_WITH: C.DEFAULT_ANALYZE_WITH,
                 C.KEY_COLABELS: {
-                    C.KEY_COLABELS_PATH: str(C.DEFAULT_MODELS_PATH / 'colabels.csv'),
+                    C.KEY_COLABELS_PATH: str(self.models_path / 'colabels.csv'),
                     C.KEY_LABELERS: C.DEFAULT_LABELERS,
                     C.KEY_TARGET: C.DEFAULT_COLABELS_TARGET,
                 },

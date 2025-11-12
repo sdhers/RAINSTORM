@@ -1,0 +1,7 @@
+include README.md
+
+recursive-include rainstorm/prepare_positions/params_gui/help_text *.txt
+
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude .DS_Store

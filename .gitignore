@@ -16,4 +16,4 @@ dist/
 *.toml
 
 # Big files
-# examples/NOR*
+examples/*

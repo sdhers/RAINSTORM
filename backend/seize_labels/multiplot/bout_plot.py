@@ -5,11 +5,13 @@ import matplotlib.pyplot as plt
 import logging
 from matplotlib.colors import to_rgb
 
+# Import the new processor
+from .plot_processor import load_and_process_individual_data
+# Import only the plotting helpers from plot_aux
 from .plot_aux import (
-    _load_and_truncate_raw_summary_data,
     _generate_subcolors
 )
-from ..calculate_index import calculate_cumsum
+# calculate_cumsum is no longer needed here, the processor handles it
 from ...utils import configure_logging
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -30,55 +32,51 @@ def boxplot_exploration_bouts(
 ) -> None:
     """
     Creates a boxplot of exploration time divided into equal time segments.
-
-    Args:
-        base_path (Path): The base path of the project.
-        group (str): The name of the experimental group.
-        trial (str): The name of the trial.
-        targets (list[str]): A list of the targets to be analyzed.
-        num_segments (int, optional): The number of equal segments to divide the session into. Defaults to 5.
-        fps (int, optional): Frames per second. Defaults to 30.
-        ax (plt.Axes, optional): The axes to plot on. Defaults to None.
-        outliers (list[str], optional): A list of outliers to exclude. Defaults to None.
-        group_color (str, optional): The base hex color for the group. Defaults to 'blue'.
-        label_type (str, optional): The type of label to use for targets. Defaults to 'labels'.
+    Refactored to use the central plot_processor.
     """
     if outliers is None:
         outliers = []
-
     if ax is None:
         fig, ax = plt.subplots(figsize=(12, 7))
 
     full_target_names = [f'{t}_{label_type}' for t in targets]
     if not full_target_names:
-        print(f"boxplot_exploration_by_segment requires target exploration.")
+        logger.warning(f"boxplot_exploration_bouts requires target exploration.")
         return
 
-    # Load data
-    raw_dfs = _load_and_truncate_raw_summary_data(
+    # 1. Load data
+    # Use the new processor to get pre-processed (truncated, cumsum'd) dfs
+    processed_dfs = load_and_process_individual_data(
         base_path=base_path,
         group=group,
         trial=trial,
-        outliers=outliers
+        outliers=outliers,
+        fps=fps,
+        label_type=label_type,
+        targets=targets
     )
 
-    if not raw_dfs:
-        print(f"No data found for group '{group}' in trial '{trial}'. Skipping plot.")
+    if not processed_dfs:
+        logger.warning(f"No data found for group '{group}' in trial '{trial}'. Skipping plot.")
         return
 
     # Process data to get exploration times for each segment and subject
     subject_segment_data = []
     
-    for df in raw_dfs:
-        # Create 'Time_in_session' column from the number of frames and FPS
-        df['Time_in_session'] = np.arange(len(df)) / fps
+    # Use the sorted target names for consistent plotting
+    targets_to_plot = sorted(targets)
+    full_target_names_sorted = [f'{t}_{label_type}' for t in targets_to_plot]
+    
+    for df_with_cumsum in processed_dfs: # Iterate over the processed dfs
+        
+        # Create 'Time_in_session' column from the 'Frame' column
+        df_with_cumsum['Time_in_session'] = df_with_cumsum['Frame'] / fps
         
         # Determine session duration and segment length
-        session_duration_s = df['Time_in_session'].iloc[-1]
+        session_duration_s = df_with_cumsum['Time_in_session'].iloc[-1]
         segment_duration_s = session_duration_s / num_bouts
 
-        # Calculate cumulative sums for exploration time
-        df_with_cumsum = calculate_cumsum(df.copy(), full_target_names)
+        # cumsum is already calculated by the processor
         
         subject_data = {'Subject': df_with_cumsum['Subject'].iloc[0] if 'Subject' in df_with_cumsum.columns else 'Unknown'}
         
@@ -87,16 +85,23 @@ def boxplot_exploration_bouts(
             end_time = (i + 1) * segment_duration_s
             
             # Find the indices corresponding to the start and end of the segment
-            start_idx = np.searchsorted(df['Time_in_session'], start_time, side='left')
-            end_idx = np.searchsorted(df['Time_in_session'], end_time, side='right')
+            start_idx = np.searchsorted(df_with_cumsum['Time_in_session'], start_time, side='left')
+            end_idx = np.searchsorted(df_with_cumsum['Time_in_session'], end_time, side='right') - 1 # Use -1 to get index at or before end_time
 
-            for target_name in full_target_names:
+            for target_name in full_target_names_sorted:
+                cumsum_col = f'{target_name}_cumsum'
+                if cumsum_col not in df_with_cumsum.columns:
+                    subject_data[f'{target_name}_segment_{i+1}'] = 0
+                    continue
+
                 # Get the cumulative sum at the start and end of the segment
-                start_val = df_with_cumsum.iloc[start_idx-1][f'{target_name}_cumsum'] if start_idx > 0 else 0
-                end_val = df_with_cumsum.iloc[end_idx-1][f'{target_name}_cumsum'] if end_idx > 0 else 0
+                # Processor already converted cumsum to seconds
+                start_val = df_with_cumsum.iloc[start_idx-1][cumsum_col] if start_idx > 0 else 0
+                end_val = df_with_cumsum.iloc[end_idx][cumsum_col] if end_idx >= 0 else 0
                 
                 # Calculate the exploration time within this segment
-                exploration_time = (end_val - start_val) / fps
+                # We NO LONGER divide by fps, as processor already did.
+                exploration_time = (end_val - start_val)
                 
                 # Store the data with a descriptive column name
                 subject_data[f'{target_name}_segment_{i+1}'] = exploration_time
@@ -112,36 +117,52 @@ def boxplot_exploration_bouts(
     # Generate colors for each target
     base_rgb = to_rgb(group_color)
     base_hue = plt.matplotlib.colors.rgb_to_hsv(base_rgb)[0]
-    target_colors = _generate_subcolors(base_hue, len(targets), 1)
+    target_colors = _generate_subcolors(base_hue, len(targets_to_plot), 1)
     
     # Prepare data and labels for plotting
     plot_data_dict = {}
     plot_labels = []
     
     for i in range(num_bouts):
-        for j, target in enumerate(targets):
+        for j, target in enumerate(targets_to_plot):
             col_name = f'{target}_{label_type}_segment_{i+1}'
-            plot_data_dict[col_name] = df_plot[col_name].dropna().values
-            plot_labels.append(f'S{i+1}')
+            if col_name in df_plot.columns:
+                plot_data_dict[col_name] = df_plot[col_name].dropna().values
+                plot_labels.append(f'S{i+1}')
     
     data_to_plot = [plot_data_dict[col] for col in plot_data_dict]
-    
+    if not data_to_plot:
+        logger.warning(f"No data to plot for bouts in {group}/{trial}.")
+        return
+
     # Set up plotting positions and colors
-    num_targets = len(targets)
+    num_targets = len(targets_to_plot)
     total_width = 5
     segment_width = total_width / num_targets
     x_positions = np.arange(num_bouts) * (num_targets + 1)
     
     all_positions = []
     all_colors = []
+    plot_data_final = [] # Filtered list for data that exists
+    
+    idx = 0
     for i in range(num_bouts):
         for j in range(num_targets):
             pos = x_positions[i] + (j * segment_width)
-            all_positions.append(pos)
-            all_colors.append(target_colors[j])
+            col_name = f'{targets_to_plot[j]}_{label_type}_segment_{i+1}'
+            
+            if col_name in plot_data_dict:
+                all_positions.append(pos)
+                all_colors.append(target_colors[j])
+                plot_data_final.append(data_to_plot[idx])
+                idx += 1
 
     # Plotting
-    bp = ax.boxplot(data_to_plot, positions=all_positions, widths=segment_width * 0.8, patch_artist=True, showfliers=False)
+    if not plot_data_final:
+        logger.warning(f"No valid bout data to plot for {group}/{trial}.")
+        return
+        
+    bp = ax.boxplot(plot_data_final, positions=all_positions, widths=segment_width * 0.8, patch_artist=True, showfliers=False)
 
     for patch, color in zip(bp['boxes'], all_colors):
         patch.set_facecolor(color)
@@ -151,7 +172,7 @@ def boxplot_exploration_bouts(
         median.set_color('black')
         
     # Plot individual data points with jitter
-    for i, data in enumerate(data_to_plot):
+    for i, data in enumerate(plot_data_final):
         pos = all_positions[i]
         color = all_colors[i]
         jitter = segment_width * 0.1
@@ -169,7 +190,7 @@ def boxplot_exploration_bouts(
     
     # Create a custom legend for targets
     custom_legend_handles = [plt.Rectangle((0, 0), 1, 1, fc=color, ec='k', alpha=0.25) for color in target_colors]
-    ax.legend(custom_legend_handles, targets, title='Targets', loc='upper right')
+    ax.legend(custom_legend_handles, targets_to_plot, title='Targets', loc='upper right')
 
     ax.grid(axis='y', linestyle='--', alpha=0.7)
 
@@ -188,17 +209,7 @@ def boxplot_roi_bouts(
     """
     Creates a boxplot of the time spent in each Region of Interest (ROI),
     divided into a specified number of equal-length time segments.
-    The aesthetics are designed to match the 'boxplot_exploration_bouts' function.
-
-    Args:
-        base_path (Path): The base path of the project.
-        group (str): The name of the experimental group.
-        trial (str): The name of the trial.
-        fps (int): Frames per second of the video.
-        num_segments (int): The number of equal-length segments to divide the data into.
-        ax (plt.Axes): The axes to plot on.
-        outliers (list[str]): A list of outlier file identifiers to exclude.
-        group_color (str): The base hex color for the group.
+    Refactored to use the central plot_processor.
     """
 
     if outliers is None:
@@ -207,21 +218,29 @@ def boxplot_roi_bouts(
         fig, ax = plt.subplots(figsize=(12, 7))
 
     # 1. Load data
-    raw_dfs = _load_and_truncate_raw_summary_data(
-        base_path=base_path, group=group, trial=trial, outliers=outliers
+    # We pass empty targets list as this function discovers ROIs from 'location'
+    processed_dfs = load_and_process_individual_data(
+        base_path=base_path,
+        group=group,
+        trial=trial,
+        outliers=outliers,
+        fps=fps,
+        label_type=kwargs.get('label_type', 'labels'),
+        targets=kwargs.get('targets', []) 
     )
 
-    if not raw_dfs:
+    if not processed_dfs:
         logger.warning(f"No data found for group '{group}' in trial '{trial}'. Skipping plot.")
         return
 
     # 2. Process data: segment the session and calculate time in ROIs per segment
     all_roi_data = []
     all_possible_rois = set()
-    for df in raw_dfs:
+    for df in processed_dfs:
         if 'location' in df.columns:
             all_possible_rois.update(df['location'].unique())
 
+    # Exclude non-target ROIs
     roi_labels = sorted([roi for roi in all_possible_rois if roi not in ['other', 'base', 'center']])
 
     if not roi_labels:
@@ -229,10 +248,10 @@ def boxplot_roi_bouts(
         return
 
     # Determine segment length in frames
-    total_frames = len(raw_dfs[0])
+    total_frames = len(processed_dfs[0]) # All dfs are truncated to same length
     segment_length = total_frames / num_bouts
     
-    for subject_idx, df in enumerate(raw_dfs):
+    for subject_idx, df in enumerate(processed_dfs):
         for segment in range(num_bouts):
             start_frame = int(segment * segment_length)
             end_frame = int((segment + 1) * segment_length)
@@ -289,6 +308,10 @@ def boxplot_roi_bouts(
                 plot_colors.append(roi_colors[i])
 
     # 4. Plotting Logic
+    if not data_to_plot:
+        logger.warning(f"No valid ROI bout data to plot for {group}/{trial}.")
+        return
+
     bp = ax.boxplot(data_to_plot, positions=plot_positions, widths=roi_width * 0.8, patch_artist=True, showfliers=False)
 
     for patch, color in zip(bp['boxes'], plot_colors):

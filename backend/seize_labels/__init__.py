@@ -18,9 +18,8 @@ from .ReferenceEditor import open_reference_editor
 from .summary_files import create_summary_files
 
 from .multiplot.multiplot import plot_multiple_analyses
-from .multiplot.lineplot_cumulative import lineplot_cumulative_distance, lineplot_cumulative_exploration_time, lineplot_cumulative_freezing_time
-from .multiplot.lineplot_index import lineplot_DI, lineplot_diff
-from .multiplot.boxplot import boxplot_total_exploration_time, boxplot_DI_auc, boxplot_avg_time_bias
+from .multiplot.lineplot import lineplot_cumulative_distance, lineplot_cumulative_freezing_time, lineplot_DI, lineplot_diff, lineplot_cumulative_exploration_time, lineplot_velocity
+from .multiplot.boxplot import boxplot_total_freezing, boxplot_total_distance, boxplot_final_DI, boxplot_final_diff, boxplot_DI_auc, boxplot_avg_time_bias, boxplot_exploration_time, boxplot_total_exploration_time
 from .multiplot.plot_roi_activity import boxplot_roi_time, boxplot_roi_distance, boxplot_alternation_proportion
 from .multiplot.bout_plot import boxplot_exploration_bouts, boxplot_roi_bouts
 
@@ -41,9 +40,15 @@ __all__ = [
     'lineplot_cumulative_freezing_time',
     'lineplot_DI',
     'lineplot_diff',
-    'boxplot_total_exploration_time',
+    'lineplot_velocity',
+    'boxplot_total_freezing',
+    'boxplot_total_distance',
+    'boxplot_final_DI',
+    'boxplot_final_diff',
     'boxplot_DI_auc',
     'boxplot_avg_time_bias',
+    'boxplot_exploration_time',
+    'boxplot_total_exploration_time',
     'boxplot_roi_time',
     'boxplot_roi_distance',
     'boxplot_alternation_proportion',

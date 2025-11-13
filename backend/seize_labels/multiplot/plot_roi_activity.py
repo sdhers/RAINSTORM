@@ -6,8 +6,10 @@ import logging
 from matplotlib.colors import to_rgb
 from typing import List, Tuple
 
+# Import the new processor
+from .plot_processor import load_and_process_individual_data
+# Import only the plotting helpers from plot_aux
 from .plot_aux import (
-    _load_and_truncate_raw_summary_data,
     _generate_subcolors
 )
 from ...utils import configure_logging
@@ -65,14 +67,10 @@ def boxplot_alternation_proportion(
         base_path (Path): The base path of the project.
         group (str): The name of the experimental group.
         trial (str): The name of the trial.
-        targets (list[str]): Included for standard signature.
-        fps (int): Included for standard signature.
         ax (plt.Axes): The axes to plot on.
         outliers (list[str]): A list of outlier file identifiers to exclude.
         group_color (str): The hex color for the group.
         group_position (int): The position index for this group on the x-axis.
-        label_type (str): Included for standard signature.
-        num_groups (int): The total number of groups being plotted.
     """
     if outliers is None:
         outliers = []
@@ -80,22 +78,33 @@ def boxplot_alternation_proportion(
         fig, ax = plt.subplots(figsize=(6, 5))
 
     # 1. Load data
-    raw_dfs = _load_and_truncate_raw_summary_data(
-        base_path=base_path, group=group, trial=trial, outliers=outliers
+    # We pass empty targets list as this function discovers ROIs from 'location'
+    processed_dfs = load_and_process_individual_data(
+        base_path=base_path,
+        group=group,
+        trial=trial,
+        outliers=outliers,
+        fps=kwargs.get('fps', 30),
+        label_type=kwargs.get('label_type', 'labels'),
+        targets=kwargs.get('targets', []) 
     )
 
-    if not raw_dfs:
+    if not processed_dfs:
         logger.warning(f"No data for group '{group}' in trial '{trial}'.")
         return
 
     # 2. Process data: Calculate alternation proportion for each subject
     alternation_proportions = []
-    for df in raw_dfs:
+    area_labels = set() # To find the labels for the expected mean
+    
+    for df in processed_dfs: # Iterate over processed dfs
         if 'location' not in df.columns:
             logger.warning(f"A summary file for group '{group}' is missing 'location'. Skipping.")
             continue
         
         area_sequence = df["location"].tolist()
+        area_labels.update([area for area in area_sequence if area != 'other'])
+        
         alternations, total_entries = _count_alternations_and_entries(area_sequence)
         
         # The number of possible alternations is total_entries - 2
@@ -130,8 +139,9 @@ def boxplot_alternation_proportion(
     ax.plot([pos - box_width/2, pos + box_width/2], [mean_val, mean_val],
             color=group_color, linestyle='--', linewidth=2, zorder=2)
 
-    areas = list({area for area in area_sequence if area != 'other'})
-    expected_mean = (len(areas)-2)/(len(areas)-1)
+    # Calculate expected mean based on *found* areas
+    num_areas = len(area_labels)
+    expected_mean = (num_areas - 2) / (num_areas - 1) if num_areas > 1 else 0
 
     # 4. Finalize plot aesthetics
     ax.set_ylabel("Alternation Proportion")
@@ -140,7 +150,8 @@ def boxplot_alternation_proportion(
     ax.legend(loc='best', fancybox=True, shadow=True)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
     # ax.set_ylim(0, 1.05) # Proportion is between 0 and 1
-    ax.axhline(expected_mean, color='k', linestyle='--', linewidth=1)
+    if num_areas > 1:
+        ax.axhline(expected_mean, color='k', linestyle='--', linewidth=1)
 
 def boxplot_roi_time(
     base_path: Path,
@@ -161,13 +172,11 @@ def boxplot_roi_time(
         base_path (Path): The base path of the project.
         group (str): The name of the experimental group.
         trial (str): The name of the trial.
-        targets (list[str]): Included for standard signature, not used.
         fps (int): Frames per second of the video.
         ax (plt.Axes): The axes to plot on.
         outliers (list[str]): A list of outlier file identifiers to exclude.
         group_color (str): The base hex color for the group.
         group_position (int): The position index for this group on the x-axis.
-        label_type (str): Included for standard signature, not used.
         num_groups (int): The total number of groups being plotted.
     """
     if outliers is None:
@@ -176,11 +185,18 @@ def boxplot_roi_time(
         fig, ax = plt.subplots(figsize=(10, 7))
 
     # 1. Load data using the standardized helper function
-    raw_dfs = _load_and_truncate_raw_summary_data(
-        base_path=base_path, group=group, trial=trial, outliers=outliers
+    # We pass empty targets list as this function discovers ROIs from 'location'
+    processed_dfs = load_and_process_individual_data(
+        base_path=base_path,
+        group=group,
+        trial=trial,
+        outliers=outliers,
+        fps=fps,
+        label_type=kwargs.get('label_type', 'labels'),
+        targets=kwargs.get('targets', []) 
     )
 
-    if not raw_dfs:
+    if not processed_dfs:
         logger.warning(f"No data found for group '{group}' in trial '{trial}'. Skipping plot.")
         return
 
@@ -189,7 +205,7 @@ def boxplot_roi_time(
 
     # First, get a set of all possible ROIs from all files
     all_possible_rois = set()
-    for df in raw_dfs:
+    for df in processed_dfs: # Use processed_dfs
         if 'location' in df.columns:
             all_possible_rois.update(df['location'].unique())
     
@@ -199,7 +215,7 @@ def boxplot_roi_time(
         logger.warning(f"No ROI data to plot for group '{group}'.")
         return
 
-    for i, df in enumerate(raw_dfs):
+    for i, df in enumerate(processed_dfs): # Use processed_dfs
         if 'location' not in df.columns:
             logger.warning(f"A summary file for group '{group}' is missing the 'location' column. Skipping file.")
             continue
@@ -292,13 +308,10 @@ def boxplot_roi_distance(
         base_path (Path): The base path of the project.
         group (str): The name of the experimental group.
         trial (str): The name of the trial.
-        targets (list[str]): Included for standard signature, not used.
-        fps (int): Included for standard signature, not used.
         ax (plt.Axes): The axes to plot on.
         outliers (list[str]): A list of outlier file identifiers to exclude.
         group_color (str): The base hex color for the group.
         group_position (int): The position index for this group on the x-axis.
-        label_type (str): Included for standard signature, not used.
         num_groups (int): The total number of groups being plotted.
     """
     if outliers is None:
@@ -307,11 +320,17 @@ def boxplot_roi_distance(
         fig, ax = plt.subplots(figsize=(10, 7))
 
     # 1. Load data
-    raw_dfs = _load_and_truncate_raw_summary_data(
-        base_path=base_path, group=group, trial=trial, outliers=outliers
+    processed_dfs = load_and_process_individual_data(
+        base_path=base_path,
+        group=group,
+        trial=trial,
+        outliers=outliers,
+        fps=kwargs.get('fps', 30),
+        label_type=kwargs.get('label_type', 'labels'),
+        targets=kwargs.get('targets', []) 
     )
 
-    if not raw_dfs:
+    if not processed_dfs:
         logger.warning(f"No data found for group '{group}' in trial '{trial}'. Skipping plot.")
         return
 
@@ -321,7 +340,7 @@ def boxplot_roi_distance(
 
     # First, get a set of all possible ROIs from all files
     all_possible_rois = set()
-    for df in raw_dfs:
+    for df in processed_dfs: # Use processed_dfs
         if 'location' in df.columns:
             all_possible_rois.update(df['location'].unique())
     
@@ -331,7 +350,7 @@ def boxplot_roi_distance(
         logger.warning(f"No ROI distance data to plot for group '{group}'.")
         return
 
-    for i, df in enumerate(raw_dfs):
+    for i, df in enumerate(processed_dfs): # Use processed_dfs
         if 'location' not in df.columns or 'body_dist' not in df.columns:
             logger.warning(f"Summary file for group '{group}' is missing 'location' or 'body_dist' column. Skipping file.")
             continue

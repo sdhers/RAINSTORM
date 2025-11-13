@@ -2,63 +2,11 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_hex, hsv_to_rgb
-from pathlib import Path
 import logging
 
 from ...utils import configure_logging
 configure_logging()
 logger = logging.getLogger(__name__)
-
-def _load_and_truncate_raw_summary_data(
-    base_path: Path,
-    group: str,
-    trial: str,
-    outliers: list[str]
-) -> list[pd.DataFrame]:
-    """
-    Loads raw summary data from multiple CSV files, filters outliers, and truncates all
-    individual dataframes to the minimum common length.
-
-    Args:
-        base_path: Path to the main project folder.
-        group: Group name.
-        trial: Trial name.
-        outliers: List of filenames (or parts of filenames) to exclude.
-
-    Returns:
-        A list of pandas DataFrames, each representing a processed individual summary file,
-        all truncated to the minimum length. Returns an empty list if no valid data found.
-    """
-    folder_path = base_path / 'summary' / group / trial
-    logger.debug(f"Attempting to load raw summary files from: {folder_path}")
-
-    if not folder_path.exists():
-        logger.error(f"Folder not found: {folder_path}")
-        return []
-
-    raw_dfs = []
-    for file_path in folder_path.glob("*summary.csv"):
-        filename = file_path.name
-        if any(outlier in filename for outlier in outliers):
-            logger.info(f"Skipping outlier file: {filename}")
-            continue
-        try:
-            df = pd.read_csv(file_path)
-            raw_dfs.append(df)
-        except pd.errors.EmptyDataError:
-            logger.warning(f"Skipping empty CSV file: {filename}")
-        except Exception as e:
-            logger.error(f"Error reading or processing {filename}: {e}")
-
-    if not raw_dfs:
-        logger.warning(f"No valid raw data files found for {group}/{trial} after filtering.")
-        return []
-
-    min_length = min(len(df) for df in raw_dfs)
-    trunc_dfs = [df.iloc[:min_length].copy() for df in raw_dfs]
-    logger.debug(f"Truncating all raw dataframes to min length: {min_length}")
-
-    return trunc_dfs
 
 def _generate_subcolors(base_hue: float, num_subcolors: int, num_groups: int) -> list[str]:
     """
@@ -130,7 +78,7 @@ def _plot_cumulative_lines_and_fill(
             else:
                 logger.warning(f"Standard deviation column '{col_std}' not found. Skipping fill_between for '{label}'.")
         else:
-            logger.warning(f"Mean column '{col_mean}' not found. Skipping plot line for '{label}'.")
+            logger.info(f"Mean column '{col_mean}' not found. Skipping plot line for '{label}'.")
 
 def _set_cumulative_plot_aesthetics(
     ax: plt.Axes,

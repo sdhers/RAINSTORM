@@ -23,13 +23,10 @@ def plot_multiple_analyses(
     Args:
         params_path: Path to the YAML configuration file containing plotting parameters.
         plots: A list of callable functions (e.g., `[lineplot_cumulative_distance, lineplot_cumulative_exploration_time]`)
-               that will be used to generate each subplot. Each function in this list
-               MUST accept the following arguments:
-               `(base_path, group, trial, targets, fps, ax, outliers, group_color, label_type, num_groups)`.
+               that will be used to generate each subplot.
         trial: The specific trial name (e.g., 'TS') for which to generate plots.
         label_type: The labels used to plot target exploration.
-        outliers: An optional list of filenames (or parts of filenames) to exclude from
-                  data processing for any of the plots.
+        outliers: An optional list of filenames (or parts of filenames) to exclude.
         show: If True, the generated plots will be displayed interactively.
     """
     if not plots:
@@ -41,7 +38,8 @@ def plot_multiple_analyses(
         folder_path = Path(params.get("path"))
         filenames = params.get("filenames") or []
         fps = params.get("fps") or 30
-        targets = params.get("targets") or []
+        # We get 'targets' from reference.json, not params.yaml
+        # params_targets = params.get("targets") or [] 
 
     except Exception as e:
         logger.error(f"Error loading or parsing parameters from {params_path}: {e}")
@@ -54,6 +52,7 @@ def plot_multiple_analyses(
     
     try: 
         reference = load_json(reference_path)
+        # RESTORED: This is the correct, scalable way to get targets
         target_roles = reference.get("target_roles") or {}
         groups = reference.get("groups") or []
     
@@ -85,14 +84,18 @@ def plot_multiple_analyses(
             group_hue = (start_hue + group_idx * hue_step) % 1.0
             group_base_color = hsv_to_rgb((group_hue, 1.0, 1.0))
 
-            novelty_targets = target_roles.get(trial) or targets
+            # RESTORED: Get the specific targets for this trial from the config
+            # This list (e.g., ['Recent', 'Old']) will be passed to the plot functions
+            novelty_targets = target_roles.get(trial, [])
 
             try:
+                # RESTORED: We now pass the 'targets' kwarg again.
+                # This injects the trial-specific config into the pipeline.
                 plot_func(
                     base_path=folder_path,
                     group=group,
                     trial=trial,
-                    targets=novelty_targets,
+                    targets=novelty_targets, # <-- RESTORED
                     fps=fps,
                     ax=ax,
                     outliers=outliers,

@@ -50,17 +50,23 @@ def calculate_DI(df: pd.DataFrame, targets: list) -> pd.DataFrame:
     tgt_1, tgt_2 = targets
     
     if tgt_1 in df.columns and tgt_2 in df.columns:
-        diff = (df_copy[f'{tgt_1}_cumsum'] - df_copy[f'{tgt_2}_cumsum'])
-        sum = (df_copy[f'{tgt_1}_cumsum'] + df_copy[f'{tgt_2}_cumsum'])
+        tgt_1_cumsum = df_copy[f'{tgt_1}_cumsum']
+        tgt_2_cumsum = df_copy[f'{tgt_2}_cumsum']
+        diff = (tgt_1_cumsum - tgt_2_cumsum)
+        sum = (tgt_1_cumsum + tgt_2_cumsum)
 
         df_copy['diff'] = diff
         df_copy['DI'] = (diff / sum) * 100
-        df_copy['DI'] = df_copy['DI'].fillna(0) # Fill NaN/inf from division by zero with 0
+        df_copy['DI'] = df_copy['DI'].fillna(0).round(2) # Fill NaN/inf from division by zero with 0
+        df_copy['DI_beta'] = (tgt_1_cumsum / sum) * 100
+        df_copy['DI_beta'] = df_copy['DI_beta'].fillna(0).round(2)
+
     else:
         logger.warning(f"One or both cumulative sum columns '{tgt_1}_cumsum', '{tgt_2}_cumsum' not found. DI and diff columns will be None.")
         df_copy['diff'] = None
         df_copy['DI'] = None
-
+        df_copy['DI_beta'] = None
+        
     return df_copy
 
 def calculate_durations(series: pd.Series, fps: float) -> list[float]:

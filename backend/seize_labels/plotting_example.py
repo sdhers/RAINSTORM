@@ -15,8 +15,6 @@ from ..utils import configure_logging, load_yaml
 configure_logging()
 logger = logging.getLogger(__name__)
 
-# %% Create video function
-    
 def create_video(
     params_path: Path,
     position_file: Path,
@@ -35,30 +33,15 @@ def create_video(
         ["tail_base", "left_hip"], ["tail_base", "right_hip"]
     ]
 ) -> None:
-    """
-    Creates a video visualizing animal positions, skeleton, targets, and ROIs.
-
-    Args:
-        params_path: Path to the YAML configuration file.
-        position_file: Path to the CSV file containing position data.
-        video_path: Optional path to an existing video file to overlay.
-                     If None, a blank white video is created.
-        skeleton_links: A list of lists, where each inner list defines two
-                        body parts to connect with a line (e.g., ["nose", "head"]).
-    """
+    """Create a video visualizing positions, skeleton, targets, and ROIs."""
     logger.info(f"Starting video creation process for: {position_file.name}")
-    print(f"Starting video creation process for: {position_file.name}")
 
-    # --- Load parameters from YAML file ---
     try:
         params = load_yaml(params_path)
         output_dir = Path(params.get("path"))
         fps = params.get("fps") or 30
         geometric_analysis = params.get("geometric_analysis") or {}
         roi_data = geometric_analysis.get("roi_data") or {}
-        rectangles = roi_data.get("rectangles") or []
-        circles = roi_data.get("circles") or []
-        areas = rectangles + circles
         frame_shape = roi_data.get("frame_shape") or []
 
         if len(frame_shape) != 2:
@@ -81,11 +64,9 @@ def create_video(
         logger.error(f"Error loading or parsing parameters from {params_path}: {e}")
         raise
 
-    # Create output directory if it doesn't exist
     output_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"Output directory ensured: {output_dir}")
 
-    # --- Load data from CSV files ---
     try:
         position_df = pd.read_csv(position_file)
         logger.info(f"Loaded position data from: {position_file.name}")
@@ -96,7 +77,7 @@ def create_video(
         logger.error(f"Error loading position data from {position_file}: {e}")
         raise
 
-    labels_df = pd.DataFrame() # Initialize an empty DataFrame
+    labels_df = pd.DataFrame()
     if label_type:
         try:
             labels_dir = position_file.parent.parent / label_type
@@ -112,8 +93,7 @@ def create_video(
     else:
         logger.info("No 'label_type' specified in parameters. Proceeding without labels.")
     
-    # Open movement
-    movement_df = pd.DataFrame() # Initialize an empty DataFrame
+    movement_df = pd.DataFrame()
     try:
         movement_dir = position_file.parent.parent / 'movement'
         movement_filename = position_file.name.replace('_positions', '_movement')
@@ -126,7 +106,7 @@ def create_video(
     except Exception as e:
         logger.warning(f"Error loading movement data from {movement_file_path}: {e}. Proceeding without movement.")
 
-    cap = None  # Initialize video capture object
+    cap = None
     if video_path:
         cap = cv2.VideoCapture(str(video_path)) # cv2 expects string paths
         if not cap.isOpened():
@@ -156,7 +136,6 @@ def create_video(
 
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Reset video to start
 
-    # --- Initialize video writer ---
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     video_output_name = f"{position_file.stem.replace('_positions', '')}_video.mp4"
     video_out_path = output_dir / video_output_name
@@ -170,7 +149,6 @@ def create_video(
         logger.error(f"Failed to initialize video writer: {e}")
         raise
 
-    # --- Loop over each frame and draw annotations ---
     logger.info(f"Processing {len(position_df)} frames...")
     for i in range(len(position_df)):
         frame = None
@@ -182,8 +160,7 @@ def create_video(
             frame = cv2.resize(frame, (width, height))  # Ensure frame matches expected dimensions
             mouse_color = (250, 250, 250)
         else:
-            # Create a blank frame with a white background if no video is provided
-            frame = np.ones((height, width, 3), dtype=np.uint8) * 255 # White background
+            frame = np.ones((height, width, 3), dtype=np.uint8) * 255
             mouse_color = (0, 0, 0)
 
         # Build dictionaries mapping bodypart/target names to their (x, y) coordinates
@@ -193,7 +170,7 @@ def create_video(
             if x_col in position_df.columns and y_col in position_df.columns:
                 x_val = position_df.loc[i, x_col]
                 y_val = position_df.loc[i, y_col]
-                if not (pd.isna(x_val) or pd.isna(y_val)): # Use pd.isna for robustness with pandas NaNs
+                if not (pd.isna(x_val) or pd.isna(y_val)):
                     bodyparts_coords[point] = (int(x_val), int(y_val))
             else:
                 logger.debug(f"Missing columns for bodypart '{point}' in position data.")
@@ -272,30 +249,16 @@ def create_video(
         # Write the processed frame to the video
         video_writer.write(frame)
 
-    # --- Finalize the video file ---
     video_writer.release()
     logger.info(f'Video created successfully: {video_out_path}')
-    print(f'Video created successfully: {video_out_path}')
     if cap:
         cap.release()
         logger.info("Released video capture object.")
 
-# %% Individual plotting functions
-
-# Helper functions for modularity
-
 def plot_target_exploration(
     labels: pd.DataFrame, targets: list[str], ax: plt.Axes, color_list: list[str]
 ) -> None:
-    """
-    Plots the cumulative exploration time for specified targets over time.
-
-    Args:
-        labels: DataFrame containing 'Time' and cumulative sum columns (e.g., 'target_cumsum').
-        targets: List of target names to plot.
-        ax: Matplotlib Axes object to draw the plot on.
-        color_list: List of colors to cycle through for the plots.
-    """
+    """Plot cumulative exploration time for specified targets over time."""
     logger.debug("Plotting target exploration.")
     for i, obj in enumerate(targets):
         cumsum_col = f'{obj}_cumsum'
@@ -306,7 +269,7 @@ def plot_target_exploration(
                 labels[cumsum_col],
                 label=f'{obj}',
                 color=color,
-                marker='_'
+                linewidth=2,
             )
         else:
             logger.warning(f"Missing 'Time' or '{cumsum_col}' column for target '{obj}'. Skipping plot.")
@@ -329,23 +292,8 @@ def plot_positions(
     max_dist: float,
     target_styles: dict
 ) -> None:
-    """
-    Plots animal positions, including nose traces, target locations,
-    and a circle indicating the exploration zone around targets.
-
-    Args:
-        positions: DataFrame containing position data (x, y coordinates for body parts).
-        targets: List of target names.
-        ax: Matplotlib Axes object to draw the plot on.
-        scale: Scaling factor for positions.
-        front: Name of the body part representing the front of the animal (e.g., 'nose').
-        pivot: Name of the body part representing the pivot of the animal (e.g., 'head').
-        max_angle: Maximum angle (in degrees) for 'towards target' trace.
-        max_dist: Maximum distance for the exploration circle.
-        target_styles: Dictionary mapping target names to their plotting styles.
-    """
+    """Plot positions, nose traces, targets, and exploration zones."""
     logger.debug("Plotting animal positions.")
-    # Scale the positions
     positions_scaled = positions.copy()
     for col in positions_scaled.columns:
         if col.endswith('_x') or col.endswith('_y'):
@@ -358,37 +306,29 @@ def plot_positions(
         logger.error(f"Error creating Point objects for nose or head: {e}. Skipping position plot.")
         return
 
-    # Plot nose positions
     if nose.positions.size > 0:
         ax.plot(*nose.positions.T, ".", color="grey", alpha=0.15, label="Nose positions")
     else:
         logger.warning("No nose positions to plot.")
 
-    # Collect coordinates for zooming
     all_coords = [nose.positions] if nose.positions.size > 0 else []
 
-    # Loop over each target and generate corresponding plots
     for tgt in targets:
         if f'{tgt}_x' in positions_scaled.columns and f'{tgt}_y' in positions_scaled.columns:
             try:
-                # Retrieve target style properties
                 target_color = target_styles[tgt]["color"]
                 target_symbol = target_styles[tgt]["symbol"]
                 towards_trace_color = target_styles[tgt]["trace_color"]
 
-                # Create a Point object for the target
                 tgt_coords = Point(positions_scaled, tgt)
                 if tgt_coords.positions.size > 0:
-                    # Add the target coordinate for zooming
                     all_coords.append(tgt_coords.positions[0].reshape(1, -1))
 
-                    # Compute the distance and vectors for filtering
                     dist = Point.dist(nose, tgt_coords)
                     head_nose = Vector(head, nose, normalize=True)
                     head_tgt = Vector(head, tgt_coords, normalize=True)
                     angle = Vector.angle(head_nose, head_tgt)
 
-                    # Filter nose positions oriented towards the target
                     towards_tgt_indices = (angle < max_angle) & (dist < max_dist * 2)
                     towards_tgt = nose.positions[towards_tgt_indices]
 
@@ -398,7 +338,6 @@ def plot_positions(
                     else:
                         logger.debug(f"No 'towards {tgt}' positions for plotting.")
 
-                    # Plot target marker with label
                     ax.plot(*tgt_coords.positions[0], target_symbol, color=target_color, markersize=9, label=f"{tgt} Target")
                     # Add a circle around the target
                     ax.add_artist(Circle(tgt_coords.positions[0], max_dist, color="orange", alpha=0.5))
@@ -412,20 +351,16 @@ def plot_positions(
         else:
             logger.warning(f"Missing position columns for target '{tgt}'. Skipping target plot.")
 
-    # Compute zoom limits based on collected coordinates
     if all_coords:
         all_coords_stacked = np.vstack(all_coords)
         x_min, y_min = np.min(all_coords_stacked, axis=0)
         x_max, y_max = np.max(all_coords_stacked, axis=0)
-        # Apply a margin of 10%
         x_margin = (x_max - x_min) * 0.1
         y_margin = (y_max - y_min) * 0.1
         ax.set_xlim(x_min - x_margin, x_max + x_margin)
-        # For the y-axis, reverse the limits for a reversed axis
         ax.set_ylim(y_max + y_margin, y_min - y_margin)
     else:
         logger.warning("No coordinates collected for zooming. Setting default plot limits.")
-        # Optionally set default limits if no data is present
         ax.set_xlim(0, 100)
         ax.set_ylim(100, 0) # Reversed for typical image coordinates
 
@@ -433,27 +368,16 @@ def plot_positions(
     ax.set_xlabel("Horizontal positions (cm)")
     ax.set_ylabel("Vertical positions (cm)")
     ax.grid(True)
-    # Adjust legend position to avoid overlapping with plot if many targets
     ax.legend(loc='upper left', bbox_to_anchor=(1.05, 1), fancybox=True, shadow=True)
     logger.debug("Animal positions plot finished.")
 
-# Main function to plot mouse exploration
-
 def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: Optional[str] = 'geolabels', show: bool = True, save: bool = False) -> None:
-    """
-    Generates and displays plots for target exploration time and animal positions.
-
-    Args:
-        params_path: Path to the YAML configuration file.
-        position_file: Path to the CSV file containing position data.
-    """
-    # Ensure all path inputs are Path objects for consistent handling
+    """Generate plots for target exploration time and animal positions."""
     params_path = Path(params_path)
     position_file_path = Path(position_file)
 
     logger.info(f"Starting mouse exploration plotting for: {position_file_path.name}")
 
-    # --- Load parameters ---
     try:
         params = load_yaml(params_path)
         output_base_dir = Path(params.get("path"))
@@ -476,7 +400,6 @@ def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: O
         logger.error(f"Error loading or parsing parameters from {params_path}: {e}")
         raise
 
-    # --- Read the CSV files ---
     try:
         positions_df = pd.read_csv(position_file_path)
         logger.info(f"Loaded positions data from: {position_file_path.name}")
@@ -510,12 +433,10 @@ def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: O
     else:
         logger.info("No 'label_type' specified in parameters. Skipping labels plot.")
 
-    # --- Define symbols and colors ---
     symbols = ['s', 'o', 'D', 'P', 'X', 'v']
     colors = ['blue', 'darkred', 'darkgreen', 'purple', 'darkgoldenrod', 'steelblue']
     trace_colors = ['turquoise', 'orangered', 'limegreen', 'magenta', 'gold', 'black']
 
-    # Create a dictionary mapping each target to its style properties
     target_styles = {
         tgt: {
             "symbol": symbols[idx % len(symbols)],
@@ -525,10 +446,8 @@ def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: O
         for idx, tgt in enumerate(targets)
     }
 
-    # --- Prepare the figure with two subplots ---
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5)) # Adjusted figsize for better layout
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
-    # Plot exploration time (only if labels_df is not empty)
     if not labels_df.empty:
         plot_target_exploration(labels_df, targets, axes[0], trace_colors)
     else:
@@ -538,10 +457,8 @@ def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: O
                      horizontalalignment='center', verticalalignment='center',
                      transform=axes[0].transAxes, fontsize=12, color='gray')
 
-    # Plot positions with zoom and legend
     plot_positions(positions_df, targets, axes[1], scale, front, pivot, max_angle, distance, target_styles)
 
-    # --- Finalize and save/display figure ---
     session_name = position_file_path.stem.replace('_positions', '')
     plt.suptitle(f"Analysis of {session_name}", y=0.98, fontsize=16)
     plt.tight_layout(rect=[0, 0, 0.95, 0.96]) # Adjust layout to make space for suptitle and legend
@@ -560,7 +477,7 @@ def plot_mouse_exploration(params_path: Path, position_file: Path, label_type: O
             logger.error(f"Error saving plot to {plot_output_path}: {e}")
 
     if show:
-        plt.show(fig)
+        plt.show()
     else:
         plt.close(fig)
 

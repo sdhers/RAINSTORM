@@ -1,27 +1,17 @@
 from pathlib import Path
-import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import logging
 from matplotlib.colors import to_rgb, rgb_to_hsv
 
-# Import the new processor
 from .plot_processor import process_data_for_plotting
+from .plot_aux import _generate_subcolors, _plot_cumulative_lines_and_fill, _set_cumulative_plot_aesthetics
 
-# Import all necessary aux functions
-from .plot_aux import (
-    _generate_subcolors,
-    _plot_cumulative_lines_and_fill,
-    _set_cumulative_plot_aesthetics
-)
 from ...utils import configure_logging
 configure_logging()
 logger = logging.getLogger(__name__)
 
 
-# =============================================================================
 # GENERIC LINE PLOT "ENGINE"
-# =============================================================================
 
 def _lineplot_generic_single_trace(
     metric_mean_col: str,
@@ -107,30 +97,25 @@ def _lineplot_generic_single_trace(
         group_name=group
     )
     
+    # Ensure x-axis limit is slightly extended
+    max_time = df_agg['Time'].max()
+    ax.set_xlim(right=max_time * 1.1) 
+
     # 7. Add optional reference line
     if add_zeroline:
         ax.axhline(y=0, color='black', linestyle='--', linewidth=2)
-        # Ensure x-axis limit is slightly extended (from original lineplot_diff)
-        max_time = df_agg['Time'].max()
-        ax.set_xlim(right=max_time * 1.1) 
-    
     if add_pointfive:
         ax.axhline(y=50, color='black', linestyle='--', linewidth=2)
-        # Ensure x-axis limit is slightly extended (from original lineplot_diff)
-        max_time = df_agg['Time'].max()
-        ax.set_xlim(right=max_time * 1.1) 
 
     logger.debug(f"Generic trace plot '{plot_title}' finished for {group}/{trial}.")
 
-# =============================================================================
 # PUBLIC SINGLE-TRACE PLOTTING FUNCTIONS (WRAPPERS)
-# =============================================================================
 
 def lineplot_cumulative_distance(
     base_path: Path,
     group: str,
     trial: str,
-    fps: int = 30,
+    fps: int,
     ax: plt.Axes = None,
     outliers: list[str] = None,
     group_color: str = 'blue',
@@ -167,7 +152,7 @@ def lineplot_cumulative_freezing_time(
     base_path: Path,
     group: str,
     trial: str,
-    fps: int = 30,
+    fps: int,
     ax: plt.Axes = None,
     outliers: list[str] = None,
     group_color: str = 'blue',
@@ -205,7 +190,7 @@ def lineplot_DI(
     group: str,
     trial: str,
     targets: list[str],
-    fps: int = 30,
+    fps: int,
     ax: plt.Axes = None,
     outliers: list[str] = None,
     group_color: str = 'blue',
@@ -244,7 +229,7 @@ def lineplot_diff(
     group: str,
     trial: str,
     targets: list[str],
-    fps: int = 30,
+    fps: int,
     ax: plt.Axes = None,
     outliers: list[str] = None,
     group_color: str = 'blue',
@@ -277,54 +262,14 @@ def lineplot_diff(
     )
 
 
-def lineplot_velocity(
-    base_path: Path,
-    group: str,
-    trial: str,
-    fps: int = 30,
-    ax: plt.Axes = None,
-    outliers: list[str] = None,
-    group_color: str = 'blue',
-    **kwargs
-    ) -> None:
-    """
-    Plots the instantaneous velocity (m/s) over time.
-    """
-    if outliers is None:
-        outliers = []
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(8, 6))
-        
-    _lineplot_generic_single_trace(
-        metric_mean_col='body_dist_mean',
-        metric_std_col='body_dist_std',
-        metric_label='Velocity',
-        y_label='Velocity (m/s)',
-        plot_title='Instantaneous Velocity',
-        add_zeroline=False,
-        base_path=base_path,
-        group=group,
-        trial=trial,
-        fps=fps,
-        ax=ax,
-        outliers=outliers,
-        group_color=group_color,
-        **kwargs
-    )
-
-# =============================================================================
 # PUBLIC MULTI-TRACE PLOTTING FUNCTION
-# =============================================================================
-# This function is more complex and does not fit the single-trace pattern.
-# It remains as its own self-contained function.
-# =============================================================================
 
 def lineplot_cumulative_exploration_time(
     base_path: Path,
     group: str,
     trial: str,
     targets: list[str],
-    fps: int = 30,
+    fps: int,
     ax: plt.Axes = None,
     outliers: list[str] = None,
     group_color: str = 'blue',

@@ -25,9 +25,7 @@ def _generate_subcolors(base_hue: float, num_subcolors: int, num_groups: int) ->
         return []
 
     generated_colors = []
-    
-    # Constrain the hue range for subcolors based on the number of groups
-    hue_range = (1.0 / num_groups) * 0.8  # Use 80% of the available hue range for each group to add some spacing
+    hue_range = (1.0 / num_groups) * 0.8
     
     for i in range(num_subcolors):
         hue_offset = (i * (hue_range / num_subcolors))

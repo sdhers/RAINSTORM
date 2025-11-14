@@ -38,9 +38,6 @@ def plot_multiple_analyses(
         folder_path = Path(params.get("path"))
         filenames = params.get("filenames") or []
         fps = params.get("fps") or 30
-        # We get 'targets' from reference.json, not params.yaml
-        # params_targets = params.get("targets") or [] 
-
     except Exception as e:
         logger.error(f"Error loading or parsing parameters from {params_path}: {e}")
         raise
@@ -52,10 +49,8 @@ def plot_multiple_analyses(
     
     try: 
         reference = load_json(reference_path)
-        # RESTORED: This is the correct, scalable way to get targets
         target_roles = reference.get("target_roles") or {}
         groups = reference.get("groups") or []
-    
     except Exception as e:
         logger.error(f"Error loading or parsing reference file from {reference_path}: {e}")
     
@@ -84,18 +79,14 @@ def plot_multiple_analyses(
             group_hue = (start_hue + group_idx * hue_step) % 1.0
             group_base_color = hsv_to_rgb((group_hue, 1.0, 1.0))
 
-            # RESTORED: Get the specific targets for this trial from the config
-            # This list (e.g., ['Recent', 'Old']) will be passed to the plot functions
             novelty_targets = target_roles.get(trial, [])
 
             try:
-                # RESTORED: We now pass the 'targets' kwarg again.
-                # This injects the trial-specific config into the pipeline.
                 plot_func(
                     base_path=folder_path,
                     group=group,
                     trial=trial,
-                    targets=novelty_targets, # <-- RESTORED
+                    targets=novelty_targets,
                     fps=fps,
                     ax=ax,
                     outliers=outliers,

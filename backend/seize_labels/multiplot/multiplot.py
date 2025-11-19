@@ -23,13 +23,10 @@ def plot_multiple_analyses(
     Args:
         params_path: Path to the YAML configuration file containing plotting parameters.
         plots: A list of callable functions (e.g., `[lineplot_cumulative_distance, lineplot_cumulative_exploration_time]`)
-               that will be used to generate each subplot. Each function in this list
-               MUST accept the following arguments:
-               `(base_path, group, trial, targets, fps, ax, outliers, group_color, label_type, num_groups)`.
+               that will be used to generate each subplot.
         trial: The specific trial name (e.g., 'TS') for which to generate plots.
         label_type: The labels used to plot target exploration.
-        outliers: An optional list of filenames (or parts of filenames) to exclude from
-                  data processing for any of the plots.
+        outliers: An optional list of filenames (or parts of filenames) to exclude.
         show: If True, the generated plots will be displayed interactively.
     """
     if not plots:
@@ -41,8 +38,6 @@ def plot_multiple_analyses(
         folder_path = Path(params.get("path"))
         filenames = params.get("filenames") or []
         fps = params.get("fps") or 30
-        targets = params.get("targets") or []
-
     except Exception as e:
         logger.error(f"Error loading or parsing parameters from {params_path}: {e}")
         raise
@@ -56,7 +51,6 @@ def plot_multiple_analyses(
         reference = load_json(reference_path)
         target_roles = reference.get("target_roles") or {}
         groups = reference.get("groups") or []
-    
     except Exception as e:
         logger.error(f"Error loading or parsing reference file from {reference_path}: {e}")
     
@@ -85,7 +79,7 @@ def plot_multiple_analyses(
             group_hue = (start_hue + group_idx * hue_step) % 1.0
             group_base_color = hsv_to_rgb((group_hue, 1.0, 1.0))
 
-            novelty_targets = target_roles.get(trial) or targets
+            novelty_targets = target_roles.get(trial, [])
 
             try:
                 plot_func(

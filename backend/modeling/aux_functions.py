@@ -268,8 +268,8 @@ def use_model(positions_df: pd.DataFrame,
     pred = pd.DataFrame(pred, columns=['predictions'])
 
     # Smooth the predictions
-    # pred.loc[pred['predictions'] < 0.2, 'predictions'] = 0  # Set low values to 0
-    # pred.loc[pred['predictions'] > 0.90, 'predictions'] = 1 # Set high values to 1
+    pred.loc[pred['predictions'] < 0.01, 'predictions'] = 0  # Set low values to 0
+    pred.loc[pred['predictions'] > 0.99, 'predictions'] = 1 # Set high values to 1
     # pred = smooth_columns(pred, ['predictions'], kernel_size=3, gauss_std=0.2)
 
     # Calculate the length of each fragment

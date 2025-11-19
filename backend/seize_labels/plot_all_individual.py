@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 
 import pandas as pd
 import numpy as np
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Config:
-    """Manages and validates all parameters from the YAML file."""
+    """Container for parameters loaded from the YAML file and reference.json."""
     base_path: Path
     reference_df: pd.DataFrame
     fps: int = 30
@@ -51,8 +51,15 @@ class Config:
                 reference = load_json(reference_path)
             except Exception as e:
                 logger.error(f"Error loading or parsing reference file from {reference_path}: {e}")
+                raise
             
-            reference_df = pd.DataFrame.from_dict(reference["files"], orient="index")
+            # Get the 'files' section, which is the main tabular data
+            reference_files = reference.get("files")
+            if not reference_files:
+                 logger.error(f"No 'files' key found in {reference_path}. Check reference.json structure.")
+                 raise ValueError("Invalid reference.json: Missing 'files' key.")
+                 
+            reference_df = pd.DataFrame.from_dict(reference_files, orient="index")
             target_roles = reference.get("target_roles") or {}
 
             geo_params = params.get("geometric_analysis") or {}
@@ -81,10 +88,7 @@ class Config:
                 role_color_map=role_color_map
             )
         except Exception as e:
-            logger.error(f"Error loading or parsing parameters from {params_path}: {e}")
-            logger.error(f"Exception type: {type(e).__name__}")
-            import traceback
-            logger.error(f"Full traceback: {traceback.format_exc()}")
+            logger.error(f"Error loading or parsing parameters from {params_path}: {e}", exc_info=True)
             raise
 
     @staticmethod
@@ -96,6 +100,9 @@ class Config:
                 all_roles.update(trial_roles_list)
         
         unique_roles = sorted(list(all_roles))
+        if not unique_roles:
+            return {}
+            
         num_roles = len(unique_roles)
         start_hue = 210 / 360.0
         hue_step = (1 / num_roles) if num_roles > 1 else 0
@@ -115,32 +122,42 @@ def _darken_color(color, factor=0.7):
     hsv[2] *= factor
     return hsv_to_rgb(hsv)
 
-def _extract_positions(positions_df: pd.DataFrame, cfg: Config, target_names: List[str]):
-    """Extracts and filters positions of targets and body parts."""
+def _extract_positions(positions_df: pd.DataFrame, cfg: Config, target_names: List[str], target_roles: List[str]):
+    """Extract positions and orientation of the nose relative to all targets."""
     positions_df = positions_df.copy() * (1 / cfg.scale)
     
-    # Unpack the list of target names (e.g., ['Left', 'Right'])
-    tgt1_name, tgt2_name = (target_names + [None, None])[:2]
+    nose_point = Point(positions_df, cfg.front)
+    head_point = Point(positions_df, cfg.pivot)
+    head_nose_vec = Vector(head_point, nose_point, normalize=True)
 
-    # Create Point objects using the actual target names
-    tgt1 = Point(positions_df, tgt1_name) if tgt1_name else None
-    tgt2 = Point(positions_df, tgt2_name) if tgt2_name else None
-    nose = Point(positions_df, cfg.front)
-    head = Point(positions_df, cfg.pivot)
+    targets_data = []
+    
+    for i, target_name in enumerate(target_names):
+        if f"{target_name}_x" in positions_df.columns:
+            
+            tgt_point = Point(positions_df, target_name)
+            
+            # Calculate distance and orientation
+            dist = Point.dist(nose_point, tgt_point)
+            head_tgt_vec = Vector(head_point, tgt_point, normalize=True)
+            angle = Vector.angle(head_nose_vec, head_tgt_vec)
+            
+            # Find frames where nose is oriented towards target
+            towards_frames = (angle < cfg.max_angle) & (dist < cfg.max_dist * 3)
+            towards_positions = nose_point.positions[towards_frames]
+            
+            targets_data.append({
+                'name': target_name,
+                'role': target_roles[i],
 
-    towards1, towards2 = np.array([]), np.array([])
-    if tgt1 and tgt2:
-        dist1 = Point.dist(nose, tgt1)
-        dist2 = Point.dist(nose, tgt2)
-        head_nose = Vector(head, nose, normalize=True)
-        head_tgt1 = Vector(head, tgt1, normalize=True)
-        head_tgt2 = Vector(head, tgt2, normalize=True)
-        angle1 = Vector.angle(head_nose, head_tgt1)
-        angle2 = Vector.angle(head_nose, head_tgt2)
-        towards1 = nose.positions[(angle1 < cfg.max_angle) & (dist1 < cfg.max_dist * 3)]
-        towards2 = nose.positions[(angle2 < cfg.max_angle) & (dist2 < cfg.max_dist * 3)]
+                'point': tgt_point,
+                'towards': towards_positions
+            })
+        else:
+            logger.warning(f"Target '{target_name}' (or '{target_name}_x') not in positions file. Skipping from position plot.")
 
-    return nose, towards1, towards2, tgt1, tgt2
+    return nose_point, targets_data
+
 
 def _plot_distance_covered(df: pd.DataFrame, ax: plt.Axes):
     """Plots cumulative distance for nose and body."""
@@ -158,7 +175,7 @@ def _plot_target_exploration(df: pd.DataFrame, ordered_roles: list, color_map: d
         col_name = f'{role}_{label_type}_cumsum'
         color = color_map.get(role, '#808080')
         if col_name in df.columns:
-            ax.plot(df['Time'], df[col_name], label=role, color=color, marker='_')
+            ax.plot(df['Time'], df[col_name], label=role, color=color, linewidth=2)
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('Exploration Time (s)')
     ax.set_title('Target Exploration')
@@ -167,27 +184,51 @@ def _plot_target_exploration(df: pd.DataFrame, ordered_roles: list, color_map: d
 
 def _plot_discrimination_index(df: pd.DataFrame, ax: plt.Axes):
     """Plots the Discrimination Index (DI)."""
-    ax.plot(df['Time'], df['DI'], label='Discrimination Index', color='green', linestyle='--', linewidth=3)
-    ax.axhline(y=0, color='black', linestyle=':', linewidth=3)
+    ax.plot(df['Time'], df['DI'], label='Discrimination Index', color='green', linestyle='--', linewidth=2)
+    ax.axhline(y=0, color='black', linestyle=':', linewidth=2)
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('DI (%)')
     ax.set_title('Discrimination Index')
     ax.legend(loc='upper left', fancybox=True, shadow=True)
     ax.grid(True)
 
-def _plot_positions(nose, towards1, towards2, tgt1, tgt2, max_dist, colors: list, ax: plt.Axes):
-    """Plots the spatial positions and interactions with targets."""
+def _plot_freezing(df: pd.DataFrame, ax: plt.Axes):
+    """Plots cumulative freezing time."""
+    ax.plot(df['Time'], df['freezing_cumsum'], label='Freezing', color='c', linewidth=2)
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('Time (s)')
+    ax.set_title('Cumulative Freezing')
+    ax.legend(loc='upper left', fancybox=True, shadow=True)
+    ax.grid(True)
+
+def _plot_positions(
+    nose: Point,
+    targets_data: List[Dict],
+    max_dist: float,
+    colors: List[str],
+    ax: plt.Axes
+):
+    """Plot spatial positions and interactions for a variable number of targets."""
     ax.plot(*nose.positions.T, ".", color="grey", alpha=0.15, label="Nose positions")
     
-    if all(obj is not None for obj in [tgt1, tgt2]) and len(colors) == 2:
-        if towards1.size > 0 and towards2.size > 0:
-            dark_color1, dark_color2 = _darken_color(colors[0]), _darken_color(colors[1])
-            ax.plot(towards1[:, 0], towards1[:, 1], ".", color=colors[0], alpha=0.3)
-            ax.plot(towards2[:, 0], towards2[:, 1], ".", color=colors[1], alpha=0.3)
-            ax.plot(*tgt1.positions[0], "s", color=dark_color1, markersize=9, markeredgecolor=dark_color1)
-            ax.plot(*tgt2.positions[0], "o", color=dark_color2, markersize=10, markeredgecolor=dark_color2)
-            ax.add_patch(plt.Circle(tgt1.positions[0], max_dist, color=colors[0], alpha=0.3))
-            ax.add_patch(plt.Circle(tgt2.positions[0], max_dist, color=colors[1], alpha=0.3))
+    if len(colors) < len(targets_data):
+        logger.warning("Mismatch in target/color count. Appending default colors.")
+        colors.extend(['#808080'] * (len(targets_data) - len(colors)))
+
+    for i, target_info in enumerate(targets_data):
+        color = colors[i]
+        dark_color = _darken_color(color)
+        tgt_point = target_info['point']
+        towards = target_info['towards']
+        
+        if towards.size > 0:
+            ax.plot(towards[:, 0], towards[:, 1], ".", color=color, alpha=0.3)
+            
+        marker = 's' if i == 0 else ('o' if i == 1 else 'd')
+        ax.plot(*tgt_point.positions[0], marker, color=dark_color, markersize=10, markeredgecolor=dark_color, label=target_info['role'])
+        
+        # Plot exploration radius
+        ax.add_patch(plt.Circle(tgt_point.positions[0], max_dist, color=color, alpha=0.3))
 
     ax.axis('equal')
     ax.set_xlabel("Horizontal positions (cm)")
@@ -195,37 +236,25 @@ def _plot_positions(nose, towards1, towards2, tgt1, tgt2, max_dist, colors: list
     ax.legend(loc='upper left', ncol=2, fancybox=True, shadow=True)
     ax.invert_yaxis()
 
+def _plot_placeholder(ax: plt.Axes, message: str):
+    """Draw a placeholder message on an empty axis."""
+    ax.text(0.5, 0.5, message,
+            horizontalalignment='center', verticalalignment='center',
+            transform=ax.transAxes, fontsize=12, color='gray')
+    ax.set_xticks([])
+    ax.set_yticks([])
+
 
 # --- Core Processing Function ---
 
 def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Config, label_type: Optional[str] = 'geolabels', show: bool = False, save: bool = True):
-    """Loads data for a single video, performs calculations, and generates a plot."""
+    """Load data for a single video and generate a multi-panel analysis plot."""
     try:
         video_name_stem = summary_path.stem.replace('_summary', '')
         reference_row = cfg.reference_df.loc[video_name_stem]
     except KeyError:
         logger.warning(f"No entry for video '{video_name_stem}' in reference.csv. Skipping.")
         return
-
-    # 1. Get the ordered roles for the trial (e.g., ['Novel', 'Familiar']).
-    ordered_roles = cfg.target_roles.get(trial) or []
-
-    # 2. Extract targets dict from the row.
-    targets = reference_row.get("targets") or {}
-
-    # 3. Create a reverse map from role -> target_name, skipping empty/None roles.
-    role_to_target_map = {
-        role: target
-        for target, role in targets.items()
-        if role and role != "None"
-    }
-
-    # 4. Get the target names in the correct order (skip any missing ones).
-    ordered_target_names = [
-        role_to_target_map.get(role)
-        for role in ordered_roles
-        if role and role != "None"
-    ]
 
     df = pd.read_csv(summary_path)
     positions_path = cfg.base_path / trial / 'positions' / f"{video_name_stem}_positions.csv"
@@ -236,39 +265,93 @@ def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Confi
         body_dist_cumsum=df['body_dist'].cumsum(),
         Time=df['Frame'] / cfg.fps
     )
+    if 'freezing' in df.columns:
+        df['freezing_cumsum'] = df['freezing'].cumsum() / cfg.fps
 
-    # --- Plotting Logic ---
-    has_two_ordered_roles = len(ordered_roles) == 2 and label_type is not None
+    # Data-driven role and target discovery
+    label_suffix = f"_{label_type}"
+    targets_dict = reference_row.get("targets") or {}
+
+    # Logic for DI/Exploration plots
+    all_possible_roles_for_trial = cfg.target_roles.get(trial) or []
+    di_roles_in_this_file = []
+    for role in all_possible_roles_for_trial:
+        if f"{role}{label_suffix}" in df.columns:
+            di_roles_in_this_file.append(role)
     
-    if has_two_ordered_roles:
-        logger.info(f"Plotting {video_name_stem} with DI analysis.")
-        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-        
-        # Calculate exploration and DI using the ordered roles
-        full_role_names = [f'{role}_{label_type}' for role in ordered_roles]
+    has_two_di_roles = len(di_roles_in_this_file) == 2 and label_type is not None
+
+    # Logic for position plot
+    pos_plot_target_names = []
+    pos_plot_target_colors = []
+    pos_plot_target_roles = []
+    for target_name, role_name in targets_dict.items():
+        if role_name and role_name != "None":
+            pos_plot_target_names.append(target_name)
+            pos_plot_target_colors.append(cfg.role_color_map.get(role_name, '#808080'))
+            pos_plot_target_roles.append(role_name)
+
+    # Build the plot "recipe" (list of plotting callables)
+    plot_recipe: List[Callable[[plt.Axes], None]] = []
+    
+    plot_recipe.append(
+        lambda ax: _plot_distance_covered(df, ax)
+    )
+
+    # Add exploration and DI if we have exactly 2 roles
+    if has_two_di_roles:
+        full_role_names = [f'{role}_{label_type}' for role in di_roles_in_this_file]
+
         df = calculate_cumsum(df, full_role_names)
-        for col in df.columns:
-            if col.endswith('_cumsum'):
-                df[col] /= cfg.fps
+        for col in full_role_names:
+            df[f'{col}_cumsum'] /= cfg.fps # Convert from frames to seconds
         df = calculate_DI(df, full_role_names)
 
-        _plot_distance_covered(df, axes[0, 0])
-        _plot_target_exploration(df, ordered_roles, cfg.role_color_map, axes[0, 1], label_type)
-        _plot_discrimination_index(df, axes[1, 0])
-        ax_pos = axes[1, 1]
+        plot_recipe.append(
+            lambda ax: _plot_target_exploration(df, di_roles_in_this_file, cfg.role_color_map, ax, label_type)
+        )
+        plot_recipe.append(
+            lambda ax: _plot_discrimination_index(df, ax)
+        )
     else:
-        logger.info(f"Plotting {video_name_stem} with basic analysis (no DI).")
+        logger.info(
+            f"Found {len(di_roles_in_this_file)} target roles in {video_name_stem}. "
+            "Skipping DI/Exploration plots (requires exactly 2)."
+        )
+            
+    if positions_df is not None and pos_plot_target_names:
+        nose, targets_data = _extract_positions(positions_df, cfg, pos_plot_target_names, pos_plot_target_roles)
+        plot_recipe.append(
+            lambda ax: _plot_positions(nose, targets_data, cfg.max_dist, pos_plot_target_colors, ax)
+        )
+    else:
+        message = "No position data found" if positions_df is None else "No targets defined for position plot"
+        plot_recipe.append(
+            lambda ax: _plot_placeholder(ax, message)
+        )
+
+    num_plots = len(plot_recipe)
+    
+    if num_plots <= 2:
         fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-        _plot_distance_covered(df, axes[0])
-        ax_pos = axes[1]
+    elif num_plots == 3:
+        fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    elif num_plots == 4:
+        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    elif num_plots == 5:
+        fig, axes = plt.subplots(2, 3, figsize=(18, 8))
+    else: # Handle 6 plots
+        fig, axes = plt.subplots(2, 3, figsize=(18, 8))
+        
+    axes = np.atleast_1d(axes).flatten()
 
-    # Plot positions using the ordered target names ('Left', 'Right')
-    if positions_df is not None:
-        nose, t1, t2, p1, p2 = _extract_positions(positions_df, cfg, ordered_target_names)
-        ordered_colors = [cfg.role_color_map.get(role, '#808080') for role in ordered_roles]
-        _plot_positions(nose, t1, t2, p1, p2, cfg.max_dist, ordered_colors, ax_pos)
+    for i, plot_func in enumerate(plot_recipe):
+        if i < len(axes):
+            plot_func(axes[i])
+    
+    for i in range(num_plots, len(axes)):
+        axes[i].axis('off')
 
-    # --- Finalize and Save Plot ---
     plt.suptitle(f"Analysis of {video_name_stem}: Group {group}, Trial {trial}", y=0.98)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     
@@ -289,19 +372,18 @@ def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Confi
 # --- Main Execution Function ---
 
 def run_individual_analysis(params_path: Path, label_type: Optional[str] = 'geolabels', show: bool = False, save: bool = True):
-    """
-    Generates and saves a plot for each individual summary file, showing
-    various behavioral analyses based on a centralized configuration.
-    """
+    """Generate and optionally save plots for each individual summary file."""
     try:
         cfg = Config.from_params(params_path)
     except Exception as e:
-        logger.error(f"Failed to initialize configuration: {e}")
-        import traceback
-        logger.error(f"Full traceback: {traceback.format_exc()}")
+        logger.error(f"Failed to initialize configuration: {e}", exc_info=True)
         return
 
     summary_root = cfg.base_path / "summary"
+    if not summary_root.exists():
+        logger.error(f"Summary directory not found at {summary_root}")
+        return
+        
     groups = [item.name for item in summary_root.iterdir() if item.is_dir()]
 
     for group in groups:

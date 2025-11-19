@@ -8,6 +8,7 @@ from pathlib import Path
 import logging
 from sklearn.metrics import classification_report, accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, mean_absolute_error, r2_score
 
+from .data_handling import smooth_columns
 from .aux_functions import use_model
 from ..utils import configure_logging, load_yaml
 configure_logging()
@@ -154,6 +155,10 @@ def create_chimera_and_loo_mean(df: pd.DataFrame, seed: int = None) -> Dict[str,
     # Assign the new columns to the DataFrame
     chimera = pd.DataFrame(chimera_values, columns=['chimera'])
     loo_mean = pd.DataFrame(remaining_means, columns=['loo_mean'])
+
+    # Smooth the new columns
+    chimera = smooth_columns(chimera, ['chimera'], kernel_size=5, gauss_std=0.2)
+    loo_mean = smooth_columns(loo_mean, ['loo_mean'], kernel_size=3, gauss_std=0.2)
 
     return {"chimera": chimera, "loo_mean": loo_mean}
 

@@ -17,3 +17,7 @@ dist/
 
 # Big files
 examples/*
+
+# R files
+*.Rhistory
+*.RData

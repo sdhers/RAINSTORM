@@ -319,13 +319,13 @@ def _process_single_video(summary_path: Path, trial: str, group: str, cfg: Confi
             "Skipping DI/Exploration plots (requires exactly 2)."
         )
             
-    if positions_df is not None and pos_plot_target_names:
+    if positions_df is not None:
         nose, targets_data = _extract_positions(positions_df, cfg, pos_plot_target_names, pos_plot_target_roles)
         plot_recipe.append(
             lambda ax: _plot_positions(nose, targets_data, cfg.max_dist, pos_plot_target_colors, ax)
         )
     else:
-        message = "No position data found" if positions_df is None else "No targets defined for position plot"
+        message = "No position data found"
         plot_recipe.append(
             lambda ax: _plot_placeholder(ax, message)
         )

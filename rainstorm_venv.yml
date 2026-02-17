@@ -13,6 +13,9 @@ dependencies:
   - python=3.9
   - jupyter
   - pip
+  # Hardware bridge for TF 2.10.1 + GPU
+  - cudatoolkit=11.2
+  - cudnn=8.1.0
   - pip:
       - rainstorm
       - "numpy<2.0" # Explicitly forbid NumPy 2.0+ to protect TF 2.10
